@@ -13,36 +13,26 @@ const NIGERIAN_STATES = [
 ];
 
 export default function Home() {
-  const [calcTab, setCalcTab] = useState('silver');
-  const [silverForm, setSilverForm] = useState({ size_watts: 400, quantity: 10, brand: 'Jinko Solar' });
-  const [degradForm, setDegradForm] = useState({ state: 'Lagos', installation_date: '2021-01-01' });
+
+  const [calcTab, setCalcTab] = useState('panel');
+  const [silverForm, setSilverForm] = useState({
+    size_watts: 400, quantity: 10,
+    installation_date: '2018-01-01',
+    climate_zone: 'coastal_humid',
+  });
   const [silverResult, setSilverResult] = useState(null);
-  const [degradResult, setDegradResult] = useState(null);
   const [calcLoading, setCalcLoading] = useState(false);
-  const [brands, setBrands] = useState([]);
 
   useEffect(() => {
-    calculatorAPI.getBrands().then(r => setBrands(r.data.data?.panels || [])).catch(() => {});
-    // Auto-run demo calc on load
-    runSilverCalc({ size_watts: 400, quantity: 10, brand: 'Jinko Solar' });
-    runDegradCalc({ state: 'Lagos', installation_date: '2021-01-01' });
+    runSilverCalc(silverForm);
   }, []);
 
   async function runSilverCalc(form = silverForm) {
     setCalcLoading(true);
     try {
-      const { data } = await calculatorAPI.silver(form);
+      const { data } = await calculatorAPI.panel(form);
       setSilverResult(data.data);
-    } catch { toast.error('Calculation failed'); }
-    finally { setCalcLoading(false); }
-  }
-
-  async function runDegradCalc(form = degradForm) {
-    setCalcLoading(true);
-    try {
-      const { data } = await calculatorAPI.degradation(form);
-      setDegradResult(data.data);
-    } catch { toast.error('Calculation failed'); }
+    } catch { /* silent fail on landing page */ }
     finally { setCalcLoading(false); }
   }
 
@@ -175,122 +165,154 @@ export default function Home() {
               {/* Tabs */}
               <div className="flex border-b border-slate-100">
                 {[
-                  { id: 'silver', label: '💎 Silver Recovery' },
-                  { id: 'degrade', label: '📅 Decommission Predictor' },
+                  { id: 'panel',   label: '☀️ Panel Value',        sub: 'Silver + Second-Life' },
+                  { id: 'battery', label: '🔋 Battery Value',       sub: 'Sign in to calculate' },
+                  { id: 'degrade', label: '📅 Decommission Date',   sub: 'Sign in to calculate' },
                 ].map(tab => (
-                  <button
-                    key={tab.id}
-                    onClick={() => setCalcTab(tab.id)}
-                    className={`flex-1 py-4 text-sm font-semibold transition-all ${calcTab === tab.id ? 'bg-forest-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}
-                  >
-                    {tab.label}
+                  <button key={tab.id} onClick={() => setCalcTab(tab.id)}
+                    className={`flex-1 py-4 flex flex-col items-center transition-all ${calcTab === tab.id ? 'bg-forest-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>
+                    <span className="text-sm font-semibold">{tab.label}</span>
+                    <span className={`text-xs mt-0.5 ${calcTab === tab.id ? 'text-white/60' : 'text-slate-400'}`}>{tab.sub}</span>
                   </button>
                 ))}
               </div>
 
               <div className="p-6 md:p-10">
-                {calcTab === 'silver' ? (
+                {/* PANEL TAB — full calculator */}
+                {calcTab === 'panel' && (
                   <div className="grid md:grid-cols-2 gap-8">
                     <div className="space-y-4">
-                      <div>
-                        <label className="label">Panel Wattage (W)</label>
-                        <input type="number" className="input" value={silverForm.size_watts}
-                          onChange={e => setSilverForm(f => ({ ...f, size_watts: e.target.value }))} min="50" max="700" />
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="label">Panel Wattage (W)</label>
+                          <input type="number" className="input" value={silverForm.size_watts} min="50" max="800"
+                            onChange={e => setSilverForm(f => ({ ...f, size_watts: e.target.value }))} />
+                        </div>
+                        <div>
+                          <label className="label">Number of Panels</label>
+                          <input type="number" className="input" value={silverForm.quantity} min="1"
+                            onChange={e => setSilverForm(f => ({ ...f, quantity: e.target.value }))} />
+                        </div>
                       </div>
                       <div>
-                        <label className="label">Number of Panels</label>
-                        <input type="number" className="input" value={silverForm.quantity}
-                          onChange={e => setSilverForm(f => ({ ...f, quantity: e.target.value }))} min="1" max="50000" />
+                        <label className="label">Installation Date</label>
+                        <input type="date" className="input" value={silverForm.installation_date}
+                          onChange={e => setSilverForm(f => ({ ...f, installation_date: e.target.value }))} />
+                        <p className="text-xs text-slate-400 mt-1">Older panels had more silver — date affects accuracy.</p>
                       </div>
                       <div>
-                        <label className="label">Panel Brand</label>
-                        <select className="input" value={silverForm.brand}
-                          onChange={e => setSilverForm(f => ({ ...f, brand: e.target.value }))}>
-                          {brands.length > 0 ? brands.map(b => <option key={b.brand} value={b.brand}>{b.brand}</option>) : <option>Jinko Solar</option>}
+                        <label className="label">Climate Zone</label>
+                        <select className="input" value={silverForm.climate_zone}
+                          onChange={e => setSilverForm(f => ({ ...f, climate_zone: e.target.value }))}>
+                          <option value="coastal_humid">Coastal / Humid (Lagos, Rivers, Delta)</option>
+                          <option value="sahel_dry">Sahel / Dry Heat (Kano, Sokoto, Borno)</option>
+                          <option value="se_humid">Southeast Humid (Enugu, Anambra, Imo)</option>
+                          <option value="mixed">Mixed / Inland (FCT, Oyo, Kaduna)</option>
                         </select>
                       </div>
                       <button onClick={() => runSilverCalc()} disabled={calcLoading} className="btn-primary w-full">
-                        {calcLoading ? 'Calculating...' : 'Calculate Silver Value →'}
+                        {calcLoading ? 'Calculating...' : 'Calculate Panel Value →'}
                       </button>
                     </div>
+
                     <div>
                       {silverResult ? (
                         <div className="space-y-4">
-                          <div className="bg-forest-900 rounded-2xl p-6 text-white">
-                            <p className="text-sm text-white/70 mb-1">Estimated Silver in Your Fleet</p>
-                            <p className="font-display text-4xl font-bold text-amber-400">{silverResult.total_silver_grams?.toFixed(2)}g</p>
-                            <p className="text-xs text-white/50 mt-1">at {silverResult.silver_mg_per_wp} mg/Wp</p>
+                          {/* Health bar */}
+                          <div className="bg-slate-50 rounded-2xl p-4">
+                            <div className="flex justify-between items-end mb-2">
+                              <p className="text-sm font-medium text-slate-600">Panel Health</p>
+                              <p className="font-display font-bold text-2xl text-forest-900">
+                                {silverResult.panel_health?.soh_pct ?? Math.round((silverResult.panel_health?.soh || 0.85) * 100)}%
+                              </p>
+                            </div>
+                            <div className="w-full bg-slate-200 rounded-full h-3">
+                              <div className="h-3 bg-emerald-500 rounded-full"
+                                style={{ width: `${silverResult.panel_health?.soh_pct ?? 85}%` }} />
+                            </div>
+                            <p className="text-xs text-slate-400 mt-2">
+                              Each {silverResult.original_watts}W panel now produces ~<strong>{silverResult.panel_health?.remaining_watts}W</strong> tested output
+                            </p>
                           </div>
+
+                          {/* Recommendation */}
+                          {silverResult.comparison?.recommendation && (
+                            <div className={`rounded-xl p-3 text-sm ${silverResult.comparison.recommendation.route === 'second_life' ? 'bg-emerald-50 border border-emerald-200 text-emerald-800' : 'bg-amber-50 border border-amber-200 text-amber-800'}`}>
+                              <p className="font-semibold mb-0.5">
+                                {silverResult.comparison.recommendation.route === 'second_life' ? '✅ Best Route: Refurbish for Second-Life' : '⚙️ Best Route: Silver Recycling'}
+                              </p>
+                              <p className="text-xs opacity-80">{silverResult.comparison.recommendation.reason}</p>
+                            </div>
+                          )}
+
+                          {/* Two values */}
                           <div className="grid grid-cols-2 gap-3">
-                            <div className="bg-emerald-50 rounded-xl p-4">
-                              <p className="text-xs text-emerald-600 font-medium mb-1">Expected Recovery (35%)</p>
-                              <p className="font-bold text-emerald-800">₦{silverResult.recovery_value_expected_ngn?.toLocaleString('en-NG')}</p>
+                            <div className="bg-slate-100 rounded-xl p-4">
+                              <p className="text-xs font-semibold text-slate-400 mb-1">SILVER RECYCLING</p>
+                              <p className="font-display font-bold text-lg text-slate-700">
+                                ₦{(silverResult.silver_recycling?.installer_receives_ngn || 0).toLocaleString('en-NG')}
+                              </p>
+                              <p className="text-xs text-slate-400 mt-1">{silverResult.silver_recycling?.total_silver_grams?.toFixed(3)}g total silver</p>
                             </div>
-                            <div className="bg-red-50 rounded-xl p-4">
-                              <p className="text-xs text-red-600 font-medium mb-1">Lost to Informal Sector</p>
-                              <p className="font-bold text-red-800">₦0</p>
+                            <div className={`rounded-xl p-4 ${silverResult.second_life_refurbishment?.is_viable ? 'bg-emerald-600 text-white' : 'bg-slate-100'}`}>
+                              <p className={`text-xs font-semibold mb-1 ${silverResult.second_life_refurbishment?.is_viable ? 'text-white/70' : 'text-slate-400'}`}>SECOND-LIFE REFURB</p>
+                              {silverResult.second_life_refurbishment?.is_viable ? (
+                                <>
+                                  <p className="font-display font-bold text-lg text-white">
+                                    ₦{(silverResult.second_life_refurbishment?.installer_receives_ngn || 0).toLocaleString('en-NG')}
+                                  </p>
+                                  <p className="text-xs text-white/70 mt-1">at {silverResult.panel_health?.remaining_watts}W tested rating</p>
+                                </>
+                              ) : (
+                                <p className="text-sm text-slate-400 mt-1">SOH below 70% threshold</p>
+                              )}
                             </div>
                           </div>
-                          <div className="bg-amber-50 rounded-xl p-4">
-                            <p className="text-xs text-amber-700 font-medium">Silver Price: ₦{silverResult.silver_price_ngn_per_gram?.toFixed(0)}/gram (${silverResult.silver_price_usd_per_gram}/g)</p>
-                            <p className="text-xs text-amber-600 mt-1">Formal recycling recovers 30–40% of total silver value. Informal scrappers recover 0% — they burn cables for copper.</p>
-                          </div>
+
+                          {/* Multiplier */}
+                          {silverResult.comparison?.refurb_vs_silver_multiple > 1 && (
+                            <div className="bg-forest-900 rounded-xl p-4 text-center text-white">
+                              <p className="font-display font-bold text-3xl text-amber-400">{silverResult.comparison.refurb_vs_silver_multiple}×</p>
+                              <p className="text-sm text-white/70 mt-1">more value from refurbishment vs. dismantling for silver</p>
+                            </div>
+                          )}
                         </div>
                       ) : (
-                        <div className="h-full flex items-center justify-center text-slate-300">
-                          <p className="text-center text-sm">Results will appear here</p>
+                        <div className="h-full flex items-center justify-center text-slate-300 min-h-[200px]">
+                          <p className="text-sm">Results will appear here</p>
                         </div>
                       )}
                     </div>
                   </div>
-                ) : (
-                  <div className="grid md:grid-cols-2 gap-8">
-                    <div className="space-y-4">
-                      <div>
-                        <label className="label">Installation State</label>
-                        <select className="input" value={degradForm.state}
-                          onChange={e => setDegradForm(f => ({ ...f, state: e.target.value }))}>
-                          {NIGERIAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="label">Installation Date</label>
-                        <input type="date" className="input" value={degradForm.installation_date}
-                          onChange={e => setDegradForm(f => ({ ...f, installation_date: e.target.value }))} />
-                      </div>
-                      <button onClick={() => runDegradCalc()} disabled={calcLoading} className="btn-primary w-full">
-                        {calcLoading ? 'Calculating...' : 'Predict Decommission Date →'}
-                      </button>
+                )}
+
+                {/* BATTERY + DECOMMISSION TABS — gate behind registration */}
+                {(calcTab === 'battery' || calcTab === 'degrade') && (
+                  <div className="flex flex-col items-center justify-center py-12 text-center">
+                    <div className="w-16 h-16 bg-forest-900 rounded-2xl flex items-center justify-center mb-4">
+                      <span className="text-3xl">{calcTab === 'battery' ? '🔋' : '📅'}</span>
                     </div>
-                    <div>
-                      {degradResult ? (
-                        <div className="space-y-4">
-                          <div className={`rounded-2xl p-6 text-white ${degradResult.urgency === 'overdue' ? 'bg-red-600' : degradResult.urgency === 'critical' ? 'bg-amber-600' : 'bg-forest-900'}`}>
-                            <p className="text-sm text-white/70 mb-1">Est. Decommission Date</p>
-                            <p className="font-display text-3xl font-bold">{new Date(degradResult.adjusted_failure_date).toLocaleDateString('en-NG', { year: 'numeric', month: 'long' })}</p>
-                            <p className="text-sm mt-2 text-white/80">{degradResult.urgency === 'overdue' ? '⚠️ Already overdue!' : `${degradResult.days_until_decommission} days from today`}</p>
-                          </div>
-                          <div className="card">
-                            <p className="text-sm text-slate-600 font-medium mb-1">Climate Zone: <span className="text-forest-900 font-semibold">{degradResult.climate_zone?.replace(/_/g, ' ')}</span></p>
-                            <p className="text-sm text-slate-500 leading-relaxed">{degradResult.explanation}</p>
-                          </div>
-                          <div className="bg-blue-50 rounded-xl p-4">
-                            <p className="text-xs text-blue-600 font-medium">vs OEM Warranty Expectation</p>
-                            <p className="text-xs text-blue-500 mt-1">Standard panels are rated for 20–25 years. In West African conditions, expect 7–12 years. Our algorithm accounts for local climate, not the factory default.</p>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="h-full flex items-center justify-center text-slate-300">
-                          <p className="text-center text-sm">Results will appear here</p>
-                        </div>
-                      )}
+                    <h3 className="font-display font-bold text-xl text-forest-900 mb-2">
+                      {calcTab === 'battery' ? 'Battery Recovery Calculator' : 'West African Decommission Predictor'}
+                    </h3>
+                    <p className="text-slate-500 text-sm max-w-md mb-2">
+                      {calcTab === 'battery'
+                        ? 'Calculate recycling value and second-life potential for lead-acid and lithium batteries — including chemistry-specific material recovery and State of Health analysis.'
+                        : 'Get a climate-adjusted decommission date using our algorithm covering all 36 Nigerian states — accounting for coastal humidity, Sahel heat, and inverter surge damage.'}
+                    </p>
+                    <p className="text-slate-400 text-xs mb-6">Free account required — takes 2 minutes to set up.</p>
+                    <div className="flex gap-3">
+                      <Link href="/register" className="btn-primary flex items-center gap-2">
+                        Create Free Account →
+                      </Link>
+                      <Link href="/login" className="btn-outline">Sign In</Link>
                     </div>
                   </div>
                 )}
               </div>
 
               <div className="bg-forest-900 px-8 py-4 flex items-center justify-between">
-                <p className="text-white/70 text-sm">Want to track your full fleet?</p>
+                <p className="text-white/70 text-sm">Want to track your full fleet automatically?</p>
                 <Link href="/register" className="btn-amber text-sm px-4 py-2 rounded-xl">Create Free Account →</Link>
               </div>
             </div>

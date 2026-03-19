@@ -175,7 +175,9 @@ exports.createProject = async (req, res) => {
       .eq('id', project.id)
       .single();
 
-    refreshLeaderboard().catch(err => logger.error('Leaderboard refresh failed:', err.message));
+    // Trigger leaderboard refresh via internal fetch — avoids circular dependency
+    const apiBase = `http://localhost:${process.env.PORT || 5000}`;
+      fetch(`${apiBase}/api/dashboard/refresh-leaderboard`).catch(() => {});
 
     return sendSuccess(res, {
       project: completeProject,
@@ -259,12 +261,7 @@ exports.updateProject = async (req, res) => {
 
     if (error) throw error;
 
-     // Refresh leaderboard if status changed
-    if (req.body.status) {
-      refreshLeaderboard().catch(() => {});
-    }
-
-    return sendSuccess(res, project, 'Project updated');
+    
     
     return sendSuccess(res, project, 'Project updated');
   } catch (error) {

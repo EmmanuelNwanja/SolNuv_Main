@@ -169,43 +169,107 @@ exports.getImpact = async (req, res) => {
 };
 
 /**
- * GET /api/dashboard/leaderboard
- * Public leaderboard
+ * GET /api/dashboard/refresh-leaderboard
+ * Manually trigger a leaderboard rebuild
  */
-exports.getLeaderboard = async (req, res) => {
+exports.refreshLeaderboard = async (req, res) => {
   try {
-    const { category = 'impact', limit = 50 } = req.query;
+    // Inline the refresh here to avoid circular dependency
+    const { data: users } = await supabase
+      .from('users')
+      .select('id, first_name, last_name, brand_name, company_id, companies(name)');
 
-    let orderField;
-    switch (category) {
-      case 'active': orderField = 'active_projects_count'; break;
-      case 'recycled': orderField = 'recycled_count'; break;
-      case 'silver': orderField = 'total_silver_grams'; break;
-      default: orderField = 'impact_score';
+    const { data: projects } = await supabase
+      .from('projects')
+      .select('id, user_id, company_id, status');
+
+    const { data: equipment } = await supabase
+      .from('equipment')
+      .select('project_id, equipment_type, quantity, estimated_silver_grams');
+
+    if (!users || !projects) {
+      return sendError(res, 'Failed to fetch data for leaderboard refresh', 500);
     }
 
-    const { data: leaderboard } = await supabase
-      .from('leaderboard_cache')
-      .select('*')
-      .order(orderField, { ascending: false })
-      .limit(parseInt(limit));
+    // Build equipment map
+    const eqByProject = {};
+    for (const eq of equipment || []) {
+      if (!eqByProject[eq.project_id]) eqByProject[eq.project_id] = [];
+      eqByProject[eq.project_id].push(eq);
+    }
 
-    // Add rank numbers
-    const ranked = (leaderboard || []).map((entry, index) => ({
-      ...entry,
-      display_rank: index + 1,
-      is_current_user: entry.entity_id === req.user?.id,
-    }));
+    const entries = [];
 
-    // Find current user's position
-    const currentUserEntry = ranked.find(e => e.entity_id === req.user?.id);
+    for (const user of users) {
+      const userProjects = projects.filter(p =>
+        p.user_id === user.id ||
+        (user.company_id && p.company_id === user.company_id)
+      );
 
-    return sendSuccess(res, {
-      leaderboard: ranked,
-      current_user_position: currentUserEntry?.display_rank || null,
-      category,
-    });
+      if (userProjects.length === 0) continue;
+
+      const active       = userProjects.filter(p => p.status === 'active');
+      const decommission = userProjects.filter(p => p.status === 'decommissioned');
+      const recycled     = userProjects.filter(p => p.status === 'recycled');
+
+      let totalPanels = 0, totalBatteries = 0, totalSilver = 0, expectedSilver = 0;
+
+      for (const proj of userProjects) {
+        for (const eq of eqByProject[proj.id] || []) {
+          if (eq.equipment_type === 'panel') {
+            totalPanels += eq.quantity;
+            totalSilver += eq.estimated_silver_grams || 0;
+          } else {
+            totalBatteries += eq.quantity;
+          }
+        }
+      }
+      for (const proj of active) {
+        for (const eq of eqByProject[proj.id] || []) {
+          if (eq.equipment_type === 'panel') expectedSilver += eq.estimated_silver_grams || 0;
+        }
+      }
+
+      const impactScore = (recycled.length * 3) + (decommission.length * 2) + (active.length * 1) + (totalSilver * 0.1);
+      const entityName  = user.companies?.name || user.brand_name || `${user.first_name} ${user.last_name || ''}`.trim();
+
+      entries.push({
+        entity_id:             user.id,
+        entity_name:           entityName,
+        entity_type:           'user',
+        active_projects_count: active.length,
+        decommissioned_count:  decommission.length,
+        recycled_count:        recycled.length,
+        total_panels:          totalPanels,
+        total_batteries:       totalBatteries,
+        total_silver_grams:    parseFloat(totalSilver.toFixed(4)),
+        expected_silver_grams: parseFloat(expectedSilver.toFixed(4)),
+        impact_score:          parseFloat(impactScore.toFixed(2)),
+        updated_at:            new Date().toISOString(),
+      });
+    }
+
+    // Assign ranks
+    const byActive   = [...entries].sort((a, b) => b.active_projects_count - a.active_projects_count);
+    const byRecycled = [...entries].sort((a, b) => b.recycled_count - a.recycled_count);
+    const byImpact   = [...entries].sort((a, b) => b.impact_score - a.impact_score);
+
+    for (const e of entries) {
+      e.rank_active   = byActive.findIndex(x => x.entity_id === e.entity_id) + 1;
+      e.rank_recycled = byRecycled.findIndex(x => x.entity_id === e.entity_id) + 1;
+      e.rank_impact   = byImpact.findIndex(x => x.entity_id === e.entity_id) + 1;
+    }
+
+    // Clear and reinsert
+    await supabase.from('leaderboard_cache').delete().gt('updated_at', '2000-01-01');
+
+    if (entries.length > 0) {
+      await supabase.from('leaderboard_cache').insert(entries);
+    }
+
+    return sendSuccess(res, { refreshed: entries.length }, `Leaderboard rebuilt with ${entries.length} entries`);
   } catch (error) {
-    return sendError(res, 'Failed to fetch leaderboard', 500);
+    console.error('Refresh leaderboard error:', error);
+    return sendError(res, 'Failed to refresh leaderboard', 500);
   }
 };
