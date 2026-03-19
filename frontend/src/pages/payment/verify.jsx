@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
-import { paymentsAPI } from '../services/api';
-import { useAuth } from '../context/AuthContext';
-import { FullPageLoader } from '../components/ui/index';
+import { paymentsAPI } from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
+import { FullPageLoader } from '../../components/ui/index';
 import Head from 'next/head';
 import Link from 'next/link';
 import { RiCheckboxCircleLine, RiCloseCircleLine } from 'react-icons/ri';
