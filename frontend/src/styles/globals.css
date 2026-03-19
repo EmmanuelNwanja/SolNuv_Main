@@ -1,0 +1,104 @@
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,400;0,600;0,700;0,900;1,400&family=DM+Sans:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-display: 'Fraunces', serif;
+  --font-body: 'DM Sans', sans-serif;
+  --forest-900: #0D3B2E;
+  --forest-800: #166534;
+  --amber-500: #F59E0B;
+  --emerald-500: #10B981;
+}
+
+* { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: var(--font-body);
+  background: #F8FAFC;
+  color: #1E293B;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* DISPLAY FONT */
+.font-display { font-family: var(--font-display); }
+
+/* SCROLLBAR */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: #F1F5F9; }
+::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #94A3B8; }
+
+/* CUSTOM COMPONENTS */
+@layer components {
+  .btn-primary {
+    @apply bg-forest-900 text-white px-6 py-3 rounded-xl font-semibold text-sm hover:bg-forest-800 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-forest-900 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-amber {
+    @apply bg-amber-500 text-forest-900 px-6 py-3 rounded-xl font-semibold text-sm hover:bg-amber-600 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-outline {
+    @apply border-2 border-forest-900 text-forest-900 px-6 py-3 rounded-xl font-semibold text-sm hover:bg-forest-900 hover:text-white transition-all duration-200;
+  }
+  .btn-ghost {
+    @apply text-forest-900 px-4 py-2 rounded-xl font-medium text-sm hover:bg-forest-50 transition-all duration-200;
+  }
+  .card {
+    @apply bg-white rounded-2xl border border-slate-100 shadow-sm p-6;
+  }
+  .card-hover {
+    @apply card hover:shadow-md hover:border-forest-900/20 transition-all duration-200;
+  }
+  .input {
+    @apply w-full px-4 py-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-forest-900/30 focus:border-forest-900 transition-all bg-white placeholder:text-slate-400;
+  }
+  .label {
+    @apply block text-sm font-medium text-slate-700 mb-1.5;
+  }
+  .badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+  .badge-green { @apply badge bg-emerald-50 text-emerald-700; }
+  .badge-amber { @apply badge bg-amber-50 text-amber-700; }
+  .badge-red { @apply badge bg-red-50 text-red-700; }
+  .badge-slate { @apply badge bg-slate-100 text-slate-600; }
+  .badge-forest { @apply badge bg-forest-900 text-white; }
+  .section-title {
+    @apply font-display text-3xl md:text-4xl font-bold text-forest-900;
+  }
+  .stat-card {
+    @apply bg-white rounded-2xl p-6 border border-slate-100 shadow-sm;
+  }
+  .page-header {
+    @apply pb-6 border-b border-slate-100 mb-6;
+  }
+  .sidebar-link {
+    @apply flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium text-slate-600 hover:bg-forest-900/5 hover:text-forest-900 transition-all duration-150;
+  }
+  .sidebar-link-active {
+    @apply flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium bg-forest-900 text-white;
+  }
+}
+
+/* GRADIENT TEXT */
+.gradient-text {
+  background: linear-gradient(135deg, #0D3B2E 0%, #10B981 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* LOADING SKELETON */
+.skeleton {
+  @apply bg-slate-200 rounded animate-pulse;
+}
+
+/* TOAST CUSTOM STYLE */
+.toast-custom {
+  font-family: var(--font-body) !important;
+  border-radius: 12px !important;
+}
