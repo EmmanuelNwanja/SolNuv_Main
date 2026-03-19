@@ -4,7 +4,7 @@ const dashboardController = require('../controllers/dashboardController');
 const { requireAuth, requireProfile, optionalAuth } = require('../middlewares/authMiddleware');
 
 router.get('/leaderboard', optionalAuth, dashboardController.getLeaderboard);
-router.get('/refresh-leaderboard', dashboardController.refreshLeaderboard);
+router.get('/refresh-leaderboard', (req, res) => dashboardController.refreshLeaderboard(req, res));
 
 router.use(requireAuth, requireProfile);
 router.get('/', dashboardController.getDashboard);
