@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/router';
-import { supabase } from '../utils/supabase';
-import { FullPageLoader } from '../components/ui/index';
+import { supabase } from '../../utils/supabase';
+import { FullPageLoader } from '../../components/ui/index';
 
 export default function AuthCallback() {
   const router = useRouter();

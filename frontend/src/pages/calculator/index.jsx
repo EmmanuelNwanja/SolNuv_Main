@@ -1,8 +1,8 @@
 import Head from 'next/head';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
-import { calculatorAPI } from '../services/api';
-import { getDashboardLayout } from '../components/Layout';
+import { calculatorAPI } from '../../services/api';
+import { getDashboardLayout } from '../../components/Layout';
 import toast from 'react-hot-toast';
 
 const NIGERIAN_STATES = ['Abia','Adamawa','Akwa Ibom','Anambra','Bauchi','Bayelsa','Benue','Borno','Cross River','Delta','Ebonyi','Edo','Ekiti','Enugu','FCT','Gombe','Imo','Jigawa','Kaduna','Kano','Katsina','Kebbi','Kogi','Kwara','Lagos','Nasarawa','Niger','Ogun','Ondo','Osun','Oyo','Plateau','Rivers','Sokoto','Taraba','Yobe','Zamfara'];
