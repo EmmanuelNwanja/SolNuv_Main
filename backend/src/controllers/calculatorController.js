@@ -1,27 +1,70 @@
 /**
  * SolNuv Calculator Controller
- * Public demo calculators (no auth required)
+ * Public demo calculators — no auth required
  */
 
 const { sendSuccess, sendError } = require('../utils/responseHelper');
-const { calculatePanelSilver, calculateBatteryValue, getSilverPrice } = require('../services/silverService');
+const { calculatePanelValue, calculateBatteryValue, getSilverPrice } = require('../services/silverService');
 const { calculateDecommissionDate } = require('../services/degradationService');
 const supabase = require('../config/database');
 
 /**
+ * POST /api/calculator/panel
+ * Full panel valuation: silver + second-life + recommendation
+ */
+exports.calculatePanel = async (req, res) => {
+  try {
+    const {
+      size_watts       = 400,
+      quantity         = 1,
+      installation_date,
+      climate_zone     = 'mixed',
+      condition        = 'good',
+    } = req.body;
+
+    if (parseFloat(size_watts) <= 0) return sendError(res, 'Panel wattage must be greater than 0', 400);
+    if (parseInt(quantity) <= 0)     return sendError(res, 'Quantity must be at least 1', 400);
+    if (parseInt(quantity) > 200000) return sendError(res, 'Maximum 200,000 panels per calculation', 400);
+
+    const result = await calculatePanelValue(
+      parseFloat(size_watts),
+      parseInt(quantity),
+      installation_date || null,
+      climate_zone,
+      condition,
+    );
+
+    return sendSuccess(res, result);
+  } catch (error) {
+    console.error('Panel calc error:', error);
+    return sendError(res, 'Calculation failed', 500);
+  }
+};
+
+/**
  * POST /api/calculator/silver
- * Public silver recovery calculator (demo)
+ * Legacy endpoint — kept for compatibility, now returns full panel value
  */
 exports.calculateSilver = async (req, res) => {
   try {
-    const { size_watts = 400, quantity = 1, brand = 'Other' } = req.body;
+    const { size_watts = 400, quantity = 1, brand = 'Other', installation_date } = req.body;
 
-    if (!size_watts || size_watts <= 0) return sendError(res, 'Panel wattage must be greater than 0', 400);
-    if (!quantity || quantity <= 0) return sendError(res, 'Quantity must be greater than 0', 400);
-    if (quantity > 100000) return sendError(res, 'Maximum 100,000 panels per calculation', 400);
+    const result = await calculatePanelValue(
+      parseFloat(size_watts),
+      parseInt(quantity),
+      installation_date || null,
+      'mixed',
+      'good',
+    );
 
-    const result = await calculatePanelSilver(parseFloat(size_watts), parseInt(quantity), brand);
-    return sendSuccess(res, result);
+    // Return full result with legacy-compatible fields
+    return sendSuccess(res, {
+      ...result,
+      // Legacy aliases still present so existing frontend code doesn't break
+      total_silver_grams:          result.silver_recycling.total_silver_grams,
+      recovery_value_expected_ngn: result.silver_recycling.installer_receives_ngn,
+      silver_mg_per_wp:            parseFloat(((result.silver_recycling.silver_grams_per_panel / result.original_watts) * 1000).toFixed(4)),
+    });
   } catch (error) {
     return sendError(res, 'Calculation failed', 500);
   }
@@ -29,27 +72,43 @@ exports.calculateSilver = async (req, res) => {
 
 /**
  * POST /api/calculator/battery
- * Public battery material value calculator
+ * Full battery valuation: recycling + second-life + recommendation
  */
 exports.calculateBattery = async (req, res) => {
   try {
-    const { brand = 'Other Lead-Acid', capacity_kwh = 2.4, quantity = 1 } = req.body;
-    const result = await calculateBatteryValue(brand, parseFloat(capacity_kwh), parseInt(quantity));
+    const {
+      brand            = 'Other Lead-Acid',
+      capacity_kwh     = 2.4,
+      quantity         = 1,
+      installation_date,
+      condition        = 'good',
+    } = req.body;
+
+    if (parseFloat(capacity_kwh) <= 0) return sendError(res, 'Capacity must be greater than 0', 400);
+    if (parseInt(quantity) <= 0)       return sendError(res, 'Quantity must be at least 1', 400);
+
+    const result = await calculateBatteryValue(
+      brand,
+      parseFloat(capacity_kwh),
+      parseInt(quantity),
+      installation_date || null,
+      condition,
+    );
+
     return sendSuccess(res, result);
   } catch (error) {
+    console.error('Battery calc error:', error);
     return sendError(res, 'Calculation failed', 500);
   }
 };
 
 /**
  * POST /api/calculator/degradation
- * Public degradation predictor
  */
 exports.calculateDegradation = async (req, res) => {
   try {
     const { state, installation_date, brand } = req.body;
-
-    if (!state) return sendError(res, 'State is required', 400);
+    if (!state)             return sendError(res, 'State is required', 400);
     if (!installation_date) return sendError(res, 'Installation date is required', 400);
 
     const result = await calculateDecommissionDate(state, installation_date, brand);
@@ -61,7 +120,6 @@ exports.calculateDegradation = async (req, res) => {
 
 /**
  * GET /api/calculator/silver-price
- * Current silver spot price
  */
 exports.getSilverPrice = async (req, res) => {
   try {
@@ -74,24 +132,12 @@ exports.getSilverPrice = async (req, res) => {
 
 /**
  * GET /api/calculator/brands
- * List panel and battery brands
  */
 exports.getBrands = async (req, res) => {
   try {
-    const { data: panelBrands } = await supabase
-      .from('panel_brands')
-      .select('brand, silver_content_mg_per_wp, is_popular_in_nigeria')
-      .order('is_popular_in_nigeria', { ascending: false });
-
-    const { data: batteryBrands } = await supabase
-      .from('battery_brands')
-      .select('brand, chemistry, is_popular_in_nigeria')
-      .order('is_popular_in_nigeria', { ascending: false });
-
-    return sendSuccess(res, {
-      panels: panelBrands || [],
-      batteries: batteryBrands || [],
-    });
+    const { data: panelBrands }   = await supabase.from('panel_brands').select('brand, silver_content_mg_per_wp, is_popular_in_nigeria').order('is_popular_in_nigeria', { ascending: false });
+    const { data: batteryBrands } = await supabase.from('battery_brands').select('brand, chemistry, is_popular_in_nigeria').order('is_popular_in_nigeria', { ascending: false });
+    return sendSuccess(res, { panels: panelBrands || [], batteries: batteryBrands || [] });
   } catch (error) {
     return sendError(res, 'Failed to fetch brands', 500);
   }
@@ -99,15 +145,10 @@ exports.getBrands = async (req, res) => {
 
 /**
  * GET /api/calculator/states
- * List Nigerian states with climate info
  */
 exports.getStates = async (req, res) => {
   try {
-    const { data: states } = await supabase
-      .from('nigeria_climate_zones')
-      .select('state, climate_zone')
-      .order('state');
-
+    const { data: states } = await supabase.from('nigeria_climate_zones').select('state, climate_zone').order('state');
     return sendSuccess(res, states || []);
   } catch (error) {
     return sendError(res, 'Failed to fetch states', 500);

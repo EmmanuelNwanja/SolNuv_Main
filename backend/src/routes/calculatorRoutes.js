@@ -4,6 +4,7 @@ const router = express.Router();
 const calculatorController = require('../controllers/calculatorController');
 
 // All public - no auth required for demo
+router.post('/panel', calculatorController.calculatePanel);       // full: silver + second-life
 router.post('/silver', calculatorController.calculateSilver);
 router.post('/battery', calculatorController.calculateBattery);
 router.post('/degradation', calculatorController.calculateDegradation);

@@ -81,8 +81,9 @@ export const reportsAPI = {
 // CALCULATOR (public)
 // ==============================
 export const calculatorAPI = {
-  silver: (data) => api.post('/calculator/silver', data),
-  battery: (data) => api.post('/calculator/battery', data),
+  panel: (data) => api.post('/calculator/panel', data),       // full: silver + second-life
+  silver: (data) => api.post('/calculator/silver', data),     // legacy compat
+  battery: (data) => api.post('/calculator/battery', data),   // full: recycling + second-life
   degradation: (data) => api.post('/calculator/degradation', data),
   getSilverPrice: () => api.get('/calculator/silver-price'),
   getBrands: () => api.get('/calculator/brands'),

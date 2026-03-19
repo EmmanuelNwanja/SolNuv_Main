@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, useRef } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '../utils/supabase';
 import { authAPI } from '../services/api';
 
@@ -9,76 +9,39 @@ export function AuthProvider({ children }) {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [session, setSession] = useState(null);
-  // Track if we've done the first load — prevents flicker on token refresh
-  const initialLoadDone = useRef(false);
-  const fetchingProfile = useRef(false);
 
   useEffect(() => {
-    // Get initial session immediately
+    // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      if (session) fetchProfile();
+      else setLoading(false);
+    });
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       setSession(session);
       setUser(session?.user || null);
       if (session) {
-        fetchProfile();
+        await fetchProfile();
       } else {
+        setProfile(null);
         setLoading(false);
-        initialLoadDone.current = true;
       }
     });
-
-    // Listen for auth state changes (token refresh, sign out, etc.)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        setSession(session);
-        setUser(session?.user || null);
-
-        if (event === 'SIGNED_OUT') {
-          setProfile(null);
-          setLoading(false);
-          return;
-        }
-
-        if (event === 'TOKEN_REFRESHED' || event === 'SIGNED_IN') {
-          if (session) {
-            // Don't set loading=true on token refresh — avoids the flicker
-            // that causes the onboarding redirect
-            await fetchProfile(false);
-          }
-        }
-      }
-    );
 
     return () => subscription.unsubscribe();
   }, []);
 
-  // setLoadingState=true only on first load, not on background refreshes
-  async function fetchProfile(setLoadingState = true) {
-    // Prevent concurrent fetches
-    if (fetchingProfile.current) return;
-    fetchingProfile.current = true;
-
-    if (setLoadingState && !initialLoadDone.current) {
-      setLoading(true);
-    }
-
+  async function fetchProfile() {
     try {
       const { data } = await authAPI.getMe();
-      const fetchedProfile = data.data;
-
-      setProfile(fetchedProfile);
-      setUser(fetchedProfile);
-    } catch (err) {
-      // IMPORTANT: on network error or 401, don't wipe the existing profile
-      // Only clear profile on explicit sign-out
-      if (err?.response?.status === 401) {
-        setProfile(null);
-      }
-      // For all other errors (network blip, timeout), keep existing profile
-      // so the user isn't bounced to onboarding
+      setProfile(data.data);
+      setUser(data.data);
+    } catch {
+      // Profile not yet created
     } finally {
-      fetchingProfile.current = false;
       setLoading(false);
-      initialLoadDone.current = true;
     }
   }
 
@@ -102,14 +65,14 @@ export function AuthProvider({ children }) {
   }
 
   async function signOut() {
-    setProfile(null);
-    setUser(null);
-    setSession(null);
     await supabase.auth.signOut();
+    setUser(null);
+    setProfile(null);
+    setSession(null);
   }
 
   async function refreshProfile() {
-    await fetchProfile(false);
+    await fetchProfile();
   }
 
   const isOnboarded = profile?.is_onboarded === true;
