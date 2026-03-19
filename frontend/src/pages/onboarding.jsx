@@ -9,7 +9,7 @@ import toast from 'react-hot-toast';
 const NIGERIAN_STATES = ['Abia','Adamawa','Akwa Ibom','Anambra','Bauchi','Bayelsa','Benue','Borno','Cross River','Delta','Ebonyi','Edo','Ekiti','Enugu','FCT','Gombe','Imo','Jigawa','Kaduna','Kano','Katsina','Kebbi','Kogi','Kwara','Lagos','Nasarawa','Niger','Ogun','Ondo','Osun','Oyo','Plateau','Rivers','Sokoto','Taraba','Yobe','Zamfara'];
 
 export default function Onboarding() {
-  const { session, loading, refreshProfile } = useAuth();
+  const { session, loading, isOnboarded, refreshProfile } = useAuth();
   const router = useRouter();
   const [step, setStep] = useState(1);
   const [submitting, setSubmitting] = useState(false);
@@ -28,9 +28,13 @@ export default function Onboarding() {
     company_city: '',
   });
 
-  useEffect(() => {
-    if (!loading && !session) router.replace('/login');
-  }, [session, loading, router]);
+  // ✅ NEW — also redirects already-onboarded users away
+useEffect(() => {
+  if (loading) return;
+  if (!session) { router.replace('/login'); return; }
+  // If user is already onboarded, send them to dashboard
+  if (isOnboarded) { router.replace('/dashboard'); return; }
+}, [session, loading, isOnboarded, router]);
 
   const update = (field, val) => setForm(f => ({ ...f, [field]: val }));
   const isRegistered = form.business_type === 'registered';
