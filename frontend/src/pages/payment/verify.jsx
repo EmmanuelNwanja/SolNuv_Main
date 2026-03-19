@@ -10,7 +10,7 @@ import { RiCheckboxCircleLine, RiCloseCircleLine } from 'react-icons/ri';
 export default function PaymentVerify() {
   const router = useRouter();
   const { refreshProfile } = useAuth();
-  const [status, setStatus] = useState('verifying'); // 'verifying' | 'success' | 'failed'
+  const [status, setStatus] = useState('verifying');
   const [plan, setPlan] = useState('');
 
   useEffect(() => {
