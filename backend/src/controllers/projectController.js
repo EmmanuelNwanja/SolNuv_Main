@@ -7,6 +7,7 @@ const supabase = require('../config/database');
 const { sendSuccess, sendError, sendPaginated } = require('../utils/responseHelper');
 const { calculateDecommissionDate } = require('../services/degradationService');
 const { calculatePanelSilver, calculateBatteryValue } = require('../services/silverService');
+const { refreshLeaderboard } = require('../services/schedulerService');
 const QRCode = require('qrcode');
 const { v4: uuidv4 } = require('uuid');
 
@@ -174,6 +175,13 @@ exports.createProject = async (req, res) => {
       .eq('id', project.id)
       .single();
 
+    refreshLeaderboard().catch(err => logger.error('Leaderboard refresh failed:', err.message));
+
+    return sendSuccess(res, {
+      project: completeProject,
+      degradation_info: degradation,
+    }, 'Project created successfully', 201);
+
     return sendSuccess(res, {
       project: completeProject,
       degradation_info: degradation,
@@ -250,6 +258,14 @@ exports.updateProject = async (req, res) => {
       .single();
 
     if (error) throw error;
+
+     // Refresh leaderboard if status changed
+    if (req.body.status) {
+      refreshLeaderboard().catch(() => {});
+    }
+
+    return sendSuccess(res, project, 'Project updated');
+    
     return sendSuccess(res, project, 'Project updated');
   } catch (error) {
     return sendError(res, 'Failed to update project', 500);
