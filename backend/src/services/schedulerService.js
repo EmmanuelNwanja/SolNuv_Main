@@ -127,4 +127,9 @@ async function refreshLeaderboard() {
     logger.error('Leaderboard refresh error:', error.message);
     return { error: error.message };
   }
+  module.exports = {
+  startScheduler,
+  refreshLeaderboard,
+  sendDecommissionAlerts,
+};
 }
