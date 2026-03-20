@@ -266,21 +266,26 @@ exports.refreshLeaderboard = async (req, res) => {
     if (entries.length > 0) {
       await supabase.from('leaderboard_cache').insert(entries);
     }
+
+    return sendSuccess(res, { message: 'Leaderboard refreshed successfully' });
+  } catch (error) {
+    return sendError(res, 'Failed to refresh leaderboard', 500);
+  }
+};
+
 /**
  * GET /api/dashboard/leaderboard
  */
 exports.getLeaderboard = async (req, res) => {
   try {
     const { category = 'impact', limit = 50 } = req.query;
-
     let orderField;
     switch (category) {
-      case 'active':  orderField = 'active_projects_count'; break;
+      case 'active':   orderField = 'active_projects_count'; break;
       case 'recycled': orderField = 'recycled_count'; break;
-      case 'silver':  orderField = 'total_silver_grams'; break;
-      default:        orderField = 'impact_score';
+      case 'silver':   orderField = 'total_silver_grams'; break;
+      default:         orderField = 'impact_score';
     }
-
     const { data: leaderboard } = await supabase
       .from('leaderboard_cache')
       .select('*')
@@ -293,20 +298,12 @@ exports.getLeaderboard = async (req, res) => {
       is_current_user: entry.entity_id === req.user?.id,
     }));
 
-    const currentUserEntry = ranked.find(e => e.entity_id === req.user?.id);
-
     return sendSuccess(res, {
       leaderboard: ranked,
-      current_user_position: currentUserEntry?.display_rank || null,
+      current_user_position: ranked.find(e => e.entity_id === req.user?.id)?.display_rank || null,
       category,
     });
   } catch (error) {
     return sendError(res, 'Failed to fetch leaderboard', 500);
-  }
-};
-    return sendSuccess(res, { refreshed: entries.length }, `Leaderboard rebuilt with ${entries.length} entries`);
-  } catch (error) {
-    console.error('Refresh leaderboard error:', error);
-    return sendError(res, 'Failed to refresh leaderboard', 500);
   }
 };
