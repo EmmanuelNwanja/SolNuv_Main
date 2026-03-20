@@ -266,7 +266,44 @@ exports.refreshLeaderboard = async (req, res) => {
     if (entries.length > 0) {
       await supabase.from('leaderboard_cache').insert(entries);
     }
+/**
+ * GET /api/dashboard/leaderboard
+ */
+exports.getLeaderboard = async (req, res) => {
+  try {
+    const { category = 'impact', limit = 50 } = req.query;
 
+    let orderField;
+    switch (category) {
+      case 'active':  orderField = 'active_projects_count'; break;
+      case 'recycled': orderField = 'recycled_count'; break;
+      case 'silver':  orderField = 'total_silver_grams'; break;
+      default:        orderField = 'impact_score';
+    }
+
+    const { data: leaderboard } = await supabase
+      .from('leaderboard_cache')
+      .select('*')
+      .order(orderField, { ascending: false })
+      .limit(parseInt(limit));
+
+    const ranked = (leaderboard || []).map((entry, index) => ({
+      ...entry,
+      display_rank: index + 1,
+      is_current_user: entry.entity_id === req.user?.id,
+    }));
+
+    const currentUserEntry = ranked.find(e => e.entity_id === req.user?.id);
+
+    return sendSuccess(res, {
+      leaderboard: ranked,
+      current_user_position: currentUserEntry?.display_rank || null,
+      category,
+    });
+  } catch (error) {
+    return sendError(res, 'Failed to fetch leaderboard', 500);
+  }
+};
     return sendSuccess(res, { refreshed: entries.length }, `Leaderboard rebuilt with ${entries.length} entries`);
   } catch (error) {
     console.error('Refresh leaderboard error:', error);
