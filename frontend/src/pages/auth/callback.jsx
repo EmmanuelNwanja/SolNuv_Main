@@ -18,6 +18,13 @@ export default function AuthCallback() {
       try {
         const { data } = await authAPI.getMe();
         const profile = data?.data;
+
+        // Admin users always go to /admin, skip onboarding check
+        if (profile?.is_platform_admin) {
+          router.replace('/admin');
+          return;
+        }
+
         if (!profile?.is_onboarded) {
           const { data: userData } = await supabase.auth.getUser();
           const phoneVerified = !!userData?.user?.user_metadata?.phone_verified;
@@ -25,14 +32,9 @@ export default function AuthCallback() {
           return;
         }
 
-        if (profile?.is_platform_admin) {
-          router.replace('/admin');
-          return;
-        }
-
         router.replace('/dashboard');
       } catch {
-        router.replace('/verify-phone');
+        router.replace('/login');
       }
     }
 

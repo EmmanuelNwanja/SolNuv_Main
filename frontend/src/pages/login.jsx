@@ -16,7 +16,8 @@ export default function Login() {
 
   useEffect(() => {
     if (session && !loading) {
-      const redirectUrl = !isOnboarded ? '/onboarding' : (isPlatformAdmin ? '/admin' : '/dashboard');
+      // Check admin first — admins go directly to /admin regardless of onboarding status
+      const redirectUrl = isPlatformAdmin ? '/admin' : (!isOnboarded ? '/onboarding' : '/dashboard');
       router.replace(redirectUrl);
     }
   }, [session, loading, isOnboarded, isPlatformAdmin, router]);

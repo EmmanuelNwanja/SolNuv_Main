@@ -9,7 +9,7 @@ import toast from 'react-hot-toast';
 const NIGERIAN_STATES = ['Abia','Adamawa','Akwa Ibom','Anambra','Bauchi','Bayelsa','Benue','Borno','Cross River','Delta','Ebonyi','Edo','Ekiti','Enugu','FCT','Gombe','Imo','Jigawa','Kaduna','Kano','Katsina','Kebbi','Kogi','Kwara','Lagos','Nasarawa','Niger','Ogun','Ondo','Osun','Oyo','Plateau','Rivers','Sokoto','Taraba','Yobe','Zamfara'];
 
 export default function Onboarding() {
-  const { session, loading, refreshProfile } = useAuth();
+  const { session, loading, isOnboarded, isPlatformAdmin, refreshProfile } = useAuth();
   const router = useRouter();
   const [step, setStep] = useState(1);
   const [submitting, setSubmitting] = useState(false);
@@ -32,12 +32,21 @@ export default function Onboarding() {
     if (!loading && !session) router.replace('/login');
   }, [session, loading, router]);
 
+  // Already onboarded users should not be on this page — redirect away
+  useEffect(() => {
+    if (!loading && session && isOnboarded) {
+      router.replace(isPlatformAdmin ? '/admin' : '/dashboard');
+    }
+  }, [loading, session, isOnboarded, isPlatformAdmin, router]);
+
+  // Only require phone verification for brand-new users (not yet onboarded)
   useEffect(() => {
     if (!session?.user) return;
+    if (isOnboarded) return; // already handled above
     if (!session.user.user_metadata?.phone_verified) {
       router.replace('/verify-phone');
     }
-  }, [session?.user, router]);
+  }, [session?.user, isOnboarded, router]);
 
   useEffect(() => {
     if (!session?.user) return;

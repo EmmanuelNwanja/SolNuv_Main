@@ -33,10 +33,13 @@ export default function Home() {
 
   useEffect(() => {
     if (!loading && session) {
-      if (!isOnboarded) {
+      // Check admin first — admins go directly to /admin regardless of onboarding status
+      if (isPlatformAdmin) {
+        router.replace('/admin');
+      } else if (!isOnboarded) {
         router.replace('/onboarding');
       } else {
-        router.replace(isPlatformAdmin ? '/admin' : '/dashboard');
+        router.replace('/dashboard');
       }
     }
   }, [loading, session, isOnboarded, isPlatformAdmin, router]);
@@ -48,6 +51,16 @@ export default function Home() {
       setSilverResult(data.data);
     } catch { /* silent fail on landing page */ }
     finally { setCalcLoading(false); }
+  }
+
+  // While auth state is resolving, show a spinner instead of the landing page
+  // to prevent a visible flash before the redirect fires for logged-in users.
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white">
+        <div className="w-10 h-10 border-4 border-forest-900 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
   }
 
   return (

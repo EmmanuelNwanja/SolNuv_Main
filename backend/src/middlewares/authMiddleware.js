@@ -32,14 +32,30 @@ async function requireAuth(req, res, next) {
       return sendError(res, 'Invalid or expired token', 401);
     }
 
-    // Get our internal user record
-    const { data: dbUser, error: dbError } = await supabase
+    // Get our internal user record (companies join via explicit FK to avoid ambiguity)
+    let dbUser = null;
+    const { data: dbUserWithCompany, error: dbError } = await supabase
       .from('users')
       .select('*, companies:companies!users_company_id_fkey(*)')
       .eq('supabase_uid', user.id)
       .single();
 
-    if (dbError || !dbUser) {
+    if (dbError) {
+      // FK join failed (e.g. FK name differs in this environment) — fall back to plain user query
+      const { data: plainUser, error: plainError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('supabase_uid', user.id)
+        .single();
+
+      if (!plainError && plainUser) {
+        dbUser = plainUser;
+      }
+    } else {
+      dbUser = dbUserWithCompany;
+    }
+
+    if (!dbUser) {
       // User authenticated but no profile yet - provide minimal info
       req.supabaseUser = user;
       req.user = null;
@@ -106,13 +122,25 @@ async function optionalAuth(req, res, next) {
     const { data: { user } } = await supabasePublic.auth.getUser(token);
 
     if (user) {
-      const { data: dbUser } = await supabase
+      const { data: dbUserWithCompany, error: dbError } = await supabase
         .from('users')
         .select('*, companies:companies!users_company_id_fkey(*)')
         .eq('supabase_uid', user.id)
         .single();
-      req.user = dbUser;
-      req.company = dbUser?.companies;
+
+      if (!dbError && dbUserWithCompany) {
+        req.user = dbUserWithCompany;
+        req.company = dbUserWithCompany?.companies;
+      } else {
+        // FK fallback
+        const { data: plainUser } = await supabase
+          .from('users')
+          .select('*')
+          .eq('supabase_uid', user.id)
+          .single();
+        req.user = plainUser;
+        req.company = null;
+      }
     }
   } catch (err) {
     // Silent fail for optional auth

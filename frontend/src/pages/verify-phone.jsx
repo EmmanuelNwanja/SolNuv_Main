@@ -32,12 +32,15 @@ export default function VerifyPhone() {
 
     setPhone(fromStorage || session.user.user_metadata?.phone || '');
 
+    // Already-onboarded users (existing accounts) skip phone verification entirely
+    if (isOnboarded) {
+      router.replace(isPlatformAdmin ? '/admin' : '/dashboard');
+      return;
+    }
+
+    // New users who already verified their phone move on to onboarding
     if (session.user.user_metadata?.phone_verified) {
-      if (isOnboarded) {
-        router.replace(isPlatformAdmin ? '/admin' : '/dashboard');
-      } else {
-        router.replace('/onboarding');
-      }
+      router.replace('/onboarding');
     }
   }, [session?.user, isOnboarded, isPlatformAdmin, router]);
 
