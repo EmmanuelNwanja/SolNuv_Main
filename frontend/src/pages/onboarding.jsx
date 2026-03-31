@@ -32,21 +32,29 @@ export default function Onboarding() {
     if (!loading && !session) router.replace('/login');
   }, [session, loading, router]);
 
-  // Already onboarded users should not be on this page — redirect away
+  // Platform admins never need onboarding — redirect to /admin immediately
   useEffect(() => {
-    if (!loading && session && isOnboarded) {
-      router.replace(isPlatformAdmin ? '/admin' : '/dashboard');
+    if (!loading && session && isPlatformAdmin) {
+      router.replace('/admin');
+    }
+  }, [loading, session, isPlatformAdmin, router]);
+
+  // Already onboarded regular users should not be on this page
+  useEffect(() => {
+    if (!loading && session && isOnboarded && !isPlatformAdmin) {
+      router.replace('/dashboard');
     }
   }, [loading, session, isOnboarded, isPlatformAdmin, router]);
 
-  // Only require phone verification for brand-new users (not yet onboarded)
+  // Only require phone verification for brand-new regular users (not yet onboarded)
   useEffect(() => {
     if (!session?.user) return;
+    if (isPlatformAdmin) return; // already handled above
     if (isOnboarded) return; // already handled above
     if (!session.user.user_metadata?.phone_verified) {
       router.replace('/verify-phone');
     }
-  }, [session?.user, isOnboarded, router]);
+  }, [session?.user, isOnboarded, isPlatformAdmin, router]);
 
   useEffect(() => {
     if (!session?.user) return;

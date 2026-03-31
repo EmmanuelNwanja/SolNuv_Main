@@ -32,9 +32,15 @@ export default function VerifyPhone() {
 
     setPhone(fromStorage || session.user.user_metadata?.phone || '');
 
-    // Already-onboarded users (existing accounts) skip phone verification entirely
+    // Platform admins never need phone verification — go straight to /admin
+    if (isPlatformAdmin) {
+      router.replace('/admin');
+      return;
+    }
+
+    // Already-onboarded regular users skip phone verification too
     if (isOnboarded) {
-      router.replace(isPlatformAdmin ? '/admin' : '/dashboard');
+      router.replace('/dashboard');
       return;
     }
 
