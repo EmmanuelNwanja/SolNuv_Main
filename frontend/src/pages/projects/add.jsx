@@ -8,6 +8,9 @@ import toast from 'react-hot-toast';
 
 const NIGERIAN_STATES = ['Abia','Adamawa','Akwa Ibom','Anambra','Bauchi','Bayelsa','Benue','Borno','Cross River','Delta','Ebonyi','Edo','Ekiti','Enugu','FCT','Gombe','Imo','Jigawa','Kaduna','Kano','Katsina','Kebbi','Kogi','Kwara','Lagos','Nasarawa','Niger','Ogun','Ondo','Osun','Oyo','Plateau','Rivers','Sokoto','Taraba','Yobe','Zamfara'];
 const CONDITIONS = ['excellent', 'good', 'fair', 'poor', 'damaged'];
+const DEFAULT_PANEL_BRANDS = ['Jinko Solar', 'JA Solar', 'Longi', 'Tongwei', 'Risen', 'Canadian Solar', 'Trina Solar'];
+const DEFAULT_BATTERY_BRANDS = ['Felicity', 'BYD', 'Growatt', 'LG', 'Samsung', 'CATL', 'Victron'];
+const DEFAULT_INVERTER_BRANDS = ['Growatt', 'Solis', 'Schneider Electric', 'Fronius', 'SMA', 'Victron', 'Huawei'];
 
 // Equipment condition explanations
 const CONDITION_HELP = {
@@ -21,6 +24,20 @@ const CONDITION_HELP = {
 const defaultPanel = () => ({ brand: 'Jinko Solar', model: '', size_watts: 400, quantity: 1, condition: 'good' });
 const defaultBattery = () => ({ brand: 'Felicity', model: '', capacity_kwh: 2.4, quantity: 1, condition: 'good' });
 const defaultInverter = () => ({ brand: 'Growatt', model: '', power_kw: 5, quantity: 1, condition: 'good' });
+
+function mergeBrandOptions(apiRows = [], defaults = []) {
+  const names = new Set(defaults.map((x) => x.toLowerCase()));
+  const out = [...defaults];
+  for (const row of apiRows || []) {
+    const brand = typeof row === 'string' ? row : row?.brand;
+    if (!brand) continue;
+    if (!names.has(brand.toLowerCase())) {
+      names.add(brand.toLowerCase());
+      out.push(brand);
+    }
+  }
+  return out;
+}
 
 export default function AddProject() {
   const router = useRouter();
@@ -43,10 +60,14 @@ export default function AddProject() {
 
   useEffect(() => {
     calculatorAPI.getBrands().then(r => {
-      setPanelBrands(r.data.data?.panels || []);
-      setBatteryBrands(r.data.data?.batteries || []);
-      setInverterBrands(r.data.data?.inverters || []);
-    }).catch(() => {});
+      setPanelBrands(mergeBrandOptions(r.data.data?.panels || [], DEFAULT_PANEL_BRANDS));
+      setBatteryBrands(mergeBrandOptions(r.data.data?.batteries || [], DEFAULT_BATTERY_BRANDS));
+      setInverterBrands(mergeBrandOptions(r.data.data?.inverters || [], DEFAULT_INVERTER_BRANDS));
+    }).catch(() => {
+      setPanelBrands(DEFAULT_PANEL_BRANDS);
+      setBatteryBrands(DEFAULT_BATTERY_BRANDS);
+      setInverterBrands(DEFAULT_INVERTER_BRANDS);
+    });
   }, []);
 
   // Live preview: degradation
@@ -95,6 +116,7 @@ export default function AddProject() {
       console.error('Project creation error:', err);
       const message = err.response?.data?.message || err.message || 'Failed to create project';
       toast.error(message);
+    } finally {
       setSubmitting(false);
     }
   }
@@ -197,7 +219,7 @@ export default function AddProject() {
                   <div className="sm:col-span-2">
                     <label className="label text-xs">Brand *</label>
                     <select className="input text-sm" value={panel.brand} onChange={e => updatePanel(idx, 'brand', e.target.value)}>
-                      {panelBrands.length > 0 ? panelBrands.map(b => <option key={b.brand} value={b.brand}>{b.brand}</option>) : <option value="Jinko Solar">Jinko Solar</option>}
+                      {(panelBrands.length > 0 ? panelBrands : DEFAULT_PANEL_BRANDS).map(brand => <option key={brand} value={brand}>{brand}</option>)}
                     </select>
                   </div>
                   <div>
@@ -248,7 +270,7 @@ export default function AddProject() {
                   <div className="sm:col-span-2">
                     <label className="label text-xs">Brand *</label>
                     <select className="input text-sm" value={battery.brand} onChange={e => updateBattery(idx, 'brand', e.target.value)}>
-                      {batteryBrands.length > 0 ? batteryBrands.map(b => <option key={b.brand} value={b.brand}>{b.brand}</option>) : <option value="Felicity">Felicity</option>}
+                      {(batteryBrands.length > 0 ? batteryBrands : DEFAULT_BATTERY_BRANDS).map(brand => <option key={brand} value={brand}>{brand}</option>)}
                     </select>
                   </div>
                   <div>
@@ -292,7 +314,7 @@ export default function AddProject() {
                     <div className="sm:col-span-2">
                       <label className="label text-xs">Brand *</label>
                       <select className="input text-sm" value={inverter.brand} onChange={e => updateInverter(idx, 'brand', e.target.value)}>
-                        {inverterBrands.length > 0 ? inverterBrands.map(b => <option key={b.brand} value={b.brand}>{b.brand}</option>) : <option value="Growatt">Growatt</option>}
+                        {(inverterBrands.length > 0 ? inverterBrands : DEFAULT_INVERTER_BRANDS).map(brand => <option key={brand} value={brand}>{brand}</option>)}
                       </select>
                     </div>
                     <div>

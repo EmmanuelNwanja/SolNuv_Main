@@ -34,6 +34,13 @@ export default function Onboarding() {
 
   useEffect(() => {
     if (!session?.user) return;
+    if (!session.user.user_metadata?.phone_verified) {
+      router.replace('/verify-phone');
+    }
+  }, [session?.user, router]);
+
+  useEffect(() => {
+    if (!session?.user) return;
 
     let pending = {};
     try {

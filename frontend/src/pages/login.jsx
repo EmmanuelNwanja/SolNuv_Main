@@ -7,7 +7,7 @@ import { RiSunLine, RiGoogleLine, RiEyeLine, RiEyeOffLine } from 'react-icons/ri
 import toast from 'react-hot-toast';
 
 export default function Login() {
-  const { session, isPlatformAdmin, signInWithGoogle, signInWithEmail, loading } = useAuth();
+  const { session, isOnboarded, isPlatformAdmin, signInWithGoogle, signInWithEmail, loading } = useAuth();
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -16,11 +16,10 @@ export default function Login() {
 
   useEffect(() => {
     if (session && !loading) {
-      // Redirect to admin dashboard if user is platform admin
-      const redirectUrl = isPlatformAdmin ? '/admin' : '/dashboard';
+      const redirectUrl = !isOnboarded ? '/onboarding' : (isPlatformAdmin ? '/admin' : '/dashboard');
       router.replace(redirectUrl);
     }
-  }, [session, loading, isPlatformAdmin, router]);
+  }, [session, loading, isOnboarded, isPlatformAdmin, router]);
 
   async function handleGoogle() {
     setSubmitting(true);

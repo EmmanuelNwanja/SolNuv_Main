@@ -3,7 +3,9 @@ import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { RiSunLine, RiLeafLine, RiFileTextLine, RiTrophyLine, RiArrowRightLine, RiCheckLine, RiShieldCheckLine, RiMapPinLine, RiFlashlightLine, RiBarChartLine, RiCalculatorLine } from 'react-icons/ri';
 import { calculatorAPI } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
+import { useRouter } from 'next/router';
 
 const NIGERIAN_STATES = [
   'Lagos','Kano','Rivers','FCT','Oyo','Katsina','Ogun','Anambra','Imo','Kaduna',
@@ -13,6 +15,8 @@ const NIGERIAN_STATES = [
 ];
 
 export default function Home() {
+  const { session, loading, isOnboarded, isPlatformAdmin } = useAuth();
+  const router = useRouter();
 
   const [calcTab, setCalcTab] = useState('panel');
   const [silverForm, setSilverForm] = useState({
@@ -26,6 +30,16 @@ export default function Home() {
   useEffect(() => {
     runSilverCalc(silverForm);
   }, []);
+
+  useEffect(() => {
+    if (!loading && session) {
+      if (!isOnboarded) {
+        router.replace('/onboarding');
+      } else {
+        router.replace(isPlatformAdmin ? '/admin' : '/dashboard');
+      }
+    }
+  }, [loading, session, isOnboarded, isPlatformAdmin, router]);
 
   async function runSilverCalc(form = silverForm) {
     setCalcLoading(true);

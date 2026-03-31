@@ -166,7 +166,7 @@ exports.createOrUpdateProfile = async (req, res) => {
           updated_at: new Date().toISOString(),
         })
         .eq('id', existingUser.id)
-        .select('*, companies(*)')
+        .select('*, companies:companies!users_company_id_fkey(*)')
         .single();
 
       if (error) throw error;
@@ -197,7 +197,7 @@ exports.createOrUpdateProfile = async (req, res) => {
           is_public_profile: typeof is_public_profile === 'boolean' ? is_public_profile : true,
           is_onboarded: true,
         })
-        .select('*, companies(*)')
+        .select('*, companies:companies!users_company_id_fkey(*)')
         .single();
 
       if (error) throw error;
@@ -233,7 +233,7 @@ exports.getMe = async (req, res) => {
     // Get fresh data with related info
     const { data: user, error } = await supabase
       .from('users')
-      .select('*, companies(*)')
+      .select('*, companies:companies!users_company_id_fkey(*)')
       .eq('id', req.user.id)
       .single();
 
@@ -570,5 +570,106 @@ exports.completePasswordReset = async (req, res) => {
     return sendSuccess(res, null, 'Password reset successful');
   } catch (error) {
     return sendError(res, 'Failed to complete password reset', 500);
+  }
+};
+
+/**
+ * POST /api/auth/phone-verification/request
+ * Send OTP for signup phone verification
+ */
+exports.requestPhoneVerificationOtp = async (req, res) => {
+  try {
+    const { phone, channel = 'sms' } = req.body || {};
+    const fallbackPhone = req.supabaseUser?.user_metadata?.phone || null;
+    const normalizedPhone = normalizePhone(phone || fallbackPhone);
+    if (!normalizedPhone) return sendError(res, 'Phone number is required', 400);
+
+    const email = String(req.supabaseUser?.email || '').toLowerCase();
+    const otp = String(Math.floor(100000 + Math.random() * 900000));
+    const expiresAt = new Date(Date.now() + (10 * 60 * 1000)).toISOString();
+
+    await supabase
+      .from('phone_verification_otps')
+      .insert({
+        supabase_uid: req.supabaseUser.id,
+        email,
+        phone: normalizedPhone,
+        otp_code: otp,
+        channel: channel === 'whatsapp' ? 'whatsapp' : 'sms',
+        expires_at: expiresAt,
+      });
+
+    const message = `Your SolNuv verification code is ${otp}. It expires in 10 minutes.`;
+    const sendResult = await sendSms({
+      to: normalizedPhone,
+      message,
+      channel: channel === 'whatsapp' ? 'whatsapp' : 'generic',
+    });
+
+    if (!sendResult.success) {
+      return sendError(res, sendResult.reason || 'Failed to send OTP', 500);
+    }
+
+    return sendSuccess(res, { phone: normalizedPhone, expires_in_minutes: 10 }, 'Verification OTP sent');
+  } catch (error) {
+    return sendError(res, 'Failed to send verification OTP', 500);
+  }
+};
+
+/**
+ * POST /api/auth/phone-verification/verify
+ * Verify signup OTP and mark auth metadata phone_verified=true
+ */
+exports.verifyPhoneVerificationOtp = async (req, res) => {
+  try {
+    const { phone, otp } = req.body || {};
+    if (!phone || !otp) return sendError(res, 'Phone and OTP are required', 400);
+
+    const normalizedPhone = normalizePhone(phone);
+    const nowIso = new Date().toISOString();
+
+    const { data: row } = await supabase
+      .from('phone_verification_otps')
+      .select('*')
+      .eq('supabase_uid', req.supabaseUser.id)
+      .eq('phone', normalizedPhone)
+      .eq('otp_code', String(otp).trim())
+      .eq('used', false)
+      .gt('expires_at', nowIso)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (!row) return sendError(res, 'Invalid or expired OTP', 400);
+
+    await supabase
+      .from('phone_verification_otps')
+      .update({ used: true })
+      .eq('id', row.id);
+
+    const existingMeta = req.supabaseUser?.user_metadata || {};
+    const updateResult = await supabase.auth.admin.updateUserById(req.supabaseUser.id, {
+      user_metadata: {
+        ...existingMeta,
+        phone: normalizedPhone,
+        phone_verified: true,
+        phone_verified_at: new Date().toISOString(),
+      },
+    });
+
+    if (updateResult.error) {
+      return sendError(res, 'OTP verified but failed to update user metadata', 500);
+    }
+
+    if (req.user?.id) {
+      await supabase
+        .from('users')
+        .update({ phone: normalizedPhone, updated_at: new Date().toISOString() })
+        .eq('id', req.user.id);
+    }
+
+    return sendSuccess(res, { verified: true, phone: normalizedPhone }, 'Phone verified successfully');
+  } catch (error) {
+    return sendError(res, 'Failed to verify phone OTP', 500);
   }
 };

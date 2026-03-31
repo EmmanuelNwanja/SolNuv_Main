@@ -46,6 +46,20 @@ function nearestStandardMm2(required) {
   return standards.find((v) => v >= req) || 240;
 }
 
+function mergeBrands(dbBrands = [], fallbackBrands = []) {
+  const map = new Map();
+  for (const row of [...fallbackBrands, ...dbBrands]) {
+    if (!row?.brand) continue;
+    map.set(String(row.brand).toLowerCase(), row);
+  }
+  return Array.from(map.values()).sort((a, b) => {
+    const aPopular = a.is_popular_in_nigeria ? 1 : 0;
+    const bPopular = b.is_popular_in_nigeria ? 1 : 0;
+    if (aPopular !== bPopular) return bPopular - aPopular;
+    return String(a.brand).localeCompare(String(b.brand));
+  });
+}
+
 /**
  * POST /api/calculator/panel
  * Full panel valuation: silver + second-life + recommendation
@@ -208,14 +222,10 @@ exports.getBrands = async (req, res) => {
 
     // Try to fetch from database first, but fallback to hardcoded list
     let { data: panelBrands } = await supabase.from('panel_brands').select('brand, silver_content_mg_per_wp, is_popular_in_nigeria').order('is_popular_in_nigeria', { ascending: false });
-    if (!panelBrands || panelBrands.length === 0) {
-      panelBrands = POPULAR_PANEL_BRANDS;
-    }
+    panelBrands = mergeBrands(panelBrands || [], POPULAR_PANEL_BRANDS);
 
     let { data: batteryBrands } = await supabase.from('battery_brands').select('brand, chemistry, is_popular_in_nigeria').order('is_popular_in_nigeria', { ascending: false });
-    if (!batteryBrands || batteryBrands.length === 0) {
-      batteryBrands = POPULAR_BATTERY_BRANDS;
-    }
+    batteryBrands = mergeBrands(batteryBrands || [], POPULAR_BATTERY_BRANDS);
 
     // Inverters are new, so use fallback for now
     const inverterBrands = POPULAR_INVERTER_BRANDS;

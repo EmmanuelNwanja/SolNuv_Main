@@ -114,7 +114,7 @@ exports.generateCertificate = async (req, res) => {
 
     const { data: project } = await supabase
       .from('projects')
-      .select('*, equipment(*), companies(*)')
+      .select('*, equipment(*), companies:companies!projects_company_id_fkey(*)')
       .eq('id', projectId)
       .single();
 

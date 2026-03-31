@@ -1,6 +1,7 @@
 import Head from 'next/head';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/router';
 import { useAuth } from '../../context/AuthContext';
 import { dashboardAPI } from '../../services/api';
 import Layout, { getDashboardLayout } from '../../components/Layout';
@@ -12,16 +13,28 @@ import {
 } from 'react-icons/ri';
 
 export default function Dashboard() {
-  const { profile, plan, isPro } = useAuth();
+  const { profile, isOnboarded, plan, isPro } = useAuth();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
   useEffect(() => {
+    if (!isOnboarded) {
+      setLoading(false);
+      return;
+    }
+
     dashboardAPI.get()
       .then(r => setData(r.data.data))
-      .catch(console.error)
+      .catch((err) => {
+        if (err?.response?.data?.code === 'PROFILE_INCOMPLETE') {
+          router.replace('/onboarding');
+          return;
+        }
+        console.error(err);
+      })
       .finally(() => setLoading(false));
-  }, []);
+  }, [isOnboarded, router]);
 
   const displayName = profile?.first_name || 'there';
   const hour = new Date().getHours();

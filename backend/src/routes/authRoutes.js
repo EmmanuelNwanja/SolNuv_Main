@@ -7,6 +7,8 @@ const { checkTeamLimit } = require('../middlewares/subscriptionMiddleware');
 router.post('/password-reset/request', authController.requestPasswordResetOtp);
 router.post('/password-reset/verify', authController.verifyPasswordResetOtp);
 router.post('/password-reset/complete', authController.completePasswordReset);
+router.post('/phone-verification/request', requireAuth, authController.requestPhoneVerificationOtp);
+router.post('/phone-verification/verify', requireAuth, authController.verifyPhoneVerificationOtp);
 
 router.post('/profile', requireAuth, authController.createOrUpdateProfile);
 router.get('/me', requireAuth, authController.getMe);

@@ -35,7 +35,7 @@ async function requireAuth(req, res, next) {
     // Get our internal user record
     const { data: dbUser, error: dbError } = await supabase
       .from('users')
-      .select('*, companies(*)')
+      .select('*, companies:companies!users_company_id_fkey(*)')
       .eq('supabase_uid', user.id)
       .single();
 
@@ -108,7 +108,7 @@ async function optionalAuth(req, res, next) {
     if (user) {
       const { data: dbUser } = await supabase
         .from('users')
-        .select('*, companies(*)')
+        .select('*, companies:companies!users_company_id_fkey(*)')
         .eq('supabase_uid', user.id)
         .single();
       req.user = dbUser;

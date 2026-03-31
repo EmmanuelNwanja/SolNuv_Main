@@ -18,7 +18,7 @@ export default function Register() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (session && !loading) router.replace('/onboarding');
+    if (session && !loading) router.replace('/verify-phone');
   }, [session, loading, router]);
 
   async function handleGoogle() {
@@ -40,8 +40,8 @@ export default function Register() {
         phone,
         business_type: businessType,
       }));
-      toast.success('Account created! Check your email to verify, then complete your profile.');
-      router.push('/onboarding');
+      toast.success('Account created! Verify your phone to continue.');
+      router.push('/verify-phone');
     }
   }
 

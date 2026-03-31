@@ -163,7 +163,7 @@ exports.createProject = async (req, res) => {
         equipment_type: 'inverter',
         brand: inverter.brand,
         model: inverter.model || null,
-        power_kw: inverter.power_kw || null,
+        size_watts: inverter.power_kw ? Number(inverter.power_kw) * 1000 : null,
         quantity: inverter.quantity,
         condition: inverter.condition || 'good',
       });
@@ -171,7 +171,19 @@ exports.createProject = async (req, res) => {
 
     if (equipmentRecords.length > 0) {
       const { error: eqError } = await supabase.from('equipment').insert(equipmentRecords);
-      if (eqError) throw eqError;
+      if (eqError) {
+        const message = String(eqError.message || '');
+        const isInverterSchemaGap = message.toLowerCase().includes('inverter') && message.toLowerCase().includes('equipment_type');
+
+        if (!isInverterSchemaGap) throw eqError;
+
+        // Backward compatibility: if inverter enum value is not migrated yet, save panel/battery records only.
+        const fallbackRecords = equipmentRecords.filter((r) => r.equipment_type !== 'inverter');
+        if (fallbackRecords.length > 0) {
+          const { error: fallbackError } = await supabase.from('equipment').insert(fallbackRecords);
+          if (fallbackError) throw fallbackError;
+        }
+      }
     }
 
     // Generate QR code URL (data URL for now, can be uploaded to storage)
@@ -193,11 +205,6 @@ exports.createProject = async (req, res) => {
     // Trigger leaderboard refresh via internal fetch — avoids circular dependency
     const apiBase = `http://localhost:${process.env.PORT || 5000}`;
       fetch(`${apiBase}/api/dashboard/refresh-leaderboard`).catch(() => {});
-
-    return sendSuccess(res, {
-      project: completeProject,
-      degradation_info: degradation,
-    }, 'Project created successfully', 201);
 
     return sendSuccess(res, {
       project: completeProject,

@@ -1,9 +1,11 @@
 import Head from 'next/head';
 import Link from 'next/link';
 import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/router';
 import { projectsAPI, downloadBlob } from '../../services/api';
 import { getDashboardLayout } from '../../components/Layout';
 import ProtectedRoute from '../../components/ProtectedRoute';
+import { useAuth } from '../../context/AuthContext';
 import { StatusBadge, UrgencyBadge, EmptyState, LoadingSpinner } from '../../components/ui/index';
 import { RiAddLine, RiSearchLine, RiFilterLine, RiDownloadLine, RiSunLine } from 'react-icons/ri';
 import toast from 'react-hot-toast';
@@ -17,6 +19,8 @@ const STATUS_OPTIONS = [
 ];
 
 export default function ProjectsList() {
+  const { isOnboarded } = useAuth();
+  const router = useRouter();
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -26,14 +30,25 @@ export default function ProjectsList() {
   const [exporting, setExporting] = useState(false);
 
   const fetchProjects = useCallback(async () => {
+    if (!isOnboarded) {
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     try {
       const { data } = await projectsAPI.list({ search, status: statusFilter, page, limit: 20 });
       setProjects(data.data || []);
       setTotal(data.pagination?.total || 0);
-    } catch { toast.error('Failed to load projects'); }
+    } catch (err) {
+      if (err?.response?.data?.code === 'PROFILE_INCOMPLETE') {
+        router.replace('/onboarding');
+        return;
+      }
+      toast.error('Failed to load projects');
+    }
     finally { setLoading(false); }
-  }, [search, statusFilter, page]);
+  }, [search, statusFilter, page, isOnboarded, router]);
 
   useEffect(() => { fetchProjects(); }, [fetchProjects]);
 

@@ -38,8 +38,14 @@ export function AuthProvider({ children }) {
       const { data } = await authAPI.getMe();
       setProfile(data.data);
       setUser(data.data);
-    } catch {
-      // Profile not yet created
+    } catch (err) {
+      const code = err?.response?.data?.code;
+      if (code === 'PROFILE_INCOMPLETE') {
+        setProfile({ is_onboarded: false });
+      } else {
+        // Profile not yet created or temporarily unavailable
+        setProfile(null);
+      }
     } finally {
       setLoading(false);
     }
