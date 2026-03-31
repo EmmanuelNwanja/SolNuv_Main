@@ -4,6 +4,7 @@
  */
 
 const { sendError } = require('../utils/responseHelper');
+const { PLAN_LIMITS } = require('../services/billingService');
 
 const PLAN_HIERARCHY = { free: 0, pro: 1, elite: 2, enterprise: 3 };
 
@@ -57,7 +58,7 @@ async function checkTeamLimit(req, res, next) {
     .select('*', { count: 'exact', head: true })
     .eq('company_id', company.id);
 
-  const maxMembers = company.max_team_members || 1;
+  const maxMembers = company.max_team_members || PLAN_LIMITS[company.subscription_plan] || 1;
 
   if (count >= maxMembers) {
     return sendError(res, `Your ${company.subscription_plan} plan allows a maximum of ${maxMembers} team members. Upgrade to add more.`, 403, {

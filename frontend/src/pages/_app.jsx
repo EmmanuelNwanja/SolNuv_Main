@@ -1,8 +1,16 @@
 import { AuthProvider } from '../context/AuthContext';
 import { Toaster } from 'react-hot-toast';
+import { useEffect } from 'react';
 import '../styles/globals.css';
 
 export default function App({ Component, pageProps }) {
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(() => {});
+    }
+  }, []);
+
   const getLayout = Component.getLayout || ((page) => page);
   return (
     <AuthProvider>

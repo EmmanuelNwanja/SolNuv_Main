@@ -1,7 +1,7 @@
 import Head from 'next/head';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
-import { calculatorAPI } from '../../services/api';
+import { calculatorAPI, downloadBlob, engineeringAPI } from '../../services/api';
 import { getDashboardLayout } from '../../components/Layout';
 import toast from 'react-hot-toast';
 
@@ -42,10 +42,80 @@ export default function Calculator() {
   const [degradForm, setDegradForm] = useState({ state: 'Lagos', installation_date: '2021-01-01' });
   const [degradResult, setDegradResult] = useState(null);
 
+  const [roiForm, setRoiForm] = useState({
+    tariff_band: 'A',
+    tariff_rate_ngn_per_kwh: 225,
+    generator_fuel_price_ngn_per_liter: 1000,
+    current_grid_kwh_per_day: 25,
+    current_generator_liters_per_day: 8,
+    proposed_solar_capex_ngn: 3500000,
+    annual_om_cost_ngn: 120000,
+    projected_grid_kwh_offset_per_day: 18,
+    projected_generator_liters_offset_per_day: 6,
+  });
+  const [roiResult, setRoiResult] = useState(null);
+
+  const [sohForm, setSohForm] = useState({
+    chemistry: 'lithium-iron-phosphate',
+    installation_date: '2022-01-01',
+    rated_capacity_kwh: 10,
+    measured_capacity_kwh: 8.5,
+    avg_depth_of_discharge_pct: 65,
+    estimated_cycles_per_day: 1,
+    ambient_temperature_c: 32,
+    warranty_years: 5,
+  });
+  const [sohResult, setSohResult] = useState(null);
+
+  const [cableForm, setCableForm] = useState({
+    current_amps: 80,
+    one_way_length_m: 22,
+    system_voltage_v: 48,
+    allowable_voltage_drop_pct: 3,
+    conductor_material: 'copper',
+    ambient_temperature_c: 34,
+  });
+  const [cableResult, setCableResult] = useState(null);
+  const [cableProjectId, setCableProjectId] = useState('');
+  const [syncingQueue, setSyncingQueue] = useState(false);
+
+  const CABLE_QUEUE_KEY = 'solnuv_cable_sync_queue_v1';
+
   useEffect(() => {
     calculatorAPI.getBrands()
       .then(r => setBrands(r.data.data || { panels: [], batteries: [] }))
       .catch(() => {});
+
+    const flush = async () => {
+      if (typeof window === 'undefined' || !navigator.onLine) return;
+      let queued = [];
+      try {
+        queued = JSON.parse(localStorage.getItem(CABLE_QUEUE_KEY) || '[]');
+      } catch {
+        queued = [];
+      }
+      if (!Array.isArray(queued) || queued.length === 0) return;
+
+      setSyncingQueue(true);
+      const failed = [];
+      for (const entry of queued) {
+        try {
+          await engineeringAPI.saveCableCompliance(entry.projectId, entry.payload);
+        } catch {
+          failed.push(entry);
+        }
+      }
+      localStorage.setItem(CABLE_QUEUE_KEY, JSON.stringify(failed));
+      setSyncingQueue(false);
+
+      if (failed.length === 0) {
+        toast.success('Offline cable entries synced successfully');
+      }
+    };
+
+    flush();
+    window.addEventListener('online', flush);
+    return () => window.removeEventListener('online', flush);
   }, []);
 
   async function runPanel() {
@@ -75,10 +145,111 @@ export default function Calculator() {
     finally { setLoading(false); }
   }
 
+  async function runROI() {
+    setLoading(true);
+    try {
+      const { data } = await calculatorAPI.roi(roiForm);
+      setRoiResult(data.data);
+    } catch {
+      toast.error('ROI calculation failed');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function runSoh() {
+    setLoading(true);
+    try {
+      const { data } = await calculatorAPI.batterySoh(sohForm);
+      setSohResult(data.data);
+    } catch {
+      toast.error('Battery SoH calculation failed');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function runCable() {
+    setLoading(true);
+    try {
+      const { data } = await calculatorAPI.cableSize(cableForm);
+      setCableResult(data.data);
+    } catch {
+      toast.error('Cable sizing calculation failed');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function exportRoiPdf() {
+    if (!roiResult) return;
+    try {
+      const { data } = await calculatorAPI.exportRoiPdf(roiForm);
+      downloadBlob(data, `SolNuv_Hybrid_ROI_Proposal_${Date.now()}.pdf`);
+    } catch {
+      toast.error('Failed to export ROI PDF');
+    }
+  }
+
+  async function exportCablePdf() {
+    if (!cableResult) return;
+    try {
+      const { data } = await calculatorAPI.exportCableCertificatePdf(cableForm);
+      downloadBlob(data, `SolNuv_Cable_Compliance_${Date.now()}.pdf`);
+    } catch {
+      toast.error('Failed to export cable certificate');
+    }
+  }
+
+  async function saveCableComplianceRecord() {
+    if (!cableResult) {
+      toast.error('Run cable sizing first');
+      return;
+    }
+
+    if (!cableProjectId) {
+      toast.error('Add a project ID to save a compliance record');
+      return;
+    }
+
+    const payload = {
+      ...cableForm,
+      computed_area_mm2: cableResult.calculations?.required_area_mm2,
+      recommended_standard_mm2: cableResult.calculations?.recommended_standard_mm2,
+      estimated_voltage_drop_v: cableResult.calculations?.predicted_voltage_drop_v,
+      estimated_voltage_drop_pct: cableResult.calculations?.predicted_voltage_drop_pct,
+      is_compliant: cableResult.calculations?.compliant,
+      snapshot: cableResult,
+    };
+
+    if (!navigator.onLine) {
+      let queued = [];
+      try {
+        queued = JSON.parse(localStorage.getItem(CABLE_QUEUE_KEY) || '[]');
+      } catch {
+        queued = [];
+      }
+      queued.push({ projectId: cableProjectId, payload, queuedAt: new Date().toISOString() });
+      localStorage.setItem(CABLE_QUEUE_KEY, JSON.stringify(queued));
+      toast.success('Saved offline. It will auto-sync when internet is back.');
+      return;
+    }
+
+    try {
+      await engineeringAPI.saveCableCompliance(cableProjectId, payload);
+      toast.success('Cable compliance record saved');
+    } catch {
+      toast.error('Failed to save compliance record');
+    }
+  }
+
   const tabs = [
     { id: 'panel',   label: '☀️ Panel Value',        desc: 'Silver + Second-Life' },
     { id: 'battery', label: '🔋 Battery Value',       desc: 'Recycling + Second-Life' },
     { id: 'degrade', label: '📅 Decommission Date',   desc: 'West African Climate' },
+    { id: 'roi',     label: '💼 Hybrid ROI',          desc: 'Proposal Payback Engine' },
+    { id: 'soh',     label: '🧪 Battery SoH',         desc: 'Warranty Ledger Heuristic' },
+    { id: 'cable',   label: '🧰 DC Cable Sizing',     desc: 'Voltage Drop Compliance' },
   ];
 
   return (
@@ -252,6 +423,252 @@ export default function Calculator() {
               ) : (
                 <div className="card flex items-center justify-center h-64 text-slate-300">
                   <p className="text-sm">Fill in the form and click Calculate</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ── ROI / PROPOSAL ENGINE ───────────────────────────────────────── */}
+        {activeTab === 'roi' && (
+          <div className="grid md:grid-cols-2 gap-6">
+            <div className="card space-y-4">
+              <h2 className="font-semibold text-forest-900">Hybrid ROI Proposal Inputs</h2>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="label">NERC Tariff Band</label>
+                  <select className="input" value={roiForm.tariff_band} onChange={(e) => setRoiForm((f) => ({ ...f, tariff_band: e.target.value }))}>
+                    {['A', 'B', 'C', 'D', 'E'].map((b) => <option key={b} value={b}>Band {b}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="label">Tariff (N/kWh)</label>
+                  <input type="number" className="input" value={roiForm.tariff_rate_ngn_per_kwh} onChange={(e) => setRoiForm((f) => ({ ...f, tariff_rate_ngn_per_kwh: Number(e.target.value) }))} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="label">Generator Fuel Price (N/L)</label>
+                  <input type="number" className="input" value={roiForm.generator_fuel_price_ngn_per_liter} onChange={(e) => setRoiForm((f) => ({ ...f, generator_fuel_price_ngn_per_liter: Number(e.target.value) }))} />
+                </div>
+                <div>
+                  <label className="label">Solar CAPEX (N)</label>
+                  <input type="number" className="input" value={roiForm.proposed_solar_capex_ngn} onChange={(e) => setRoiForm((f) => ({ ...f, proposed_solar_capex_ngn: Number(e.target.value) }))} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="label">Grid Offset (kWh/day)</label>
+                  <input type="number" className="input" value={roiForm.projected_grid_kwh_offset_per_day} onChange={(e) => setRoiForm((f) => ({ ...f, projected_grid_kwh_offset_per_day: Number(e.target.value) }))} />
+                </div>
+                <div>
+                  <label className="label">Generator Offset (L/day)</label>
+                  <input type="number" className="input" value={roiForm.projected_generator_liters_offset_per_day} onChange={(e) => setRoiForm((f) => ({ ...f, projected_generator_liters_offset_per_day: Number(e.target.value) }))} />
+                </div>
+              </div>
+              <div>
+                <label className="label">Annual O&M Cost (N)</label>
+                <input type="number" className="input" value={roiForm.annual_om_cost_ngn} onChange={(e) => setRoiForm((f) => ({ ...f, annual_om_cost_ngn: Number(e.target.value) }))} />
+              </div>
+              <button onClick={runROI} disabled={loading} className="btn-primary w-full">
+                {loading ? 'Calculating...' : 'Calculate ROI →'}
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {roiResult ? (
+                <>
+                  <div className="card">
+                    <p className="text-xs font-semibold text-slate-400 mb-2">PAYBACK</p>
+                    <p className="font-display text-4xl font-bold text-forest-900">{roiResult.investment_metrics?.payback_months || '-'} months</p>
+                    <p className="text-sm text-slate-500 mt-1">~{roiResult.investment_metrics?.payback_years || '-'} years</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="card">
+                      <p className="text-xs text-slate-500">Annual Net Savings</p>
+                      <p className="text-xl font-bold text-emerald-700">N{fmt(roiResult.annual_savings?.net_ngn)}</p>
+                    </div>
+                    <div className="card">
+                      <p className="text-xs text-slate-500">10-Year Net Savings</p>
+                      <p className="text-xl font-bold text-forest-900">N{fmt(roiResult.investment_metrics?.ten_year_net_savings_ngn)}</p>
+                    </div>
+                  </div>
+                  <div className="card">
+                    <p className="text-xs text-slate-500">10-Year ROI</p>
+                    <p className="text-2xl font-bold text-forest-900">{roiResult.investment_metrics?.ten_year_roi_pct}%</p>
+                  </div>
+                  <button type="button" onClick={exportRoiPdf} className="btn-outline w-full">
+                    Export Proposal PDF
+                  </button>
+                </>
+              ) : (
+                <div className="card flex items-center justify-center h-64 text-slate-300">
+                  <p className="text-sm">Run ROI to generate proposal economics</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ── BATTERY SOH LEDGER HEURISTIC ─────────────────────────────────── */}
+        {activeTab === 'soh' && (
+          <div className="grid md:grid-cols-2 gap-6">
+            <div className="card space-y-4">
+              <h2 className="font-semibold text-forest-900">Battery SoH Inputs</h2>
+              <div>
+                <label className="label">Chemistry</label>
+                <select className="input" value={sohForm.chemistry} onChange={(e) => setSohForm((f) => ({ ...f, chemistry: e.target.value }))}>
+                  <option value="lithium-iron-phosphate">Lithium Iron Phosphate</option>
+                  <option value="lithium">Lithium</option>
+                  <option value="lead-acid">Lead Acid</option>
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="label">Installed Date</label>
+                  <input type="date" className="input" value={sohForm.installation_date} onChange={(e) => setSohForm((f) => ({ ...f, installation_date: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="label">Rated Capacity (kWh)</label>
+                  <input type="number" className="input" value={sohForm.rated_capacity_kwh} onChange={(e) => setSohForm((f) => ({ ...f, rated_capacity_kwh: Number(e.target.value) }))} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="label">Measured Capacity (kWh)</label>
+                  <input type="number" className="input" value={sohForm.measured_capacity_kwh} onChange={(e) => setSohForm((f) => ({ ...f, measured_capacity_kwh: Number(e.target.value) }))} />
+                </div>
+                <div>
+                  <label className="label">Average DoD (%)</label>
+                  <input type="number" className="input" value={sohForm.avg_depth_of_discharge_pct} onChange={(e) => setSohForm((f) => ({ ...f, avg_depth_of_discharge_pct: Number(e.target.value) }))} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="label">Cycles per Day</label>
+                  <input type="number" className="input" value={sohForm.estimated_cycles_per_day} onChange={(e) => setSohForm((f) => ({ ...f, estimated_cycles_per_day: Number(e.target.value) }))} />
+                </div>
+                <div>
+                  <label className="label">Ambient Temp (°C)</label>
+                  <input type="number" className="input" value={sohForm.ambient_temperature_c} onChange={(e) => setSohForm((f) => ({ ...f, ambient_temperature_c: Number(e.target.value) }))} />
+                </div>
+              </div>
+              <button onClick={runSoh} disabled={loading} className="btn-primary w-full">
+                {loading ? 'Calculating...' : 'Estimate SoH →'}
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {sohResult ? (
+                <>
+                  <div className="card">
+                    <p className="text-xs text-slate-500">Estimated SoH</p>
+                    <p className="font-display text-4xl font-bold text-forest-900">{sohResult.soh?.estimated_soh_pct}%</p>
+                    <p className="text-sm text-slate-500 mt-1">Usable capacity: {sohResult.soh?.estimated_usable_capacity_kwh} kWh</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="card">
+                      <p className="text-xs text-slate-500">Total Cycles</p>
+                      <p className="text-xl font-bold text-forest-900">{fmt(sohResult.cycle_model?.total_cycles)}</p>
+                    </div>
+                    <div className="card">
+                      <p className="text-xs text-slate-500">Cumulative Damage</p>
+                      <p className="text-xl font-bold text-amber-600">{sohResult.cycle_model?.cumulative_damage_pct}%</p>
+                    </div>
+                  </div>
+                  <div className="card">
+                    <p className="text-xs text-slate-500">Warranty Risk Flag</p>
+                    <p className="text-sm font-semibold text-forest-900 mt-1">{sohResult.warranty_assessment?.risk_flag?.replace(/_/g, ' ')}</p>
+                  </div>
+                </>
+              ) : (
+                <div className="card flex items-center justify-center h-64 text-slate-300">
+                  <p className="text-sm">Run SoH estimate to create warranty evidence</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ── DC CABLE SIZING / COMPLIANCE ─────────────────────────────────── */}
+        {activeTab === 'cable' && (
+          <div className="grid md:grid-cols-2 gap-6">
+            <div className="card space-y-4">
+              <h2 className="font-semibold text-forest-900">DC Cable Sizing Inputs</h2>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="label">Current (A)</label>
+                  <input type="number" className="input" value={cableForm.current_amps} onChange={(e) => setCableForm((f) => ({ ...f, current_amps: Number(e.target.value) }))} />
+                </div>
+                <div>
+                  <label className="label">One-way Length (m)</label>
+                  <input type="number" className="input" value={cableForm.one_way_length_m} onChange={(e) => setCableForm((f) => ({ ...f, one_way_length_m: Number(e.target.value) }))} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="label">System Voltage (V)</label>
+                  <input type="number" className="input" value={cableForm.system_voltage_v} onChange={(e) => setCableForm((f) => ({ ...f, system_voltage_v: Number(e.target.value) }))} />
+                </div>
+                <div>
+                  <label className="label">Allowable Drop (%)</label>
+                  <input type="number" className="input" value={cableForm.allowable_voltage_drop_pct} onChange={(e) => setCableForm((f) => ({ ...f, allowable_voltage_drop_pct: Number(e.target.value) }))} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="label">Conductor</label>
+                  <select className="input" value={cableForm.conductor_material} onChange={(e) => setCableForm((f) => ({ ...f, conductor_material: e.target.value }))}>
+                    <option value="copper">Copper</option>
+                    <option value="aluminum">Aluminum</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="label">Ambient Temp (°C)</label>
+                  <input type="number" className="input" value={cableForm.ambient_temperature_c} onChange={(e) => setCableForm((f) => ({ ...f, ambient_temperature_c: Number(e.target.value) }))} />
+                </div>
+              </div>
+              <div>
+                <label className="label">Project ID (for sync/save)</label>
+                <input type="text" className="input" placeholder="Paste project UUID" value={cableProjectId} onChange={(e) => setCableProjectId(e.target.value)} />
+                <p className="text-xs text-slate-400 mt-1">If offline, records are queued in local storage and auto-synced when online.</p>
+              </div>
+              <button onClick={runCable} disabled={loading} className="btn-primary w-full">
+                {loading ? 'Calculating...' : 'Calculate Cable Size →'}
+              </button>
+              <div className="grid grid-cols-2 gap-2">
+                <button type="button" onClick={exportCablePdf} className="btn-outline">Export Certificate PDF</button>
+                <button type="button" onClick={saveCableComplianceRecord} className="btn-outline">Save/Queue Record</button>
+              </div>
+              {syncingQueue && <p className="text-xs text-emerald-600">Syncing offline queue...</p>}
+            </div>
+
+            <div className="space-y-4">
+              {cableResult ? (
+                <>
+                  <div className="card">
+                    <p className="text-xs text-slate-500">Recommended Cable Area</p>
+                    <p className="font-display text-4xl font-bold text-forest-900">{cableResult.calculations?.recommended_standard_mm2} mm²</p>
+                    <p className="text-xs text-slate-400 mt-1">Required minimum: {cableResult.calculations?.required_area_mm2} mm²</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="card">
+                      <p className="text-xs text-slate-500">Predicted Drop</p>
+                      <p className="text-xl font-bold text-forest-900">{cableResult.calculations?.predicted_voltage_drop_v} V</p>
+                    </div>
+                    <div className="card">
+                      <p className="text-xs text-slate-500">Drop Percentage</p>
+                      <p className="text-xl font-bold text-forest-900">{cableResult.calculations?.predicted_voltage_drop_pct}%</p>
+                    </div>
+                  </div>
+                  <div className={`rounded-xl p-4 border ${cableResult.calculations?.compliant ? 'bg-emerald-50 border-emerald-200' : 'bg-red-50 border-red-200'}`}>
+                    <p className="text-sm font-semibold">{cableResult.calculations?.compliant ? 'Compliance PASS' : 'Compliance FAIL'}</p>
+                    <p className="text-xs text-slate-600 mt-1">Use this result for on-site QA and compliance certificate records.</p>
+                  </div>
+                </>
+              ) : (
+                <div className="card flex items-center justify-center h-64 text-slate-300">
+                  <p className="text-sm">Run cable sizing for compliance-ready output</p>
                 </div>
               )}
             </div>
@@ -473,8 +890,8 @@ export default function Calculator() {
         {/* CTA */}
         <div className="mt-8 bg-gradient-to-r from-forest-900 to-emerald-800 rounded-2xl p-6 text-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
-            <p className="font-semibold">Track your full fleet automatically</p>
-            <p className="text-sm text-white/70 mt-0.5">Log all your projects and get these calculations updated in real time as silver prices change.</p>
+            <p className="font-semibold">From calculator to operations-grade engineering workflow</p>
+            <p className="text-sm text-white/70 mt-0.5">Generate ROI proposals, monitor battery health, and produce cable compliance evidence for every project in your fleet.</p>
           </div>
           <Link href="/projects/add" className="btn-amber flex-shrink-0">Add a Project →</Link>
         </div>

@@ -12,6 +12,7 @@ export default function PaymentVerify() {
   const { refreshProfile } = useAuth();
   const [status, setStatus] = useState('verifying');
   const [plan, setPlan] = useState('');
+  const [billingInterval, setBillingInterval] = useState('monthly');
 
   useEffect(() => {
     const { reference, trxref } = router.query;
@@ -21,6 +22,7 @@ export default function PaymentVerify() {
     paymentsAPI.verify(ref)
       .then(async r => {
         setPlan(r.data.data?.plan || '');
+        setBillingInterval(r.data.data?.billing_interval || 'monthly');
         await refreshProfile();
         setStatus('success');
         setTimeout(() => router.push('/dashboard'), 3000);
@@ -40,6 +42,7 @@ export default function PaymentVerify() {
               <RiCheckboxCircleLine className="text-6xl text-emerald-500 mx-auto mb-4" />
               <h1 className="font-display font-bold text-2xl text-forest-900 mb-2">Payment Successful!</h1>
               <p className="text-slate-500 mb-2">Your <strong className="text-forest-900">{plan?.toUpperCase()}</strong> plan is now active.</p>
+              <p className="text-xs text-slate-400 mb-2">Billing cycle: {billingInterval === 'annual' ? 'Annual' : 'Monthly'} (auto-renew managed by Paystack)</p>
               <p className="text-sm text-slate-400 mb-6">Redirecting to your dashboard in 3 seconds...</p>
               <Link href="/dashboard" className="btn-primary">Go to Dashboard →</Link>
             </>

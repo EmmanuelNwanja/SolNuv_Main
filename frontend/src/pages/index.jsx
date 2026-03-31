@@ -329,9 +329,11 @@ export default function Home() {
               {[
                 { icon: RiMapPinLine, color: 'bg-forest-900', title: 'West African Degradation Predictor', desc: 'Algorithm trained on all 36 Nigerian states. Lagos coastal humidity, Kano desert heat, and inverter surge damage — all factored in.' },
                 { icon: RiLeafLine, color: 'bg-emerald-500', title: 'Silver Recovery Calculator', desc: 'Translate your panel fleet into grams of recoverable silver and real naira returns. See what the informal sector is stealing from you.' },
+                { icon: RiBarChartLine, color: 'bg-forest-900', title: 'Hybrid ROI Proposal Engine', desc: 'Model savings across NERC tariff bands and generator fuel spend. Generate localized payback numbers installers can close deals with.' },
                 { icon: RiShieldCheckLine, color: 'bg-amber-500', title: 'NESREA EPR Compliance', desc: 'Auto-generate Cradle-to-Grave certificates and EPR reports under the 2024 Battery Control Regulations. One click. PDF ready.' },
                 { icon: RiTrophyLine, color: 'bg-forest-900', title: 'Live Leaderboard', desc: 'Compete with other installers. Rank by active projects, recycled equipment, and overall environmental impact.' },
-                { icon: RiFileTextLine, color: 'bg-emerald-500', title: 'QR Code Per Project', desc: 'Every project gets a unique QR code. NESREA inspectors, clients, and recyclers can verify equipment origin on-site.' },
+                { icon: RiFileTextLine, color: 'bg-emerald-500', title: 'Battery SoH Warranty Ledger', desc: 'Track battery health heuristics, detect deep-cycle abuse, and keep defendable logs for warranty and maintenance disputes.' },
+                { icon: RiCalculatorLine, color: 'bg-amber-500', title: 'Offline-Ready Cable Compliance', desc: 'Calculate DC cable sizing and voltage drop with African temperature assumptions, then store compliance evidence per project.' },
                 { icon: RiFlashlightLine, color: 'bg-amber-500', title: 'Team Management', desc: 'Invite your team as Admins or Managers. Assign roles, track projects per member, and manage your org from one dashboard.' },
               ].map((f, i) => (
                 <div key={i} className="card-hover">
@@ -351,14 +353,14 @@ export default function Home() {
           <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-14">
               <h2 className="section-title mb-4">Simple, Naira-First Pricing</h2>
-              <p className="text-slate-500">No foreign exchange surprises. All prices in ₦. Cancel anytime.</p>
+              <p className="text-slate-500">No foreign exchange surprises. All prices in Naira. Annual billing on all paid plans saves 10%.</p>
             </div>
             <div className="grid md:grid-cols-4 gap-6 items-start">
               {[
-                { name: 'Free', price: '₦0', period: '/mo', cta: 'Get Started', href: '/register', features: ['Unlimited project logging', 'West African decommission predictions', 'Silver value calculator', 'Email decommission alerts', '1 user / 1 device'] },
-                { name: 'Pro', price: '₦10,000', period: '/mo', cta: 'Start Pro', href: '/register?plan=pro', popular: true, features: ['Everything in Free', 'NESREA EPR PDF Reports', 'Cradle-to-Grave Certificates', 'Excel export', 'QR code per project', 'Recovery requests', 'Team access (2 users)', 'Standard support'] },
-                { name: 'Elite', price: '₦25,000', period: '/mo', cta: 'Go Elite', href: '/register?plan=elite', features: ['Everything in Pro', 'Auto-send to NESREA', 'Team access (5 users)', 'Priority support', 'Featured on leaderboard'] },
-                { name: 'Enterprise', price: 'Custom', period: '', cta: 'Contact Us', href: 'mailto:sales@solnuv.com', features: ['Everything in Elite', 'Custom integrations', 'Team access (15+ users)', 'Dedicated account manager', 'Custom reporting', 'Top priority support'] },
+                { name: 'Free', price: 'N0', period: '/mo', cta: 'Get Started', href: '/register', features: ['Unlimited project logging', 'West African decommission predictions', 'Silver value calculator', 'Email decommission alerts', '1 user / 1 device'] },
+                { name: 'Pro', price: 'N15,000', period: '/mo', cta: 'Start Pro', href: '/register?plan=pro', popular: true, features: ['Everything in Free', 'NESREA EPR PDF Reports', 'Cradle-to-Grave Certificates', 'Excel export', 'QR code per project', 'Recovery requests', 'Team access (5 users)', 'Standard support', 'N162,000 yearly (save 10%)'] },
+                { name: 'Elite', price: 'N35,000', period: '/mo', cta: 'Go Elite', href: '/register?plan=elite', features: ['Everything in Pro', 'Auto-send to NESREA', 'Team access (15 users)', 'Priority support', 'Featured on leaderboard', 'N378,000 yearly (save 10%)'] },
+                { name: 'Enterprise', price: 'N90,000', period: '/mo', cta: 'Contact Us', href: 'mailto:sales@solnuv.com', features: ['Everything in Elite', 'Custom integrations', 'Team access (50 users)', 'Dedicated account manager', 'Custom reporting', 'Quarterly compliance advisory', 'N972,000 yearly (save 10%)'] },
               ].map((plan, i) => (
                 <div key={i} className={`rounded-2xl overflow-hidden ${plan.popular ? 'ring-2 ring-forest-900 shadow-xl' : 'border border-slate-200'}`}>
                   {plan.popular && <div className="bg-forest-900 text-center py-1.5 text-xs font-bold text-amber-400">MOST POPULAR</div>}

@@ -55,6 +55,8 @@ export const projectsAPI = {
   requestRecovery: (id, data) => api.post(`/projects/${id}/recovery`, data),
   exportCSV: () => api.get('/projects/export/csv', { responseType: 'blob' }),
   verify: (qrCode) => api.get(`/projects/verify/${qrCode}`),
+  getBatteryLedgerByQr: (qrCode) => api.get(`/projects/battery-ledger/${qrCode}`),
+  addBatteryLogByQr: (qrCode, data) => api.post(`/projects/battery-ledger/${qrCode}/log`, data),
 };
 
 // ==============================
@@ -85,9 +87,23 @@ export const calculatorAPI = {
   silver: (data) => api.post('/calculator/silver', data),     // legacy compat
   battery: (data) => api.post('/calculator/battery', data),   // full: recycling + second-life
   degradation: (data) => api.post('/calculator/degradation', data),
+  roi: (data) => api.post('/calculator/roi', data),
+  batterySoh: (data) => api.post('/calculator/battery-soh', data),
+  cableSize: (data) => api.post('/calculator/cable-size', data),
+  exportRoiPdf: (data) => api.post('/calculator/roi/pdf', data, { responseType: 'blob' }),
+  exportCableCertificatePdf: (data) => api.post('/calculator/cable-size/pdf', data, { responseType: 'blob' }),
   getSilverPrice: () => api.get('/calculator/silver-price'),
   getBrands: () => api.get('/calculator/brands'),
   getStates: () => api.get('/calculator/states'),
+};
+
+export const engineeringAPI = {
+  saveProposalScenario: (projectId, data) => api.post(`/projects/${projectId}/proposal-scenario`, data),
+  listBatteryAssets: (projectId) => api.get(`/projects/${projectId}/battery-assets`),
+  createBatteryAsset: (projectId, data) => api.post(`/projects/${projectId}/battery-assets`, data),
+  addBatteryHealthLog: (projectId, assetId, data) => api.post(`/projects/${projectId}/battery-assets/${assetId}/logs`, data),
+  getBatteryHealthLogs: (projectId, assetId) => api.get(`/projects/${projectId}/battery-assets/${assetId}/logs`),
+  saveCableCompliance: (projectId, data) => api.post(`/projects/${projectId}/cable-compliance`, data),
 };
 
 // ==============================
@@ -97,6 +113,27 @@ export const paymentsAPI = {
   getPlans: () => api.get('/payments/plans'),
   initialize: (data) => api.post('/payments/initialize', data),
   verify: (reference) => api.get(`/payments/verify/${reference}`),
+  validatePromo: (data) => api.post('/payments/promo/validate', data),
+  history: () => api.get('/payments/history'),
+};
+
+// ==============================
+// ADMIN
+// ==============================
+export const adminAPI = {
+  getOverview: () => api.get('/admin/overview'),
+  listUsers: (params) => api.get('/admin/users', { params }),
+  updateUserVerification: (data) => api.patch('/admin/users/verification', data),
+  listPaystackPlans: () => api.get('/admin/paystack-plans'),
+  upsertPaystackPlan: (data) => api.post('/admin/paystack-plans', data),
+  listPromoCodes: () => api.get('/admin/promo-codes'),
+  createPromoCode: (data) => api.post('/admin/promo-codes', data),
+  togglePromoCode: (id, active) => api.patch(`/admin/promo-codes/${id}/toggle`, { active }),
+  getFinance: () => api.get('/admin/finance'),
+  sendPushNotification: (data) => api.post('/admin/push-notifications', data),
+  getActivityLogs: () => api.get('/admin/activity-logs'),
+  listAdmins: () => api.get('/admin/admins'),
+  upsertAdmin: (data) => api.post('/admin/admins', data),
 };
 
 // ==============================

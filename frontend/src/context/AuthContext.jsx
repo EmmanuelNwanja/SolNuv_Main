@@ -80,11 +80,14 @@ export function AuthProvider({ children }) {
   const isPro = ['pro', 'elite', 'enterprise'].includes(plan);
   const isElite = ['elite', 'enterprise'].includes(plan);
   const company = profile?.companies;
+  const isPlatformAdmin = profile?.is_platform_admin === true;
+  const platformAdminRole = profile?.platform_admin_role || null;
 
   return (
     <AuthContext.Provider value={{
       user, profile, session, loading,
       isOnboarded, plan, isPro, isElite, company,
+      isPlatformAdmin, platformAdminRole,
       signInWithGoogle, signInWithEmail, signUpWithEmail,
       signOut, refreshProfile,
     }}>

@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import {
   RiDashboardLine, RiSunLine, RiBarChartLine, RiFileTextLine,
   RiTrophyLine, RiCalculatorLine, RiSettingsLine, RiLogoutBoxLine,
-  RiMenuLine, RiCloseLine, RiBellLine, RiArrowUpLine, RiLeafLine
+  RiMenuLine, RiCloseLine, RiBellLine, RiArrowUpLine, RiLeafLine, RiAdminLine
 } from 'react-icons/ri';
 import toast from 'react-hot-toast';
 
@@ -20,7 +20,7 @@ const navItems = [
 ];
 
 export default function Layout({ children }) {
-  const { profile, plan, isPro, company, signOut } = useAuth();
+  const { profile, plan, isPro, company, signOut, isPlatformAdmin } = useAuth();
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -55,7 +55,7 @@ export default function Layout({ children }) {
 
         {/* Nav */}
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-          {navItems.map(({ href, icon: Icon, label, pro }) => {
+          {[...navItems, ...(isPlatformAdmin ? [{ href: '/admin', icon: RiAdminLine, label: 'Admin' }] : [])].map(({ href, icon: Icon, label, pro }) => {
             const active = router.pathname === href || router.pathname.startsWith(href + '/');
             const locked = pro && !isPro;
             return (

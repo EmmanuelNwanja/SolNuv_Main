@@ -164,7 +164,15 @@ export default function Settings() {
             <div className="flex items-center justify-between pt-2 p-4 bg-slate-50 rounded-xl">
               <div>
                 <p className="text-sm font-medium text-slate-700">Current Plan</p>
-                <p className="text-xs text-slate-500">{company.subscription_plan?.toUpperCase()} — {company.max_team_members} team member{company.max_team_members !== 1 ? 's' : ''}</p>
+                <p className="text-xs text-slate-500">
+                  {company.subscription_plan?.toUpperCase()} ({company.subscription_interval || 'monthly'})
+                  {' '}• {company.max_team_members} team member{company.max_team_members !== 1 ? 's' : ''}
+                </p>
+                {company.subscription_expires_at && (
+                  <p className="text-xs text-slate-400 mt-1">
+                    Renews on {new Date(company.subscription_expires_at).toLocaleDateString('en-NG')} ({company.subscription_auto_renew === false ? 'auto-renew off' : 'auto-renew on'})
+                  </p>
+                )}
               </div>
               <a href="/plans" className="btn-amber text-sm px-4 py-2 rounded-xl">Upgrade</a>
             </div>

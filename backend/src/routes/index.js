@@ -8,6 +8,7 @@ router.use('/dashboard', require('./dashboardRoutes'));
 router.use('/reports', require('./reportRoutes'));
 router.use('/calculator', require('./calculatorRoutes'));
 router.use('/payments', require('./paymentRoutes'));
+router.use('/admin', require('./adminRoutes'));
 
 router.get('/health', (req, res) => res.json({
   status: 'ok',

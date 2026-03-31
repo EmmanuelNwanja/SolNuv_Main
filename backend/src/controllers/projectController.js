@@ -407,3 +407,415 @@ exports.exportCSV = async (req, res) => {
     return sendError(res, 'Failed to export CSV', 500);
   }
 };
+
+/**
+ * POST /api/projects/:id/proposal-scenario
+ * Save localized ROI proposal snapshot for traceability and follow-up
+ */
+exports.saveProposalScenario = async (req, res) => {
+  try {
+    const { id: projectId } = req.params;
+    const payload = req.body || {};
+
+    const { data: project } = await supabase
+      .from('projects')
+      .select('id, user_id, company_id')
+      .eq('id', projectId)
+      .single();
+
+    if (!project) return sendError(res, 'Project not found', 404);
+
+    if (req.user.company_id) {
+      if (project.company_id !== req.user.company_id) return sendError(res, 'Forbidden', 403);
+    } else if (project.user_id !== req.user.id) {
+      return sendError(res, 'Forbidden', 403);
+    }
+
+    const insertPayload = {
+      user_id: req.user.id,
+      company_id: req.user.company_id || null,
+      project_id: projectId,
+      client_name: payload.client_name || null,
+      tariff_band: payload.tariff_band || 'A',
+      tariff_rate_ngn_per_kwh: payload.tariff_rate_ngn_per_kwh || 225,
+      generator_fuel_price_ngn_per_liter: payload.generator_fuel_price_ngn_per_liter || 1000,
+      current_grid_kwh_per_day: payload.current_grid_kwh_per_day || 0,
+      current_generator_liters_per_day: payload.current_generator_liters_per_day || 0,
+      proposed_solar_capex_ngn: payload.proposed_solar_capex_ngn || 0,
+      annual_om_cost_ngn: payload.annual_om_cost_ngn || 0,
+      projected_grid_kwh_offset_per_day: payload.projected_grid_kwh_offset_per_day || 0,
+      projected_generator_liters_offset_per_day: payload.projected_generator_liters_offset_per_day || 0,
+      payback_months: payload.payback_months || null,
+      annual_savings_ngn: payload.annual_savings_ngn || null,
+      ten_year_savings_ngn: payload.ten_year_savings_ngn || null,
+      snapshot: payload.snapshot || null,
+    };
+
+    const { data, error } = await supabase
+      .from('proposal_scenarios')
+      .insert(insertPayload)
+      .select('*')
+      .single();
+
+    if (error) throw error;
+    return sendSuccess(res, data, 'Proposal scenario saved', 201);
+  } catch (error) {
+    return sendError(res, 'Failed to save proposal scenario', 500);
+  }
+};
+
+/**
+ * POST /api/projects/:id/battery-assets
+ */
+exports.createBatteryAsset = async (req, res) => {
+  try {
+    const { id: projectId } = req.params;
+    const {
+      brand,
+      chemistry,
+      capacity_kwh,
+      quantity = 1,
+      installation_date,
+      warranty_years = 5,
+    } = req.body;
+
+    if (!brand || !chemistry || !capacity_kwh || !installation_date) {
+      return sendError(res, 'brand, chemistry, capacity_kwh, and installation_date are required', 400);
+    }
+
+    const { data: project } = await supabase
+      .from('projects')
+      .select('id, user_id, company_id')
+      .eq('id', projectId)
+      .single();
+
+    if (!project) return sendError(res, 'Project not found', 404);
+    if (req.user.company_id) {
+      if (project.company_id !== req.user.company_id) return sendError(res, 'Forbidden', 403);
+    } else if (project.user_id !== req.user.id) {
+      return sendError(res, 'Forbidden', 403);
+    }
+
+    const { data, error } = await supabase
+      .from('battery_assets')
+      .insert({
+        project_id: projectId,
+        user_id: req.user.id,
+        company_id: req.user.company_id || null,
+        brand,
+        chemistry,
+        capacity_kwh,
+        quantity,
+        installation_date,
+        warranty_years,
+      })
+      .select('*')
+      .single();
+
+    if (error) throw error;
+
+    const frontendBase = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const qrLink = `${frontendBase}/field/battery/${data.qr_code_data}`;
+    const qrImageDataUrl = await QRCode.toDataURL(qrLink, {
+      color: { dark: '#0D3B2E', light: '#FFFFFF' },
+      width: 320,
+    });
+
+    return sendSuccess(res, {
+      ...data,
+      qr_link: qrLink,
+      qr_image_data_url: qrImageDataUrl,
+    }, 'Battery asset created', 201);
+  } catch (error) {
+    return sendError(res, 'Failed to create battery asset', 500);
+  }
+};
+
+/**
+ * GET /api/projects/:id/battery-assets
+ */
+exports.getBatteryAssets = async (req, res) => {
+  try {
+    const { id: projectId } = req.params;
+
+    const { data: project } = await supabase
+      .from('projects')
+      .select('id, user_id, company_id')
+      .eq('id', projectId)
+      .single();
+
+    if (!project) return sendError(res, 'Project not found', 404);
+    if (req.user.company_id) {
+      if (project.company_id !== req.user.company_id) return sendError(res, 'Forbidden', 403);
+    } else if (project.user_id !== req.user.id) {
+      return sendError(res, 'Forbidden', 403);
+    }
+
+    const { data: assets, error } = await supabase
+      .from('battery_assets')
+      .select('*')
+      .eq('project_id', projectId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    const frontendBase = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const enrichedAssets = await Promise.all((assets || []).map(async (asset) => {
+      const qrLink = `${frontendBase}/field/battery/${asset.qr_code_data}`;
+      const qrImageDataUrl = await QRCode.toDataURL(qrLink, {
+        color: { dark: '#0D3B2E', light: '#FFFFFF' },
+        width: 280,
+      });
+
+      return {
+        ...asset,
+        qr_link: qrLink,
+        qr_image_data_url: qrImageDataUrl,
+      };
+    }));
+
+    return sendSuccess(res, enrichedAssets);
+  } catch (error) {
+    return sendError(res, 'Failed to fetch battery assets', 500);
+  }
+};
+
+/**
+ * POST /api/projects/:id/battery-assets/:assetId/logs
+ */
+exports.addBatteryHealthLog = async (req, res) => {
+  try {
+    const { id: projectId, assetId } = req.params;
+    const {
+      log_date,
+      measured_voltage,
+      measured_capacity_kwh,
+      avg_depth_of_discharge_pct,
+      estimated_cycles_per_day,
+      ambient_temperature_c,
+      estimated_soh_pct,
+      cumulative_damage_pct,
+      notes,
+    } = req.body;
+
+    if (!log_date) return sendError(res, 'log_date is required', 400);
+
+    const { data: asset } = await supabase
+      .from('battery_assets')
+      .select('id, project_id, company_id, user_id')
+      .eq('id', assetId)
+      .eq('project_id', projectId)
+      .single();
+
+    if (!asset) return sendError(res, 'Battery asset not found', 404);
+    if (req.user.company_id) {
+      if (asset.company_id !== req.user.company_id) return sendError(res, 'Forbidden', 403);
+    } else if (asset.user_id !== req.user.id) {
+      return sendError(res, 'Forbidden', 403);
+    }
+
+    const { data, error } = await supabase
+      .from('battery_health_logs')
+      .insert({
+        battery_asset_id: assetId,
+        logged_by: req.user.id,
+        log_date,
+        measured_voltage,
+        measured_capacity_kwh,
+        avg_depth_of_discharge_pct,
+        estimated_cycles_per_day,
+        ambient_temperature_c,
+        estimated_soh_pct,
+        cumulative_damage_pct,
+        notes,
+      })
+      .select('*')
+      .single();
+
+    if (error) throw error;
+    return sendSuccess(res, data, 'Battery health log saved', 201);
+  } catch (error) {
+    return sendError(res, 'Failed to save battery health log', 500);
+  }
+};
+
+/**
+ * GET /api/projects/:id/battery-assets/:assetId/logs
+ */
+exports.getBatteryHealthLogs = async (req, res) => {
+  try {
+    const { id: projectId, assetId } = req.params;
+
+    const { data: asset } = await supabase
+      .from('battery_assets')
+      .select('id, project_id, company_id, user_id')
+      .eq('id', assetId)
+      .eq('project_id', projectId)
+      .single();
+
+    if (!asset) return sendError(res, 'Battery asset not found', 404);
+    if (req.user.company_id) {
+      if (asset.company_id !== req.user.company_id) return sendError(res, 'Forbidden', 403);
+    } else if (asset.user_id !== req.user.id) {
+      return sendError(res, 'Forbidden', 403);
+    }
+
+    const { data, error } = await supabase
+      .from('battery_health_logs')
+      .select('*')
+      .eq('battery_asset_id', assetId)
+      .order('log_date', { ascending: false });
+
+    if (error) throw error;
+    return sendSuccess(res, data || []);
+  } catch (error) {
+    return sendError(res, 'Failed to fetch battery health logs', 500);
+  }
+};
+
+/**
+ * POST /api/projects/:id/cable-compliance
+ */
+exports.saveCableCompliance = async (req, res) => {
+  try {
+    const { id: projectId } = req.params;
+    const payload = req.body || {};
+
+    const { data: project } = await supabase
+      .from('projects')
+      .select('id, user_id, company_id')
+      .eq('id', projectId)
+      .single();
+
+    if (!project) return sendError(res, 'Project not found', 404);
+    if (req.user.company_id) {
+      if (project.company_id !== req.user.company_id) return sendError(res, 'Forbidden', 403);
+    } else if (project.user_id !== req.user.id) {
+      return sendError(res, 'Forbidden', 403);
+    }
+
+    const certRef = `CC-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+
+    const { data, error } = await supabase
+      .from('cable_compliance_records')
+      .insert({
+        project_id: projectId,
+        user_id: req.user.id,
+        company_id: req.user.company_id || null,
+        run_name: payload.run_name || 'Main DC Run',
+        current_amps: payload.current_amps,
+        one_way_length_m: payload.one_way_length_m,
+        system_voltage_v: payload.system_voltage_v,
+        allowable_voltage_drop_pct: payload.allowable_voltage_drop_pct || 3,
+        ambient_temperature_c: payload.ambient_temperature_c || 30,
+        conductor_material: payload.conductor_material || 'copper',
+        computed_area_mm2: payload.computed_area_mm2,
+        recommended_standard_mm2: payload.recommended_standard_mm2,
+        estimated_voltage_drop_v: payload.estimated_voltage_drop_v,
+        estimated_voltage_drop_pct: payload.estimated_voltage_drop_pct,
+        is_compliant: payload.is_compliant !== false,
+        compliance_certificate_ref: certRef,
+        snapshot: payload.snapshot || null,
+      })
+      .select('*')
+      .single();
+
+    if (error) throw error;
+    return sendSuccess(res, data, 'Cable compliance record saved', 201);
+  } catch (error) {
+    return sendError(res, 'Failed to save cable compliance record', 500);
+  }
+};
+
+/**
+ * GET /api/projects/battery-ledger/:qrCode
+ * Public QR-linked battery ledger view for field technicians
+ */
+exports.getBatteryLedgerByQr = async (req, res) => {
+  try {
+    const { qrCode } = req.params;
+
+    const { data: asset } = await supabase
+      .from('battery_assets')
+      .select('*, projects(id, name, state, city), users(first_name, last_name, email), companies(name)')
+      .eq('qr_code_data', qrCode)
+      .single();
+
+    if (!asset) return sendError(res, 'Battery asset not found', 404);
+
+    const { data: logs } = await supabase
+      .from('battery_health_logs')
+      .select('*')
+      .eq('battery_asset_id', asset.id)
+      .order('log_date', { ascending: false })
+      .limit(60);
+
+    const latest = (logs || [])[0] || null;
+
+    return sendSuccess(res, {
+      asset,
+      latest_log: latest,
+      logs: logs || [],
+      field_actions: {
+        can_submit_log: true,
+      },
+    });
+  } catch (error) {
+    return sendError(res, 'Failed to load battery ledger', 500);
+  }
+};
+
+/**
+ * POST /api/projects/battery-ledger/:qrCode/log
+ * Field-friendly battery health log capture from QR page
+ */
+exports.addBatteryHealthLogByQr = async (req, res) => {
+  try {
+    const { qrCode } = req.params;
+    const {
+      log_date,
+      measured_voltage,
+      measured_capacity_kwh,
+      avg_depth_of_discharge_pct,
+      estimated_cycles_per_day,
+      ambient_temperature_c,
+      estimated_soh_pct,
+      cumulative_damage_pct,
+      notes,
+      technician_name,
+    } = req.body;
+
+    if (!log_date) return sendError(res, 'log_date is required', 400);
+
+    const { data: asset } = await supabase
+      .from('battery_assets')
+      .select('id')
+      .eq('qr_code_data', qrCode)
+      .single();
+
+    if (!asset) return sendError(res, 'Battery asset not found', 404);
+
+    const { data, error } = await supabase
+      .from('battery_health_logs')
+      .insert({
+        battery_asset_id: asset.id,
+        logged_by: req.user?.id || null,
+        log_date,
+        measured_voltage,
+        measured_capacity_kwh,
+        avg_depth_of_discharge_pct,
+        estimated_cycles_per_day,
+        ambient_temperature_c,
+        estimated_soh_pct,
+        cumulative_damage_pct,
+        notes: technician_name ? `[${technician_name}] ${notes || ''}` : notes,
+      })
+      .select('*')
+      .single();
+
+    if (error) throw error;
+    return sendSuccess(res, data, 'Battery health log submitted', 201);
+  } catch (error) {
+    return sendError(res, 'Failed to submit battery log', 500);
+  }
+};

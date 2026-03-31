@@ -6,11 +6,13 @@ const { requireAuth, requireProfile } = require('../middlewares/authMiddleware')
 
 // Public
 router.get('/plans', paymentController.getPlans);
-router.post('/webhook', express.raw({ type: 'application/json' }), paymentController.handleWebhook);
+router.post('/webhook', paymentController.handleWebhook);
 
 // Authenticated
 router.use(requireAuth, requireProfile);
 router.post('/initialize', paymentController.initializePayment);
 router.get('/verify/:reference', paymentController.verifyPayment);
+router.post('/promo/validate', paymentController.validatePromo);
+router.get('/history', paymentController.getSubscriptionHistory);
 
 module.exports = router;

@@ -155,13 +155,14 @@ async function sendReportReadyEmail(user, company, reportUrl) {
   return sendEmail(user.email, '✅ Your NESREA EPR Compliance Report is Ready', content);
 }
 
-async function sendPaymentConfirmation(user, plan, amount) {
+async function sendPaymentConfirmation(user, plan, amount, billingInterval = 'monthly') {
+  const intervalLabel = billingInterval === 'annual' ? 'Annual Subscription' : 'Monthly Subscription';
   const content = `
     <h2>Payment Confirmed — Welcome to ${plan} ✅</h2>
     <p>Hi ${user.first_name}, your subscription has been activated successfully.</p>
     <div class="stat-box">
       <div class="number">₦${Number(amount).toLocaleString('en-NG')}</div>
-      <div class="label">${plan} Plan — Monthly Subscription</div>
+      <div class="label">${plan} Plan — ${intervalLabel}</div>
     </div>
     <p>Your new plan features are now active. Head to your dashboard to start generating NESREA compliance reports.</p>
     <p style="text-align:center">

@@ -12,6 +12,11 @@ export default function Plans() {
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(true);
   const [upgrading, setUpgrading] = useState(null);
+  const [billingInterval, setBillingInterval] = useState('monthly');
+  const [promoInput, setPromoInput] = useState('');
+  const [promoPlanForCheck, setPromoPlanForCheck] = useState('pro');
+  const [promoResult, setPromoResult] = useState(null);
+  const [checkingPromo, setCheckingPromo] = useState(false);
 
   useEffect(() => {
     paymentsAPI.getPlans()
@@ -20,13 +25,40 @@ export default function Plans() {
       .finally(() => setLoading(false));
   }, []);
 
+  async function applyPromo(planId) {
+    if (!promoInput.trim()) {
+      setPromoResult(null);
+      return;
+    }
+
+    setCheckingPromo(true);
+    try {
+      const { data } = await paymentsAPI.validatePromo({
+        promo_code: promoInput.trim().toUpperCase(),
+        plan: planId,
+        billing_interval: billingInterval,
+      });
+      setPromoResult({ ...data.data, plan_id: planId });
+      toast.success('Promo code applied');
+    } catch (err) {
+      setPromoResult(null);
+      toast.error(err.response?.data?.message || 'Promo code is not valid for this plan');
+    } finally {
+      setCheckingPromo(false);
+    }
+  }
+
   async function handleUpgrade(planId) {
     if (planId === 'free') return;
     if (planId === 'enterprise') { window.location.href = 'mailto:sales@solnuv.com'; return; }
     if (planId === currentPlan) { toast('You are already on this plan!'); return; }
     setUpgrading(planId);
     try {
-      const { data } = await paymentsAPI.initialize({ plan: planId });
+      const { data } = await paymentsAPI.initialize({
+        plan: planId,
+        billing_interval: billingInterval,
+        promo_code: promoResult?.plan_id === planId ? promoResult?.promo_code : null,
+      });
       if (data.data?.authorization_url) {
         window.location.href = data.data.authorization_url;
       }
@@ -41,8 +73,57 @@ export default function Plans() {
 
       <div className="page-header text-center">
         <h1 className="font-display font-bold text-3xl text-forest-900">Choose Your Plan</h1>
-        <p className="text-slate-500 mt-2">Upgrade to unlock NESREA compliance reports and team features</p>
-        <p className="text-xs text-slate-400 mt-1">All prices in Nigerian Naira (₦). Cancel anytime.</p>
+        <p className="text-slate-500 mt-2">Upgrade to unlock NESREA compliance reports, advanced analytics, and team workflows</p>
+        <p className="text-xs text-slate-400 mt-1">All prices in Nigerian Naira. Annual billing includes 10% discount on every paid plan.</p>
+
+        <div className="mt-6 inline-flex rounded-xl bg-slate-100 p-1">
+          <button
+            type="button"
+            onClick={() => setBillingInterval('monthly')}
+            className={`px-4 py-2 rounded-lg text-sm font-semibold ${billingInterval === 'monthly' ? 'bg-white text-forest-900 shadow-sm' : 'text-slate-500'}`}
+          >
+            Monthly Billing
+          </button>
+          <button
+            type="button"
+            onClick={() => setBillingInterval('annual')}
+            className={`px-4 py-2 rounded-lg text-sm font-semibold ${billingInterval === 'annual' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-500'}`}
+          >
+            Annual Billing (Save 10%)
+          </button>
+        </div>
+
+        <div className="max-w-md mx-auto mt-4 grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <select
+            value={promoPlanForCheck}
+            onChange={(e) => setPromoPlanForCheck(e.target.value)}
+            className="input sm:col-span-1"
+          >
+            <option value="pro">Pro</option>
+            <option value="elite">Elite</option>
+            <option value="enterprise">Enterprise</option>
+          </select>
+          <input
+            value={promoInput}
+            onChange={(e) => setPromoInput(e.target.value)}
+            placeholder="Promo code (optional)"
+            className="input sm:col-span-1"
+          />
+          <button
+            type="button"
+            onClick={() => applyPromo(promoPlanForCheck)}
+            disabled={checkingPromo}
+            className="btn-outline whitespace-nowrap sm:col-span-1"
+          >
+            {checkingPromo ? 'Checking...' : 'Apply'}
+          </button>
+        </div>
+
+        {promoResult && (
+          <p className="text-xs text-emerald-600 mt-2">
+            {promoResult.promo_code} applied: pay N{Number(promoResult.payable_amount_ngn || 0).toLocaleString('en-NG')} instead of N{Number(promoResult.original_amount_ngn || 0).toLocaleString('en-NG')}
+          </p>
+        )}
       </div>
 
       {loading ? (
@@ -60,9 +141,16 @@ export default function Plans() {
               <div className="p-6 flex flex-col flex-1">
                 <h3 className="font-display font-bold text-forest-900 text-xl mb-1">{plan.name}</h3>
                 <div className="flex items-end gap-1 mb-5">
-                  <span className="font-display font-bold text-3xl text-forest-900">{plan.price_display?.split('/')[0] || plan.price_display}</span>
-                  {plan.price_ngn !== null && <span className="text-slate-400 text-sm pb-1">/month</span>}
+                  <span className="font-display font-bold text-3xl text-forest-900">
+                    {billingInterval === 'annual'
+                      ? `N${Number(plan.annual_price_ngn || 0).toLocaleString('en-NG')}`
+                      : `N${Number(plan.monthly_price_ngn || 0).toLocaleString('en-NG')}`}
+                  </span>
+                  {plan.id !== 'free' && <span className="text-slate-400 text-sm pb-1">/{billingInterval === 'annual' ? 'year' : 'month'}</span>}
                 </div>
+                {billingInterval === 'annual' && plan.annual_savings_ngn > 0 && (
+                  <p className="text-xs text-emerald-600 -mt-3 mb-4">Save N{Number(plan.annual_savings_ngn).toLocaleString('en-NG')} annually</p>
+                )}
                 <ul className="space-y-2.5 mb-6 flex-1">
                   {plan.features?.map((f, i) => (
                     <li key={i} className="flex items-start gap-2 text-sm text-slate-600">
@@ -90,7 +178,7 @@ export default function Plans() {
       )}
 
       <div className="text-center mt-10 text-sm text-slate-400">
-        <p>Payments are processed securely by Paystack. Subscriptions renew monthly.</p>
+        <p>Payments are processed securely by Paystack. Monthly and annual subscriptions support auto-renewal.</p>
         <p className="mt-1">Questions? <a href="mailto:support@solnuv.com" className="text-forest-900 hover:underline">support@solnuv.com</a></p>
       </div>
     </>

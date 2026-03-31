@@ -20,6 +20,9 @@ exports.createOrUpdateProfile = async (req, res) => {
       user_type, business_type,
       brand_name, // for solo
       company_name, company_email, company_address, company_state, company_city,
+      nesrea_registration_number,
+      address,
+      city,
     } = req.body;
 
     if (!first_name) return sendError(res, 'First name is required', 400);
@@ -59,6 +62,19 @@ exports.createOrUpdateProfile = async (req, res) => {
 
         if (companyError) throw companyError;
         companyId = newCompany.id;
+      }
+
+      // Keep company profile details in sync from settings edits
+      if (companyId) {
+        await supabase
+          .from('companies')
+          .update({
+            address: company_address || address || undefined,
+            state: company_state || undefined,
+            city: company_city || city || undefined,
+            nesrea_registration_number: nesrea_registration_number || undefined,
+          })
+          .eq('id', companyId);
       }
     }
 
@@ -159,7 +175,20 @@ exports.getMe = async (req, res) => {
       .eq('user_id', user.id)
       .eq('is_read', false);
 
-    return sendSuccess(res, { ...user, unread_notifications: unreadCount || 0 });
+    const { data: adminMembership } = await supabase
+      .from('admin_users')
+      .select('role, is_active, can_manage_admins')
+      .eq('user_id', user.id)
+      .eq('is_active', true)
+      .single();
+
+    return sendSuccess(res, {
+      ...user,
+      unread_notifications: unreadCount || 0,
+      is_platform_admin: !!adminMembership,
+      platform_admin_role: adminMembership?.role || null,
+      platform_admin_permissions: adminMembership || null,
+    });
   } catch (error) {
     return sendError(res, 'Failed to fetch profile', 500);
   }

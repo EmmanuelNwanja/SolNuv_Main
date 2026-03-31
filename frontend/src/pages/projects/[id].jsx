@@ -2,7 +2,7 @@ import Head from 'next/head';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';
-import { projectsAPI, reportsAPI, downloadBlob } from '../../services/api';
+import { projectsAPI, reportsAPI, engineeringAPI, downloadBlob } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { getDashboardLayout } from '../../components/Layout';
 import { StatusBadge, UrgencyBadge, ConfirmModal, LoadingSpinner } from '../../components/ui/index';
@@ -30,6 +30,17 @@ export default function ProjectDetail() {
   const [statusUpdating, setStatusUpdating] = useState(false);
   const [certLoading, setCertLoading] = useState(false);
   const [recoveryForm, setRecoveryForm] = useState({ preferred_date: '', pickup_address: '', notes: '' });
+  const [batteryAssets, setBatteryAssets] = useState([]);
+  const [assetLoading, setAssetLoading] = useState(false);
+  const [assetSubmitting, setAssetSubmitting] = useState(false);
+  const [assetForm, setAssetForm] = useState({
+    brand: '',
+    chemistry: 'LiFePO4',
+    capacity_kwh: '',
+    quantity: 1,
+    installation_date: '',
+    warranty_years: 5,
+  });
 
   useEffect(() => {
     if (!id) return;
@@ -37,6 +48,15 @@ export default function ProjectDetail() {
       .then(r => setProject(r.data.data))
       .catch(() => toast.error('Project not found'))
       .finally(() => setLoading(false));
+  }, [id]);
+
+  useEffect(() => {
+    if (!id) return;
+    setAssetLoading(true);
+    engineeringAPI.listBatteryAssets(id)
+      .then((r) => setBatteryAssets(r.data.data || []))
+      .catch(() => setBatteryAssets([]))
+      .finally(() => setAssetLoading(false));
   }, [id]);
 
   async function handleStatusUpdate(newStatus) {
@@ -77,6 +97,30 @@ export default function ProjectDetail() {
     finally { setCertLoading(false); }
   }
 
+  async function handleCreateBatteryAsset() {
+    if (!assetForm.brand || !assetForm.chemistry || !assetForm.capacity_kwh || !assetForm.installation_date) {
+      toast.error('Brand, chemistry, capacity, and installation date are required');
+      return;
+    }
+
+    setAssetSubmitting(true);
+    try {
+      const { data } = await engineeringAPI.createBatteryAsset(id, {
+        ...assetForm,
+        capacity_kwh: Number(assetForm.capacity_kwh),
+        quantity: Number(assetForm.quantity || 1),
+        warranty_years: Number(assetForm.warranty_years || 5),
+      });
+      const created = data.data;
+      setBatteryAssets((prev) => [created, ...prev]);
+      toast.success('Battery field QR generated');
+    } catch {
+      toast.error('Failed to create battery ledger QR');
+    } finally {
+      setAssetSubmitting(false);
+    }
+  }
+
   if (loading) return <div className="flex justify-center py-16"><LoadingSpinner size="lg" /></div>;
   if (!project) return (
     <div className="text-center py-16">
@@ -95,6 +139,18 @@ export default function ProjectDetail() {
     ? Math.ceil((new Date(project.estimated_decommission_date) - new Date()) / (1000 * 60 * 60 * 24))
     : null;
   const transitions = STATUS_TRANSITIONS[project.status] || [];
+
+  useEffect(() => {
+    if (!project) return;
+    const firstBattery = batteries[0];
+    setAssetForm((prev) => ({
+      ...prev,
+      brand: prev.brand || firstBattery?.brand || 'Felicity',
+      capacity_kwh: prev.capacity_kwh || firstBattery?.capacity_kwh || '',
+      installation_date: prev.installation_date || project.installation_date || new Date().toISOString().split('T')[0],
+    }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [project?.id]);
 
   return (
     <>
@@ -310,6 +366,56 @@ export default function ProjectDetail() {
             <Link href={`/projects/${id}/edit`} className="btn-outline flex items-center justify-center gap-2 w-full text-sm py-3">
               <RiEditLine /> Edit Project
             </Link>
+          </div>
+
+          <div className="card space-y-3">
+            <h2 className="font-semibold text-forest-900 mb-1 flex items-center gap-2"><RiQrCodeLine /> Battery Field Ledger</h2>
+            <p className="text-xs text-slate-500">Create battery QR cards for technicians to scan, view history, and submit health logs on-site.</p>
+
+            <div className="grid grid-cols-2 gap-2">
+              <input className="input text-sm col-span-2" placeholder="Battery brand" value={assetForm.brand}
+                onChange={(e) => setAssetForm((prev) => ({ ...prev, brand: e.target.value }))} />
+              <select className="input text-sm" value={assetForm.chemistry}
+                onChange={(e) => setAssetForm((prev) => ({ ...prev, chemistry: e.target.value }))}>
+                <option value="LiFePO4">LiFePO4</option>
+                <option value="Lithium-ion">Lithium-ion</option>
+                <option value="Lead-acid">Lead-acid</option>
+              </select>
+              <input type="number" min="0.1" step="0.1" className="input text-sm" placeholder="Capacity kWh" value={assetForm.capacity_kwh}
+                onChange={(e) => setAssetForm((prev) => ({ ...prev, capacity_kwh: e.target.value }))} />
+              <input type="number" min="1" className="input text-sm" placeholder="Units" value={assetForm.quantity}
+                onChange={(e) => setAssetForm((prev) => ({ ...prev, quantity: e.target.value }))} />
+              <input type="number" min="1" max="20" className="input text-sm" placeholder="Warranty years" value={assetForm.warranty_years}
+                onChange={(e) => setAssetForm((prev) => ({ ...prev, warranty_years: e.target.value }))} />
+              <input type="date" className="input text-sm col-span-2" value={assetForm.installation_date}
+                onChange={(e) => setAssetForm((prev) => ({ ...prev, installation_date: e.target.value }))} />
+            </div>
+
+            <button onClick={handleCreateBatteryAsset} disabled={assetSubmitting} className="btn-primary w-full text-sm py-2.5">
+              {assetSubmitting ? 'Generating QR...' : 'Generate Battery QR Ledger'}
+            </button>
+
+            <div className="space-y-3 pt-1">
+              {assetLoading && <p className="text-xs text-slate-400">Loading battery assets...</p>}
+              {!assetLoading && batteryAssets.length === 0 && <p className="text-xs text-slate-400">No battery assets generated yet.</p>}
+              {batteryAssets.map((asset) => (
+                <div key={asset.id} className="p-3 rounded-xl bg-slate-50 border border-slate-100">
+                  <div className="flex justify-between items-start gap-2">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-700">{asset.brand} • {asset.capacity_kwh}kWh</p>
+                      <p className="text-xs text-slate-500">{asset.chemistry} • {asset.quantity} unit{asset.quantity !== 1 ? 's' : ''}</p>
+                    </div>
+                    {asset.qr_image_data_url && <img src={asset.qr_image_data_url} alt="Battery QR" className="w-14 h-14 rounded-lg" />}
+                  </div>
+                  <div className="flex gap-2 mt-2">
+                    <a href={asset.qr_link} target="_blank" rel="noreferrer" className="text-xs font-semibold text-forest-900 hover:underline">Open Field Page</a>
+                    {asset.qr_image_data_url && (
+                      <a href={asset.qr_image_data_url} download={`battery_qr_${asset.qr_code_data}.png`} className="text-xs font-semibold text-forest-900 hover:underline">Download QR</a>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
 
           {/* Project metadata */}

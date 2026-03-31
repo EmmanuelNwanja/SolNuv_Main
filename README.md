@@ -97,13 +97,21 @@ git push -u origin main
 5. Click **"Run"** (green button)
 6. You should see: **"Success. No rows returned"**
 
-### Step 2.3 — Run the seed data
+### Step 2.3 — Run the platform upgrade migrations
+Run these in order (one file per new SQL query):
+
+1. `database/migrations/002_billing_admin_upgrade.sql`
+2. `database/migrations/003_africa_engineering_tools.sql`
+
+> ✅ These add annual billing, promo codes, admin controls, proposal scenarios, battery QR ledger tables, and cable compliance records.
+
+### Step 2.4 — Run the seed data
 1. Click **"New query"** again
 2. Open: `database/seeds/001_seed_data.sql`
 3. Copy ALL the contents and paste into the SQL Editor  
 4. Click **"Run"**
 
-### Step 2.4 — Enable Google Auth
+### Step 2.5 — Enable Google Auth
 1. In Supabase, go to **Authentication** → **Providers**
 2. Find **Google** and toggle it ON
 3. You'll need Google OAuth credentials:
@@ -116,7 +124,7 @@ git push -u origin main
    - Copy the **Client ID** and **Client Secret** back to Supabase
 4. Save changes
 
-### Step 2.5 — Get your API keys
+### Step 2.6 — Get your API keys
 1. Go to **Project Settings** (gear icon, bottom left) → **API**
 2. Copy and save these — you'll need them later:
    - **Project URL** (looks like: `https://abcdefgh.supabase.co`)
@@ -345,7 +353,7 @@ Go through each item and confirm:
 
 ### "Cannot connect to database"
 - Double check SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are correct
-- Make sure you ran the SQL migration in Step 2.2
+- Make sure you ran all SQL migrations in Steps 2.2 and 2.3
 - The service_role key is different from the anon key — use service_role for backend
 
 ### "Emails are not sending"
@@ -408,7 +416,7 @@ When you need to update something:
 | What | Where |
 |------|-------|
 | Plans/pricing | `frontend/src/pages/index.jsx` + `backend/src/controllers/paymentController.js` |
-| Subscription prices (₦) | `backend/src/controllers/paymentController.js` → `PLAN_PRICES` |
+| Subscription prices (₦) | `backend/src/services/billingService.js` |
 | Email templates | `backend/src/services/emailService.js` |
 | Silver calculation formula | `backend/src/services/silverService.js` |
 | Degradation algorithm | `backend/src/services/degradationService.js` |
