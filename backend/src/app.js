@@ -9,6 +9,10 @@ const logger = require('./utils/logger');
 
 const app = express();
 
+// Render runs behind a reverse proxy; trust it so req.ip is the real client IP.
+// Without this, rate limiting can bucket many users together and cause false throttling.
+app.set('trust proxy', 1);
+
 // ==============================
 // SECURITY MIDDLEWARE
 // ==============================
@@ -52,7 +56,7 @@ const globalLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-const authLimiter = rateLimit({
+const authSensitiveLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
   max: 20,
   message: { success: false, message: 'Too many auth attempts. Please try again later.' },
@@ -81,7 +85,9 @@ if (process.env.NODE_ENV !== 'test') {
 // ==============================
 // APPLY AUTH RATE LIMITS
 // ==============================
-app.use('/api/auth', authLimiter);
+// Limit only high-risk auth endpoints (OTP / reset flows), not profile/session checks.
+app.use('/api/auth/password-reset', authSensitiveLimiter);
+app.use('/api/auth/phone-verification', authSensitiveLimiter);
 
 // ==============================
 // ROUTES

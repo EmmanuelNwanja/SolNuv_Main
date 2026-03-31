@@ -65,15 +65,23 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
       return;
     }
 
-    const requests = [
-      { key: 'overview', request: adminAPI.getOverview() },
-      { key: 'users', request: adminAPI.listUsers({ page: 1, limit: 30 }) },
-      { key: 'paystack', request: adminAPI.listPaystackPlans() },
-      { key: 'promo', request: adminAPI.listPromoCodes() },
-      { key: 'finance', request: adminAPI.getFinance() },
-      { key: 'logs', request: adminAPI.getActivityLogs() },
-      { key: 'admins', request: adminAPI.listAdmins() },
-    ];
+    const requestsByTab = {
+      overview: [{ key: 'overview', request: adminAPI.getOverview() }],
+      users: [{ key: 'users', request: adminAPI.listUsers({ page: 1, limit: 30 }) }],
+      paystack: [{ key: 'paystack', request: adminAPI.listPaystackPlans() }],
+      promo: [{ key: 'promo', request: adminAPI.listPromoCodes() }],
+      finance: [{ key: 'finance', request: adminAPI.getFinance() }],
+      push: [],
+      logs: [{ key: 'logs', request: adminAPI.getActivityLogs() }],
+      admins: [{ key: 'admins', request: adminAPI.listAdmins() }],
+    };
+
+    const requests = requestsByTab[forcedTab] || requestsByTab.overview;
+
+    if (requests.length === 0) {
+      setLoading(false);
+      return;
+    }
 
     Promise.allSettled(requests.map((r) => r.request))
       .then((results) => {
@@ -101,7 +109,7 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
         }
       })
       .finally(() => setLoading(false));
-  }, [isPlatformAdmin]);
+  }, [isPlatformAdmin, forcedTab]);
 
   function switchTab(tabId) {
     setActiveTab(tabId);
