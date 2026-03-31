@@ -52,7 +52,7 @@ self.addEventListener('fetch', (event) => {
         .catch(() => {
           // Offline fallback is only valid for full page navigations.
           if (isNavigation) return caches.match('/offline.html');
-          throw new Error('Network request failed');
+          return Response.error();
         });
     })
   );

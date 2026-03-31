@@ -53,9 +53,12 @@ exports.listUsers = async (req, res) => {
     const from = (Number(page) - 1) * Number(limit);
     const to = from + Number(limit) - 1;
 
+    const baseSelect = 'id, first_name, last_name, email, role, is_active, created_at, company_id';
+    const enrichedSelect = `${baseSelect}, companies:companies!users_company_id_fkey(name, subscription_plan, subscription_expires_at, subscription_interval, max_team_members), admin_users:admin_users!admin_users_user_id_fkey(role, is_active)`;
+
     let query = supabase
       .from('users')
-      .select('id, first_name, last_name, email, role, is_active, created_at, company_id, companies(name, subscription_plan, subscription_expires_at, subscription_interval, max_team_members), admin_users(role, is_active)', { count: 'exact' })
+      .select(enrichedSelect, { count: 'exact' })
       .order('created_at', { ascending: false })
       .range(from, to);
 
@@ -63,7 +66,25 @@ exports.listUsers = async (req, res) => {
       query = query.or(`first_name.ilike.%${search}%,last_name.ilike.%${search}%,email.ilike.%${search}%`);
     }
 
-    const { data, error, count } = await query;
+    let { data, error, count } = await query;
+    if (error) {
+      // Fallback for environments where FK names differ from migration defaults.
+      let fallbackQuery = supabase
+        .from('users')
+        .select(baseSelect, { count: 'exact' })
+        .order('created_at', { ascending: false })
+        .range(from, to);
+
+      if (search) {
+        fallbackQuery = fallbackQuery.or(`first_name.ilike.%${search}%,last_name.ilike.%${search}%,email.ilike.%${search}%`);
+      }
+
+      const fallback = await fallbackQuery;
+      data = fallback.data;
+      count = fallback.count;
+      error = fallback.error;
+    }
+
     if (error) throw error;
 
     return sendSuccess(res, {
@@ -73,6 +94,7 @@ exports.listUsers = async (req, res) => {
       limit: Number(limit),
     });
   } catch (error) {
+    console.error('admin.listUsers error:', error);
     return sendError(res, 'Failed to fetch users', 500);
   }
 };
@@ -384,14 +406,29 @@ exports.getActivityLogs = async (req, res) => {
 
 exports.listAdmins = async (req, res) => {
   try {
-    const { data, error } = await supabase
+    const enriched = await supabase
       .from('admin_users')
-      .select('id, role, is_active, can_manage_admins, created_at, user_id, users(first_name, last_name, email)')
+      .select('id, role, is_active, can_manage_admins, created_at, user_id, users:users!admin_users_user_id_fkey(first_name, last_name, email)')
       .order('created_at', { ascending: false });
+
+    let data = enriched.data;
+    let error = enriched.error;
+
+    if (error) {
+      // Fallback for environments where FK names differ.
+      const basic = await supabase
+        .from('admin_users')
+        .select('id, role, is_active, can_manage_admins, created_at, user_id')
+        .order('created_at', { ascending: false });
+
+      data = basic.data;
+      error = basic.error;
+    }
 
     if (error) throw error;
     return sendSuccess(res, data || []);
   } catch (error) {
+    console.error('admin.listAdmins error:', error);
     return sendError(res, 'Failed to load admins', 500);
   }
 };
