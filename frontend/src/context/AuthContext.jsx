@@ -13,6 +13,10 @@ export function AuthProvider({ children }) {
   const profileFetchInFlight = useRef(false);
 
   useEffect(() => {
+    const loadingSafetyTimer = setTimeout(() => {
+      setLoading(false);
+    }, 10000);
+
     // onAuthStateChange fires INITIAL_SESSION on mount and handles all subsequent events.
     // We do NOT call fetchProfile() from getSession() to avoid a duplicate concurrent call.
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -47,7 +51,10 @@ export function AuthProvider({ children }) {
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      clearTimeout(loadingSafetyTimer);
+      subscription.unsubscribe();
+    };
   }, []);
 
   async function fetchProfile() {

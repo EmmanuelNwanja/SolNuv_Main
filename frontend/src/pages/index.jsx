@@ -53,16 +53,6 @@ export default function Home() {
     finally { setCalcLoading(false); }
   }
 
-  // While auth state is resolving, show a spinner instead of the landing page
-  // to prevent a visible flash before the redirect fires for logged-in users.
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-white">
-        <div className="w-10 h-10 border-4 border-forest-900 border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
-
   return (
     <>
       <Head>
