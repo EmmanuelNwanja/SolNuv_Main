@@ -73,7 +73,7 @@ export default function OtpManagement() {
     <>
       <Head><title>OTP Management — SolNuv Admin</title></Head>
 
-      <AdminRoute requiredRole="super_admin">
+      <AdminRoute requiredRoles={['super_admin']}>
         <div className="page-header">
           <h1 className="font-display font-bold text-2xl text-forest-900">OTP Management</h1>
           <p className="text-slate-500 text-sm mt-0.5">View pending password reset OTPs and manually generate codes for users</p>

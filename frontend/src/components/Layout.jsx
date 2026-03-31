@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useAuth } from '../context/AuthContext';
 import ProtectedRoute from './ProtectedRoute';
+import AdminLayout from './AdminLayout';
 import {
   RiDashboardLine, RiSunLine, RiBarChartLine, RiFileTextLine,
   RiTrophyLine, RiCalculatorLine, RiSettingsLine, RiLogoutBoxLine,
@@ -139,5 +140,5 @@ export function getDashboardLayout(page) {
 
 // Wrap admin pages — skips the isOnboarded check so admin-only accounts can access /admin
 export function getAdminLayout(page) {
-  return <Layout>{page}</Layout>;
+  return <AdminLayout>{page}</AdminLayout>;
 }

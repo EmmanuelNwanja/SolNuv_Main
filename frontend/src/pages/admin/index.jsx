@@ -1,5 +1,6 @@
 import Head from 'next/head';
 import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/router';
 import { adminAPI } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { getAdminLayout } from '../../components/Layout';
@@ -20,8 +21,10 @@ const tabs = [
 
 export default function AdminDashboard() {
   const { isPlatformAdmin, platformAdminRole } = useAuth();
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState('overview');
   const [loading, setLoading] = useState(true);
+  const [loadWarnings, setLoadWarnings] = useState([]);
   const [overview, setOverview] = useState(null);
   const [users, setUsers] = useState([]);
   const [search, setSearch] = useState('');
@@ -53,31 +56,67 @@ export default function AdminDashboard() {
   const [newPush, setNewPush] = useState({ title: '', message: '', target_type: 'all', target_value: '' });
 
   useEffect(() => {
-    if (isPlatformAdmin) {
-      Promise.all([
-        adminAPI.getOverview(),
-        adminAPI.listUsers({ page: 1, limit: 30 }),
-        adminAPI.listPaystackPlans(),
-        adminAPI.listPromoCodes(),
-        adminAPI.getFinance(),
-        adminAPI.getActivityLogs(),
-        adminAPI.listAdmins(),
-      ])
-        .then(([ov, us, pp, pc, fi, lg, ad]) => {
-          setOverview(ov.data.data);
-          setUsers(us.data.data?.users || []);
-          setPaystackPlans(pp.data.data || []);
-          setPromoCodes(pc.data.data || []);
-          setFinance(fi.data.data || null);
-          setLogs(lg.data.data || []);
-          setAdmins(ad.data.data || []);
-        })
-        .catch((err) => {
-          toast.error(err.response?.data?.message || 'Failed to load admin dashboard');
-        })
-        .finally(() => setLoading(false));
+    const queryTab = String(router.query.tab || '').trim();
+    if (tabs.some((t) => t.id === queryTab)) {
+      setActiveTab(queryTab);
     }
+  }, [router.query.tab]);
+
+  useEffect(() => {
+    if (!isPlatformAdmin) {
+      setLoading(false);
+      return;
+    }
+
+    const requests = [
+      { key: 'overview', request: adminAPI.getOverview() },
+      { key: 'users', request: adminAPI.listUsers({ page: 1, limit: 30 }) },
+      { key: 'paystack', request: adminAPI.listPaystackPlans() },
+      { key: 'promo', request: adminAPI.listPromoCodes() },
+      { key: 'finance', request: adminAPI.getFinance() },
+      { key: 'logs', request: adminAPI.getActivityLogs() },
+      { key: 'admins', request: adminAPI.listAdmins() },
+    ];
+
+    Promise.allSettled(requests.map((r) => r.request))
+      .then((results) => {
+        const warnings = [];
+        results.forEach((result, idx) => {
+          const key = requests[idx].key;
+          if (result.status === 'rejected') {
+            warnings.push(key);
+            return;
+          }
+
+          const payload = result.value?.data?.data;
+          if (key === 'overview') setOverview(payload || null);
+          if (key === 'users') setUsers(payload?.users || []);
+          if (key === 'paystack') setPaystackPlans(payload || []);
+          if (key === 'promo') setPromoCodes(payload || []);
+          if (key === 'finance') setFinance(payload || null);
+          if (key === 'logs') setLogs(payload || []);
+          if (key === 'admins') setAdmins(payload || []);
+        });
+
+        setLoadWarnings(warnings);
+        if (warnings.length > 0) {
+          toast.error(`Some admin sections failed to load: ${warnings.join(', ')}`);
+        }
+      })
+      .finally(() => setLoading(false));
   }, [isPlatformAdmin]);
+
+  function switchTab(tabId) {
+    setActiveTab(tabId);
+    router.replace(
+      {
+        pathname: '/admin',
+        query: tabId === 'overview' ? {} : { tab: tabId },
+      },
+      undefined,
+      { shallow: true }
+    );
+  }
 
   const filteredUsers = useMemo(() => users.filter((u) => {
     const hay = `${u.first_name || ''} ${u.last_name || ''} ${u.email || ''}`.toLowerCase();
@@ -192,13 +231,18 @@ export default function AdminDashboard() {
       <div className="page-header">
         <h1 className="font-display font-bold text-2xl text-forest-900">SolNuv Admin Dashboard</h1>
         <p className="text-sm text-slate-500 mt-1">Role: {platformAdminRole || 'admin'}</p>
+        {loadWarnings.length > 0 && (
+          <p className="text-xs text-amber-700 mt-2">
+            Partial data loaded. Retry affected sections: {loadWarnings.join(', ')}.
+          </p>
+        )}
       </div>
 
       <div className="flex gap-2 overflow-auto mb-6 pb-1">
         {tabs.map((tab) => (
           <button
             key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
+            onClick={() => switchTab(tab.id)}
             className={`px-3 py-2 rounded-lg text-sm whitespace-nowrap ${activeTab === tab.id ? 'bg-forest-900 text-white' : 'bg-slate-100 text-slate-600'}`}
           >
             {tab.label}
