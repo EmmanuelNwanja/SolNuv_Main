@@ -136,3 +136,8 @@ export function getDashboardLayout(page) {
     </ProtectedRoute>
   );
 }
+
+// Wrap admin pages — skips the isOnboarded check so admin-only accounts can access /admin
+export function getAdminLayout(page) {
+  return <Layout>{page}</Layout>;
+}

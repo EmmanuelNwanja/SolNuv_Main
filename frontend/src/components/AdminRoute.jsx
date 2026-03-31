@@ -7,7 +7,6 @@ export default function AdminRoute({ children, requiredRoles = [] }) {
   const {
     session,
     loading,
-    isOnboarded,
     isPlatformAdmin,
     platformAdminRole,
   } = useAuth();
@@ -21,10 +20,7 @@ export default function AdminRoute({ children, requiredRoles = [] }) {
       router.replace('/login');
       return;
     }
-    if (!isOnboarded) {
-      router.replace('/onboarding');
-      return;
-    }
+    // Admin users may not have completed regular onboarding — don't block them
     if (!isPlatformAdmin) {
       router.replace('/dashboard');
       return;
@@ -35,7 +31,6 @@ export default function AdminRoute({ children, requiredRoles = [] }) {
   }, [
     loading,
     session,
-    isOnboarded,
     isPlatformAdmin,
     roleAllowed,
     router,
@@ -52,7 +47,7 @@ export default function AdminRoute({ children, requiredRoles = [] }) {
     );
   }
 
-  if (!session || !isOnboarded || !isPlatformAdmin || !roleAllowed) {
+  if (!session || !isPlatformAdmin || !roleAllowed) {
     return null;
   }
 

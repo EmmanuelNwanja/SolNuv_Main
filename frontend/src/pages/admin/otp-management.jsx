@@ -1,7 +1,7 @@
 import Head from 'next/head';
 import { useEffect, useState } from 'react';
 import { adminAPI } from '../../services/api';
-import { getDashboardLayout } from '../../components/Layout';
+import { getAdminLayout } from '../../components/Layout';
 import { RiCheckLine, RiCloseLine, RiFileCopyLine, RiRefreshLine, RiAddLine } from 'react-icons/ri';
 import AdminRoute from '../../components/AdminRoute';
 import toast from 'react-hot-toast';
@@ -239,4 +239,4 @@ export default function OtpManagement() {
   );
 }
 
-OtpManagement.getLayout = getDashboardLayout;
+OtpManagement.getLayout = getAdminLayout;

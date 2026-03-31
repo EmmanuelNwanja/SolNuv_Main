@@ -2,7 +2,7 @@ import Head from 'next/head';
 import { useEffect, useMemo, useState } from 'react';
 import { adminAPI } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
-import { getDashboardLayout } from '../../components/Layout';
+import { getAdminLayout } from '../../components/Layout';
 import { LoadingSpinner } from '../../components/ui/index';
 import AdminRoute from '../../components/AdminRoute';
 import toast from 'react-hot-toast';
@@ -450,4 +450,4 @@ export default function AdminDashboard() {
   );
 }
 
-AdminDashboard.getLayout = getDashboardLayout;
+AdminDashboard.getLayout = getAdminLayout;
