@@ -24,13 +24,17 @@ const allowedOrigins = [
   'http://localhost:3000', // local dev
 ].filter(Boolean);
 
+// Regex patterns for dynamic origins (Vercel preview deployments)
+const allowedOriginPatterns = [
+  /^https:\/\/sol-nuv-main(-[a-z0-9]+)*(-emmanuelnwanja[^.]*)?\.vercel\.app$/,
+];
+
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error(`CORS: ${origin} not allowed`));
-    }
+    if (!origin) return callback(null, true); // non-browser / server-to-server
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    if (allowedOriginPatterns.some(p => p.test(origin))) return callback(null, true);
+    callback(new Error(`CORS: ${origin} not allowed`));
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
