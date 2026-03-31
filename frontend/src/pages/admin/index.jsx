@@ -8,21 +8,21 @@ import { LoadingSpinner } from '../../components/ui/index';
 import AdminRoute from '../../components/AdminRoute';
 import toast from 'react-hot-toast';
 
-const tabs = [
-  { id: 'overview', label: 'Overview' },
-  { id: 'users', label: 'Users' },
-  { id: 'paystack', label: 'Paystack Plans' },
-  { id: 'promo', label: 'Promo Codes' },
-  { id: 'finance', label: 'Finance' },
-  { id: 'push', label: 'Push Notifications' },
-  { id: 'logs', label: 'Activity Log' },
-  { id: 'admins', label: 'Admin Management' },
+export const ADMIN_TABS = [
+  { id: 'overview', label: 'Overview', path: '/admin', title: 'Admin Control Center - SolNuv' },
+  { id: 'users', label: 'Users', path: '/admin/users', title: 'Admin Users - SolNuv' },
+  { id: 'paystack', label: 'Paystack Plans', path: '/admin/paystack', title: 'Admin Paystack Plans - SolNuv' },
+  { id: 'promo', label: 'Promo Codes', path: '/admin/promo', title: 'Admin Promo Codes - SolNuv' },
+  { id: 'finance', label: 'Finance', path: '/admin/finance', title: 'Admin Finance - SolNuv' },
+  { id: 'push', label: 'Push Notifications', path: '/admin/push', title: 'Admin Notifications - SolNuv' },
+  { id: 'logs', label: 'Activity Log', path: '/admin/logs', title: 'Admin Activity Log - SolNuv' },
+  { id: 'admins', label: 'Admin Management', path: '/admin/admins', title: 'Admin Management - SolNuv' },
 ];
 
-export default function AdminDashboard() {
+export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
   const { isPlatformAdmin, platformAdminRole } = useAuth();
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState(forcedTab);
   const [loading, setLoading] = useState(true);
   const [loadWarnings, setLoadWarnings] = useState([]);
   const [overview, setOverview] = useState(null);
@@ -56,11 +56,8 @@ export default function AdminDashboard() {
   const [newPush, setNewPush] = useState({ title: '', message: '', target_type: 'all', target_value: '' });
 
   useEffect(() => {
-    const queryTab = String(router.query.tab || '').trim();
-    if (tabs.some((t) => t.id === queryTab)) {
-      setActiveTab(queryTab);
-    }
-  }, [router.query.tab]);
+    setActiveTab(forcedTab);
+  }, [forcedTab]);
 
   useEffect(() => {
     if (!isPlatformAdmin) {
@@ -108,15 +105,11 @@ export default function AdminDashboard() {
 
   function switchTab(tabId) {
     setActiveTab(tabId);
-    router.replace(
-      {
-        pathname: '/admin',
-        query: tabId === 'overview' ? {} : { tab: tabId },
-      },
-      undefined,
-      { shallow: true }
-    );
+    const tab = ADMIN_TABS.find((t) => t.id === tabId);
+    if (tab?.path) router.push(tab.path);
   }
+
+  const activeMeta = ADMIN_TABS.find((t) => t.id === activeTab) || ADMIN_TABS[0];
 
   const filteredUsers = useMemo(() => users.filter((u) => {
     const hay = `${u.first_name || ''} ${u.last_name || ''} ${u.email || ''}`.toLowerCase();
@@ -226,7 +219,7 @@ export default function AdminDashboard() {
 
   return (
     <AdminRoute>
-      <Head><title>Admin Dashboard - SolNuv</title></Head>
+      <Head><title>{activeMeta.title}</title></Head>
 
       <div className="page-header">
         <h1 className="font-display font-bold text-2xl text-forest-900">SolNuv Admin Dashboard</h1>
@@ -238,17 +231,19 @@ export default function AdminDashboard() {
         )}
       </div>
 
-      <div className="flex gap-2 overflow-auto mb-6 pb-1">
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => switchTab(tab.id)}
-            className={`px-3 py-2 rounded-lg text-sm whitespace-nowrap ${activeTab === tab.id ? 'bg-forest-900 text-white' : 'bg-slate-100 text-slate-600'}`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      {showTabs && (
+        <div className="flex gap-2 overflow-auto mb-6 pb-1">
+          {ADMIN_TABS.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => switchTab(tab.id)}
+              className={`px-3 py-2 rounded-lg text-sm whitespace-nowrap ${activeTab === tab.id ? 'bg-forest-900 text-white' : 'bg-slate-100 text-slate-600'}`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {activeTab === 'overview' && overview && (
         <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -494,4 +489,10 @@ export default function AdminDashboard() {
   );
 }
 
-AdminDashboard.getLayout = getAdminLayout;
+function AdminDashboardPage() {
+  return <AdminConsole forcedTab="overview" showTabs={false} />;
+}
+
+AdminDashboardPage.getLayout = getAdminLayout;
+
+export default AdminDashboardPage;

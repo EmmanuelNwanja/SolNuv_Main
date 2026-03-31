@@ -19,11 +19,13 @@ import toast from 'react-hot-toast';
 
 const adminNavItems = [
   { href: '/admin', label: 'Control Center', icon: RiDashboardLine },
-  { href: '/admin?tab=users', label: 'Users', icon: RiFileList3Line },
-  { href: '/admin?tab=admins', label: 'Admins', icon: RiAdminLine },
-  { href: '/admin?tab=finance', label: 'Finance', icon: RiWallet3Line },
-  { href: '/admin?tab=promo', label: 'Promotions', icon: RiPriceTag3Line },
-  { href: '/admin?tab=push', label: 'Notifications', icon: RiNotification3Line },
+  { href: '/admin/users', label: 'Users', icon: RiFileList3Line },
+  { href: '/admin/admins', label: 'Admins', icon: RiAdminLine },
+  { href: '/admin/finance', label: 'Finance', icon: RiWallet3Line },
+  { href: '/admin/promo', label: 'Promotions', icon: RiPriceTag3Line },
+  { href: '/admin/push', label: 'Notifications', icon: RiNotification3Line },
+  { href: '/admin/paystack', label: 'Paystack Plans', icon: RiWallet3Line },
+  { href: '/admin/logs', label: 'Activity Log', icon: RiFileList3Line },
   { href: '/admin/otp-management', label: 'OTP Operations', icon: RiKey2Line },
   { href: '/settings', label: 'Platform Settings', icon: RiSettings3Line },
 ];
@@ -73,7 +75,9 @@ export default function AdminLayout({ children }) {
 
         <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
           {adminNavItems.map(({ href, label, icon: Icon }) => {
-            const active = router.asPath === href || (href === '/admin' && router.pathname === '/admin' && !router.query.tab);
+            const active = href === '/admin'
+              ? router.pathname === '/admin'
+              : router.pathname === href || router.asPath.startsWith(href);
             return (
               <Link
                 key={href}
