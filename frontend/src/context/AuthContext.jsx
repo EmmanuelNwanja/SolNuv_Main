@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { supabase } from '../utils/supabase';
 import { authAPI } from '../services/api';
 
@@ -9,23 +9,40 @@ export function AuthProvider({ children }) {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [session, setSession] = useState(null);
+  // Prevent the double fetchProfile() caused by getSession() + onAuthStateChange(INITIAL_SESSION) racing
+  const profileFetchInFlight = useRef(false);
 
   useEffect(() => {
-    // Get initial session
+    // onAuthStateChange fires INITIAL_SESSION on mount and handles all subsequent events.
+    // We do NOT call fetchProfile() from getSession() to avoid a duplicate concurrent call.
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
-      if (session) fetchProfile();
-      else setLoading(false);
+      setUser(session?.user || null);
+      // If onAuthStateChange hasn't fired yet (race), kick off the fetch here as a fallback.
+      // The in-flight ref prevents a double call when both fire close together.
+      if (session && !profileFetchInFlight.current) fetchProfile();
+      else if (!session) setLoading(false);
     });
 
-    // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       setSession(session);
       setUser(session?.user || null);
+
+      if (event === 'SIGNED_OUT') {
+        // Only clear the profile on an explicit sign-out, not during token refresh transitions
+        setProfile(null);
+        setLoading(false);
+        return;
+      }
+
+      if (event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
+        // Session updated but user is still logged in — no need to re-fetch profile
+        return;
+      }
+
       if (session) {
         await fetchProfile();
       } else {
-        setProfile(null);
         setLoading(false);
       }
     });
@@ -34,6 +51,8 @@ export function AuthProvider({ children }) {
   }, []);
 
   async function fetchProfile() {
+    if (profileFetchInFlight.current) return;
+    profileFetchInFlight.current = true;
     try {
       const { data } = await authAPI.getMe();
       setProfile(data.data);
@@ -43,10 +62,12 @@ export function AuthProvider({ children }) {
       if (code === 'PROFILE_INCOMPLETE') {
         setProfile({ is_onboarded: false });
       } else {
-        // Profile not yet created or temporarily unavailable
-        setProfile(null);
+        // Network error / Render cold start — keep existing profile so the user isn't
+        // incorrectly signed out. Only clear if there was no prior profile.
+        setProfile(prev => prev ?? null);
       }
     } finally {
+      profileFetchInFlight.current = false;
       setLoading(false);
     }
   }
