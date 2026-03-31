@@ -9,6 +9,8 @@ export function AuthProvider({ children }) {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [session, setSession] = useState(null);
+  const [profileResolved, setProfileResolved] = useState(false);
+  const [wakingServer, setWakingServer] = useState(false);
   // Prevent the double fetchProfile() caused by getSession() + onAuthStateChange(INITIAL_SESSION) racing
   const profileFetchInFlight = useRef(false);
 
@@ -25,7 +27,10 @@ export function AuthProvider({ children }) {
       // If onAuthStateChange hasn't fired yet (race), kick off the fetch here as a fallback.
       // The in-flight ref prevents a double call when both fire close together.
       if (session && !profileFetchInFlight.current) fetchProfile();
-      else if (!session) setLoading(false);
+      else if (!session) {
+        setProfileResolved(true);
+        setLoading(false);
+      }
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
@@ -35,6 +40,8 @@ export function AuthProvider({ children }) {
       if (event === 'SIGNED_OUT') {
         // Only clear the profile on an explicit sign-out, not during token refresh transitions
         setProfile(null);
+        setProfileResolved(true);
+        setWakingServer(false);
         setLoading(false);
         return;
       }
@@ -47,6 +54,7 @@ export function AuthProvider({ children }) {
       if (session) {
         await fetchProfile();
       } else {
+        setProfileResolved(true);
         setLoading(false);
       }
     });
@@ -64,14 +72,38 @@ export function AuthProvider({ children }) {
       const { data } = await authAPI.getMe();
       setProfile(data.data);
       setUser(data.data);
+      setProfileResolved(true);
+      setWakingServer(false);
     } catch (err) {
       const code = err?.response?.data?.code;
       if (code === 'PROFILE_INCOMPLETE') {
         setProfile({ is_onboarded: false });
+        setProfileResolved(true);
+        setWakingServer(false);
       } else {
-        // Network error / Render cold start — keep existing profile so the user isn't
-        // incorrectly signed out. Only clear if there was no prior profile.
-        setProfile(prev => prev ?? null);
+        const status = err?.response?.status;
+        const isTransient = !status || status >= 500 || err?.code === 'ECONNABORTED';
+
+        if (isTransient) {
+          // Render free-tier cold starts can delay the first request.
+          // Show a clear waking state, ping health endpoint, then retry once.
+          setWakingServer(true);
+          try {
+            await authAPI.wakeBackend();
+            const retry = await authAPI.getMe();
+            setProfile(retry.data.data);
+            setUser(retry.data.data);
+            setProfileResolved(true);
+            setWakingServer(false);
+          } catch {
+            // Keep prior profile if present; if none yet, keep unresolved so guards don't misroute.
+            setProfile(prev => prev ?? null);
+            setProfileResolved((prev) => prev || !!profile);
+          }
+        } else {
+          setProfile(prev => prev ?? null);
+          setProfileResolved((prev) => prev || !!profile);
+        }
       }
     } finally {
       profileFetchInFlight.current = false;
@@ -106,6 +138,8 @@ export function AuthProvider({ children }) {
     setUser(null);
     setProfile(null);
     setSession(null);
+    setProfileResolved(true);
+    setWakingServer(false);
   }
 
   async function refreshProfile() {
@@ -123,6 +157,7 @@ export function AuthProvider({ children }) {
   return (
     <AuthContext.Provider value={{
       user, profile, session, loading,
+      profileResolved, wakingServer,
       isOnboarded, plan, isPro, isElite, company,
       isPlatformAdmin, platformAdminRole,
       signInWithGoogle, signInWithEmail, signUpWithEmail,

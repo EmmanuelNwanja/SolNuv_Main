@@ -7,6 +7,8 @@ export default function AdminRoute({ children, requiredRoles = [] }) {
   const {
     session,
     loading,
+    profileResolved,
+    wakingServer,
     isPlatformAdmin,
     platformAdminRole,
   } = useAuth();
@@ -20,6 +22,7 @@ export default function AdminRoute({ children, requiredRoles = [] }) {
       router.replace('/login');
       return;
     }
+    if (!profileResolved) return;
     // Admin users may not have completed regular onboarding — don't block them
     if (!isPlatformAdmin) {
       router.replace('/dashboard');
@@ -31,23 +34,26 @@ export default function AdminRoute({ children, requiredRoles = [] }) {
   }, [
     loading,
     session,
+    profileResolved,
     isPlatformAdmin,
     roleAllowed,
     router,
   ]);
 
-  if (loading) {
+  if (loading || (session && !profileResolved)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-forest-900 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-slate-500 text-sm font-medium">Loading admin workspace...</p>
+          <p className="text-slate-500 text-sm font-medium">
+            {wakingServer ? 'Waking server (10-20s)...' : 'Loading admin workspace...'}
+          </p>
         </div>
       </div>
     );
   }
 
-  if (!session || !isPlatformAdmin || !roleAllowed) {
+  if (!session || !profileResolved || !isPlatformAdmin || !roleAllowed) {
     return null;
   }
 

@@ -34,7 +34,25 @@ export default function AuthCallback() {
 
         router.replace('/dashboard');
       } catch {
-        router.replace('/login');
+        // Backend may be waking from cold start; ping health and retry once.
+        try {
+          await authAPI.wakeBackend();
+          const { data } = await authAPI.getMe();
+          const profile = data?.data;
+          if (profile?.is_platform_admin) {
+            router.replace('/admin');
+            return;
+          }
+          if (!profile?.is_onboarded) {
+            const { data: userData } = await supabase.auth.getUser();
+            const phoneVerified = !!userData?.user?.user_metadata?.phone_verified;
+            router.replace(phoneVerified ? '/onboarding' : '/verify-phone');
+            return;
+          }
+          router.replace('/dashboard');
+        } catch {
+          router.replace('/login');
+        }
       }
     }
 

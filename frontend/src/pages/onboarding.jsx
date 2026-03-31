@@ -9,7 +9,7 @@ import toast from 'react-hot-toast';
 const NIGERIAN_STATES = ['Abia','Adamawa','Akwa Ibom','Anambra','Bauchi','Bayelsa','Benue','Borno','Cross River','Delta','Ebonyi','Edo','Ekiti','Enugu','FCT','Gombe','Imo','Jigawa','Kaduna','Kano','Katsina','Kebbi','Kogi','Kwara','Lagos','Nasarawa','Niger','Ogun','Ondo','Osun','Oyo','Plateau','Rivers','Sokoto','Taraba','Yobe','Zamfara'];
 
 export default function Onboarding() {
-  const { session, loading, isOnboarded, isPlatformAdmin, refreshProfile } = useAuth();
+  const { session, loading, profileResolved, isOnboarded, isPlatformAdmin, refreshProfile } = useAuth();
   const router = useRouter();
   const [step, setStep] = useState(1);
   const [submitting, setSubmitting] = useState(false);
@@ -34,27 +34,28 @@ export default function Onboarding() {
 
   // Platform admins never need onboarding — redirect to /admin immediately
   useEffect(() => {
-    if (!loading && session && isPlatformAdmin) {
+    if (!loading && profileResolved && session && isPlatformAdmin) {
       router.replace('/admin');
     }
-  }, [loading, session, isPlatformAdmin, router]);
+  }, [loading, profileResolved, session, isPlatformAdmin, router]);
 
   // Already onboarded regular users should not be on this page
   useEffect(() => {
-    if (!loading && session && isOnboarded && !isPlatformAdmin) {
+    if (!loading && profileResolved && session && isOnboarded && !isPlatformAdmin) {
       router.replace('/dashboard');
     }
-  }, [loading, session, isOnboarded, isPlatformAdmin, router]);
+  }, [loading, profileResolved, session, isOnboarded, isPlatformAdmin, router]);
 
   // Only require phone verification for brand-new regular users (not yet onboarded)
   useEffect(() => {
     if (!session?.user) return;
+    if (!profileResolved) return;
     if (isPlatformAdmin) return; // already handled above
     if (isOnboarded) return; // already handled above
     if (!session.user.user_metadata?.phone_verified) {
       router.replace('/verify-phone');
     }
-  }, [session?.user, isOnboarded, isPlatformAdmin, router]);
+  }, [session?.user, profileResolved, isOnboarded, isPlatformAdmin, router]);
 
   useEffect(() => {
     if (!session?.user) return;

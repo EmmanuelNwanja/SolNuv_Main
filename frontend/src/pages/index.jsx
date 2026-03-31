@@ -15,7 +15,7 @@ const NIGERIAN_STATES = [
 ];
 
 export default function Home() {
-  const { session, loading, isOnboarded, isPlatformAdmin } = useAuth();
+  const { session, loading, profileResolved, isOnboarded, isPlatformAdmin } = useAuth();
   const router = useRouter();
 
   const [calcTab, setCalcTab] = useState('panel');
@@ -32,7 +32,7 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    if (!loading && session) {
+    if (!loading && session && profileResolved) {
       // Check admin first — admins go directly to /admin regardless of onboarding status
       if (isPlatformAdmin) {
         router.replace('/admin');
@@ -42,7 +42,7 @@ export default function Home() {
         router.replace('/dashboard');
       }
     }
-  }, [loading, session, isOnboarded, isPlatformAdmin, router]);
+  }, [loading, session, profileResolved, isOnboarded, isPlatformAdmin, router]);
 
   async function runSilverCalc(form = silverForm) {
     setCalcLoading(true);

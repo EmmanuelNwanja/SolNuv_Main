@@ -7,7 +7,7 @@ import { RiShieldCheckLine, RiSmartphoneLine } from 'react-icons/ri';
 import toast from 'react-hot-toast';
 
 export default function VerifyPhone() {
-  const { session, loading, isOnboarded, isPlatformAdmin } = useAuth();
+  const { session, loading, profileResolved, isOnboarded, isPlatformAdmin } = useAuth();
   const router = useRouter();
   const [phone, setPhone] = useState('');
   const [otp, setOtp] = useState('');
@@ -21,6 +21,7 @@ export default function VerifyPhone() {
 
   useEffect(() => {
     if (!session?.user) return;
+    if (!profileResolved) return;
     const fromStorage = (() => {
       try {
         const pending = JSON.parse(localStorage.getItem('solnuv_pending_onboarding') || '{}');
@@ -48,7 +49,7 @@ export default function VerifyPhone() {
     if (session.user.user_metadata?.phone_verified) {
       router.replace('/onboarding');
     }
-  }, [session?.user, isOnboarded, isPlatformAdmin, router]);
+  }, [session?.user, profileResolved, isOnboarded, isPlatformAdmin, router]);
 
   async function sendOtp() {
     if (!phone.trim()) {
