@@ -1,7 +1,7 @@
 import Head from 'next/head';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
-import { RiSunLine, RiLeafLine, RiFileTextLine, RiTrophyLine, RiArrowRightLine, RiCheckLine, RiShieldCheckLine, RiMapPinLine, RiFlashlightLine } from 'react-icons/ri';
+import { RiSunLine, RiLeafLine, RiFileTextLine, RiTrophyLine, RiArrowRightLine, RiCheckLine, RiShieldCheckLine, RiMapPinLine, RiFlashlightLine, RiBarChartLine, RiCalculatorLine } from 'react-icons/ri';
 import { calculatorAPI } from '../services/api';
 import toast from 'react-hot-toast';
 
