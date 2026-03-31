@@ -173,9 +173,58 @@ exports.getSilverPrice = async (req, res) => {
  */
 exports.getBrands = async (req, res) => {
   try {
-    const { data: panelBrands }   = await supabase.from('panel_brands').select('brand, silver_content_mg_per_wp, is_popular_in_nigeria').order('is_popular_in_nigeria', { ascending: false });
-    const { data: batteryBrands } = await supabase.from('battery_brands').select('brand, chemistry, is_popular_in_nigeria').order('is_popular_in_nigeria', { ascending: false });
-    return sendSuccess(res, { panels: panelBrands || [], batteries: batteryBrands || [] });
+    // Popular solar brands in African market
+    const POPULAR_PANEL_BRANDS = [
+      { brand: 'Jinko Solar', silver_content_mg_per_wp: 7.2, is_popular_in_nigeria: true },
+      { brand: 'JA Solar', silver_content_mg_per_wp: 6.8, is_popular_in_nigeria: true },
+      { brand: 'Longi', silver_content_mg_per_wp: 6.5, is_popular_in_nigeria: true },
+      { brand: 'Tongwei', silver_content_mg_per_wp: 7.0, is_popular_in_nigeria: true },
+      { brand: 'Risen', silver_content_mg_per_wp: 6.9, is_popular_in_nigeria: true },
+      { brand: 'Canadian Solar', silver_content_mg_per_wp: 7.1, is_popular_in_nigeria: false },
+      { brand: 'Trina Solar', silver_content_mg_per_wp: 6.7, is_popular_in_nigeria: false },
+      { brand: 'First Solar', silver_content_mg_per_wp: 8.5, is_popular_in_nigeria: false },
+    ];
+
+    const POPULAR_BATTERY_BRANDS = [
+      { brand: 'BYD', chemistry: 'lithium-iron-phosphate', is_popular_in_nigeria: true },
+      { brand: 'LG', chemistry: 'lithium-ion', is_popular_in_nigeria: true },
+      { brand: 'Samsung', chemistry: 'lithium-ion', is_popular_in_nigeria: false },
+      { brand: 'Growatt', chemistry: 'lithium-iron-phosphate', is_popular_in_nigeria: true },
+      { brand: 'CATL', chemistry: 'lithium-iron-phosphate', is_popular_in_nigeria: false },
+      { brand: 'Felicity', chemistry: 'lead-acid', is_popular_in_nigeria: true },
+      { brand: 'Victron', chemistry: 'lithium-iron-phosphate', is_popular_in_nigeria: false },
+    ];
+
+    const POPULAR_INVERTER_BRANDS = [
+      { brand: 'Growatt', is_popular_in_nigeria: true },
+      { brand: 'Fronius', is_popular_in_nigeria: false },
+      { brand: 'SMA', is_popular_in_nigeria: false },
+      { brand: 'Schneider Electric', is_popular_in_nigeria: true },
+      { brand: 'Solis', is_popular_in_nigeria: true },
+      { brand: 'IMEON', is_popular_in_nigeria: false },
+      { brand: 'Victron', is_popular_in_nigeria: true },
+      { brand: 'Huawei', is_popular_in_nigeria: false },
+    ];
+
+    // Try to fetch from database first, but fallback to hardcoded list
+    let { data: panelBrands } = await supabase.from('panel_brands').select('brand, silver_content_mg_per_wp, is_popular_in_nigeria').order('is_popular_in_nigeria', { ascending: false });
+    if (!panelBrands || panelBrands.length === 0) {
+      panelBrands = POPULAR_PANEL_BRANDS;
+    }
+
+    let { data: batteryBrands } = await supabase.from('battery_brands').select('brand, chemistry, is_popular_in_nigeria').order('is_popular_in_nigeria', { ascending: false });
+    if (!batteryBrands || batteryBrands.length === 0) {
+      batteryBrands = POPULAR_BATTERY_BRANDS;
+    }
+
+    // Inverters are new, so use fallback for now
+    const inverterBrands = POPULAR_INVERTER_BRANDS;
+
+    return sendSuccess(res, { 
+      panels: panelBrands, 
+      batteries: batteryBrands,
+      inverters: inverterBrands
+    });
   } catch (error) {
     return sendError(res, 'Failed to fetch brands', 500);
   }

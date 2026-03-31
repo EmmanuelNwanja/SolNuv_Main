@@ -10,6 +10,8 @@ export default function Register() {
   const { session, signInWithGoogle, signUpWithEmail, loading } = useAuth();
   const router = useRouter();
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [businessType, setBusinessType] = useState('solo');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [showPw, setShowPw] = useState(false);
@@ -29,10 +31,15 @@ export default function Register() {
     e.preventDefault();
     if (password !== confirm) { toast.error('Passwords do not match'); return; }
     if (password.length < 8) { toast.error('Password must be at least 8 characters'); return; }
+    if (!phone.trim()) { toast.error('Phone number is required'); return; }
     setSubmitting(true);
-    const { error } = await signUpWithEmail(email, password);
+    const { error } = await signUpWithEmail(email, password, { phone, business_type: businessType });
     if (error) { toast.error(error.message); setSubmitting(false); }
     else {
+      localStorage.setItem('solnuv_pending_onboarding', JSON.stringify({
+        phone,
+        business_type: businessType,
+      }));
       toast.success('Account created! Check your email to verify, then complete your profile.');
       router.push('/onboarding');
     }
@@ -67,8 +74,25 @@ export default function Register() {
 
             <form onSubmit={handleEmail} className="space-y-4">
               <div>
+                <label className="label">Registration Type</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button type="button" onClick={() => setBusinessType('solo')}
+                    className={`p-3 rounded-xl border-2 text-sm font-medium ${businessType === 'solo' ? 'border-forest-900 bg-forest-900/5 text-forest-900' : 'border-slate-200 text-slate-600'}`}>
+                    Solo Engineer
+                  </button>
+                  <button type="button" onClick={() => setBusinessType('registered')}
+                    className={`p-3 rounded-xl border-2 text-sm font-medium ${businessType === 'registered' ? 'border-forest-900 bg-forest-900/5 text-forest-900' : 'border-slate-200 text-slate-600'}`}>
+                    Registered Company
+                  </button>
+                </div>
+              </div>
+              <div>
                 <label className="label">Work email</label>
                 <input type="email" className="input" placeholder="you@company.com" value={email} onChange={e => setEmail(e.target.value)} required />
+              </div>
+              <div>
+                <label className="label">Phone Number</label>
+                <input type="tel" className="input" placeholder="+234 801 234 5678" value={phone} onChange={e => setPhone(e.target.value)} required />
               </div>
               <div>
                 <label className="label">Password</label>

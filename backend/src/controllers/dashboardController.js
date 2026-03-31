@@ -187,6 +187,11 @@ exports.refreshLeaderboard = async (req, res) => {
       .from('equipment')
       .select('project_id, equipment_type, quantity, estimated_silver_grams');
 
+    const { data: feedbackRows } = await supabase
+      .from('project_feedback')
+      .select('project_id, rating, consent_to_showcase')
+      .order('submitted_at', { ascending: false });
+
     if (!users || !projects) {
       return sendError(res, 'Failed to fetch data for leaderboard refresh', 500);
     }
@@ -196,6 +201,12 @@ exports.refreshLeaderboard = async (req, res) => {
     for (const eq of equipment || []) {
       if (!eqByProject[eq.project_id]) eqByProject[eq.project_id] = [];
       eqByProject[eq.project_id].push(eq);
+    }
+
+    const feedbackByProject = {};
+    for (const item of feedbackRows || []) {
+      if (!feedbackByProject[item.project_id]) feedbackByProject[item.project_id] = [];
+      feedbackByProject[item.project_id].push(item);
     }
 
     const entries = [];
@@ -213,6 +224,9 @@ exports.refreshLeaderboard = async (req, res) => {
       const recycled     = userProjects.filter(p => p.status === 'recycled');
 
       let totalPanels = 0, totalBatteries = 0, totalSilver = 0, expectedSilver = 0;
+      let co2AvoidedKg = 0;
+      let totalFeedbacks = 0;
+      let ratingSum = 0;
 
       for (const proj of userProjects) {
         for (const eq of eqByProject[proj.id] || []) {
@@ -230,7 +244,29 @@ exports.refreshLeaderboard = async (req, res) => {
         }
       }
 
-      const impactScore = (recycled.length * 3) + (decommission.length * 2) + (active.length * 1) + (totalSilver * 0.1);
+      for (const proj of recycled) {
+        for (const eq of eqByProject[proj.id] || []) {
+          if (eq.equipment_type === 'panel') co2AvoidedKg += (eq.quantity || 0) * 230;
+        }
+      }
+
+      for (const proj of userProjects) {
+        const feedbackItems = feedbackByProject[proj.id] || [];
+        for (const fb of feedbackItems) {
+          totalFeedbacks += 1;
+          ratingSum += Number(fb.rating || 0);
+        }
+      }
+
+      const averageRating = totalFeedbacks > 0 ? (ratingSum / totalFeedbacks) : 0;
+
+      const impactScore =
+        (recycled.length * 3) +
+        (decommission.length * 2) +
+        (active.length * 1) +
+        (totalSilver * 0.1) +
+        (co2AvoidedKg * 0.01) +
+        (averageRating * 8);
       const entityName  = user.companies?.name || user.brand_name || `${user.first_name} ${user.last_name || ''}`.trim();
 
       entries.push({
@@ -244,6 +280,9 @@ exports.refreshLeaderboard = async (req, res) => {
         total_batteries:       totalBatteries,
         total_silver_grams:    parseFloat(totalSilver.toFixed(4)),
         expected_silver_grams: parseFloat(expectedSilver.toFixed(4)),
+        co2_avoided_kg:        parseFloat(co2AvoidedKg.toFixed(2)),
+        average_rating:        parseFloat(averageRating.toFixed(2)),
+        total_feedbacks:       totalFeedbacks,
         impact_score:          parseFloat(impactScore.toFixed(2)),
         updated_at:            new Date().toISOString(),
       });
@@ -278,19 +317,41 @@ exports.refreshLeaderboard = async (req, res) => {
  */
 exports.getLeaderboard = async (req, res) => {
   try {
-    const { category = 'impact', limit = 50 } = req.query;
+    const {
+      category = 'impact',
+      limit = 50,
+      min_projects,
+      min_rating,
+      sort_by,
+    } = req.query;
     let orderField;
     switch (category) {
       case 'active':   orderField = 'active_projects_count'; break;
       case 'recycled': orderField = 'recycled_count'; break;
       case 'silver':   orderField = 'total_silver_grams'; break;
+      case 'co2':      orderField = 'co2_avoided_kg'; break;
+      case 'rating':   orderField = 'average_rating'; break;
       default:         orderField = 'impact_score';
     }
-    const { data: leaderboard } = await supabase
+
+    if (sort_by === 'projects') orderField = 'active_projects_count';
+    if (sort_by === 'rating') orderField = 'average_rating';
+    if (sort_by === 'co2') orderField = 'co2_avoided_kg';
+
+    let query = supabase
       .from('leaderboard_cache')
       .select('*')
       .order(orderField, { ascending: false })
       .limit(parseInt(limit));
+
+    if (min_projects !== undefined && String(min_projects).trim() !== '') {
+      query = query.gte('active_projects_count', Number(min_projects));
+    }
+    if (min_rating !== undefined && String(min_rating).trim() !== '') {
+      query = query.gte('average_rating', Number(min_rating));
+    }
+
+    const { data: leaderboard } = await query;
 
     const ranked = (leaderboard || []).map((entry, index) => ({
       ...entry,
@@ -305,5 +366,208 @@ exports.getLeaderboard = async (req, res) => {
     });
   } catch (error) {
     return sendError(res, 'Failed to fetch leaderboard', 500);
+  }
+};
+
+/**
+ * GET /api/dashboard/feedback
+ */
+exports.getFeedbackOverview = async (req, res) => {
+  try {
+    const scopeFilter = req.user.company_id
+      ? { field: 'company_id', value: req.user.company_id }
+      : { field: 'user_id', value: req.user.id };
+
+    const { data: projects } = await supabase
+      .from('projects')
+      .select('id, name, client_name, feedback_token, status, created_at')
+      .eq(scopeFilter.field, scopeFilter.value)
+      .order('created_at', { ascending: false });
+
+    const projectIds = (projects || []).map((p) => p.id);
+    let feedback = [];
+    if (projectIds.length > 0) {
+      const { data } = await supabase
+        .from('project_feedback')
+        .select('*')
+        .in('project_id', projectIds)
+        .order('submitted_at', { ascending: false });
+      feedback = data || [];
+    }
+
+    const ratingTotal = feedback.reduce((sum, item) => sum + Number(item.rating || 0), 0);
+    const averageRating = feedback.length > 0 ? ratingTotal / feedback.length : 0;
+
+    return sendSuccess(res, {
+      projects: projects || [],
+      feedback: feedback || [],
+      summary: {
+        total_feedback: feedback.length,
+        average_rating: Number(averageRating.toFixed(2)),
+        showcase_reviews: (feedback || []).filter((f) => f.consent_to_showcase !== false).length,
+      },
+    });
+  } catch (error) {
+    return sendError(res, 'Failed to load feedback overview', 500);
+  }
+};
+
+/**
+ * POST /api/dashboard/feedback/link/:projectId
+ */
+exports.generateFeedbackLink = async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const scopeField = req.user.company_id ? 'company_id' : 'user_id';
+    const scopeValue = req.user.company_id || req.user.id;
+
+    const { data: project } = await supabase
+      .from('projects')
+      .select('id, name, feedback_token')
+      .eq('id', projectId)
+      .eq(scopeField, scopeValue)
+      .single();
+
+    if (!project) return sendError(res, 'Project not found', 404);
+
+    let token = project.feedback_token;
+    if (!token) {
+      token = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 12)}`;
+      await supabase.from('projects').update({ feedback_token: token }).eq('id', projectId);
+    }
+
+    const frontendBase = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const feedbackUrl = `${frontendBase}/feedback/${token}`;
+
+    return sendSuccess(res, {
+      project_id: project.id,
+      project_name: project.name,
+      feedback_token: token,
+      feedback_url: feedbackUrl,
+    }, 'Feedback link generated');
+  } catch (error) {
+    return sendError(res, 'Failed to generate feedback link', 500);
+  }
+};
+
+/**
+ * POST /api/dashboard/public/feedback/:token
+ */
+exports.submitPublicFeedback = async (req, res) => {
+  try {
+    const { token } = req.params;
+    const {
+      client_name,
+      client_email,
+      client_phone,
+      rating,
+      comment,
+      consent_to_showcase = true,
+    } = req.body || {};
+
+    if (!rating || Number(rating) < 1 || Number(rating) > 5) {
+      return sendError(res, 'Rating must be between 1 and 5', 400);
+    }
+
+    const { data: project } = await supabase
+      .from('projects')
+      .select('id, user_id, company_id')
+      .eq('feedback_token', token)
+      .single();
+
+    if (!project) return sendError(res, 'Invalid feedback link', 404);
+
+    const { data, error } = await supabase
+      .from('project_feedback')
+      .insert({
+        project_id: project.id,
+        user_id: project.user_id,
+        company_id: project.company_id,
+        client_name,
+        client_email,
+        client_phone,
+        rating: Number(rating),
+        comment,
+        consent_to_showcase: consent_to_showcase !== false,
+      })
+      .select('*')
+      .single();
+
+    if (error) throw error;
+
+    return sendSuccess(res, data, 'Feedback submitted successfully', 201);
+  } catch (error) {
+    return sendError(res, 'Failed to submit feedback', 500);
+  }
+};
+
+/**
+ * GET /api/dashboard/public/profile/:slug
+ */
+exports.getPublicProfile = async (req, res) => {
+  try {
+    const { slug } = req.params;
+
+    const { data: user } = await supabase
+      .from('users')
+      .select('id, first_name, last_name, brand_name, public_slug, public_bio, is_public_profile, company_id, companies(name, logo_url, website)')
+      .eq('public_slug', slug)
+      .single();
+
+    if (!user || user.is_public_profile === false) {
+      return sendError(res, 'Profile not found', 404);
+    }
+
+    const scopeField = user.company_id ? 'company_id' : 'user_id';
+    const scopeValue = user.company_id || user.id;
+
+    const { data: projects } = await supabase
+      .from('projects')
+      .select('id, name, status, state, city, created_at')
+      .eq(scopeField, scopeValue)
+      .order('created_at', { ascending: false })
+      .limit(30);
+
+    const projectIds = (projects || []).map((p) => p.id);
+
+    let feedback = [];
+    if (projectIds.length > 0) {
+      const { data } = await supabase
+        .from('project_feedback')
+        .select('rating, comment, client_name, submitted_at, consent_to_showcase')
+        .in('project_id', projectIds)
+        .eq('consent_to_showcase', true)
+        .order('submitted_at', { ascending: false })
+        .limit(20);
+      feedback = data || [];
+    }
+
+    const averageRating = feedback.length > 0
+      ? feedback.reduce((sum, item) => sum + Number(item.rating || 0), 0) / feedback.length
+      : 0;
+
+    const activeCount = (projects || []).filter((p) => p.status === 'active').length;
+    const recycledCount = (projects || []).filter((p) => p.status === 'recycled').length;
+
+    return sendSuccess(res, {
+      profile: {
+        name: user.companies?.name || user.brand_name || `${user.first_name || ''} ${user.last_name || ''}`.trim(),
+        public_slug: user.public_slug,
+        bio: user.public_bio,
+        logo_url: user.companies?.logo_url || null,
+        website: user.companies?.website || null,
+      },
+      stats: {
+        total_projects: (projects || []).length,
+        active_projects: activeCount,
+        recycled_projects: recycledCount,
+        average_rating: Number(averageRating.toFixed(2)),
+        total_feedback: feedback.length,
+      },
+      recent_projects: projects || [],
+      reviews: feedback,
+    });
+  } catch (error) {
+    return sendError(res, 'Failed to load public profile', 500);
   }
 };

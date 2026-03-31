@@ -32,16 +32,35 @@ export default function Onboarding() {
     if (!loading && !session) router.replace('/login');
   }, [session, loading, router]);
 
+  useEffect(() => {
+    if (!session?.user) return;
+
+    let pending = {};
+    try {
+      pending = JSON.parse(localStorage.getItem('solnuv_pending_onboarding') || '{}');
+    } catch {
+      pending = {};
+    }
+
+    setForm((prev) => ({
+      ...prev,
+      phone: prev.phone || pending.phone || session.user.user_metadata?.phone || '',
+      business_type: prev.business_type || pending.business_type || session.user.user_metadata?.business_type || 'solo',
+    }));
+  }, [session?.user]);
+
   const update = (field, val) => setForm(f => ({ ...f, [field]: val }));
   const isRegistered = form.business_type === 'registered';
   const totalSteps = isRegistered ? 3 : 2;
 
   async function handleSubmit() {
     if (!form.first_name) { toast.error('Please enter your first name'); return; }
+    if (!form.phone) { toast.error('Phone number is required'); return; }
     if (isRegistered && !form.company_name) { toast.error('Company name is required'); return; }
     setSubmitting(true);
     try {
       await authAPI.saveProfile(form);
+      localStorage.removeItem('solnuv_pending_onboarding');
       await refreshProfile();
       toast.success('Profile saved! Welcome to SolNuv 🌞');
       router.push('/dashboard');

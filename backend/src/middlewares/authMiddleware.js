@@ -61,7 +61,10 @@ async function requireAuth(req, res, next) {
  */
 async function requireProfile(req, res, next) {
   if (!req.user) {
-    return sendError(res, 'Please complete your profile setup first', 403);
+    return sendError(res, 'Incomplete profile - please complete onboarding at /onboarding', 403, { 
+      code: 'PROFILE_INCOMPLETE',
+      redirect_to: '/onboarding'
+    });
   }
   next();
 }

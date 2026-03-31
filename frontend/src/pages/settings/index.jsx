@@ -1,11 +1,11 @@
 import Head from 'next/head';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { authAPI } from '../../services/api';
 import { supabase } from '../../utils/supabase';
 import { getDashboardLayout } from '../../components/Layout';
 import { LoadingSpinner } from '../../components/ui/index';
-import { RiUserLine, RiBuildingLine, RiTeamLine, RiShieldCheckLine, RiLinkLine } from 'react-icons/ri';
+import { RiUserLine, RiBuildingLine, RiTeamLine, RiShieldCheckLine, RiLinksLine } from 'react-icons/ri';
 import toast from 'react-hot-toast';
 
 export default function Settings() {
@@ -24,11 +24,62 @@ export default function Settings() {
     nesrea_registration_number: company?.nesrea_registration_number || '',
     address: company?.address || '',
     city: company?.city || '',
+    website: company?.website || '',
+    logo_url: company?.logo_url || '',
+    branding_primary_color: company?.branding_primary_color || '#0D3B2E',
+    company_signature_url: company?.company_signature_url || '',
   });
 
-  const [inviteForm, setInviteForm] = useState({ email: '', role: 'manager' });
+  const [preferences, setPreferences] = useState({
+    sms: profile?.notification_preferences?.sms !== false,
+    whatsapp: profile?.notification_preferences?.whatsapp !== false,
+    push: profile?.notification_preferences?.push !== false,
+    email: profile?.notification_preferences?.email === true,
+  });
+
+  const [accountForm, setAccountForm] = useState({
+    signature_url: profile?.signature_url || '',
+    public_slug: profile?.public_slug || '',
+    public_bio: profile?.public_bio || '',
+    is_public_profile: profile?.is_public_profile !== false,
+  });
+
+  const [inviteForm, setInviteForm] = useState({ email: '', phone: '', role: 'manager', invite_channel: 'sms' });
   const [team, setTeam] = useState(null);
   const [loadingTeam, setLoadingTeam] = useState(false);
+
+  useEffect(() => {
+    setProfileForm({
+      first_name: profile?.first_name || '',
+      last_name: profile?.last_name || '',
+      phone: profile?.phone || '',
+      brand_name: profile?.brand_name || '',
+    });
+
+    setCompanyForm({
+      nesrea_registration_number: company?.nesrea_registration_number || '',
+      address: company?.address || '',
+      city: company?.city || '',
+      website: company?.website || '',
+      logo_url: company?.logo_url || '',
+      branding_primary_color: company?.branding_primary_color || '#0D3B2E',
+      company_signature_url: company?.company_signature_url || '',
+    });
+
+    setPreferences({
+      sms: profile?.notification_preferences?.sms !== false,
+      whatsapp: profile?.notification_preferences?.whatsapp !== false,
+      push: profile?.notification_preferences?.push !== false,
+      email: profile?.notification_preferences?.email === true,
+    });
+
+    setAccountForm({
+      signature_url: profile?.signature_url || '',
+      public_slug: profile?.public_slug || '',
+      public_bio: profile?.public_bio || '',
+      is_public_profile: profile?.is_public_profile !== false,
+    });
+  }, [profile, company]);
 
   async function handleProfileSave(e) {
     e.preventDefault();
@@ -67,7 +118,7 @@ export default function Settings() {
     try {
       await authAPI.inviteMember(inviteForm);
       toast.success(`Invitation sent to ${inviteForm.email}!`);
-      setInviteForm({ email: '', role: 'manager' });
+      setInviteForm({ email: '', phone: '', role: 'manager', invite_channel: 'sms' });
       loadTeam();
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to send invitation');
@@ -78,6 +129,9 @@ export default function Settings() {
     { id: 'profile', label: 'Profile', icon: RiUserLine },
     { id: 'company', label: 'Company', icon: RiBuildingLine, show: !!company },
     { id: 'team', label: 'Team', icon: RiTeamLine, show: !!company },
+    { id: 'notifications', label: 'Notifications', icon: RiLinksLine },
+    { id: 'branding', label: 'Branding', icon: RiBuildingLine, show: !!company },
+    { id: 'account', label: 'Account', icon: RiUserLine },
     { id: 'security', label: 'Security', icon: RiShieldCheckLine },
   ].filter(t => t.show !== false);
 
@@ -158,6 +212,10 @@ export default function Settings() {
               <input className="input" value={companyForm.city} onChange={e => setCompanyForm(f => ({ ...f, city: e.target.value }))} />
             </div>
             <div>
+              <label className="label">Website</label>
+              <input className="input" value={companyForm.website} onChange={e => setCompanyForm(f => ({ ...f, website: e.target.value }))} placeholder="https://yourcompany.com" />
+            </div>
+            <div>
               <label className="label">Address</label>
               <input className="input" value={companyForm.address} onChange={e => setCompanyForm(f => ({ ...f, address: e.target.value }))} />
             </div>
@@ -190,6 +248,130 @@ export default function Settings() {
           </div>
         )}
 
+        {activeTab === 'branding' && company && (
+          <div className="card space-y-4">
+            <h2 className="font-semibold text-forest-900 mb-2">Branding & Signature</h2>
+            <div>
+              <label className="label">Company Logo URL</label>
+              <input className="input" value={companyForm.logo_url} onChange={e => setCompanyForm(f => ({ ...f, logo_url: e.target.value }))} placeholder="https://..." />
+            </div>
+            <div>
+              <label className="label">Primary Brand Color</label>
+              <input className="input" value={companyForm.branding_primary_color} onChange={e => setCompanyForm(f => ({ ...f, branding_primary_color: e.target.value }))} placeholder="#0D3B2E" />
+            </div>
+            <div>
+              <label className="label">Company Signature URL</label>
+              <input className="input" value={companyForm.company_signature_url} onChange={e => setCompanyForm(f => ({ ...f, company_signature_url: e.target.value }))} placeholder="https://..." />
+            </div>
+            <button disabled={saving} onClick={async () => {
+              setSaving(true);
+              try {
+                await authAPI.saveProfile({
+                  ...profileForm,
+                  ...companyForm,
+                  user_type: profile.user_type,
+                  business_type: profile.business_type,
+                  company_name: company.name,
+                });
+                await refreshProfile();
+                toast.success('Branding saved');
+              } catch {
+                toast.error('Failed to save branding');
+              } finally {
+                setSaving(false);
+              }
+            }} className="btn-primary">
+              {saving ? 'Saving...' : 'Save Branding'}
+            </button>
+          </div>
+        )}
+
+        {activeTab === 'notifications' && (
+          <div className="card space-y-4">
+            <h2 className="font-semibold text-forest-900 mb-2">Notification Options</h2>
+            {[
+              { key: 'sms', label: 'SMS alerts via Termii' },
+              { key: 'whatsapp', label: 'WhatsApp alerts via Termii' },
+              { key: 'push', label: 'In-app notifications' },
+              { key: 'email', label: 'Email notifications' },
+            ].map((item) => (
+              <label key={item.key} className="flex items-center justify-between p-3 rounded-xl bg-slate-50">
+                <span className="text-sm text-slate-700">{item.label}</span>
+                <input
+                  type="checkbox"
+                  checked={preferences[item.key]}
+                  onChange={(e) => setPreferences((prev) => ({ ...prev, [item.key]: e.target.checked }))}
+                />
+              </label>
+            ))}
+            <button onClick={async () => {
+              setSaving(true);
+              try {
+                await authAPI.saveProfile({
+                  ...profileForm,
+                  user_type: profile.user_type,
+                  business_type: profile.business_type,
+                  notification_preferences: preferences,
+                });
+                await refreshProfile();
+                toast.success('Notification preferences saved');
+              } catch {
+                toast.error('Failed to save preferences');
+              } finally {
+                setSaving(false);
+              }
+            }} className="btn-primary">
+              {saving ? 'Saving...' : 'Save Preferences'}
+            </button>
+          </div>
+        )}
+
+        {activeTab === 'account' && (
+          <div className="card space-y-4">
+            <h2 className="font-semibold text-forest-900 mb-2">Account Management</h2>
+            <div>
+              <label className="label">Personal Signature URL</label>
+              <input className="input" value={accountForm.signature_url} onChange={e => setAccountForm(f => ({ ...f, signature_url: e.target.value }))} placeholder="https://..." />
+            </div>
+            <div>
+              <label className="label">Public Portfolio Slug</label>
+              <input className="input" value={accountForm.public_slug} onChange={e => setAccountForm(f => ({ ...f, public_slug: e.target.value }))} placeholder="your-brand" />
+            </div>
+            <div>
+              <label className="label">Public Bio</label>
+              <textarea className="input min-h-[90px]" value={accountForm.public_bio} onChange={e => setAccountForm(f => ({ ...f, public_bio: e.target.value }))} placeholder="Short brand reputation summary" />
+            </div>
+            <label className="flex items-center justify-between p-3 rounded-xl bg-slate-50">
+              <span className="text-sm text-slate-700">Public profile visible</span>
+              <input type="checkbox" checked={accountForm.is_public_profile} onChange={e => setAccountForm(f => ({ ...f, is_public_profile: e.target.checked }))} />
+            </label>
+            {accountForm.public_slug && (
+              <a href={`/profile/${accountForm.public_slug}`} target="_blank" rel="noreferrer" className="text-sm text-forest-900 font-semibold hover:underline inline-flex items-center gap-1">
+                <RiLinksLine /> Preview public portfolio
+              </a>
+            )}
+            <button onClick={async () => {
+              setSaving(true);
+              try {
+                await authAPI.saveProfile({
+                  ...profileForm,
+                  user_type: profile.user_type,
+                  business_type: profile.business_type,
+                  ...accountForm,
+                });
+                await refreshProfile();
+                toast.success('Account settings saved');
+              } catch {
+                toast.error('Failed to save account settings');
+              } finally {
+                setSaving(false);
+              }
+            }} className="btn-primary">
+              {saving ? 'Saving...' : 'Save Account Settings'}
+            </button>
+          </div>
+        )}
+
         {/* Team Tab */}
         {activeTab === 'team' && company && (
           <div className="space-y-4">
@@ -197,16 +379,28 @@ export default function Settings() {
               <div className="card">
                 <h2 className="font-semibold text-forest-900 mb-4">Invite Team Member</h2>
                 <form onSubmit={handleInvite} className="grid sm:grid-cols-3 gap-3">
-                  <div className="sm:col-span-2">
+                  <div className="sm:col-span-3">
                     <label className="label">Email Address</label>
                     <input className="input" type="email" placeholder="colleague@company.com" value={inviteForm.email}
                       onChange={e => setInviteForm(f => ({ ...f, email: e.target.value }))} required />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="label">Phone (optional, Termii SMS/WhatsApp)</label>
+                    <input className="input" type="tel" placeholder="+234..." value={inviteForm.phone}
+                      onChange={e => setInviteForm(f => ({ ...f, phone: e.target.value }))} />
                   </div>
                   <div>
                     <label className="label">Role</label>
                     <select className="input" value={inviteForm.role} onChange={e => setInviteForm(f => ({ ...f, role: e.target.value }))}>
                       <option value="manager">Manager</option>
                       <option value="admin">Admin</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="label">Invite Channel</label>
+                    <select className="input" value={inviteForm.invite_channel} onChange={e => setInviteForm(f => ({ ...f, invite_channel: e.target.value }))}>
+                      <option value="sms">SMS</option>
+                      <option value="whatsapp">WhatsApp</option>
                     </select>
                   </div>
                   <div className="sm:col-span-3">

@@ -4,8 +4,13 @@ const authController = require('../controllers/authController');
 const { requireAuth, requireProfile } = require('../middlewares/authMiddleware');
 const { checkTeamLimit } = require('../middlewares/subscriptionMiddleware');
 
+router.post('/password-reset/request', authController.requestPasswordResetOtp);
+router.post('/password-reset/verify', authController.verifyPasswordResetOtp);
+router.post('/password-reset/complete', authController.completePasswordReset);
+
 router.post('/profile', requireAuth, authController.createOrUpdateProfile);
 router.get('/me', requireAuth, authController.getMe);
+router.get('/profile-status', requireAuth, authController.getProfileStatus);
 router.post('/invite', requireAuth, requireProfile, checkTeamLimit, authController.inviteTeamMember);
 router.post('/accept-invite/:token', requireAuth, authController.acceptInvite);
 router.get('/accept-invite/:token', authController.acceptInvite); // public check

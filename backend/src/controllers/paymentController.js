@@ -6,7 +6,7 @@
 const axios = require('axios');
 const supabase = require('../config/database');
 const { sendSuccess, sendError } = require('../utils/responseHelper');
-const { sendPaymentConfirmation } = require('../services/emailService');
+const { sendPaymentConfirmation } = require('../services/notificationService');
 const { logPlatformActivity } = require('../services/auditService');
 const {
   BILLING_INTERVALS,

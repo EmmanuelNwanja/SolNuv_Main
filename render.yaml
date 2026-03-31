@@ -18,20 +18,14 @@ services:
         sync: false
       - key: SUPABASE_ANON_KEY
         sync: false
-      - key: BREVO_SMTP_HOST
-        value: smtp-relay.brevo.com
-      - key: BREVO_SMTP_PORT
-        value: 587
-      - key: BREVO_SMTP_USER
+      - key: TERMII_API_KEY
         sync: false
-      - key: BREVO_SMTP_PASS
-        sync: false
+      - key: TERMII_SENDER_ID
+        value: SolNuv
+      - key: TERMII_BASE_URL
+        value: https://api.ng.termii.com/api
       - key: BREVO_API_KEY
         sync: false
-      - key: EMAIL_FROM
-        value: noreply@solnuv.com
-      - key: EMAIL_FROM_NAME
-        value: SolNuv Platform
       - key: PAYSTACK_SECRET_KEY
         sync: false
       - key: FRONTEND_URL

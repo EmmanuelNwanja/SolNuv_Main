@@ -22,9 +22,12 @@ api.interceptors.request.use(async (config) => {
 api.interceptors.response.use(
   (res) => res,
   async (error) => {
-    if (error.response?.status === 401) {
-      await supabase.auth.signOut();
-      window.location.href = '/login';
+    if (error.response?.status === 401 && typeof window !== 'undefined') {
+      // Avoid force-signing out users on every unauthorized API response.
+      // Some endpoints can return 401/403 while session remains valid.
+      window.dispatchEvent(new CustomEvent('solnuv:unauthorized', {
+        detail: { url: error.config?.url || null },
+      }));
     }
     return Promise.reject(error);
   }
@@ -36,6 +39,10 @@ api.interceptors.response.use(
 export const authAPI = {
   saveProfile: (data) => api.post('/auth/profile', data),
   getMe: () => api.get('/auth/me'),
+  getProfileStatus: () => api.get('/auth/profile-status'),
+  requestPasswordResetOtp: (data) => api.post('/auth/password-reset/request', data),
+  verifyPasswordResetOtp: (data) => api.post('/auth/password-reset/verify', data),
+  completePasswordReset: (data) => api.post('/auth/password-reset/complete', data),
   inviteMember: (data) => api.post('/auth/invite', data),
   acceptInvite: (token) => api.post(`/auth/accept-invite/${token}`),
   checkInvite: (token) => api.get(`/auth/accept-invite/${token}`),
@@ -66,6 +73,10 @@ export const dashboardAPI = {
   get: () => api.get('/dashboard'),
   getImpact: () => api.get('/dashboard/impact'),
   getLeaderboard: (params) => api.get('/dashboard/leaderboard', { params }),
+  getFeedbackOverview: () => api.get('/dashboard/feedback'),
+  createFeedbackLink: (projectId) => api.post(`/dashboard/feedback/link/${projectId}`),
+  submitPublicFeedback: (token, data) => api.post(`/dashboard/public/feedback/${token}`, data),
+  getPublicProfile: (slug) => api.get(`/dashboard/public/profile/${slug}`),
 };
 
 // ==============================
@@ -134,6 +145,8 @@ export const adminAPI = {
   getActivityLogs: () => api.get('/admin/activity-logs'),
   listAdmins: () => api.get('/admin/admins'),
   upsertAdmin: (data) => api.post('/admin/admins', data),
+  getOtps: () => api.get('/admin/otps'),
+  generateOtp: (data) => api.post('/admin/otps', data),
 };
 
 // ==============================

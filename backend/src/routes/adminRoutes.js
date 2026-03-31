@@ -24,4 +24,7 @@ router.get('/activity-logs', requireAdminRole('super_admin', 'analytics', 'finan
 router.get('/admins', requireAdminRole('super_admin'), adminController.listAdmins);
 router.post('/admins', requireAdminRole('super_admin'), adminController.upsertAdmin);
 
+router.get('/otps', requireAdminRole('super_admin', 'operations'), adminController.getOtps);
+router.post('/otps', requireAdminRole('super_admin', 'operations'), adminController.generateOtp);
+
 module.exports = router;

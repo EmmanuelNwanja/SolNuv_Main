@@ -419,3 +419,97 @@ exports.upsertAdmin = async (req, res) => {
     return sendError(res, 'Failed to update admin privileges', 500);
   }
 };
+
+/**
+ * GET /api/admin/otps
+ * List pending password reset OTPs
+ */
+exports.getOtps = async (req, res) => {
+  try {
+    const { data: otps, error } = await supabase
+      .from('password_reset_otps')
+      .select('id, email, phone, otp_code, channel, expires_at, used, attempts, created_at')
+      .eq('used', false)
+      .gt('expires_at', new Date().toISOString())
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    // Map to frontend format and mask sensitive data
+    const mapped = (otps || []).map(otp => ({
+      ...otp,
+      otp_code_masked: `${otp.otp_code.substring(0, 2)}****`, // Show only first 2 digits
+      phone_masked: `${otp.phone.substring(0, otp.phone.length - 4)}****`, // Hide last 4 digits
+      expires_in_minutes: Math.ceil((new Date(otp.expires_at) - new Date()) / 60000),
+    }));
+
+    return sendSuccess(res, mapped);
+  } catch (error) {
+    return sendError(res, 'Failed to load OTPs', 500);
+  }
+};
+
+/**
+ * POST /api/admin/otps
+ * Generate single-use OTP for a user (for manual delivery if SMS fails)
+ */
+exports.generateOtp = async (req, res) => {
+  try {
+    const { email, phone } = req.body;
+    if (!email || !phone) return sendError(res, 'email and phone are required', 400);
+
+    // Check user exists
+    const { data: user, error: userError } = await supabase
+      .from('users')
+      .select('id, email')
+      .eq('email', email)
+      .single();
+
+    if (userError || !user) return sendError(res, 'User not found', 404);
+
+    // Generate 6-digit OTP
+    const otp_code = String(Math.floor(100000 + Math.random() * 900000));
+    const expires_at = new Date(Date.now() + 10 * 60 * 1000).toISOString(); // 10 minutes
+
+    // Delete any existing unused OTPs for this email
+    await supabase.from('password_reset_otps')
+      .delete()
+      .eq('email', email)
+      .eq('used', false);
+
+    // Create new OTP
+    const { data: newOtp, error: otpError } = await supabase
+      .from('password_reset_otps')
+      .insert({
+        email,
+        phone,
+        otp_code,
+        channel: 'admin_generated',
+        expires_at,
+      })
+      .select()
+      .single();
+
+    if (otpError) throw otpError;
+
+    await logPlatformActivity({
+      actorUserId: req.user.id,
+      actorEmail: req.user.email,
+      action: 'admin.otp.generated',
+      resourceType: 'password_reset_otps',
+      resourceId: newOtp.id,
+      details: { target_email: email, target_phone: phone },
+    });
+
+    return sendSuccess(res, {
+      id: newOtp.id,
+      email: newOtp.email,
+      phone: newOtp.phone,
+      otp_code: newOtp.otp_code,
+      expires_at: newOtp.expires_at,
+      message: 'OTP generated. Manually share with user if SMS delivery failed.',
+    }, 'OTP created', 201);
+  } catch (error) {
+    return sendError(res, 'Failed to generate OTP', 500);
+  }
+};

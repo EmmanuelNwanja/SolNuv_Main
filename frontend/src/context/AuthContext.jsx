@@ -56,11 +56,14 @@ export function AuthProvider({ children }) {
     return supabase.auth.signInWithPassword({ email, password });
   }
 
-  async function signUpWithEmail(email, password) {
+  async function signUpWithEmail(email, password, metadata = {}) {
     return supabase.auth.signUp({
       email,
       password,
-      options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+      options: {
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
+        data: metadata,
+      },
     });
   }
 

@@ -17,7 +17,7 @@ Create **free** accounts on each of these platforms (takes ~15 minutes total):
 | 2 | **Supabase** | supabase.com | Your database |
 | 3 | **Vercel** | vercel.com | Hosts the website (frontend) |
 | 4 | **Render** | render.com | Hosts the server (backend) |
-| 5 | **Brevo** | brevo.com | Sends emails (300/day free) |
+| 5 | **Termii** | termii.com | Sends SMS/WhatsApp notifications |
 | 6 | **Paystack** | paystack.com | Accepts payments in ₦ |
 
 > ✅ **Tip:** Use the same Google account to sign up on all platforms — it's faster.
@@ -102,8 +102,9 @@ Run these in order (one file per new SQL query):
 
 1. `database/migrations/002_billing_admin_upgrade.sql`
 2. `database/migrations/003_africa_engineering_tools.sql`
+3. `database/migrations/004_engagement_auth_notifications_upgrade.sql`
 
-> ✅ These add annual billing, promo codes, admin controls, proposal scenarios, battery QR ledger tables, and cable compliance records.
+> ✅ These add annual billing, promo codes, admin controls, proposal scenarios, battery QR ledger tables, cable compliance records, client feedback, and OTP reset support.
 
 ### Step 2.4 — Run the seed data
 1. Click **"New query"** again
@@ -133,29 +134,18 @@ Run these in order (one file per new SQL query):
 
 ---
 
-## PHASE 3 — Set Up Brevo (Email)
+## PHASE 3 — Set Up Termii (SMS/WhatsApp Notifications)
 
-**Brevo sends automated emails: welcome messages, decommission alerts, team invitations.**
+**Termii sends OTP and platform alerts: password reset, payment confirmations, and recovery updates.**
 
-### Step 3.1 — Configure Brevo
-1. Log into **brevo.com**
-2. Go to your **Account settings** → **SMTP & API**
-3. Click **"SMTP"** tab
-4. Copy and save:
-   - SMTP Server: `smtp-relay.brevo.com`
-   - Port: `587`
-   - Login (your Brevo account email)
-   - Password (your Brevo SMTP password — click "Generate a new SMTP Key")
+### Step 3.1 — Configure Termii
+1. Log into **termii.com**
+2. Complete sender/profile verification
+3. Create a sender ID (example: `SolNuv`)
 
-### Step 3.2 — Get your API key
-1. Go to **Account** → **SMTP & API** → **API Keys**
-2. Click **"Generate a new API key"**
-3. Name it "SolNuv" and copy the key — save it
-
-### Step 3.3 — Add your sender domain
-1. Go to **Senders & IP** → **Domains**
-2. Add `solnuv.com`
-3. Follow the DNS verification steps (Cloudflare makes this easy — see below)
+### Step 3.2 — Get your API credentials
+1. Copy your **Termii API Key** from dashboard settings
+2. Save your sender ID and API key for deployment env vars
 
 ---
 
@@ -212,13 +202,9 @@ SUPABASE_URL                = (paste your Supabase Project URL)
 SUPABASE_SERVICE_ROLE_KEY   = (paste your service_role key)
 SUPABASE_ANON_KEY           = (paste your anon key)
 
-BREVO_SMTP_HOST             = smtp-relay.brevo.com
-BREVO_SMTP_PORT             = 587
-BREVO_SMTP_USER             = (your Brevo login email)
-BREVO_SMTP_PASS             = (your Brevo SMTP password)
-BREVO_API_KEY               = (your Brevo API key)
-EMAIL_FROM                  = noreply@solnuv.com
-EMAIL_FROM_NAME             = SolNuv Platform
+TERMII_API_KEY              = (your Termii API key)
+TERMII_SENDER_ID            = SolNuv
+TERMII_BASE_URL             = https://api.ng.termii.com/api
 
 PAYSTACK_SECRET_KEY         = (your Paystack secret key)
 JWT_SECRET                  = (generate this: open terminal, run: node -e "console.log(require('crypto').randomBytes(64).toString('hex'))")
@@ -356,10 +342,10 @@ Go through each item and confirm:
 - Make sure you ran all SQL migrations in Steps 2.2 and 2.3
 - The service_role key is different from the anon key — use service_role for backend
 
-### "Emails are not sending"
-- Verify BREVO_SMTP_PASS is the SMTP key, NOT your Brevo login password
-- Check the Brevo dashboard to see if emails are in the activity log
-- Ensure your sender domain `solnuv.com` is verified in Brevo
+### "OTP / notifications are not sending"
+- Verify `TERMII_API_KEY` and `TERMII_SENDER_ID` are set correctly
+- Ensure phone numbers are valid and include country code where needed
+- Check delivery logs in your Termii dashboard
 
 ### "Google Sign-in fails"
 - Confirm the redirect URI in Google Console includes: `https://your-project.supabase.co/auth/v1/callback`
@@ -404,7 +390,7 @@ When you have paying customers, upgrade:
 |---------|-----------|-----------------|----------------|
 | Render | Sleeps after 15min | >10 daily active users | $7/month (Starter) |
 | Supabase | 500MB database | Database near 400MB | $25/month (Pro) |
-| Brevo | 300 emails/day | Sending close to limit | €19/month (Starter) |
+| Termii | Usage-based | Notification volume grows | Termii paid tiers |
 | Vercel | Generous | Almost never | $20/month |
 
 ---

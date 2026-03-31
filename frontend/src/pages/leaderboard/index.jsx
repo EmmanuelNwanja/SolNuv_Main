@@ -11,6 +11,8 @@ const CATEGORIES = [
   { id: 'active', label: 'Active Projects', icon: RiSunLine },
   { id: 'recycled', label: 'Recycled', icon: RiRecycleLine },
   { id: 'silver', label: 'Silver Fleet', icon: RiMedalLine },
+  { id: 'co2', label: 'CO2 Avoided', icon: RiLeafLine },
+  { id: 'rating', label: 'Client Rating', icon: RiTrophyLine },
 ];
 
 const RANK_COLORS = ['text-amber-500', 'text-slate-400', 'text-amber-700'];
@@ -19,25 +21,33 @@ export default function Leaderboard() {
   const { profile } = useAuth();
   const [category, setCategory] = useState('impact');
   const [data, setData] = useState([]);
+  const [minProjects, setMinProjects] = useState('');
+  const [minRating, setMinRating] = useState('');
   const [loading, setLoading] = useState(true);
   const [currentUserPos, setCurrentUserPos] = useState(null);
 
   useEffect(() => {
     setLoading(true);
-    dashboardAPI.getLeaderboard({ category })
+    dashboardAPI.getLeaderboard({
+      category,
+      min_projects: minProjects,
+      min_rating: minRating,
+    })
       .then(r => {
         setData(r.data.data?.leaderboard || []);
         setCurrentUserPos(r.data.data?.current_user_position);
       })
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, [category]);
+  }, [category, minProjects, minRating]);
 
   function getDisplayValue(entry) {
     switch (category) {
       case 'active': return `${entry.active_projects_count} projects`;
       case 'recycled': return `${entry.recycled_count} recycled`;
       case 'silver': return `${(entry.total_silver_grams || 0).toFixed(1)}g silver`;
+      case 'co2': return `${((entry.co2_avoided_kg || 0) / 1000).toFixed(1)}t CO2`;
+      case 'rating': return `${(entry.average_rating || 0).toFixed(2)} rating`;
       default: return `${(entry.impact_score || 0).toFixed(0)} pts`;
     }
   }
@@ -69,6 +79,27 @@ export default function Leaderboard() {
             <cat.icon /> {cat.label}
           </button>
         ))}
+      </div>
+
+      <div className="flex gap-2 mb-6 flex-wrap">
+        <input
+          className="input max-w-[220px]"
+          placeholder="Min active projects"
+          value={minProjects}
+          onChange={(e) => setMinProjects(e.target.value)}
+          type="number"
+          min="0"
+        />
+        <input
+          className="input max-w-[220px]"
+          placeholder="Min client rating"
+          value={minRating}
+          onChange={(e) => setMinRating(e.target.value)}
+          type="number"
+          min="0"
+          max="5"
+          step="0.1"
+        />
       </div>
 
       {loading ? (
@@ -110,7 +141,7 @@ export default function Leaderboard() {
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold text-sm text-slate-800 truncate">{entry.entity_name}</p>
                       <p className="text-xs text-slate-400">
-                        {entry.active_projects_count} active · {entry.recycled_count} recycled · {(entry.total_silver_grams || 0).toFixed(1)}g silver
+                        {entry.active_projects_count} active · {entry.recycled_count} recycled · {(entry.total_silver_grams || 0).toFixed(1)}g silver · {(entry.average_rating || 0).toFixed(2)} rating
                       </p>
                     </div>
                     <div className="text-right flex-shrink-0">

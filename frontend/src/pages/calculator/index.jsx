@@ -261,13 +261,27 @@ export default function Calculator() {
         <p className="text-slate-500 text-sm mt-0.5">
           See what your solar equipment is worth at end-of-life — silver, refurbishment, and battery recycling.
         </p>
+        <div className="mt-4 grid sm:grid-cols-3 gap-3">
+          <div className="rounded-xl bg-forest-900 text-white p-3">
+            <p className="text-xs text-white/70">Engineering Suite</p>
+            <p className="text-sm font-semibold">ROI + SoH + Cable Compliance</p>
+          </div>
+          <div className="rounded-xl bg-amber-50 border border-amber-200 p-3">
+            <p className="text-xs text-amber-700">Offline Ready</p>
+            <p className="text-sm font-semibold text-amber-900">Cable entries auto-sync later</p>
+          </div>
+          <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-3">
+            <p className="text-xs text-emerald-700">Proposal Exports</p>
+            <p className="text-sm font-semibold text-emerald-900">PDF output in one click</p>
+          </div>
+        </div>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 mb-6 flex-wrap">
+      <div className="grid md:grid-cols-3 lg:grid-cols-6 gap-2 mb-6">
         {tabs.map(t => (
           <button key={t.id} onClick={() => setActiveTab(t.id)}
-            className={`px-5 py-2.5 rounded-xl text-sm font-semibold transition-all flex flex-col items-start ${activeTab === t.id ? 'bg-forest-900 text-white' : 'bg-white border border-slate-200 text-slate-600 hover:border-forest-900/30'}`}>
+            className={`px-4 py-3 rounded-xl text-sm font-semibold transition-all flex flex-col items-start h-full ${activeTab === t.id ? 'bg-forest-900 text-white shadow-md' : 'bg-white border border-slate-200 text-slate-600 hover:border-forest-900/30 hover:shadow-sm'}`}>
             <span>{t.label}</span>
             <span className={`text-xs font-normal ${activeTab === t.id ? 'text-white/70' : 'text-slate-400'}`}>{t.desc}</span>
           </button>

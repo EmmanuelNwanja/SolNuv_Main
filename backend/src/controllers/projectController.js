@@ -76,6 +76,7 @@ exports.createProject = async (req, res) => {
       notes,
       panels = [], // array of { brand, model, size_watts, quantity, condition }
       batteries = [], // array of { brand, model, capacity_kwh, quantity, condition }
+      inverters = [], // array of { brand, model, power_kw, quantity, condition }
     } = req.body;
 
     if (!name) return sendError(res, 'Project name is required', 400);
@@ -151,6 +152,20 @@ exports.createProject = async (req, res) => {
         capacity_kwh: battery.capacity_kwh || null,
         quantity: battery.quantity,
         condition: battery.condition || 'good',
+      });
+    }
+
+    for (const inverter of inverters) {
+      if (!inverter.brand || !inverter.quantity) continue;
+
+      equipmentRecords.push({
+        project_id: project.id,
+        equipment_type: 'inverter',
+        brand: inverter.brand,
+        model: inverter.model || null,
+        power_kw: inverter.power_kw || null,
+        quantity: inverter.quantity,
+        condition: inverter.condition || 'good',
       });
     }
 
@@ -320,8 +335,8 @@ exports.requestRecovery = async (req, res) => {
     // Update project status
     await supabase.from('projects').update({ status: 'pending_recovery' }).eq('id', id);
 
-    // Send confirmation email
-    const { sendRecoveryConfirmation } = require('../services/emailService');
+    // Send confirmation notification
+    const { sendRecoveryConfirmation } = require('../services/notificationService');
     sendRecoveryConfirmation(req.user, project, recovery).catch(console.error);
 
     return sendSuccess(res, recovery, 'Recovery request submitted', 201);

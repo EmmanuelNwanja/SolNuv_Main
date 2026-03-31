@@ -2,6 +2,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useAuth } from '../context/AuthContext';
+import ProtectedRoute from './ProtectedRoute';
 import {
   RiDashboardLine, RiSunLine, RiBarChartLine, RiFileTextLine,
   RiTrophyLine, RiCalculatorLine, RiSettingsLine, RiLogoutBoxLine,
@@ -13,6 +14,7 @@ const navItems = [
   { href: '/dashboard', icon: RiDashboardLine, label: 'Dashboard' },
   { href: '/projects', icon: RiSunLine, label: 'My Projects' },
   { href: '/dashboard/impact', icon: RiLeafLine, label: 'Impact' },
+  { href: '/dashboard/feedback', icon: RiBarChartLine, label: 'Client Feedback' },
   { href: '/leaderboard', icon: RiTrophyLine, label: 'Leaderboard' },
   { href: '/reports', icon: RiFileTextLine, label: 'Reports', pro: true },
   { href: '/calculator', icon: RiCalculatorLine, label: 'Calculator' },
@@ -128,5 +130,9 @@ export default function Layout({ children }) {
 
 // Wrap dashboard pages with this layout
 export function getDashboardLayout(page) {
-  return <Layout>{page}</Layout>;
+  return (
+    <ProtectedRoute>
+      <Layout>{page}</Layout>
+    </ProtectedRoute>
+  );
 }

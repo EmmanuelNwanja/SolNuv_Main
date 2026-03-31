@@ -7,7 +7,7 @@ import { RiSunLine, RiGoogleLine, RiEyeLine, RiEyeOffLine } from 'react-icons/ri
 import toast from 'react-hot-toast';
 
 export default function Login() {
-  const { session, signInWithGoogle, signInWithEmail, loading } = useAuth();
+  const { session, isPlatformAdmin, signInWithGoogle, signInWithEmail, loading } = useAuth();
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -15,8 +15,12 @@ export default function Login() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (session && !loading) router.replace('/dashboard');
-  }, [session, loading, router]);
+    if (session && !loading) {
+      // Redirect to admin dashboard if user is platform admin
+      const redirectUrl = isPlatformAdmin ? '/admin' : '/dashboard';
+      router.replace(redirectUrl);
+    }
+  }, [session, loading, isPlatformAdmin, router]);
 
   async function handleGoogle() {
     setSubmitting(true);
@@ -28,9 +32,17 @@ export default function Login() {
   async function handleEmail(e) {
     e.preventDefault();
     setSubmitting(true);
-    const { error } = await signInWithEmail(email, password);
-    if (error) { toast.error(error.message); setSubmitting(false); }
-    else toast.success('Welcome back!');
+    try {
+      const { error } = await signInWithEmail(email, password);
+      if (error) {
+        toast.error(error.message);
+        return;
+      }
+      toast.success('Welcome back!');
+      // Redirect will be handled by useEffect above
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (

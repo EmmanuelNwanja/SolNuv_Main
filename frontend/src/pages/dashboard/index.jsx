@@ -68,6 +68,31 @@ export default function Dashboard() {
         <StatCard label="Recycled" value={stats.recycled || 0} sub="projects completed" icon={RiRecycleLine} color="slate" />
       </div>
 
+      <div className="grid sm:grid-cols-3 gap-3 mb-6">
+        <Link href="/dashboard/feedback" className="card-hover">
+          <p className="text-xs text-slate-500">Client Reputation</p>
+          <p className="text-sm font-semibold text-forest-900 mt-1">Generate feedback links</p>
+          <p className="text-xs text-slate-400 mt-1">Collect ratings and showcase reviews</p>
+        </Link>
+        <Link href="/leaderboard" className="card-hover">
+          <p className="text-xs text-slate-500">Leaderboard</p>
+          <p className="text-sm font-semibold text-forest-900 mt-1">Track CO2 and rating rank</p>
+          <p className="text-xs text-slate-400 mt-1">Use filters to benchmark peers</p>
+        </Link>
+        <Link href="/calculator" className="card-hover">
+          <p className="text-xs text-slate-500">Engineering Tools</p>
+          <p className="text-sm font-semibold text-forest-900 mt-1">ROI, SoH, and cable sizing</p>
+          <p className="text-xs text-slate-400 mt-1">Export proposal and compliance PDFs</p>
+        </Link>
+        {profile?.public_slug && (
+          <a href={`/profile/${profile.public_slug}`} target="_blank" rel="noreferrer" className="card-hover">
+            <p className="text-xs text-slate-500">Public Portfolio</p>
+            <p className="text-sm font-semibold text-forest-900 mt-1">Share your profile link</p>
+            <p className="text-xs text-slate-400 mt-1">Showcase projects, impact, and reviews</p>
+          </a>
+        )}
+      </div>
+
       <div className="grid md:grid-cols-3 gap-6 mb-6">
         {/* Silver portfolio card */}
         <div className="md:col-span-2 bg-forest-900 rounded-2xl p-6 text-white">
