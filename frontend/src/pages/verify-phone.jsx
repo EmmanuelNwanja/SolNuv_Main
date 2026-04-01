@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '../context/AuthContext';
 import { authAPI } from '../services/api';
+import { supabase } from '../utils/supabase';
 import { RiShieldCheckLine, RiSmartphoneLine } from 'react-icons/ri';
 import toast from 'react-hot-toast';
 
@@ -82,11 +83,31 @@ export default function VerifyPhone() {
 
     setVerifying(true);
     try {
-      await authAPI.verifyPhoneVerificationOtp({ phone, otp });
+      const timeoutError = Object.assign(new Error('Verification request timed out'), { code: 'VERIFY_TIMEOUT' });
+      await Promise.race([
+        authAPI.verifyPhoneVerificationOtp({ phone, otp }),
+        new Promise((_, reject) => setTimeout(() => reject(timeoutError), 15000)),
+      ]);
+
+      // Ensure the client-side session immediately reflects phone_verified.
+      // This prevents redirect loops when backend metadata propagation is delayed.
+      const existingMeta = session?.user?.user_metadata || {};
+      await supabase.auth.updateUser({
+        data: {
+          ...existingMeta,
+          phone: phone.trim(),
+          phone_verified: true,
+          phone_verified_at: new Date().toISOString(),
+        },
+      });
+
       toast.success('Phone verified successfully');
       router.replace('/onboarding');
     } catch (err) {
-      toast.error(err.response?.data?.message || 'OTP verification failed');
+      const timeoutLike = err?.code === 'VERIFY_TIMEOUT' || err?.code === 'ECONNABORTED';
+      toast.error(timeoutLike
+        ? 'Verification timed out. Please try again in a few seconds.'
+        : (err.response?.data?.message || 'OTP verification failed'));
     } finally {
       setVerifying(false);
     }

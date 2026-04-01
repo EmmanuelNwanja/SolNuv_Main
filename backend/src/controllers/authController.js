@@ -626,9 +626,11 @@ exports.verifyPhoneVerificationOtp = async (req, res) => {
     if (!phone || !otp) return sendError(res, 'Phone and OTP are required', 400);
 
     const normalizedPhone = normalizePhone(phone);
+    const normalizedEmail = String(req.supabaseUser?.email || '').toLowerCase();
     const nowIso = new Date().toISOString();
 
-    const { data: row } = await supabase
+    // Primary source: signup phone verification OTP table
+    const { data: signupRow } = await supabase
       .from('phone_verification_otps')
       .select('*')
       .eq('supabase_uid', req.supabaseUser.id)
@@ -640,12 +642,43 @@ exports.verifyPhoneVerificationOtp = async (req, res) => {
       .limit(1)
       .maybeSingle();
 
+    // Fallback source: admin-generated OTPs are currently created in password_reset_otps.
+    // Accepting them here allows account verification even when SMS providers are offline.
+    let row = signupRow;
+    let otpSource = 'phone_verification_otps';
+
+    if (!row) {
+      const { data: adminRow } = await supabase
+        .from('password_reset_otps')
+        .select('*')
+        .eq('email', normalizedEmail)
+        .eq('phone', normalizedPhone)
+        .eq('otp_code', String(otp).trim())
+        .eq('used', false)
+        .gt('expires_at', nowIso)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (adminRow) {
+        row = adminRow;
+        otpSource = 'password_reset_otps';
+      }
+    }
+
     if (!row) return sendError(res, 'Invalid or expired OTP', 400);
 
-    await supabase
-      .from('phone_verification_otps')
-      .update({ used: true })
-      .eq('id', row.id);
+    if (otpSource === 'phone_verification_otps') {
+      await supabase
+        .from('phone_verification_otps')
+        .update({ used: true })
+        .eq('id', row.id);
+    } else {
+      await supabase
+        .from('password_reset_otps')
+        .update({ used: true })
+        .eq('id', row.id);
+    }
 
     const existingMeta = req.supabaseUser?.user_metadata || {};
     const updateResult = await supabase.auth.admin.updateUserById(req.supabaseUser.id, {
@@ -657,9 +690,7 @@ exports.verifyPhoneVerificationOtp = async (req, res) => {
       },
     });
 
-    if (updateResult.error) {
-      return sendError(res, 'OTP verified but failed to update user metadata', 500);
-    }
+    const metadataUpdated = !updateResult.error;
 
     if (req.user?.id) {
       await supabase
@@ -668,7 +699,12 @@ exports.verifyPhoneVerificationOtp = async (req, res) => {
         .eq('id', req.user.id);
     }
 
-    return sendSuccess(res, { verified: true, phone: normalizedPhone }, 'Phone verified successfully');
+    return sendSuccess(res, {
+      verified: true,
+      phone: normalizedPhone,
+      otp_source: otpSource,
+      metadata_updated: metadataUpdated,
+    }, metadataUpdated ? 'Phone verified successfully' : 'Phone verified. Metadata update will be retried client-side.');
   } catch (error) {
     return sendError(res, 'Failed to verify phone OTP', 500);
   }
