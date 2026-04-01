@@ -22,6 +22,16 @@ export default function Register() {
   }, [session, loading, router]);
 
   async function handleGoogle() {
+    if (!phone.trim()) {
+      toast.error('Phone number is required before Google sign up');
+      return;
+    }
+
+    localStorage.setItem('solnuv_pending_onboarding', JSON.stringify({
+      phone,
+      business_type: businessType,
+    }));
+
     setSubmitting(true);
     const { error } = await signInWithGoogle();
     if (error) { toast.error(error.message); setSubmitting(false); }
