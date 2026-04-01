@@ -1,7 +1,21 @@
 import axios from 'axios';
 import { supabase } from '../utils/supabase';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+function resolveApiUrl() {
+  const configured = process.env.NEXT_PUBLIC_API_URL?.trim();
+  if (configured) return configured.replace(/\/$/, '');
+
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname;
+    if (host === 'www.solnuv.com' || host === 'solnuv.com') {
+      return 'https://api.solnuv.com';
+    }
+  }
+
+  return 'http://localhost:5000';
+}
+
+const API_URL = resolveApiUrl();
 
 const api = axios.create({
   baseURL: `${API_URL}/api`,
