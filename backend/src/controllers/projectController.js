@@ -202,9 +202,8 @@ exports.createProject = async (req, res) => {
       .eq('id', project.id)
       .single();
 
-    // Trigger leaderboard refresh via internal fetch — avoids circular dependency
-    const apiBase = `http://localhost:${process.env.PORT || 5000}`;
-      fetch(`${apiBase}/api/dashboard/refresh-leaderboard`).catch(() => {});
+    // Trigger leaderboard refresh asynchronously (fire-and-forget)
+    refreshLeaderboard().catch(() => {});
 
     return sendSuccess(res, {
       project: completeProject,

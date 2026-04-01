@@ -98,6 +98,19 @@ export default function ProjectDetail() {
     finally { setCertLoading(false); }
   }
 
+  // Populate asset form defaults from loaded project — must be before any early returns
+  useEffect(() => {
+    if (!project) return;
+    const firstBattery = project.equipment?.filter(e => e.equipment_type === 'battery')[0];
+    setAssetForm((prev) => ({
+      ...prev,
+      brand: prev.brand || firstBattery?.brand || 'Felicity',
+      capacity_kwh: prev.capacity_kwh || firstBattery?.capacity_kwh || '',
+      installation_date: prev.installation_date || project.installation_date || new Date().toISOString().split('T')[0],
+    }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [project?.id]);
+
   async function handleCreateBatteryAsset() {
     if (!assetForm.brand || !assetForm.chemistry || !assetForm.capacity_kwh || !assetForm.installation_date) {
       toast.error('Brand, chemistry, capacity, and installation date are required');
@@ -140,18 +153,6 @@ export default function ProjectDetail() {
     ? Math.ceil((new Date(project.estimated_decommission_date) - new Date()) / (1000 * 60 * 60 * 24))
     : null;
   const transitions = STATUS_TRANSITIONS[project.status] || [];
-
-  useEffect(() => {
-    if (!project) return;
-    const firstBattery = batteries[0];
-    setAssetForm((prev) => ({
-      ...prev,
-      brand: prev.brand || firstBattery?.brand || 'Felicity',
-      capacity_kwh: prev.capacity_kwh || firstBattery?.capacity_kwh || '',
-      installation_date: prev.installation_date || project.installation_date || new Date().toISOString().split('T')[0],
-    }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [project?.id]);
 
   return (
     <>

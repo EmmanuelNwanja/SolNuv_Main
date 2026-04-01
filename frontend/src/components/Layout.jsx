@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useAuth } from '../context/AuthContext';
@@ -6,6 +6,7 @@ import ProtectedRoute from './ProtectedRoute';
 import AdminLayout from './AdminLayout';
 import { ThemeToggle } from './ThemeToggle';
 import { PageMotion } from './PageMotion';
+import { authAPI } from '../services/api';
 import {
   RiDashboardLine, RiSunLine, RiBarChartLine, RiFileTextLine,
   RiTrophyLine, RiCalculatorLine, RiSettingsLine, RiLogoutBoxLine,
@@ -28,6 +29,24 @@ export default function Layout({ children }) {
   const { profile, plan, isPro, company, signOut, isPlatformAdmin } = useAuth();
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  // Poll for unread notifications count (on mount only — no polling to avoid noise)
+  useEffect(() => {
+    authAPI.getNotifications()
+      .then((r) => {
+        const items = r.data.data || [];
+        setUnreadCount(items.filter((n) => !n.is_read).length);
+      })
+      .catch(() => {});
+  }, []);
+
+  // Reset bell badge when user navigates to the notifications page
+  useEffect(() => {
+    if (router.pathname === '/notifications') {
+      setUnreadCount(0);
+    }
+  }, [router.pathname]);
 
   async function handleSignOut() {
     await signOut();
@@ -119,6 +138,11 @@ export default function Layout({ children }) {
             </span>
             <Link href="/notifications" className="relative text-slate-500 hover:text-forest-900 transition-colors p-1">
               <RiBellLine className="text-xl" />
+              {unreadCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-red-500 text-white rounded-full text-[9px] font-bold flex items-center justify-center leading-none">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
             </Link>
           </div>
         </header>

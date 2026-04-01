@@ -68,11 +68,12 @@ exports.getDashboard = async (req, res) => {
     // Silver portfolio value
     const silverPortfolio = await calculatePortfolioSilver(userId, companyId);
 
-    // User's leaderboard rank
+    // User's leaderboard rank — company users are ranked as a company entity
+    const leaderboardEntityId = companyId || userId;
     const { data: leaderboard } = await supabase
       .from('leaderboard_cache')
       .select('rank_active, rank_recycled, rank_impact, impact_score')
-      .eq('entity_id', userId)
+      .eq('entity_id', leaderboardEntityId)
       .single();
 
     // Recent activity (last 5 projects)

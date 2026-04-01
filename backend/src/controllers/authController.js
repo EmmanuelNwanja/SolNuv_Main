@@ -413,6 +413,7 @@ exports.getTeamMembers = async (req, res) => {
 
 /**
  * GET /api/auth/notifications
+ * ?mark_read=true to also mark all as read (called by the notifications page)
  */
 exports.getNotifications = async (req, res) => {
   try {
@@ -421,13 +422,15 @@ exports.getNotifications = async (req, res) => {
       .select('*')
       .eq('user_id', req.user.id)
       .order('created_at', { ascending: false })
-      .limit(20);
+      .limit(30);
 
-    // Mark as read
-    await supabase.from('notifications')
-      .update({ is_read: true })
-      .eq('user_id', req.user.id)
-      .eq('is_read', false);
+    // Only mark as read when the notifications page explicitly requests it
+    if (req.query.mark_read === 'true') {
+      await supabase.from('notifications')
+        .update({ is_read: true })
+        .eq('user_id', req.user.id)
+        .eq('is_read', false);
+    }
 
     return sendSuccess(res, notifications || []);
   } catch (error) {

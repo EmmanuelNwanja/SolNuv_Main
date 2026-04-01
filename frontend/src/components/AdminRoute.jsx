@@ -41,10 +41,10 @@ export default function AdminRoute({ children, requiredRoles = [] }) {
 
   if (loading || !profileResolved) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+      <div className="min-h-screen flex items-center justify-center bg-slate-950">
         <div className="text-center">
-          <div className="w-12 h-12 border-4 border-forest-900 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-slate-500 text-sm font-medium">
+          <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-slate-400 text-sm font-medium">
             {wakingServer ? 'Waking server (10-20s)...' : 'Loading admin workspace...'}
           </p>
         </div>
@@ -52,9 +52,18 @@ export default function AdminRoute({ children, requiredRoles = [] }) {
     );
   }
 
-  if (!session || !profileResolved || !isPlatformAdmin || !roleAllowed) {
-    return null;
+  // Only render children when all conditions are met
+  if (session && profileResolved && isPlatformAdmin && roleAllowed) {
+    return children;
   }
 
-  return children;
+  // If conditions aren't met, show loading (never return null to prevent UI flash)
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-slate-950">
+      <div className="text-center">
+        <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+        <p className="text-slate-400 text-sm font-medium">Verifying permissions...</p>
+      </div>
+    </div>
+  );
 }

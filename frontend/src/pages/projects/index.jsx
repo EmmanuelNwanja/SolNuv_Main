@@ -3,8 +3,6 @@ import Link from 'next/link';
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import { projectsAPI, downloadBlob } from '../../services/api';
-import { getDashboardLayout } from '../../components/Layout';
-import ProtectedRoute from '../../components/ProtectedRoute';
 import { useAuth } from '../../context/AuthContext';
 import { StatusBadge, UrgencyBadge, EmptyState, LoadingSpinner } from '../../components/ui/index';
 import { MotionSection } from '../../components/PageMotion';

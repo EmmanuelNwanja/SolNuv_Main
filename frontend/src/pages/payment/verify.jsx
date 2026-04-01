@@ -15,6 +15,7 @@ export default function PaymentVerify() {
   const [billingInterval, setBillingInterval] = useState('monthly');
 
   useEffect(() => {
+    if (!router.isReady) return;
     const { reference, trxref } = router.query;
     const ref = reference || trxref;
     if (!ref) return;
@@ -28,7 +29,7 @@ export default function PaymentVerify() {
         setTimeout(() => router.push('/dashboard'), 3000);
       })
       .catch(() => setStatus('failed'));
-  }, [router.query]);
+  }, [router.isReady, router.query.reference, router.query.trxref]);
 
   if (status === 'verifying') return <FullPageLoader message="Verifying your payment..." />;
 

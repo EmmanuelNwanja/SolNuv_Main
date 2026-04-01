@@ -54,6 +54,10 @@ async function refreshLeaderboard() {
       .from('equipment')
       .select('project_id, equipment_type, quantity, estimated_silver_grams');
 
+    const { data: feedbackRows } = await supabase
+      .from('project_feedback')
+      .select('project_id, rating');
+
     if (projError || eqError) {
       logger.error('Leaderboard: failed to fetch projects/equipment');
       return { error: 'Failed to fetch projects' };
@@ -64,6 +68,12 @@ async function refreshLeaderboard() {
     for (const eq of equipment || []) {
       if (!eqByProject[eq.project_id]) eqByProject[eq.project_id] = [];
       eqByProject[eq.project_id].push(eq);
+    }
+
+    const feedbackByProject = {};
+    for (const fb of feedbackRows || []) {
+      if (!feedbackByProject[fb.project_id]) feedbackByProject[fb.project_id] = [];
+      feedbackByProject[fb.project_id].push(fb);
     }
 
     // Step 4: Build leaderboard entries
@@ -80,6 +90,8 @@ async function refreshLeaderboard() {
       const recycled     = userProjects.filter(p => p.status === 'recycled');
 
       let totalPanels = 0, totalBatteries = 0, totalSilver = 0, expectedSilver = 0;
+      let co2AvoidedKg = 0;
+      let totalFeedbacks = 0, ratingSum = 0;
 
       for (const proj of userProjects) {
         for (const eq of eqByProject[proj.id] || []) {
@@ -100,11 +112,30 @@ async function refreshLeaderboard() {
         }
       }
 
+      for (const proj of recycled) {
+        for (const eq of eqByProject[proj.id] || []) {
+          if (eq.equipment_type === 'panel') {
+            co2AvoidedKg += (eq.quantity || 0) * 230;
+          }
+        }
+      }
+
+      for (const proj of userProjects) {
+        for (const fb of feedbackByProject[proj.id] || []) {
+          totalFeedbacks += 1;
+          ratingSum += Number(fb.rating || 0);
+        }
+      }
+
+      const averageRating = totalFeedbacks > 0 ? (ratingSum / totalFeedbacks) : 0;
+
       const impactScore =
         (recycled.length * 3) +
         (decommission.length * 2) +
         (active.length * 1) +
-        (totalSilver * 0.1);
+        (totalSilver * 0.1) +
+        (co2AvoidedKg * 0.01) +
+        (averageRating * 8);
 
       // Only include users who have at least one project
       if (userProjects.length === 0) continue;
@@ -125,6 +156,9 @@ async function refreshLeaderboard() {
         total_batteries:       totalBatteries,
         total_silver_grams:    parseFloat(totalSilver.toFixed(4)),
         expected_silver_grams: parseFloat(expectedSilver.toFixed(4)),
+        co2_avoided_kg:        parseFloat(co2AvoidedKg.toFixed(2)),
+        average_rating:        parseFloat(averageRating.toFixed(2)),
+        total_feedbacks:       totalFeedbacks,
         impact_score:          parseFloat(impactScore.toFixed(2)),
         updated_at:            new Date().toISOString(),
       });

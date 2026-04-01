@@ -24,6 +24,7 @@ export default function Settings() {
   const [companyForm, setCompanyForm] = useState({
     nesrea_registration_number: company?.nesrea_registration_number || '',
     address: company?.address || '',
+    state: company?.state || '',
     city: company?.city || '',
     website: company?.website || '',
     logo_url: company?.logo_url || '',
@@ -60,6 +61,7 @@ export default function Settings() {
     setCompanyForm({
       nesrea_registration_number: company?.nesrea_registration_number || '',
       address: company?.address || '',
+      state: company?.state || '',
       city: company?.city || '',
       website: company?.website || '',
       logo_url: company?.logo_url || '',
@@ -217,6 +219,15 @@ export default function Settings() {
               <input className="input" value={companyForm.city} onChange={e => setCompanyForm(f => ({ ...f, city: e.target.value }))} />
             </div>
             <div>
+              <label className="label">State</label>
+              <select className="input" value={companyForm.state} onChange={e => setCompanyForm(f => ({ ...f, state: e.target.value }))}>
+                <option value="">— Select State —</option>
+                {['Abia','Adamawa','Akwa Ibom','Anambra','Bauchi','Bayelsa','Benue','Borno','Cross River','Delta','Ebonyi','Edo','Ekiti','Enugu','FCT','Gombe','Imo','Jigawa','Kaduna','Kano','Katsina','Kebbi','Kogi','Kwara','Lagos','Nasarawa','Niger','Ogun','Ondo','Osun','Oyo','Plateau','Rivers','Sokoto','Taraba','Yobe','Zamfara'].map(s => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+            </div>
+            <div>
               <label className="label">Website</label>
               <input className="input" value={companyForm.website} onChange={e => setCompanyForm(f => ({ ...f, website: e.target.value }))} placeholder="https://yourcompany.com" />
             </div>
@@ -242,7 +253,20 @@ export default function Settings() {
             <button disabled={saving} onClick={async () => {
               setSaving(true);
               try {
-                await authAPI.saveProfile({ ...profileForm, user_type: profile.user_type, business_type: profile.business_type, ...companyForm, company_name: company.name });
+                await authAPI.saveProfile({
+                  ...profileForm,
+                  user_type: profile.user_type,
+                  business_type: profile.business_type,
+                  company_name: company.name,
+                  company_address: companyForm.address,
+                  company_state: companyForm.state,
+                  company_city: companyForm.city,
+                  nesrea_registration_number: companyForm.nesrea_registration_number,
+                  website: companyForm.website,
+                  logo_url: companyForm.logo_url,
+                  company_signature_url: companyForm.company_signature_url,
+                  branding_primary_color: companyForm.branding_primary_color,
+                });
                 await refreshProfile();
                 toast.success('Company details saved!');
               } catch { toast.error('Failed to save'); }

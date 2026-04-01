@@ -22,7 +22,8 @@ export default function NotificationsPage() {
   const [notifications, setNotifications] = useState([]);
 
   useEffect(() => {
-    authAPI.getNotifications()
+    // Pass mark_read=true so the bell badge resets after visiting this page
+    authAPI.getNotifications(true)
       .then((r) => setNotifications(r.data.data || []))
       .catch(() => toast.error('Failed to load notifications'))
       .finally(() => setLoading(false));

@@ -26,10 +26,26 @@ services:
         value: https://api.ng.termii.com/api
       - key: BREVO_API_KEY
         sync: false
+      - key: BREVO_SMTP_HOST
+        value: smtp-relay.brevo.com
+      - key: BREVO_SMTP_PORT
+        value: 587
+      - key: BREVO_SMTP_USER
+        sync: false
+      - key: BREVO_SMTP_PASS
+        sync: false
+      - key: EMAIL_FROM
+        value: noreply@solnuv.com
+      - key: EMAIL_FROM_NAME
+        value: SolNuv
+      - key: NESREA_EMAIL
+        value: compliance@nesrea.gov.ng
       - key: PAYSTACK_SECRET_KEY
         sync: false
       - key: FRONTEND_URL
         value: https://solnuv.com
+      - key: RENDER_EXTERNAL_URL
+        value: https://solnuv-backend.onrender.com
       - key: JWT_SECRET
         sync: false
       - key: CRON_SECRET

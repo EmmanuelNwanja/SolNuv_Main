@@ -139,7 +139,7 @@ export default function Plans() {
         <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-5 max-w-6xl mx-auto">
           {plans.map(plan => (
             <div key={plan.id} className={`rounded-2xl overflow-hidden flex flex-col ${plan.popular ? 'ring-2 ring-forest-900 shadow-xl' : 'border border-slate-200 bg-white'} ${plan.id === currentPlan ? 'ring-2 ring-emerald-500' : ''}`}>
-              {plan.popular && !plan.id === currentPlan && (
+              {plan.popular && plan.id !== currentPlan && (
                 <div className="bg-forest-900 text-center py-2 text-xs font-bold text-amber-400">MOST POPULAR</div>
               )}
               {plan.id === currentPlan && (

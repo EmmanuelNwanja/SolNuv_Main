@@ -50,7 +50,7 @@ export const authAPI = {
   acceptInvite: (token) => api.post(`/auth/accept-invite/${token}`),
   checkInvite: (token) => api.get(`/auth/accept-invite/${token}`),
   getTeam: () => api.get('/auth/team'),
-  getNotifications: () => api.get('/auth/notifications'),
+  getNotifications: (markRead = false) => api.get('/auth/notifications', { params: markRead ? { mark_read: 'true' } : {} }),
 };
 
 // ==============================

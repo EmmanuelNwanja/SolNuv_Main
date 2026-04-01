@@ -5,16 +5,15 @@ import { useAuth } from '../context/AuthContext';
 export default function ProtectedRoute({ children }) {
   const { session, profile, loading, isOnboarded, profileResolved, wakingServer } = useAuth();
   const router = useRouter();
+  const isReadyToDecide = profileResolved && !loading;
 
   useEffect(() => {
-    if (loading || !profileResolved) return;  // auth not fully resolved yet — wait
+    if (!isReadyToDecide) return;  // auth not fully resolved yet — wait
     if (!session) { router.replace('/login'); return; }
     if (!isOnboarded) { router.replace('/onboarding'); return; }
-  }, [session, loading, profileResolved, isOnboarded, router]);
+  }, [session, isReadyToDecide, isOnboarded, router]);
 
-  // Spinner while loading OR while auth hasn't been fully determined.
-  // Prevents the 10s safety timer (sets loading=false) from firing the !session
-  // guard before getSession() / Supabase token refresh has actually completed.
+  // While auth is resolving, show loading state (not null)
   if (loading || !profileResolved) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
@@ -52,6 +51,18 @@ export default function ProtectedRoute({ children }) {
     );
   }
 
-  if (!session || !profileResolved || !isOnboarded) return null;
-  return children;
+  // Only render children when we're SURE the user is authenticated and onboarded
+  if (session && profileResolved && isOnboarded) {
+    return children;
+  }
+
+  // If any of the conditions aren't met, show loading (never return null)
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-slate-50">
+      <div className="text-center">
+        <div className="w-12 h-12 border-4 border-forest-900 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+        <p className="text-slate-500 text-sm font-medium">Loading SolNuv...</p>
+      </div>
+    </div>
+  );
 }
