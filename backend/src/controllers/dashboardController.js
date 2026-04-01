@@ -524,7 +524,7 @@ exports.getPublicProfile = async (req, res) => {
     const normalizedSlug = normalizeSlug(decodeURIComponent(req.params.slug || ''));
     if (!normalizedSlug) return sendError(res, 'Profile not found', 404);
 
-    const userSelect = 'id, first_name, last_name, brand_name, public_slug, public_bio, is_public_profile, company_id, companies(name, logo_url, website)';
+    const userSelect = 'id, first_name, last_name, brand_name, public_slug, public_bio, is_public_profile, company_id';
 
     let user = null;
 
@@ -566,6 +566,7 @@ exports.getPublicProfile = async (req, res) => {
 
       const companyIds = (companyMatches || []).map((c) => c.id);
       if (companyIds.length > 0) {
+        const companyMap = new Map((companyMatches || []).map((c) => [c.id, c]));
         const { data: usersByCompany, error: usersByCompanyError } = await supabase
           .from('users')
           .select(userSelect)
@@ -574,11 +575,21 @@ exports.getPublicProfile = async (req, res) => {
           .limit(60);
 
         if (usersByCompanyError) throw usersByCompanyError;
-        user = (usersByCompany || []).find((u) => normalizeSlug(u.companies?.name) === normalizedSlug) || null;
+        user = (usersByCompany || []).find((u) => normalizeSlug(companyMap.get(u.company_id)?.name) === normalizedSlug) || null;
       }
     }
 
     if (!user) return sendError(res, 'Profile not found', 404);
+
+    let companyMeta = null;
+    if (user.company_id) {
+      const { data: companyData } = await supabase
+        .from('companies')
+        .select('name, logo_url, website')
+        .eq('id', user.company_id)
+        .maybeSingle();
+      companyMeta = companyData || null;
+    }
 
     const scopeField = user.company_id ? 'company_id' : 'user_id';
     const scopeValue = user.company_id || user.id;
@@ -613,11 +624,11 @@ exports.getPublicProfile = async (req, res) => {
 
     return sendSuccess(res, {
       profile: {
-        name: user.companies?.name || user.brand_name || `${user.first_name || ''} ${user.last_name || ''}`.trim(),
+        name: companyMeta?.name || user.brand_name || `${user.first_name || ''} ${user.last_name || ''}`.trim(),
         public_slug: user.public_slug,
         bio: user.public_bio,
-        logo_url: user.companies?.logo_url || null,
-        website: user.companies?.website || null,
+        logo_url: companyMeta?.logo_url || null,
+        website: companyMeta?.website || null,
       },
       stats: {
         total_projects: (projects || []).length,
