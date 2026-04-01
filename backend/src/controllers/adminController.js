@@ -498,15 +498,14 @@ exports.generateOtp = async (req, res) => {
     const normalizedEmail = String(email).trim().toLowerCase();
     const normalizedPhone = String(phone).trim();
 
-    // Check user exists
-    const { data: user, error: userError } = await supabase
+    // Optional profile lookup (for audit metadata only).
+    // New Google signups may not have a `users` row yet until onboarding completes.
+    const { data: user } = await supabase
       .from('users')
       .select('id, email')
       .ilike('email', normalizedEmail)
       .limit(1)
       .maybeSingle();
-
-    if (userError || !user) return sendError(res, 'User not found', 404);
 
     // Generate 6-digit OTP
     const otp_code = String(Math.floor(100000 + Math.random() * 900000));
@@ -539,7 +538,11 @@ exports.generateOtp = async (req, res) => {
       action: 'admin.otp.generated',
       resourceType: 'password_reset_otps',
       resourceId: newOtp.id,
-      details: { target_email: normalizedEmail, target_phone: normalizedPhone },
+      details: {
+        target_email: normalizedEmail,
+        target_phone: normalizedPhone,
+        target_profile_user_id: user?.id || null,
+      },
     });
 
     return sendSuccess(res, {
