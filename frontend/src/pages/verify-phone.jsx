@@ -142,6 +142,7 @@ export default function VerifyPhone() {
             <button type="button" onClick={sendOtp} disabled={sending} className="btn-outline w-full flex items-center justify-center gap-2">
               <RiSmartphoneLine /> {sending ? 'Sending OTP...' : (sent ? 'Resend OTP' : 'Send OTP')}
             </button>
+            {sent && <p className="text-xs text-slate-500">The code expires in 10 minutes. If it expires, request a new OTP.</p>}
 
             <div>
               <label className="label">OTP Code</label>

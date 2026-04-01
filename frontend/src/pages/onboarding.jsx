@@ -13,6 +13,7 @@ export default function Onboarding() {
   const router = useRouter();
   const [step, setStep] = useState(1);
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
 
   const [form, setForm] = useState({
     first_name: '',
@@ -78,11 +79,34 @@ export default function Onboarding() {
   const isRegistered = form.business_type === 'registered';
   const totalSteps = isRegistered ? 3 : 2;
 
+  function validateCurrentStep() {
+    if (step === 2) {
+      if (!form.first_name?.trim()) {
+        toast.error('Please enter your first name');
+        return false;
+      }
+      if (!form.phone?.trim()) {
+        toast.error('Phone number is required');
+        return false;
+      }
+    }
+
+    if (step === 3 && isRegistered) {
+      if (!form.company_name?.trim()) {
+        toast.error('Company name is required');
+        return false;
+      }
+    }
+
+    return true;
+  }
+
   async function handleSubmit() {
     if (!form.first_name) { toast.error('Please enter your first name'); return; }
     if (!form.phone) { toast.error('Phone number is required'); return; }
     if (isRegistered && !form.company_name) { toast.error('Company name is required'); return; }
     setSubmitting(true);
+    setSubmitError('');
     try {
       await authAPI.saveProfile(form);
       localStorage.removeItem('solnuv_pending_onboarding');
@@ -90,7 +114,9 @@ export default function Onboarding() {
       toast.success('Profile saved! Welcome to SolNuv 🌞');
       router.push('/dashboard');
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to save profile');
+      const msg = err.response?.data?.message || 'Failed to save profile. Please try again.';
+      setSubmitError(msg);
+      toast.error(msg);
     } finally { setSubmitting(false); }
   }
 
@@ -126,6 +152,12 @@ export default function Onboarding() {
           </div>
 
           <div className="auth-card">
+            {submitError && (
+              <div className="mb-5 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                {submitError}
+              </div>
+            )}
+
             {/* STEP 1: Account type */}
             {step === 1 && (
               <div className="space-y-5">
@@ -225,7 +257,7 @@ export default function Onboarding() {
                 </button>
               ) : <div />}
               {step < totalSteps ? (
-                <button onClick={() => setStep(s => s + 1)} className="btn-primary flex items-center gap-2">
+                <button onClick={() => { if (validateCurrentStep()) setStep(s => s + 1); }} className="btn-primary flex items-center gap-2">
                   Continue <RiArrowRightLine />
                 </button>
               ) : (

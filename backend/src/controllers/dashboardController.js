@@ -5,6 +5,7 @@
 const supabase = require('../config/database');
 const { sendSuccess, sendError } = require('../utils/responseHelper');
 const { calculatePortfolioSilver } = require('../services/silverService');
+const logger = require('../utils/logger');
 
 /**
  * GET /api/dashboard
@@ -165,6 +166,7 @@ exports.getImpact = async (req, res) => {
       silver_value_ngn: parseFloat((recycledSilverGrams * 0.35 * 1555).toFixed(2)),
     });
   } catch (error) {
+    logger.error('Failed to calculate impact', { user_id: req.user?.id || null, company_id: req.user?.company_id || null, message: error.message });
     return sendError(res, 'Failed to calculate impact', 500);
   }
 };
@@ -309,6 +311,7 @@ exports.refreshLeaderboard = async (req, res) => {
 
     return sendSuccess(res, { message: 'Leaderboard refreshed successfully' });
   } catch (error) {
+    logger.error('Failed to refresh leaderboard', { user_id: req.user?.id || null, message: error.message });
     return sendError(res, 'Failed to refresh leaderboard', 500);
   }
 };
@@ -366,6 +369,7 @@ exports.getLeaderboard = async (req, res) => {
       category,
     });
   } catch (error) {
+    logger.error('Failed to fetch leaderboard', { user_id: req.user?.id || null, message: error.message });
     return sendError(res, 'Failed to fetch leaderboard', 500);
   }
 };
@@ -409,6 +413,7 @@ exports.getFeedbackOverview = async (req, res) => {
       },
     });
   } catch (error) {
+    logger.error('Failed to load feedback overview', { user_id: req.user?.id || null, company_id: req.user?.company_id || null, message: error.message });
     return sendError(res, 'Failed to load feedback overview', 500);
   }
 };
@@ -447,6 +452,7 @@ exports.generateFeedbackLink = async (req, res) => {
       feedback_url: feedbackUrl,
     }, 'Feedback link generated');
   } catch (error) {
+    logger.error('Failed to generate feedback link', { user_id: req.user?.id || null, project_id: req.params?.projectId || null, message: error.message });
     return sendError(res, 'Failed to generate feedback link', 500);
   }
 };
@@ -498,6 +504,7 @@ exports.submitPublicFeedback = async (req, res) => {
 
     return sendSuccess(res, data, 'Feedback submitted successfully', 201);
   } catch (error) {
+    logger.error('Failed to submit public feedback', { token: req.params?.token || null, message: error.message });
     return sendError(res, 'Failed to submit feedback', 500);
   }
 };
@@ -569,6 +576,7 @@ exports.getPublicProfile = async (req, res) => {
       reviews: feedback,
     });
   } catch (error) {
+    logger.error('Failed to load public profile', { slug: req.params?.slug || null, message: error.message });
     return sendError(res, 'Failed to load public profile', 500);
   }
 };

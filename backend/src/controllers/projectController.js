@@ -6,8 +6,9 @@
 const supabase = require('../config/database');
 const { sendSuccess, sendError, sendPaginated } = require('../utils/responseHelper');
 const { calculateDecommissionDate } = require('../services/degradationService');
-const { calculatePanelSilver, calculateBatteryValue } = require('../services/silverService');
+const { calculatePanelSilver } = require('../services/silverService');
 const { refreshLeaderboard } = require('../services/schedulerService');
+const logger = require('../utils/logger');
 const QRCode = require('qrcode');
 const { v4: uuidv4 } = require('uuid');
 
@@ -202,8 +203,13 @@ exports.createProject = async (req, res) => {
       .eq('id', project.id)
       .single();
 
-    // Trigger leaderboard refresh asynchronously (fire-and-forget)
-    refreshLeaderboard().catch(() => {});
+    // Trigger leaderboard refresh asynchronously without hiding failures.
+    refreshLeaderboard().catch((refreshError) => {
+      logger.error('Leaderboard refresh failed after project creation', {
+        project_id: project.id,
+        message: refreshError.message,
+      });
+    });
 
     return sendSuccess(res, {
       project: completeProject,
@@ -248,7 +254,7 @@ exports.getProject = async (req, res) => {
     const degradation = await calculateDecommissionDate(project.state, project.installation_date);
 
     return sendSuccess(res, { ...project, degradation_info: degradation });
-  } catch (error) {
+  } catch (_error) {
     return sendError(res, 'Failed to fetch project', 500);
   }
 };
@@ -285,7 +291,7 @@ exports.updateProject = async (req, res) => {
     
     
     return sendSuccess(res, project, 'Project updated');
-  } catch (error) {
+  } catch (_error) {
     return sendError(res, 'Failed to update project', 500);
   }
 };
@@ -305,7 +311,7 @@ exports.deleteProject = async (req, res) => {
 
     if (error) throw error;
     return sendSuccess(res, null, 'Project deleted');
-  } catch (error) {
+  } catch (_error) {
     return sendError(res, 'Failed to delete project', 500);
   }
 };
@@ -319,9 +325,47 @@ exports.requestRecovery = async (req, res) => {
     const { id } = req.params;
     const { preferred_date, pickup_address, notes } = req.body;
 
-    // Verify project ownership
-    const { data: project } = await supabase.from('projects').select('id, name').eq('id', id).single();
+    if (!pickup_address || !String(pickup_address).trim()) {
+      return sendError(res, 'Pickup address is required', 400);
+    }
+    if (!preferred_date) {
+      return sendError(res, 'Preferred pickup date is required', 400);
+    }
+
+    const requestedDate = new Date(preferred_date);
+    if (Number.isNaN(requestedDate.getTime())) {
+      return sendError(res, 'Preferred pickup date is invalid', 400);
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    requestedDate.setHours(0, 0, 0, 0);
+    if (requestedDate < today) {
+      return sendError(res, 'Preferred pickup date cannot be in the past', 400);
+    }
+
+    let projectQuery = supabase.from('projects').select('id, name').eq('id', id);
+    if (req.user.company_id) {
+      projectQuery = projectQuery.eq('company_id', req.user.company_id);
+    } else {
+      projectQuery = projectQuery.eq('user_id', req.user.id);
+    }
+
+    const { data: project } = await projectQuery.single();
     if (!project) return sendError(res, 'Project not found', 404);
+
+    const { data: existingRecovery } = await supabase
+      .from('recovery_requests')
+      .select('id, status')
+      .eq('project_id', id)
+      .in('status', ['requested', 'scheduled', 'in_progress'])
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (existingRecovery) {
+      return sendError(res, 'A recovery request is already active for this project', 409);
+    }
 
     const { data: recovery, error } = await supabase
       .from('recovery_requests')
@@ -347,6 +391,7 @@ exports.requestRecovery = async (req, res) => {
 
     return sendSuccess(res, recovery, 'Recovery request submitted', 201);
   } catch (error) {
+    logger.error('Failed to submit recovery request', { user_id: req.user?.id || null, project_id: req.params?.id || null, message: error.message });
     return sendError(res, 'Failed to submit recovery request', 500);
   }
 };
@@ -377,7 +422,7 @@ exports.verifyByQR = async (req, res) => {
       verified_by: 'SolNuv Platform',
       verified_at: new Date().toISOString(),
     });
-  } catch (error) {
+  } catch (_error) {
     return sendError(res, 'Verification failed', 500);
   }
 };
@@ -424,7 +469,7 @@ exports.exportCSV = async (req, res) => {
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', 'attachment; filename=SolNuv_Projects.csv');
     return res.send(csv);
-  } catch (error) {
+  } catch (_error) {
     return sendError(res, 'Failed to export CSV', 500);
   }
 };
@@ -480,7 +525,7 @@ exports.saveProposalScenario = async (req, res) => {
 
     if (error) throw error;
     return sendSuccess(res, data, 'Proposal scenario saved', 201);
-  } catch (error) {
+  } catch (_error) {
     return sendError(res, 'Failed to save proposal scenario', 500);
   }
 };
@@ -547,7 +592,7 @@ exports.createBatteryAsset = async (req, res) => {
       qr_link: qrLink,
       qr_image_data_url: qrImageDataUrl,
     }, 'Battery asset created', 201);
-  } catch (error) {
+  } catch (_error) {
     return sendError(res, 'Failed to create battery asset', 500);
   }
 };
@@ -596,7 +641,7 @@ exports.getBatteryAssets = async (req, res) => {
     }));
 
     return sendSuccess(res, enrichedAssets);
-  } catch (error) {
+  } catch (_error) {
     return sendError(res, 'Failed to fetch battery assets', 500);
   }
 };
@@ -655,7 +700,7 @@ exports.addBatteryHealthLog = async (req, res) => {
 
     if (error) throw error;
     return sendSuccess(res, data, 'Battery health log saved', 201);
-  } catch (error) {
+  } catch (_error) {
     return sendError(res, 'Failed to save battery health log', 500);
   }
 };
@@ -689,7 +734,7 @@ exports.getBatteryHealthLogs = async (req, res) => {
 
     if (error) throw error;
     return sendSuccess(res, data || []);
-  } catch (error) {
+  } catch (_error) {
     return sendError(res, 'Failed to fetch battery health logs', 500);
   }
 };
@@ -743,7 +788,7 @@ exports.saveCableCompliance = async (req, res) => {
 
     if (error) throw error;
     return sendSuccess(res, data, 'Cable compliance record saved', 201);
-  } catch (error) {
+  } catch (_error) {
     return sendError(res, 'Failed to save cable compliance record', 500);
   }
 };
@@ -781,7 +826,7 @@ exports.getBatteryLedgerByQr = async (req, res) => {
         can_submit_log: true,
       },
     });
-  } catch (error) {
+  } catch (_error) {
     return sendError(res, 'Failed to load battery ledger', 500);
   }
 };
@@ -836,7 +881,8 @@ exports.addBatteryHealthLogByQr = async (req, res) => {
 
     if (error) throw error;
     return sendSuccess(res, data, 'Battery health log submitted', 201);
-  } catch (error) {
+  } catch (_error) {
     return sendError(res, 'Failed to submit battery log', 500);
   }
 };
+

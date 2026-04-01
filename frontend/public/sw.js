@@ -1,10 +1,44 @@
-const CACHE_NAME = 'solnuv-pwa-v2';
+const CACHE_NAME = 'solnuv-pwa-v3';
 const URLS_TO_CACHE = [
-  '/',
-  '/calculator',
-  '/plans',
   '/offline.html',
 ];
+
+function isCacheableStaticAsset(url) {
+  return url.pathname.startsWith('/_next/static/') ||
+    url.pathname === '/favicon.ico' ||
+    url.pathname === '/favicon.svg' ||
+    /\.(?:js|css|png|jpg|jpeg|gif|svg|webp|ico|woff2?)$/i.test(url.pathname);
+}
+
+async function networkFirst(req) {
+  const cache = await caches.open(CACHE_NAME);
+  try {
+    const response = await fetch(req);
+    if (response && response.ok) {
+      cache.put(req, response.clone()).catch(() => {});
+    }
+    return response;
+  } catch {
+    const cached = await cache.match(req);
+    if (cached) return cached;
+    return caches.match('/offline.html');
+  }
+}
+
+async function staleWhileRevalidate(req) {
+  const cache = await caches.open(CACHE_NAME);
+  const cached = await cache.match(req);
+  const networkPromise = fetch(req)
+    .then((response) => {
+      if (response && response.ok) {
+        cache.put(req, response.clone()).catch(() => {});
+      }
+      return response;
+    })
+    .catch(() => null);
+
+  return cached || networkPromise || fetch(req);
+}
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -32,6 +66,7 @@ self.addEventListener('fetch', (event) => {
   const isSameOrigin = url.origin === self.location.origin;
   const isApiRequest = isSameOrigin && url.pathname.startsWith('/api');
   const isNavigation = req.mode === 'navigate';
+  const isNextDataRequest = isSameOrigin && url.pathname.startsWith('/_next/data/');
   const isProtectedRoute = isSameOrigin && (
     url.pathname.startsWith('/dashboard') ||
     url.pathname.startsWith('/admin') ||
@@ -45,37 +80,28 @@ self.addEventListener('fetch', (event) => {
     url.pathname === '/notifications'
   );
 
-  // Never intercept cross-origin, API requests, or protected routes. Let the browser/network handle them.
-  if (!isSameOrigin || isApiRequest || isProtectedRoute) return;
+  // Never intercept cross-origin, API requests, Next.js data payloads, or protected routes.
+  // Those should always come from the network to avoid stale authenticated app state.
+  if (!isSameOrigin || isApiRequest || isNextDataRequest || isProtectedRoute) return;
+
+  if (isNavigation) {
+    event.respondWith(networkFirst(req));
+    return;
+  }
+
+  if (isCacheableStaticAsset(url)) {
+    event.respondWith(staleWhileRevalidate(req));
+    return;
+  }
 
   event.respondWith(
-    caches.match(req).then((cached) => {
-      if (cached) return cached;
-
-      return fetch(req)
-        .then((networkResp) => {
-          // Cache only successful same-origin GET responses.
-          if (networkResp && networkResp.ok) {
-            const clone = networkResp.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(req, clone)).catch(() => {});
-          }
-          return networkResp;
-        })
-        .catch((error) => {
-          // Offline fallback is only valid for full page navigations.
-          if (isNavigation) {
-            return caches.match('/offline.html').catch(() => {
-              return new Response('Offline', { status: 503, statusText: 'Service Unavailable' });
-            });
-          }
-          // Return a proper error response instead of Response.error() for debugging
-          console.error(`[SW] Fetch failed for ${req.url}:`, error);
-          return new Response(JSON.stringify({ error: 'Network unavailable' }), {
-            status: 503,
-            statusText: 'Service Unavailable',
-            headers: { 'Content-Type': 'application/json' }
-          });
-        });
+    fetch(req).catch((error) => {
+      console.error(`[SW] Fetch failed for ${req.url}:`, error);
+      return new Response(JSON.stringify({ error: 'Network unavailable' }), {
+        status: 503,
+        statusText: 'Service Unavailable',
+        headers: { 'Content-Type': 'application/json' }
+      });
     })
   );
 });

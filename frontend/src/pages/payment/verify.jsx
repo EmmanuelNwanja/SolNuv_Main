@@ -13,12 +13,15 @@ export default function PaymentVerify() {
   const [status, setStatus] = useState('verifying');
   const [plan, setPlan] = useState('');
   const [billingInterval, setBillingInterval] = useState('monthly');
+  const [reference, setReference] = useState('');
+  const [errorMessage, setErrorMessage] = useState('We could not confirm your payment yet. If you were charged, do not pay again. Retry after signing in or contact support with your reference.');
 
   useEffect(() => {
     if (!router.isReady) return;
     const { reference, trxref } = router.query;
     const ref = reference || trxref;
     if (!ref) return;
+    setReference(String(ref));
 
     paymentsAPI.verify(ref)
       .then(async r => {
@@ -28,7 +31,10 @@ export default function PaymentVerify() {
         setStatus('success');
         setTimeout(() => router.push('/dashboard'), 3000);
       })
-      .catch(() => setStatus('failed'));
+      .catch((err) => {
+        setErrorMessage(err.response?.data?.message || 'We could not confirm your payment yet. If you were charged, do not pay again. Retry after signing in or contact support with your reference.');
+        setStatus('failed');
+      });
   }, [router.isReady, router.query.reference, router.query.trxref]);
 
   if (status === 'verifying') return <FullPageLoader message="Verifying your payment..." />;
@@ -51,7 +57,8 @@ export default function PaymentVerify() {
             <>
               <RiCloseCircleLine className="text-6xl text-red-400 mx-auto mb-4" />
               <h1 className="font-display font-bold text-2xl text-forest-900 mb-2">Payment Not Completed</h1>
-              <p className="text-slate-500 mb-6">Your payment could not be verified. You have not been charged. Please try again.</p>
+              <p className="text-slate-500 mb-3">{errorMessage}</p>
+              {reference && <p className="text-xs text-slate-400 mb-6">Reference: <strong className="text-slate-600">{reference}</strong></p>}
               <div className="flex gap-3 justify-center">
                 <Link href="/plans" className="btn-primary">Try Again</Link>
                 <Link href="/dashboard" className="btn-ghost">Back to Dashboard</Link>

@@ -26,6 +26,10 @@ export default function Plans() {
       .finally(() => setLoading(false));
   }, []);
 
+  useEffect(() => {
+    setPromoResult(null);
+  }, [billingInterval, promoPlanForCheck]);
+
   async function applyPromo(planId) {
     if (!promoInput.trim()) {
       setPromoResult(null);

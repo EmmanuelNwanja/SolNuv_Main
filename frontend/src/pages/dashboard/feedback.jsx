@@ -34,8 +34,28 @@ export default function ClientFeedbackPage() {
       const { data } = await dashboardAPI.createFeedbackLink(projectId);
       const url = data.data?.feedback_url;
       if (url) {
-        await navigator.clipboard.writeText(url);
-        toast.success('Feedback link copied to clipboard');
+        let copied = false;
+        if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+          try {
+            await navigator.clipboard.writeText(url);
+            copied = true;
+          } catch {}
+        }
+
+        if (!copied && typeof document !== 'undefined') {
+          const input = document.createElement('textarea');
+          input.value = url;
+          input.setAttribute('readonly', '');
+          input.style.position = 'absolute';
+          input.style.left = '-9999px';
+          document.body.appendChild(input);
+          input.select();
+          copied = document.execCommand('copy');
+          document.body.removeChild(input);
+        }
+
+        if (copied) toast.success('Feedback link copied to clipboard');
+        else toast.success('Feedback link generated. Copy it from the project row below.');
       }
       await loadData();
     } catch {
@@ -102,7 +122,7 @@ export default function ClientFeedbackPage() {
                     <div>
                       <p className="text-sm font-semibold text-slate-700">{project.name}</p>
                       {project.feedback_token && (
-                        <p className="text-xs text-slate-400 mt-1">/feedback/{project.feedback_token}</p>
+                        <p className="text-xs text-slate-400 mt-1 break-all">/feedback/{project.feedback_token}</p>
                       )}
                     </div>
                     <button

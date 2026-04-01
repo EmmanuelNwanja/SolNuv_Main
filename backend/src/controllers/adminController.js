@@ -1,6 +1,7 @@
 const supabase = require('../config/database');
 const { sendSuccess, sendError } = require('../utils/responseHelper');
 const { logPlatformActivity } = require('../services/auditService');
+const logger = require('../utils/logger');
 
 exports.getOverview = async (req, res) => {
   try {
@@ -43,6 +44,7 @@ exports.getOverview = async (req, res) => {
       queued_push_notifications: pendingPush.count || 0,
     });
   } catch (error) {
+    logger.error('Failed to load admin overview', { admin_user_id: req.user?.id || null, message: error.message });
     return sendError(res, 'Failed to load admin overview', 500);
   }
 };
@@ -94,7 +96,7 @@ exports.listUsers = async (req, res) => {
       limit: Number(limit),
     });
   } catch (error) {
-    console.error('admin.listUsers error:', error);
+    logger.error('Failed to fetch admin users', { admin_user_id: req.user?.id || null, message: error.message });
     return sendError(res, 'Failed to fetch users', 500);
   }
 };
@@ -140,6 +142,7 @@ exports.updateUserVerification = async (req, res) => {
 
     return sendSuccess(res, { user_id }, 'User updated');
   } catch (error) {
+    logger.error('Failed to update user verification', { admin_user_id: req.user?.id || null, target_user_id: req.body?.user_id || null, message: error.message });
     return sendError(res, 'Failed to update user', 500);
   }
 };
@@ -154,6 +157,7 @@ exports.listPaystackPlans = async (req, res) => {
     if (error) throw error;
     return sendSuccess(res, data || []);
   } catch (error) {
+    logger.error('Failed to fetch Paystack plans', { admin_user_id: req.user?.id || null, message: error.message });
     return sendError(res, 'Failed to fetch Paystack plans', 500);
   }
 };
@@ -199,6 +203,7 @@ exports.upsertPaystackPlan = async (req, res) => {
 
     return sendSuccess(res, payload, 'Paystack plan saved');
   } catch (error) {
+    logger.error('Failed to save Paystack plan', { admin_user_id: req.user?.id || null, plan_key: req.body?.plan_key || null, message: error.message });
     return sendError(res, 'Failed to save Paystack plan', 500);
   }
 };
@@ -213,6 +218,7 @@ exports.listPromoCodes = async (req, res) => {
     if (error) throw error;
     return sendSuccess(res, data || []);
   } catch (error) {
+    logger.error('Failed to load promo codes', { admin_user_id: req.user?.id || null, message: error.message });
     return sendError(res, 'Failed to load promo codes', 500);
   }
 };
@@ -268,6 +274,7 @@ exports.createPromoCode = async (req, res) => {
 
     return sendSuccess(res, data, 'Promo code created', 201);
   } catch (error) {
+    logger.error('Failed to create promo code', { admin_user_id: req.user?.id || null, code: req.body?.code || null, message: error.message });
     return sendError(res, 'Failed to create promo code', 500);
   }
 };
@@ -297,6 +304,7 @@ exports.togglePromoCode = async (req, res) => {
 
     return sendSuccess(res, data, 'Promo code updated');
   } catch (error) {
+    logger.error('Failed to update promo code', { admin_user_id: req.user?.id || null, promo_id: req.params?.id || null, message: error.message });
     return sendError(res, 'Failed to update promo code', 500);
   }
 };
@@ -320,6 +328,7 @@ exports.getFinance = async (req, res) => {
 
     return sendSuccess(res, { summary, transactions: data || [] });
   } catch (error) {
+    logger.error('Failed to load finance data', { admin_user_id: req.user?.id || null, message: error.message });
     return sendError(res, 'Failed to load finance data', 500);
   }
 };
@@ -385,6 +394,7 @@ exports.sendPushNotification = async (req, res) => {
 
     return sendSuccess(res, { push_notification: pushRow, recipients: recipients.length }, 'Notification sent');
   } catch (error) {
+    logger.error('Failed to send push notification', { admin_user_id: req.user?.id || null, message: error.message });
     return sendError(res, 'Failed to send push notification', 500);
   }
 };
@@ -400,6 +410,7 @@ exports.getActivityLogs = async (req, res) => {
     if (error) throw error;
     return sendSuccess(res, data || []);
   } catch (error) {
+    logger.error('Failed to load activity logs', { admin_user_id: req.user?.id || null, message: error.message });
     return sendError(res, 'Failed to load activity logs', 500);
   }
 };
@@ -428,7 +439,7 @@ exports.listAdmins = async (req, res) => {
     if (error) throw error;
     return sendSuccess(res, data || []);
   } catch (error) {
-    console.error('admin.listAdmins error:', error);
+    logger.error('Failed to load admins', { admin_user_id: req.user?.id || null, message: error.message });
     return sendError(res, 'Failed to load admins', 500);
   }
 };
@@ -453,6 +464,7 @@ exports.upsertAdmin = async (req, res) => {
 
     return sendSuccess(res, payload, 'Admin privileges updated');
   } catch (error) {
+    logger.error('Failed to update admin privileges', { admin_user_id: req.user?.id || null, target_user_id: req.body?.user_id || null, message: error.message });
     return sendError(res, 'Failed to update admin privileges', 500);
   }
 };
@@ -482,6 +494,7 @@ exports.getOtps = async (req, res) => {
 
     return sendSuccess(res, mapped);
   } catch (error) {
+    logger.error('Failed to load OTPs', { admin_user_id: req.user?.id || null, message: error.message });
     return sendError(res, 'Failed to load OTPs', 500);
   }
 };

@@ -12,9 +12,18 @@ function AppShell({ Component, pageProps }) {
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    // Service worker registration
+    // Service worker is production-only. In development, unregister old workers
+    // so stale caches never mask code changes or auth/data bugs.
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js').catch(() => {});
+      if (process.env.NODE_ENV === 'production') {
+        navigator.serviceWorker.register('/sw.js').then((registration) => {
+          registration.update().catch(() => {});
+        }).catch(() => {});
+      } else {
+        navigator.serviceWorker.getRegistrations().then((registrations) => {
+          registrations.forEach((registration) => registration.unregister().catch(() => {}));
+        }).catch(() => {});
+      }
     }
 
     // Handle unauthorized events dispatched by the api.js response interceptor.

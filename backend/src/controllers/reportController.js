@@ -8,6 +8,7 @@ const { sendSuccess, sendError } = require('../utils/responseHelper');
 const { generateNesreaReport, generateCradleToGraveCertificate } = require('../services/pdfService');
 const { sendEmailWithAttachment, sendReportReadyEmail } = require('../services/emailService');
 const { getSilverPrice } = require('../services/silverService');
+const logger = require('../utils/logger');
 
 /**
  * POST /api/reports/nesrea
@@ -128,7 +129,7 @@ exports.generateCertificate = async (req, res) => {
     res.setHeader('Content-Disposition', `attachment; filename=SolNuv_Certificate_${project.name.replace(/\s/g, '_')}.pdf`);
     return res.send(pdfBuffer);
   } catch (error) {
-    console.error('Certificate error:', error);
+    logger.error('Certificate generation failed', { user_id: req.user?.id || null, project_id: req.params?.projectId || null, message: error.message });
     return sendError(res, 'Failed to generate certificate', 500);
   }
 };
@@ -150,6 +151,7 @@ exports.getHistory = async (req, res) => {
 
     return sendSuccess(res, reports || []);
   } catch (error) {
+    logger.error('Failed to fetch report history', { user_id: req.user?.id || null, company_id: req.user?.company_id || null, message: error.message });
     return sendError(res, 'Failed to fetch report history', 500);
   }
 };
@@ -203,6 +205,7 @@ exports.generateExcel = async (req, res) => {
     res.setHeader('Content-Disposition', `attachment; filename=SolNuv_Projects_${new Date().toISOString().split('T')[0]}.xlsx`);
     return res.send(buffer);
   } catch (error) {
+    logger.error('Failed to generate Excel export', { user_id: req.user?.id || null, company_id: req.user?.company_id || null, message: error.message });
     return sendError(res, 'Failed to generate Excel export', 500);
   }
 };

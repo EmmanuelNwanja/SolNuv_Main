@@ -13,6 +13,16 @@ function readProfileCache() {
   if (typeof window === 'undefined') return null;
   try { return JSON.parse(localStorage.getItem(PROFILE_CACHE_KEY) || 'null'); } catch { return null; }
 }
+function getMatchingCachedProfile(sessionUser) {
+  const cached = readProfileCache();
+  if (!cached || !sessionUser) return null;
+
+  const sessionEmail = String(sessionUser.email || '').toLowerCase();
+  const cachedEmail = String(cached.email || '').toLowerCase();
+  if (sessionUser.id && cached.supabase_uid && sessionUser.id === cached.supabase_uid) return cached;
+  if (sessionEmail && cachedEmail && sessionEmail === cachedEmail) return cached;
+  return null;
+}
 function writeProfileCache(data) {
   if (typeof window === 'undefined') return;
   try { localStorage.setItem(PROFILE_CACHE_KEY, JSON.stringify(data)); } catch {}
@@ -31,6 +41,7 @@ export function AuthProvider({ children }) {
   const [wakingServer, setWakingServer] = useState(false);
   // Prevent the double fetchProfile() caused by getSession() + onAuthStateChange(INITIAL_SESSION) racing
   const profileFetchInFlight = useRef(false);
+  const activeSessionUserRef = useRef(null);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -49,10 +60,9 @@ export function AuthProvider({ children }) {
     const loadingSafetyTimer = setTimeout(() => {
       // Hard deadline: if auth hasn't resolved in 8s, unblock the UI.
       // Use cached profile so the user stays logged in during a slow cold-start.
-      const cached = readProfileCache();
+      const cached = getMatchingCachedProfile(activeSessionUserRef.current);
       if (cached) {
         setProfile(prev => prev ?? cached);
-        setUser(prev => prev ?? cached);
       }
       setProfileResolved(true);   // ← critical: clears the ProtectedRoute spinner
       setWakingServer(false);
@@ -62,6 +72,7 @@ export function AuthProvider({ children }) {
     // onAuthStateChange fires INITIAL_SESSION on mount and handles all subsequent events.
     // We do NOT call fetchProfile() from getSession() to avoid a duplicate concurrent call.
     supabase.auth.getSession().then(({ data: { session } }) => {
+      activeSessionUserRef.current = session?.user || null;
       setSession(session);
       setUser(session?.user || null);
       // If onAuthStateChange hasn't fired yet (race), kick off the fetch here as a fallback.
@@ -74,6 +85,7 @@ export function AuthProvider({ children }) {
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      activeSessionUserRef.current = session?.user || null;
       setSession(session);
       setUser(session?.user || null);
 
@@ -135,7 +147,6 @@ export function AuthProvider({ children }) {
             await authAPI.wakeBackend();
             const retry = await authAPI.getMeQuick();
             setProfile(retry.data.data);
-            setUser(retry.data.data);
             setProfileResolved(true);
             setWakingServer(false);
             writeProfileCache(retry.data.data); // persist for cold-start resilience
@@ -143,10 +154,9 @@ export function AuthProvider({ children }) {
             // Both attempts failed — fall back to cached profile so the user
             // stays "logged in" during a prolonged outage instead of seeing an
             // infinite spinner or being forced to the login page.
-            const cached = readProfileCache();
+            const cached = getMatchingCachedProfile(activeSessionUserRef.current);
             if (cached) {
               setProfile(cached);
-              setUser(cached);
             } else {
               setProfile(null);
             }
@@ -156,7 +166,7 @@ export function AuthProvider({ children }) {
         } else {
           // Non-transient error (e.g. 401 with bad token) — resolve immediately
           // so guards can redirect rather than spinning indefinitely.
-          const cached = readProfileCache();
+          const cached = getMatchingCachedProfile(activeSessionUserRef.current);
           setProfile(prev => prev ?? cached ?? null);
           setProfileResolved(true);
         }

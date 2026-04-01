@@ -107,7 +107,7 @@ app.use('*', (req, res) => {
 // ==============================
 // GLOBAL ERROR HANDLER
 // ==============================
-app.use((err, req, res, next) => {
+app.use((err, req, res, _next) => {
   logger.error('Unhandled error:', { message: err.message, stack: err.stack });
 
   if (err.message?.includes('CORS')) {

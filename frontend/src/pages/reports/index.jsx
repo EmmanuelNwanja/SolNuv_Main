@@ -13,17 +13,39 @@ export default function Reports() {
   const [generating, setGenerating] = useState(null); // 'download' | 'send'
   const [history, setHistory] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(true);
+  const [historyError, setHistoryError] = useState('');
   const [periodStart, setPeriodStart] = useState(new Date(new Date().getFullYear(), 0, 1).toISOString().split('T')[0]);
   const [periodEnd, setPeriodEnd] = useState(new Date().toISOString().split('T')[0]);
 
-  useEffect(() => {
+  function loadHistory() {
+    setLoadingHistory(true);
+    setHistoryError('');
     reportsAPI.getHistory()
       .then(r => setHistory(r.data.data || []))
-      .catch(() => {})
+      .catch((err) => {
+        setHistoryError(err.response?.data?.message || 'We could not load your report history.');
+      })
       .finally(() => setLoadingHistory(false));
+  }
+
+  useEffect(() => {
+    loadHistory();
   }, []);
 
+  function validatePeriod() {
+    if (!periodStart || !periodEnd) {
+      toast.error('Select both start and end dates');
+      return false;
+    }
+    if (new Date(periodStart) > new Date(periodEnd)) {
+      toast.error('Report start date cannot be after end date');
+      return false;
+    }
+    return true;
+  }
+
   async function handleDownload() {
+    if (!validatePeriod()) return;
     setGenerating('download');
     try {
       const { data } = await reportsAPI.generateNesrea({ period_start: periodStart, period_end: periodEnd, action: 'download' });
@@ -36,6 +58,7 @@ export default function Reports() {
   }
 
   async function handleSendToNesrea() {
+    if (!validatePeriod()) return;
     if (!window.confirm('This will send your EPR report directly to NESREA (compliance@nesrea.gov.ng). Continue?')) return;
     setGenerating('send');
     try {
@@ -80,6 +103,13 @@ export default function Reports() {
       </MotionSection>
 
       <div className="max-w-3xl space-y-6">
+        {historyError && (
+          <MotionSection className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <p className="text-sm text-amber-800">{historyError}</p>
+            <button onClick={loadHistory} className="btn-outline text-sm px-4 py-2">Retry</button>
+          </MotionSection>
+        )}
+
         {/* NESREA Report Generator */}
         <PlanGate requiredPlan="pro" currentPlan={plan}>
           <MotionSection className="card">
@@ -107,11 +137,11 @@ export default function Reports() {
             <div className="grid sm:grid-cols-2 gap-4 mb-5">
               <div>
                 <label className="label">Report Period Start</label>
-                <input type="date" className="input" value={periodStart} onChange={e => setPeriodStart(e.target.value)} />
+                <input type="date" className="input" value={periodStart} onChange={e => setPeriodStart(e.target.value)} max={periodEnd || undefined} />
               </div>
               <div>
                 <label className="label">Report Period End</label>
-                <input type="date" className="input" value={periodEnd} onChange={e => setPeriodEnd(e.target.value)} />
+                <input type="date" className="input" value={periodEnd} onChange={e => setPeriodEnd(e.target.value)} min={periodStart || undefined} />
               </div>
             </div>
 

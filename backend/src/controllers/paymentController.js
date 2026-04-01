@@ -8,6 +8,7 @@ const supabase = require('../config/database');
 const { sendSuccess, sendError } = require('../utils/responseHelper');
 const { sendPaymentConfirmation } = require('../services/notificationService');
 const { logPlatformActivity } = require('../services/auditService');
+const logger = require('../utils/logger');
 const {
   BILLING_INTERVALS,
   PLAN_LIMITS,
@@ -22,6 +23,18 @@ const PAYSTACK_BASE = 'https://api.paystack.co';
 
 function asKobo(nairaAmount) {
   return Math.round(Number(nairaAmount || 0) * 100);
+}
+
+async function hasProcessedTransaction(reference) {
+  if (!reference) return false;
+
+  const { data } = await supabase
+    .from('subscription_transactions')
+    .select('id')
+    .eq('paystack_reference', reference)
+    .maybeSingle();
+
+  return !!data;
 }
 
 async function ensureCompanyForBilling(user) {
@@ -356,6 +369,29 @@ exports.verifyPayment = async (req, res) => {
       return sendError(res, 'Payment metadata is incomplete', 400);
     }
 
+    const isAuthorizedUser = req.user.id === user_id;
+    const isAuthorizedCompanyMember = !!(req.user.company_id && req.user.company_id === company_id);
+    if (!isAuthorizedUser && !isAuthorizedCompanyMember) {
+      return sendError(res, 'Unauthorized to verify this payment', 403);
+    }
+
+    if (await hasProcessedTransaction(reference)) {
+      const { data: existingTx } = await supabase
+        .from('subscription_transactions')
+        .select('plan, billing_interval, amount_ngn, paid_at')
+        .eq('paystack_reference', reference)
+        .maybeSingle();
+
+      return sendSuccess(res, {
+        plan: existingTx?.plan || plan,
+        billing_interval: existingTx?.billing_interval || billing_interval,
+        amount_ngn: Number(existingTx?.amount_ngn || amount / 100),
+        paid_at: existingTx?.paid_at || txData.paid_at || null,
+        reference,
+        already_processed: true,
+      }, 'Payment already verified and subscription is active.');
+    }
+
     const { data: user } = await supabase.from('users').select('*').eq('id', user_id).single();
     const { data: company } = await supabase.from('companies').select('*').eq('id', company_id).single();
     if (!user || !company) return sendError(res, 'Account not found for payment verification', 404);
@@ -408,6 +444,9 @@ exports.handleWebhook = async (req, res) => {
       .digest('hex');
 
     if (hash !== req.headers['x-paystack-signature']) {
+      logger.warn('Rejected Paystack webhook due to invalid signature', {
+        received_signature: req.headers['x-paystack-signature'] || null,
+      });
       return res.status(401).send('Invalid signature');
     }
 
@@ -419,6 +458,14 @@ exports.handleWebhook = async (req, res) => {
     if (event === 'charge.success') {
       const metadata = data?.metadata || {};
       if (metadata.plan && metadata.company_id && metadata.user_id) {
+        if (await hasProcessedTransaction(data.reference)) {
+          logger.info('Skipping duplicate Paystack webhook delivery', {
+            reference: data.reference,
+            event,
+          });
+          return res.status(200).send('Already processed');
+        }
+
         const { data: user } = await supabase.from('users').select('*').eq('id', metadata.user_id).single();
         const { data: company } = await supabase.from('companies').select('*').eq('id', metadata.company_id).single();
         if (user && company) {
@@ -520,7 +567,7 @@ exports.validatePromo = async (req, res) => {
       discount_amount_ngn: result.discountAmountNgn,
       payable_amount_ngn: result.finalAmountNgn,
     });
-  } catch (error) {
+  } catch (_error) {
     return sendError(res, 'Failed to validate promo code', 500);
   }
 };
@@ -543,7 +590,8 @@ exports.getSubscriptionHistory = async (req, res) => {
     if (error) throw error;
 
     return sendSuccess(res, data || []);
-  } catch (error) {
+  } catch (_error) {
     return sendError(res, 'Failed to fetch subscription history', 500);
   }
 };
+

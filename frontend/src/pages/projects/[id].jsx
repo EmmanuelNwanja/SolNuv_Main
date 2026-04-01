@@ -79,11 +79,29 @@ export default function ProjectDetail() {
   }
 
   async function handleRequestRecovery() {
+    if (!recoveryForm.preferred_date) {
+      toast.error('Choose a preferred pickup date');
+      return;
+    }
+    if (!recoveryForm.pickup_address?.trim()) {
+      toast.error('Pickup address is required');
+      return;
+    }
+
     try {
       await projectsAPI.requestRecovery(id, recoveryForm);
       toast.success('Recovery request submitted! We\'ll contact you within 24 hours.');
       setRecoveryModal(false);
-      setProject(prev => ({ ...prev, status: 'pending_recovery' }));
+      setRecoveryForm({ preferred_date: '', pickup_address: '', notes: '' });
+      setProject(prev => ({
+        ...prev,
+        status: 'pending_recovery',
+        recovery_requests: [{
+          id: `temp-${Date.now()}`,
+          status: 'requested',
+          preferred_date: recoveryForm.preferred_date,
+        }, ...(prev?.recovery_requests || [])],
+      }));
     } catch (err) { toast.error(err.response?.data?.message || 'Failed to submit recovery'); }
   }
 

@@ -99,7 +99,7 @@ exports.calculatePanel = async (req, res) => {
  */
 exports.calculateSilver = async (req, res) => {
   try {
-    const { size_watts = 400, quantity = 1, brand = 'Other', installation_date } = req.body;
+    const { size_watts = 400, quantity = 1, installation_date } = req.body;
 
     const result = await calculatePanelValue(
       parseFloat(size_watts),
@@ -117,7 +117,7 @@ exports.calculateSilver = async (req, res) => {
       recovery_value_expected_ngn: result.silver_recycling.installer_receives_ngn,
       silver_mg_per_wp:            parseFloat(((result.silver_recycling.silver_grams_per_panel / result.original_watts) * 1000).toFixed(4)),
     });
-  } catch (error) {
+  } catch (_error) {
     return sendError(res, 'Calculation failed', 500);
   }
 };
@@ -165,7 +165,7 @@ exports.calculateDegradation = async (req, res) => {
 
     const result = await calculateDecommissionDate(state, installation_date, brand);
     return sendSuccess(res, result);
-  } catch (error) {
+  } catch (_error) {
     return sendError(res, 'Calculation failed', 500);
   }
 };
@@ -177,7 +177,7 @@ exports.getSilverPrice = async (req, res) => {
   try {
     const price = await getSilverPrice();
     return sendSuccess(res, price);
-  } catch (error) {
+  } catch (_error) {
     return sendError(res, 'Failed to fetch price', 500);
   }
 };
@@ -235,7 +235,7 @@ exports.getBrands = async (req, res) => {
       batteries: batteryBrands,
       inverters: inverterBrands
     });
-  } catch (error) {
+  } catch (_error) {
     return sendError(res, 'Failed to fetch brands', 500);
   }
 };
@@ -247,7 +247,7 @@ exports.getStates = async (req, res) => {
   try {
     const { data: states } = await supabase.from('nigeria_climate_zones').select('state, climate_zone').order('state');
     return sendSuccess(res, states || []);
-  } catch (error) {
+  } catch (_error) {
     return sendError(res, 'Failed to fetch states', 500);
   }
 };
@@ -316,7 +316,7 @@ exports.calculateROI = async (req, res) => {
         ten_year_roi_pct: parseFloat(roiPct10y.toFixed(2)),
       },
     });
-  } catch (error) {
+  } catch (_error) {
     return sendError(res, 'Failed to calculate proposal ROI', 500);
   }
 };
@@ -392,7 +392,7 @@ exports.estimateBatterySoH = async (req, res) => {
         risk_flag: warrantyRisk,
       },
     });
-  } catch (error) {
+  } catch (_error) {
     return sendError(res, 'Failed to estimate battery SoH', 500);
   }
 };
@@ -453,7 +453,7 @@ exports.calculateCableSize = async (req, res) => {
       },
       compliance_note: 'Use this output in field QA and cable compliance certificates for installation records.',
     });
-  } catch (error) {
+  } catch (_error) {
     return sendError(res, 'Failed to calculate cable size', 500);
   }
 };
@@ -501,7 +501,7 @@ exports.exportRoiPdf = async (req, res) => {
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=SolNuv_Hybrid_ROI_Proposal_${Date.now()}.pdf`);
     return res.send(pdfBuffer);
-  } catch (error) {
+  } catch (_error) {
     return sendError(res, 'Failed to export ROI proposal PDF', 500);
   }
 };
@@ -546,7 +546,8 @@ exports.exportCableCertificatePdf = async (req, res) => {
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=SolNuv_Cable_Compliance_${Date.now()}.pdf`);
     return res.send(pdfBuffer);
-  } catch (error) {
+  } catch (_error) {
     return sendError(res, 'Failed to export cable certificate PDF', 500);
   }
 };
+

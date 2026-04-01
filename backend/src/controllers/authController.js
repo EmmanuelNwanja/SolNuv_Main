@@ -8,6 +8,7 @@ const { sendSuccess, sendError } = require('../utils/responseHelper');
 const { sendWelcomeNotification } = require('../services/notificationService');
 const { sendSms, normalizePhone } = require('../services/termiiService');
 const { sendTeamInvitation } = require('../services/emailService');
+const logger = require('../utils/logger');
 const { v4: uuidv4 } = require('uuid');
 
 function slugify(value) {
@@ -261,6 +262,7 @@ exports.getMe = async (req, res) => {
       platform_admin_permissions: adminMembership || null,
     });
   } catch (error) {
+    logger.error('Failed to fetch profile', { user_id: req.user?.id || null, message: error.message });
     return sendError(res, 'Failed to fetch profile', 500);
   }
 };
@@ -286,6 +288,7 @@ exports.getProfileStatus = async (req, res) => {
       company_id: req.user.company_id,
     });
   } catch (error) {
+    logger.error('Failed to check profile status', { user_id: req.user?.id || null, message: error.message });
     return sendError(res, 'Failed to check profile status', 500);
   }
 };
@@ -338,6 +341,7 @@ exports.inviteTeamMember = async (req, res) => {
 
     return sendSuccess(res, { invite_id: invite.id, email, phone, role }, 'Invitation sent successfully');
   } catch (error) {
+    logger.error('Failed to send team invitation', { user_id: req.user?.id || null, message: error.message });
     return sendError(res, 'Failed to send invitation', 500);
   }
 };
@@ -380,6 +384,7 @@ exports.acceptInvite = async (req, res) => {
       company_id: invite.company_id,
     }, 'Invitation valid');
   } catch (error) {
+    logger.error('Failed to process team invitation', { user_id: req.user?.id || null, token: req.params?.token || null, message: error.message });
     return sendError(res, 'Failed to process invitation', 500);
   }
 };
@@ -407,6 +412,7 @@ exports.getTeamMembers = async (req, res) => {
 
     return sendSuccess(res, { members: members || [], pending_invitations: pending || [] });
   } catch (error) {
+    logger.error('Failed to fetch team members', { user_id: req.user?.id || null, company_id: req.user?.company_id || null, message: error.message });
     return sendError(res, 'Failed to fetch team', 500);
   }
 };
@@ -434,6 +440,7 @@ exports.getNotifications = async (req, res) => {
 
     return sendSuccess(res, notifications || []);
   } catch (error) {
+    logger.error('Failed to fetch notifications', { user_id: req.user?.id || null, message: error.message });
     return sendError(res, 'Failed to fetch notifications', 500);
   }
 };
@@ -485,6 +492,7 @@ exports.requestPasswordResetOtp = async (req, res) => {
 
     return sendSuccess(res, { expires_in_minutes: 10 }, 'OTP sent successfully');
   } catch (error) {
+    logger.error('Failed to send password reset OTP', { email: req.body?.email || null, message: error.message });
     return sendError(res, 'Failed to send reset OTP', 500);
   }
 };
@@ -515,6 +523,7 @@ exports.verifyPasswordResetOtp = async (req, res) => {
 
     return sendSuccess(res, { verified: true }, 'OTP verified');
   } catch (error) {
+    logger.error('Failed to verify password reset OTP', { email: req.body?.email || null, message: error.message });
     return sendError(res, 'Failed to verify OTP', 500);
   }
 };
@@ -572,6 +581,7 @@ exports.completePasswordReset = async (req, res) => {
 
     return sendSuccess(res, null, 'Password reset successful');
   } catch (error) {
+    logger.error('Failed to complete password reset', { email: req.body?.email || null, message: error.message });
     return sendError(res, 'Failed to complete password reset', 500);
   }
 };
@@ -615,6 +625,7 @@ exports.requestPhoneVerificationOtp = async (req, res) => {
 
     return sendSuccess(res, { phone: normalizedPhone, expires_in_minutes: 10 }, 'Verification OTP sent');
   } catch (error) {
+    logger.error('Failed to send phone verification OTP', { user_id: req.user?.id || null, supabase_uid: req.supabaseUser?.id || null, message: error.message });
     return sendError(res, 'Failed to send verification OTP', 500);
   }
 };
@@ -709,6 +720,7 @@ exports.verifyPhoneVerificationOtp = async (req, res) => {
       metadata_updated: metadataUpdated,
     }, metadataUpdated ? 'Phone verified successfully' : 'Phone verified. Metadata update will be retried client-side.');
   } catch (error) {
+    logger.error('Failed to verify phone OTP', { user_id: req.user?.id || null, supabase_uid: req.supabaseUser?.id || null, message: error.message });
     return sendError(res, 'Failed to verify phone OTP', 500);
   }
 };

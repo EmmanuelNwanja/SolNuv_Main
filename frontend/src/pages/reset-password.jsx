@@ -116,6 +116,7 @@ export default function ResetPasswordPage() {
 
             {step === 2 && (
               <form onSubmit={verifyOtp} className="space-y-4">
+                <p className="text-xs text-slate-500">Your OTP expires in 10 minutes. If it expires, go back and request a new code.</p>
                 <div>
                   <label className="label">Enter OTP Code</label>
                   <input className="input" value={form.otp} onChange={(e) => update('otp', e.target.value)} placeholder="6-digit code" required />
