@@ -374,25 +374,51 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
       )}
 
       {activeTab === 'promo' && (
-        <div className="grid lg:grid-cols-2 gap-4">
-          <form className="card space-y-3" onSubmit={handleCreatePromo}>
-            <h2 className="font-semibold text-forest-900">Create Promo Code</h2>
-            <input className="input" placeholder="Code (e.g. APRIL10)" value={newPromo.code} onChange={(e) => setNewPromo((p) => ({ ...p, code: e.target.value.toUpperCase() }))} required />
-            <div className="grid grid-cols-2 gap-2">
-              <select className="input" value={newPromo.discount_type} onChange={(e) => setNewPromo((p) => ({ ...p, discount_type: e.target.value }))}>
-                <option value="percent">Percent</option>
-                <option value="flat">Flat NGN</option>
-              </select>
-              <input className="input" type="number" min="1" value={newPromo.discount_value} onChange={(e) => setNewPromo((p) => ({ ...p, discount_value: Number(e.target.value) }))} required />
+        <div className="space-y-4">
+          <div className="rounded-2xl border border-indigo-200 bg-indigo-50 px-4 py-3">
+            <p className="text-xs uppercase tracking-wide text-indigo-700">Campaign Controls</p>
+            <p className="text-sm text-indigo-900 mt-1">Build and monitor promo campaigns with instant activation control and redemption visibility.</p>
+          </div>
+
+          <div className="grid lg:grid-cols-2 gap-4">
+            <form className="card space-y-3" onSubmit={handleCreatePromo}>
+              <h2 className="font-semibold text-forest-900">Create Promo Code</h2>
+              <input className="input" placeholder="Code (e.g. APRIL10)" value={newPromo.code} onChange={(e) => setNewPromo((p) => ({ ...p, code: e.target.value.toUpperCase() }))} required />
+              <div className="grid grid-cols-2 gap-2">
+                <select className="input" value={newPromo.discount_type} onChange={(e) => setNewPromo((p) => ({ ...p, discount_type: e.target.value }))}>
+                  <option value="percent">Percent</option>
+                  <option value="flat">Flat NGN</option>
+                </select>
+                <input className="input" type="number" min="1" value={newPromo.discount_value} onChange={(e) => setNewPromo((p) => ({ ...p, discount_value: Number(e.target.value) }))} required />
+              </div>
+              <input className="input" type="number" min="1" placeholder="Max redemptions (optional)" value={newPromo.max_redemptions} onChange={(e) => setNewPromo((p) => ({ ...p, max_redemptions: e.target.value }))} />
+              <button type="submit" className="btn-primary">Create Promo</button>
+            </form>
+
+            <div className="card">
+              <h2 className="font-semibold text-forest-900 mb-3">Campaign Snapshot</h2>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-xl bg-slate-50 p-3">
+                  <p className="text-xs text-slate-500">Total Codes</p>
+                  <p className="text-2xl font-bold text-slate-900 mt-1">{promoCodes.length}</p>
+                </div>
+                <div className="rounded-xl bg-emerald-50 p-3">
+                  <p className="text-xs text-emerald-700">Active</p>
+                  <p className="text-2xl font-bold text-emerald-700 mt-1">{promoCodes.filter((p) => p.active).length}</p>
+                </div>
+                <div className="rounded-xl bg-amber-50 p-3 col-span-2">
+                  <p className="text-xs text-amber-700">Total Redemptions</p>
+                  <p className="text-2xl font-bold text-amber-700 mt-1">{promoCodes.reduce((sum, p) => sum + Number(p.redeemed_count || 0), 0)}</p>
+                </div>
+              </div>
             </div>
-            <input className="input" type="number" min="1" placeholder="Max redemptions (optional)" value={newPromo.max_redemptions} onChange={(e) => setNewPromo((p) => ({ ...p, max_redemptions: e.target.value }))} />
-            <button type="submit" className="btn-primary">Create Promo</button>
-          </form>
+          </div>
 
           <div className="card space-y-2">
             <h2 className="font-semibold text-forest-900">Promo Codes</h2>
+            {promoCodes.length === 0 && <p className="text-sm text-slate-500">No promo codes yet. Create your first campaign above.</p>}
             {promoCodes.map((promo) => (
-              <div key={promo.id} className="border border-slate-100 rounded-xl p-3 flex items-center justify-between gap-3">
+              <div key={promo.id} className="border border-slate-100 rounded-xl p-3 flex items-center justify-between gap-3 hover:border-forest-200 transition-colors">
                 <div>
                   <p className="font-medium text-slate-800">{promo.code}</p>
                   <p className="text-xs text-slate-500">{promo.discount_type === 'percent' ? `${promo.discount_value}%` : `N${promo.discount_value}`} • redeemed {promo.redeemed_count}/{promo.max_redemptions || 'unlimited'}</p>

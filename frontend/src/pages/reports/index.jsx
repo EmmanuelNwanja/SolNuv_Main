@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { reportsAPI, downloadBlob } from '../../services/api';
 import { getDashboardLayout } from '../../components/Layout';
 import { PlanGate, LoadingSpinner } from '../../components/ui/index';
+import { MotionSection } from '../../components/PageMotion';
 import { RiFileTextLine, RiDownloadLine, RiSendPlane2Line, RiCheckLine, RiHistoryLine } from 'react-icons/ri';
 import toast from 'react-hot-toast';
 
@@ -59,15 +60,29 @@ export default function Reports() {
     <>
       <Head><title>Reports — SolNuv</title></Head>
 
-      <div className="page-header">
-        <h1 className="font-display font-bold text-2xl text-forest-900">Reports & Compliance</h1>
-        <p className="text-slate-500 text-sm mt-0.5">Generate NESREA EPR compliance documents and data exports</p>
-      </div>
+      <MotionSection className="mb-6">
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-slate-800 to-forest-900 p-6 sm:p-8 text-white">
+          <div className="absolute -top-20 -right-12 h-52 w-52 rounded-full bg-emerald-300/20 blur-3xl" />
+          <div className="absolute -bottom-24 -left-20 h-56 w-56 rounded-full bg-cyan-300/10 blur-3xl" />
+          <div className="relative">
+            <p className="text-xs uppercase tracking-[0.22em] text-white/60 mb-3">Compliance Studio</p>
+            <h1 className="font-display font-bold text-3xl sm:text-4xl">Reports and Compliance</h1>
+            <p className="text-white/75 text-sm mt-2 max-w-2xl">
+              Generate NESREA EPR documents, download structured exports, and maintain a verifiable audit trail for your projects.
+            </p>
+            <div className="mt-4 flex flex-wrap gap-2 text-xs">
+              <span className="rounded-full border border-white/20 bg-white/10 px-3 py-1">Plan: {String(plan || 'free').toUpperCase()}</span>
+              <span className="rounded-full border border-white/20 bg-white/10 px-3 py-1">{history.length} historical reports</span>
+              <span className="rounded-full border border-white/20 bg-white/10 px-3 py-1">EPR-ready workflow</span>
+            </div>
+          </div>
+        </div>
+      </MotionSection>
 
       <div className="max-w-3xl space-y-6">
         {/* NESREA Report Generator */}
         <PlanGate requiredPlan="pro" currentPlan={plan}>
-          <div className="card">
+          <MotionSection className="card">
             <div className="flex items-center gap-3 mb-5">
               <div className="w-10 h-10 bg-forest-900 rounded-xl flex items-center justify-center">
                 <RiFileTextLine className="text-amber-400 text-lg" />
@@ -119,12 +134,12 @@ export default function Reports() {
                 {plan === 'pro' && <span className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-semibold ml-1">ELITE</span>}
               </button>
             </div>
-          </div>
+          </MotionSection>
         </PlanGate>
 
         {/* Excel Export */}
         <PlanGate requiredPlan="pro" currentPlan={plan}>
-          <div className="card">
+          <MotionSection className="card">
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="font-semibold text-forest-900">Excel Data Export</h2>
@@ -135,11 +150,11 @@ export default function Reports() {
                 Export Excel
               </button>
             </div>
-          </div>
+          </MotionSection>
         </PlanGate>
 
         {/* Report History */}
-        <div className="card">
+        <MotionSection className="card">
           <h2 className="font-semibold text-forest-900 flex items-center gap-2 mb-4">
             <RiHistoryLine /> Report History
           </h2>
@@ -166,7 +181,7 @@ export default function Reports() {
               ))}
             </div>
           )}
-        </div>
+        </MotionSection>
       </div>
     </>
   );

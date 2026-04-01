@@ -7,6 +7,7 @@ import { getDashboardLayout } from '../../components/Layout';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { useAuth } from '../../context/AuthContext';
 import { StatusBadge, UrgencyBadge, EmptyState, LoadingSpinner } from '../../components/ui/index';
+import { MotionSection } from '../../components/PageMotion';
 import { RiAddLine, RiSearchLine, RiFilterLine, RiDownloadLine, RiSunLine } from 'react-icons/ri';
 import toast from 'react-hot-toast';
 
@@ -28,6 +29,10 @@ export default function ProjectsList() {
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [exporting, setExporting] = useState(false);
+
+  const activeCount = projects.filter((p) => p.status === 'active').length;
+  const pendingRecoveryCount = projects.filter((p) => p.status === 'pending_recovery').length;
+  const silverTotal = projects.reduce((sum, p) => sum + (p.summary?.total_silver_grams || 0), 0);
 
   const fetchProjects = useCallback(async () => {
     if (!isOnboarded) {
@@ -66,23 +71,35 @@ export default function ProjectsList() {
     <>
       <Head><title>My Projects — SolNuv</title></Head>
 
-      <div className="page-header flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="font-display font-bold text-2xl text-forest-900">My Projects</h1>
-          <p className="text-slate-500 text-sm mt-0.5">{total} project{total !== 1 ? 's' : ''} tracked</p>
+      <MotionSection className="mb-6">
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-forest-900 via-forest-800 to-emerald-700 px-6 py-7 text-white">
+          <div className="absolute -right-20 -top-20 h-52 w-52 rounded-full bg-amber-300/20 blur-3xl" />
+          <div className="absolute -left-24 -bottom-24 h-56 w-56 rounded-full bg-emerald-300/20 blur-3xl" />
+          <div className="relative flex flex-col lg:flex-row lg:items-end lg:justify-between gap-5">
+            <div>
+              <p className="text-xs uppercase tracking-[0.22em] text-white/60 mb-3">Asset Ledger</p>
+              <h1 className="font-display font-bold text-3xl sm:text-4xl">My Projects</h1>
+              <p className="text-white/75 text-sm mt-2">{total} project{total !== 1 ? 's' : ''} tracked across your deployment network.</p>
+              <div className="mt-4 flex flex-wrap gap-2 text-xs">
+                <span className="rounded-full border border-white/20 bg-white/10 px-3 py-1">{activeCount} active</span>
+                <span className="rounded-full border border-white/20 bg-white/10 px-3 py-1">{pendingRecoveryCount} pending recovery</span>
+                <span className="rounded-full border border-white/20 bg-white/10 px-3 py-1">{silverTotal.toFixed(1)}g recoverable silver</span>
+              </div>
+            </div>
+            <div className="flex gap-3 flex-wrap">
+              <button onClick={handleExportCSV} disabled={exporting} className="rounded-xl border border-white/30 px-4 py-2.5 text-sm font-semibold text-white hover:bg-white/10 transition-colors inline-flex items-center gap-2">
+                <RiDownloadLine /> {exporting ? 'Exporting...' : 'Export CSV'}
+              </button>
+              <Link href="/projects/add" className="btn-amber flex items-center gap-2">
+                <RiAddLine /> Add Project
+              </Link>
+            </div>
+          </div>
         </div>
-        <div className="flex gap-3">
-          <button onClick={handleExportCSV} disabled={exporting} className="btn-outline flex items-center gap-2 text-sm px-4 py-2.5 rounded-xl">
-            <RiDownloadLine /> {exporting ? 'Exporting...' : 'Export CSV'}
-          </button>
-          <Link href="/projects/add" className="btn-primary flex items-center gap-2">
-            <RiAddLine /> Add Project
-          </Link>
-        </div>
-      </div>
+      </MotionSection>
 
       {/* Filters */}
-      <div className="flex gap-3 mb-6 flex-col sm:flex-row">
+      <MotionSection className="flex gap-3 mb-6 flex-col sm:flex-row">
         <div className="relative flex-1">
           <RiSearchLine className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input type="search" className="input pl-10" placeholder="Search projects..." value={search}
@@ -94,7 +111,7 @@ export default function ProjectsList() {
             {STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
         </div>
-      </div>
+      </MotionSection>
 
       {/* Projects */}
       {loading ? (
@@ -108,7 +125,7 @@ export default function ProjectsList() {
         />
       ) : (
         <>
-          <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4 mb-6">
+          <MotionSection className="grid md:grid-cols-2 xl:grid-cols-3 gap-4 mb-6">
             {projects.map(proj => (
               <Link key={proj.id} href={`/projects/${proj.id}`}
                 className="card-hover group">
@@ -141,15 +158,15 @@ export default function ProjectsList() {
                 )}
               </Link>
             ))}
-          </div>
+          </MotionSection>
 
           {/* Pagination */}
           {total > 20 && (
-            <div className="flex justify-center gap-2">
+            <MotionSection className="flex justify-center gap-2">
               <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="btn-ghost">← Prev</button>
               <span className="text-sm text-slate-500 self-center">Page {page} of {Math.ceil(total / 20)}</span>
               <button onClick={() => setPage(p => p + 1)} disabled={page * 20 >= total} className="btn-ghost">Next →</button>
-            </div>
+            </MotionSection>
           )}
         </>
       )}
