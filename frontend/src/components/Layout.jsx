@@ -4,6 +4,7 @@ import { useRouter } from 'next/router';
 import { useAuth } from '../context/AuthContext';
 import ProtectedRoute from './ProtectedRoute';
 import AdminLayout from './AdminLayout';
+import { ThemeToggle } from './ThemeToggle';
 import {
   RiDashboardLine, RiSunLine, RiBarChartLine, RiFileTextLine,
   RiTrophyLine, RiCalculatorLine, RiSettingsLine, RiLogoutBoxLine,
@@ -111,6 +112,7 @@ export default function Layout({ children }) {
           </button>
           <div className="flex-1" />
           <div className="flex items-center gap-3">
+            <ThemeToggle compact />
             <span className={`badge ${plan === 'free' ? 'badge-slate' : plan === 'pro' ? 'badge-green' : plan === 'elite' ? 'badge-forest' : 'badge-amber'}`}>
               {plan.toUpperCase()}
             </span>

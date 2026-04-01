@@ -15,6 +15,7 @@ import {
   RiWallet3Line,
 } from 'react-icons/ri';
 import { useAuth } from '../context/AuthContext';
+import { ThemeToggle } from './ThemeToggle';
 import toast from 'react-hot-toast';
 
 const adminNavItems = [
@@ -110,7 +111,10 @@ export default function AdminLayout({ children }) {
             <RiMenuLine className="text-xl" />
           </button>
           <div className="hidden lg:block text-sm text-slate-400">Central management for users, billing, and platform operations</div>
-          <div className="text-xs text-slate-500">{new Date().toLocaleDateString()}</div>
+          <div className="flex items-center gap-3">
+            <ThemeToggle compact />
+            <div className="text-xs text-slate-500">{new Date().toLocaleDateString()}</div>
+          </div>
         </header>
 
         <main className="flex-1 p-4 lg:p-8 bg-slate-50 text-slate-900 overflow-auto">
