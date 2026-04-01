@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
-import { supabase } from '../utils/supabase';
+import { getAuthCallbackUrl, supabase } from '../utils/supabase';
 import { authAPI } from '../services/api';
 
 const AuthContext = createContext({});
@@ -15,6 +15,19 @@ export function AuthProvider({ children }) {
   const profileFetchInFlight = useRef(false);
 
   useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      const hasAuthCode = url.searchParams.has('code');
+      const hasAuthError = url.searchParams.has('error') || url.searchParams.has('error_description');
+      const hasHashTokens = /access_token|refresh_token|provider_token|token_type/.test(url.hash || '');
+      const isCallbackRoute = url.pathname === '/auth/callback';
+
+      if (!isCallbackRoute && (hasAuthCode || hasAuthError || hasHashTokens)) {
+        window.location.replace(`/auth/callback${url.search}${url.hash}`);
+        return undefined;
+      }
+    }
+
     const loadingSafetyTimer = setTimeout(() => {
       setLoading(false);
     }, 10000);
@@ -114,7 +127,7 @@ export function AuthProvider({ children }) {
   async function signInWithGoogle() {
     return supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
+      options: { redirectTo: getAuthCallbackUrl() },
     });
   }
 
@@ -127,7 +140,7 @@ export function AuthProvider({ children }) {
       email,
       password,
       options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
+        emailRedirectTo: getAuthCallbackUrl(),
         data: metadata,
       },
     });
