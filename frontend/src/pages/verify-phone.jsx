@@ -135,7 +135,7 @@ export default function VerifyPhone() {
               />
             </div>
 
-            <button type="submit" disabled={verifying || !sent} className="btn-primary w-full">
+            <button type="submit" disabled={verifying || !otp.trim()} className="btn-primary w-full">
               {verifying ? 'Verifying...' : 'Verify Phone'}
             </button>
           </form>
