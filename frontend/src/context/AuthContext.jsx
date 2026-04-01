@@ -4,6 +4,24 @@ import { authAPI } from '../services/api';
 
 const AuthContext = createContext({});
 
+// ---------------------------------------------------------------------------
+// Lightweight profile cache — survives page refreshes and cold-start failures.
+// Cleared on explicit sign-out so stale data is never shown after log-out.
+// ---------------------------------------------------------------------------
+const PROFILE_CACHE_KEY = 'solnuv_profile_v1';
+function readProfileCache() {
+  if (typeof window === 'undefined') return null;
+  try { return JSON.parse(localStorage.getItem(PROFILE_CACHE_KEY) || 'null'); } catch { return null; }
+}
+function writeProfileCache(data) {
+  if (typeof window === 'undefined') return;
+  try { localStorage.setItem(PROFILE_CACHE_KEY, JSON.stringify(data)); } catch {}
+}
+function clearProfileCache() {
+  if (typeof window === 'undefined') return;
+  try { localStorage.removeItem(PROFILE_CACHE_KEY); } catch {}
+}
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
@@ -87,6 +105,7 @@ export function AuthProvider({ children }) {
       setUser(data.data);
       setProfileResolved(true);
       setWakingServer(false);
+      writeProfileCache(data.data); // persist for cold-start resilience
     } catch (err) {
       const code = err?.response?.data?.code;
       if (code === 'PROFILE_INCOMPLETE') {
@@ -108,14 +127,27 @@ export function AuthProvider({ children }) {
             setUser(retry.data.data);
             setProfileResolved(true);
             setWakingServer(false);
+            writeProfileCache(retry.data.data); // persist for cold-start resilience
           } catch {
-            // Keep prior profile if present; if none yet, keep unresolved so guards don't misroute.
-            setProfile(prev => prev ?? null);
-            setProfileResolved((prev) => prev || !!profile);
+            // Both attempts failed — fall back to cached profile so the user
+            // stays "logged in" during a prolonged outage instead of seeing an
+            // infinite spinner or being forced to the login page.
+            const cached = readProfileCache();
+            if (cached) {
+              setProfile(cached);
+              setUser(cached);
+            } else {
+              setProfile(null);
+            }
+            setProfileResolved(true); // always unblock ProtectedRoute
+            setWakingServer(false);
           }
         } else {
-          setProfile(prev => prev ?? null);
-          setProfileResolved((prev) => prev || !!profile);
+          // Non-transient error (e.g. 401 with bad token) — resolve immediately
+          // so guards can redirect rather than spinning indefinitely.
+          const cached = readProfileCache();
+          setProfile(prev => prev ?? cached ?? null);
+          setProfileResolved(true);
         }
       }
     } finally {
@@ -148,6 +180,7 @@ export function AuthProvider({ children }) {
 
   async function signOut() {
     await supabase.auth.signOut();
+    clearProfileCache();
     setUser(null);
     setProfile(null);
     setSession(null);
