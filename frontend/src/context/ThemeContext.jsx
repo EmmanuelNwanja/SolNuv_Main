@@ -5,11 +5,12 @@ const ThemeContext = createContext(null);
 function getInitialTheme() {
   if (typeof window === 'undefined') return 'light';
 
+  // Respect explicit user choice stored in localStorage; otherwise default to light.
+  // System dark-mode preference is intentionally ignored — light is the platform default.
   const saved = window.localStorage.getItem('solnuv_theme');
   if (saved === 'light' || saved === 'dark') return saved;
 
-  const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-  return prefersDark ? 'dark' : 'light';
+  return 'light';
 }
 
 export function ThemeProvider({ children }) {

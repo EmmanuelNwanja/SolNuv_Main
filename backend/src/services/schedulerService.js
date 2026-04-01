@@ -1,3 +1,37 @@
+'use strict';
+
+const cron     = require('node-cron');
+const axios    = require('axios');
+const supabase = require('../config/database');
+const logger   = require('../utils/logger');
+const { sendDecommissionAlert } = require('./emailService');
+
+// ─── KEEP-ALIVE ──────────────────────────────────────────────────────────────
+// Render free-tier web services sleep after 15 minutes of inactivity.
+// This self-ping fires every 10 minutes so the process is never idle,
+// even when zero users are on the platform.
+function startKeepAlive() {
+  const selfUrl = (process.env.RENDER_EXTERNAL_URL || '').replace(/\/$/, '');
+  if (!selfUrl) {
+    logger.warn('Keep-alive: RENDER_EXTERNAL_URL not set — skipping (local dev mode)');
+    return;
+  }
+
+  const pingUrl = `${selfUrl}/api/health`;
+
+  setInterval(async () => {
+    try {
+      await axios.get(pingUrl, { timeout: 10_000 });
+      logger.info(`Keep-alive ✓ ${pingUrl}`);
+    } catch (err) {
+      logger.warn(`Keep-alive ping failed: ${err.message}`);
+    }
+  }, 10 * 60 * 1000); // every 10 minutes
+
+  logger.info(`⏱  Keep-alive active → ${pingUrl} (every 10 min)`);
+}
+
+// ─── LEADERBOARD REFRESH ─────────────────────────────────────────────────────
 async function refreshLeaderboard() {
   logger.info('Refreshing leaderboard cache...');
   try {
@@ -127,9 +161,79 @@ async function refreshLeaderboard() {
     logger.error('Leaderboard refresh error:', error.message);
     return { error: error.message };
   }
-  module.exports = {
+}
+
+// ─── DECOMMISSION ALERTS ─────────────────────────────────────────────────────
+// Queries active projects whose estimated_decommission_date is within 180 days
+// (or already overdue) and sends alert emails to each project's owner.
+async function sendDecommissionAlerts() {
+  logger.info('Running decommission alert sweep...');
+  try {
+    const today      = new Date();
+    const cutoffDate = new Date(today);
+    cutoffDate.setDate(cutoffDate.getDate() + 180);
+
+    const { data: projects, error } = await supabase
+      .from('projects')
+      .select(`
+        id, name, city, state, estimated_decommission_date,
+        users ( id, first_name, last_name, email )
+      `)
+      .eq('status', 'active')
+      .lte('estimated_decommission_date', cutoffDate.toISOString())
+      .not('estimated_decommission_date', 'is', null);
+
+    if (error) {
+      logger.error('Decommission alerts: query failed', error.message);
+      return { error: error.message };
+    }
+
+    let sent = 0;
+    for (const project of projects || []) {
+      const user = project.users;
+      if (!user?.email) continue;
+
+      const decommDate   = new Date(project.estimated_decommission_date);
+      const daysUntil    = Math.round((decommDate - today) / (1000 * 60 * 60 * 24));
+      const equipment    = { days_until_decommission: daysUntil };
+
+      try {
+        await sendDecommissionAlert(user, project, equipment);
+        sent++;
+      } catch (emailErr) {
+        logger.warn(`Decommission alert failed for project ${project.id}: ${emailErr.message}`);
+      }
+    }
+
+    logger.info(`Decommission alerts sent: ${sent}/${(projects || []).length} projects`);
+    return { sent, total: (projects || []).length };
+  } catch (err) {
+    logger.error('Decommission alert sweep error:', err.message);
+    return { error: err.message };
+  }
+}
+
+// ─── SCHEDULER ENTRY POINT ───────────────────────────────────────────────────
+// Called by server.js on startup. Schedules:
+//   • Daily 8AM WAT (07:00 UTC) — leaderboard refresh + decommission alerts
+//   • Every 10 min              — keep-alive self-ping (Render free-tier)
+function startScheduler() {
+  // 8AM WAT = 07:00 UTC
+  cron.schedule('0 7 * * *', async () => {
+    logger.info('Daily cron fired — refreshing leaderboard and checking decommissions');
+    await refreshLeaderboard();
+    await sendDecommissionAlerts();
+  }, { timezone: 'UTC' });
+
+  logger.info('⏰ Daily scheduler registered (08:00 WAT / 07:00 UTC)');
+
+  // Keep the Render free-tier process alive 24/7
+  startKeepAlive();
+}
+
+// ─── EXPORTS ─────────────────────────────────────────────────────────────────
+module.exports = {
   startScheduler,
   refreshLeaderboard,
   sendDecommissionAlerts,
 };
-}
