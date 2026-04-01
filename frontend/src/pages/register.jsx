@@ -7,7 +7,7 @@ import { RiSunLine, RiGoogleLine, RiEyeLine, RiEyeOffLine } from 'react-icons/ri
 import toast from 'react-hot-toast';
 
 export default function Register() {
-  const { session, signInWithGoogle, signUpWithEmail, loading } = useAuth();
+  const { session, isOnboarded, isPlatformAdmin, profileResolved, signInWithGoogle, signUpWithEmail, loading } = useAuth();
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -18,8 +18,11 @@ export default function Register() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (session && !loading) router.replace('/verify-phone');
-  }, [session, loading, router]);
+    if (session && !loading && profileResolved) {
+      const dest = isPlatformAdmin ? '/admin' : (isOnboarded ? '/dashboard' : '/verify-phone');
+      router.replace(dest);
+    }
+  }, [session, loading, profileResolved, isOnboarded, isPlatformAdmin, router]);
 
   async function handleGoogle() {
     if (!phone.trim()) {

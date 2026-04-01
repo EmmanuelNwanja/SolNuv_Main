@@ -2,6 +2,7 @@ import Head from 'next/head';
 import { useEffect, useState } from 'react';
 import { dashboardAPI } from '../../services/api';
 import { getDashboardLayout } from '../../components/Layout';
+import { MotionSection } from '../../components/PageMotion';
 import { LoadingSpinner, EmptyState } from '../../components/ui/index';
 import { RiChatSmile3Line, RiLinksLine, RiStarLine } from 'react-icons/ri';
 import toast from 'react-hot-toast';
@@ -50,12 +51,26 @@ export default function ClientFeedbackPage() {
     <>
       <Head><title>Client Feedback — SolNuv</title></Head>
 
-      <div className="page-header">
-        <h1 className="font-display font-bold text-2xl text-forest-900 flex items-center gap-2">
-          <RiChatSmile3Line className="text-amber-500" /> Client Feedback
-        </h1>
-        <p className="text-slate-500 text-sm mt-0.5">Create shareable rating links and track reviews to build your public reputation</p>
-      </div>
+      <MotionSection className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 via-forest-900 to-emerald-900 text-white px-8 py-10 mb-8">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(245,158,11,0.15),transparent_60%)]" />
+        <div className="relative">
+          <span className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-emerald-300 mb-3">
+            <RiChatSmile3Line /> Reputation Engine
+          </span>
+          <h1 className="font-display font-bold text-3xl">Client Feedback</h1>
+          <p className="text-white/70 text-sm mt-2">Create shareable rating links and track reviews to build your public reputation</p>
+          {data && (
+            <div className="mt-5 flex flex-wrap gap-3">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 text-white/90 text-xs font-semibold border border-white/10">
+                <RiStarLine /> {summary.average_rating || 0} avg rating
+              </span>
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 text-white/90 text-xs font-semibold border border-white/10">
+                {summary.total_feedback || 0} total reviews
+              </span>
+            </div>
+          )}
+        </div>
+      </MotionSection>
 
       {loading ? (
         <div className="flex justify-center py-16"><LoadingSpinner size="lg" /></div>
