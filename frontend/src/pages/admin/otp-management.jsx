@@ -24,6 +24,7 @@ export default function OtpManagement() {
   async function loadOtps() {
     setLoading(true);
     try {
+      await adminAPI.wakeBackend();
       const { data } = await adminAPI.getOtps();
       setOtps(data.data || []);
     } catch (err) {
@@ -40,6 +41,7 @@ export default function OtpManagement() {
 
     setGeneratingOtp(true);
     try {
+      await adminAPI.wakeBackend();
       const { data } = await adminAPI.generateOtp(generateForm);
       toast.success('OTP generated! Manually share with user if needed.');
       // Add new OTP to the top of the list
@@ -58,7 +60,10 @@ export default function OtpManagement() {
       }, ...prev]);
       setGenerateForm({ email: '', phone: '' });
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to generate OTP');
+      const timeoutLike = err?.code === 'ECONNABORTED' || /timeout/i.test(String(err?.message || ''));
+      toast.error(timeoutLike
+        ? 'Request timed out while waking server. Please try again in a few seconds.'
+        : (err.response?.data?.message || 'Failed to generate OTP'));
     } finally {
       setGeneratingOtp(false);
     }

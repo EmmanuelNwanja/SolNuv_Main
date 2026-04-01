@@ -148,8 +148,8 @@ export const adminAPI = {
   getActivityLogs: () => api.get('/admin/activity-logs'),
   listAdmins: () => api.get('/admin/admins'),
   upsertAdmin: (data) => api.post('/admin/admins', data),
-  getOtps: () => api.get('/admin/otps'),
-  generateOtp: (data) => api.post('/admin/otps', data),
+  getOtps: () => api.get('/admin/otps', { timeout: 20000 }),
+  generateOtp: (data) => api.post('/admin/otps', data, { timeout: 20000 }),
 };
 
 // ==============================

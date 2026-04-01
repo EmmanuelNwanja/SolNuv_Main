@@ -495,12 +495,16 @@ exports.generateOtp = async (req, res) => {
     const { email, phone } = req.body;
     if (!email || !phone) return sendError(res, 'email and phone are required', 400);
 
+    const normalizedEmail = String(email).trim().toLowerCase();
+    const normalizedPhone = String(phone).trim();
+
     // Check user exists
     const { data: user, error: userError } = await supabase
       .from('users')
       .select('id, email')
-      .eq('email', email)
-      .single();
+      .ilike('email', normalizedEmail)
+      .limit(1)
+      .maybeSingle();
 
     if (userError || !user) return sendError(res, 'User not found', 404);
 
@@ -511,15 +515,15 @@ exports.generateOtp = async (req, res) => {
     // Delete any existing unused OTPs for this email
     await supabase.from('password_reset_otps')
       .delete()
-      .eq('email', email)
+      .eq('email', normalizedEmail)
       .eq('used', false);
 
     // Create new OTP
     const { data: newOtp, error: otpError } = await supabase
       .from('password_reset_otps')
       .insert({
-        email,
-        phone,
+        email: normalizedEmail,
+        phone: normalizedPhone,
         otp_code,
         channel: 'admin_generated',
         expires_at,
@@ -535,7 +539,7 @@ exports.generateOtp = async (req, res) => {
       action: 'admin.otp.generated',
       resourceType: 'password_reset_otps',
       resourceId: newOtp.id,
-      details: { target_email: email, target_phone: phone },
+      details: { target_email: normalizedEmail, target_phone: normalizedPhone },
     });
 
     return sendSuccess(res, {
@@ -547,6 +551,7 @@ exports.generateOtp = async (req, res) => {
       message: 'OTP generated. Manually share with user if SMS delivery failed.',
     }, 'OTP created', 201);
   } catch (error) {
+    console.error('admin.generateOtp error:', error);
     return sendError(res, 'Failed to generate OTP', 500);
   }
 };
