@@ -40,7 +40,7 @@ const nextConfig = {
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "font-src 'self' https://fonts.gstatic.com",
               "img-src 'self' data: blob: https://lh3.googleusercontent.com https://avatars.githubusercontent.com https://solnuv.com",
-              "connect-src 'self' https://*.supabase.co https://api.paystack.co https://solnuv-backend.onrender.com https://api.solnuv.com",
+              "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.paystack.co https://solnuv-backend.onrender.com https://api.solnuv.com https://cloudflareinsights.com",
               "frame-src https://checkout.paystack.com https://js.paystack.co",
               "object-src 'none'",
               "base-uri 'self'",
