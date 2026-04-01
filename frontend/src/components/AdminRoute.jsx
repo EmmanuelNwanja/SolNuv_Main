@@ -17,12 +17,11 @@ export default function AdminRoute({ children, requiredRoles = [] }) {
   const roleAllowed = !roleRestricted || requiredRoles.includes(platformAdminRole);
 
   useEffect(() => {
-    if (loading) return;
+    if (loading || !profileResolved) return;  // auth not fully resolved yet — wait
     if (!session) {
       router.replace('/login');
       return;
     }
-    if (!profileResolved) return;
     // Admin users may not have completed regular onboarding — don't block them
     if (!isPlatformAdmin) {
       router.replace('/dashboard');
@@ -40,7 +39,7 @@ export default function AdminRoute({ children, requiredRoles = [] }) {
     router,
   ]);
 
-  if (loading || (session && !profileResolved)) {
+  if (loading || !profileResolved) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
         <div className="text-center">

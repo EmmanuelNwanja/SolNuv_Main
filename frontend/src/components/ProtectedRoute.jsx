@@ -7,13 +7,15 @@ export default function ProtectedRoute({ children }) {
   const router = useRouter();
 
   useEffect(() => {
-    if (loading) return;
+    if (loading || !profileResolved) return;  // auth not fully resolved yet — wait
     if (!session) { router.replace('/login'); return; }
-    if (!profileResolved) return;
     if (!isOnboarded) { router.replace('/onboarding'); return; }
   }, [session, loading, profileResolved, isOnboarded, router]);
 
-  if (loading || (session && !profileResolved)) {
+  // Spinner while loading OR while auth hasn't been fully determined.
+  // Prevents the 10s safety timer (sets loading=false) from firing the !session
+  // guard before getSession() / Supabase token refresh has actually completed.
+  if (loading || !profileResolved) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
         <div className="text-center">

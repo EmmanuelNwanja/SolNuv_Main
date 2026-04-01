@@ -69,7 +69,9 @@ export function AuthProvider({ children }) {
       setUser(session?.user || null);
 
       if (event === 'SIGNED_OUT') {
-        // Only clear the profile on an explicit sign-out, not during token refresh transitions
+        // Clear profile and cache on any sign-out (explicit or externally triggered,
+        // e.g. another tab signing out, Supabase token revocation, admin force-logout).
+        clearProfileCache();
         setProfile(null);
         setProfileResolved(true);
         setWakingServer(false);
