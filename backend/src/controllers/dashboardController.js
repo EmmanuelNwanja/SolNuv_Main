@@ -524,15 +524,61 @@ exports.getPublicProfile = async (req, res) => {
     const normalizedSlug = normalizeSlug(decodeURIComponent(req.params.slug || ''));
     if (!normalizedSlug) return sendError(res, 'Profile not found', 404);
 
-    const { data: user } = await supabase
-      .from('users')
-      .select('id, first_name, last_name, brand_name, public_slug, public_bio, is_public_profile, company_id, companies(name, logo_url, website)')
-      .ilike('public_slug', normalizedSlug)
-      .single();
+    const userSelect = 'id, first_name, last_name, brand_name, public_slug, public_bio, is_public_profile, company_id, companies(name, logo_url, website)';
 
-    if (!user || user.is_public_profile === false) {
-      return sendError(res, 'Profile not found', 404);
+    let user = null;
+
+    // 1) Primary path: explicit public_slug
+    const { data: directMatches, error: directError } = await supabase
+      .from('users')
+      .select(userSelect)
+      .eq('is_public_profile', true)
+      .ilike('public_slug', normalizedSlug)
+      .limit(5);
+
+    if (directError) throw directError;
+    user = (directMatches || []).find((u) => normalizeSlug(u.public_slug) === normalizedSlug) || (directMatches || [])[0] || null;
+
+    // 2) Fallback path: brand_name slug match
+    if (!user) {
+      const brandNeedle = normalizedSlug.replace(/-/g, ' ');
+      const { data: brandMatches, error: brandError } = await supabase
+        .from('users')
+        .select(userSelect)
+        .eq('is_public_profile', true)
+        .ilike('brand_name', `%${brandNeedle}%`)
+        .limit(30);
+
+      if (brandError) throw brandError;
+      user = (brandMatches || []).find((u) => normalizeSlug(u.brand_name) === normalizedSlug) || null;
     }
+
+    // 3) Fallback path: company name slug match
+    if (!user) {
+      const companyNeedle = normalizedSlug.replace(/-/g, ' ');
+      const { data: companyMatches, error: companyError } = await supabase
+        .from('companies')
+        .select('id, name')
+        .ilike('name', `%${companyNeedle}%`)
+        .limit(20);
+
+      if (companyError) throw companyError;
+
+      const companyIds = (companyMatches || []).map((c) => c.id);
+      if (companyIds.length > 0) {
+        const { data: usersByCompany, error: usersByCompanyError } = await supabase
+          .from('users')
+          .select(userSelect)
+          .eq('is_public_profile', true)
+          .in('company_id', companyIds)
+          .limit(60);
+
+        if (usersByCompanyError) throw usersByCompanyError;
+        user = (usersByCompany || []).find((u) => normalizeSlug(u.companies?.name) === normalizedSlug) || null;
+      }
+    }
+
+    if (!user) return sendError(res, 'Profile not found', 404);
 
     const scopeField = user.company_id ? 'company_id' : 'user_id';
     const scopeValue = user.company_id || user.id;
