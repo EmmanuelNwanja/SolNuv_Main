@@ -375,7 +375,7 @@ export default function Settings() {
               <input type="checkbox" checked={accountForm.is_public_profile} onChange={e => setAccountForm(f => ({ ...f, is_public_profile: e.target.checked }))} />
             </label>
             {accountForm.public_slug && (
-              <a href={`/profile/${accountForm.public_slug}`} target="_blank" rel="noreferrer" className="text-sm text-forest-900 font-semibold hover:underline inline-flex items-center gap-1">
+              <a href={`/profile/${encodeURIComponent(accountForm.public_slug)}`} target="_blank" rel="noreferrer" className="text-sm text-forest-900 font-semibold hover:underline inline-flex items-center gap-1">
                 <RiLinksLine /> Preview public portfolio
               </a>
             )}

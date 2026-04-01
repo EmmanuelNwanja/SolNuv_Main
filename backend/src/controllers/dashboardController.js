@@ -7,6 +7,13 @@ const { sendSuccess, sendError } = require('../utils/responseHelper');
 const { calculatePortfolioSilver } = require('../services/silverService');
 const logger = require('../utils/logger');
 
+function normalizeSlug(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9-]/g, '');
+}
+
 /**
  * GET /api/dashboard
  * Main dashboard data
@@ -514,12 +521,13 @@ exports.submitPublicFeedback = async (req, res) => {
  */
 exports.getPublicProfile = async (req, res) => {
   try {
-    const { slug } = req.params;
+    const normalizedSlug = normalizeSlug(decodeURIComponent(req.params.slug || ''));
+    if (!normalizedSlug) return sendError(res, 'Profile not found', 404);
 
     const { data: user } = await supabase
       .from('users')
       .select('id, first_name, last_name, brand_name, public_slug, public_bio, is_public_profile, company_id, companies(name, logo_url, website)')
-      .eq('public_slug', slug)
+      .ilike('public_slug', normalizedSlug)
       .single();
 
     if (!user || user.is_public_profile === false) {

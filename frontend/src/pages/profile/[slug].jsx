@@ -9,17 +9,29 @@ export default function PublicPortfolioPage() {
   const { slug } = router.query;
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
+  const [errorMessage, setErrorMessage] = useState('');
 
   useEffect(() => {
     if (!slug) return;
+    setLoading(true);
+    setErrorMessage('');
+
     dashboardAPI.getPublicProfile(slug)
       .then((r) => setData(r.data.data))
-      .catch(() => setData(null))
+      .catch((err) => {
+        setData(null);
+        const status = err?.response?.status;
+        if (status === 404) {
+          setErrorMessage('Public profile not found.');
+        } else {
+          setErrorMessage('Unable to load public profile right now. Please retry in a moment.');
+        }
+      })
       .finally(() => setLoading(false));
   }, [slug]);
 
   if (loading) return <div className="min-h-screen flex justify-center items-center"><LoadingSpinner size="lg" /></div>;
-  if (!data) return <div className="min-h-screen flex items-center justify-center text-slate-500">Public profile not found.</div>;
+  if (!data) return <div className="min-h-screen flex items-center justify-center text-slate-500">{errorMessage || 'Public profile not found.'}</div>;
 
   return (
     <>

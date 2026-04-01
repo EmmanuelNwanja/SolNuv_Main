@@ -131,7 +131,7 @@ export default function Dashboard() {
           <p className="text-xs text-slate-400 mt-1">Export proposal and compliance PDFs</p>
         </Link>
         {profile?.public_slug && (
-          <a href={`/profile/${profile.public_slug}`} target="_blank" rel="noreferrer" className="card-hover">
+          <a href={`/profile/${encodeURIComponent(profile.public_slug)}`} target="_blank" rel="noreferrer" className="card-hover">
             <p className="text-xs text-slate-500">Public Portfolio</p>
             <p className="text-sm font-semibold text-forest-900 mt-1">Share your profile link</p>
             <p className="text-xs text-slate-400 mt-1">Showcase projects, impact, and reviews</p>
