@@ -37,9 +37,10 @@ api.interceptors.response.use(
 // AUTH
 // ==============================
 export const authAPI = {
-  wakeBackend: () => api.get('/health', { timeout: 20000 }),
+  wakeBackend: () => api.get('/health', { timeout: 6000 }),
   saveProfile: (data) => api.post('/auth/profile', data),
   getMe: () => api.get('/auth/me'),
+  getMeQuick: () => api.get('/auth/me', { timeout: 10000 }),
   getProfileStatus: () => api.get('/auth/profile-status'),
   requestPhoneVerificationOtp: (data) => api.post('/auth/phone-verification/request', data),
   verifyPhoneVerificationOtp: (data) => api.post('/auth/phone-verification/verify', data),

@@ -47,8 +47,17 @@ export function AuthProvider({ children }) {
     }
 
     const loadingSafetyTimer = setTimeout(() => {
+      // Hard deadline: if auth hasn't resolved in 8s, unblock the UI.
+      // Use cached profile so the user stays logged in during a slow cold-start.
+      const cached = readProfileCache();
+      if (cached) {
+        setProfile(prev => prev ?? cached);
+        setUser(prev => prev ?? cached);
+      }
+      setProfileResolved(true);   // ← critical: clears the ProtectedRoute spinner
+      setWakingServer(false);
       setLoading(false);
-    }, 10000);
+    }, 8000);
 
     // onAuthStateChange fires INITIAL_SESSION on mount and handles all subsequent events.
     // We do NOT call fetchProfile() from getSession() to avoid a duplicate concurrent call.
@@ -124,7 +133,7 @@ export function AuthProvider({ children }) {
           setWakingServer(true);
           try {
             await authAPI.wakeBackend();
-            const retry = await authAPI.getMe();
+            const retry = await authAPI.getMeQuick();
             setProfile(retry.data.data);
             setUser(retry.data.data);
             setProfileResolved(true);
