@@ -6,6 +6,7 @@ import { projectsAPI, reportsAPI, engineeringAPI, downloadBlob } from '../../ser
 import { useAuth } from '../../context/AuthContext';
 import { getDashboardLayout } from '../../components/Layout';
 import { StatusBadge, UrgencyBadge, ConfirmModal, LoadingSpinner } from '../../components/ui/index';
+import { MotionSection } from '../../components/PageMotion';
 import {
   RiArrowLeftLine, RiEditLine, RiDeleteBinLine, RiDownloadLine,
   RiQrCodeLine, RiSunLine, RiBatteryLine, RiMapPinLine,
@@ -156,22 +157,41 @@ export default function ProjectDetail() {
     <>
       <Head><title>{project.name} — SolNuv</title></Head>
 
-      {/* Header */}
-      <div className="page-header">
+      <MotionSection className="mb-6">
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-forest-900 via-forest-800 to-emerald-700 px-6 py-7 text-white">
+          <div className="absolute -right-20 -top-24 h-56 w-56 rounded-full bg-amber-300/20 blur-3xl" />
+          <div className="absolute -left-20 -bottom-24 h-56 w-56 rounded-full bg-emerald-300/20 blur-3xl" />
+          <div className="relative">
+            <div className="flex items-center gap-3 mb-3">
+              <Link href="/projects" className="rounded-lg border border-white/25 bg-white/10 px-3 py-1.5 text-sm font-medium inline-flex items-center gap-1.5 hover:bg-white/20 transition-colors">
+                <RiArrowLeftLine /> Projects
+              </Link>
+            </div>
+            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-3 flex-wrap">
+                  <h1 className="font-display font-bold text-3xl">{project.name}</h1>
+                  <StatusBadge status={project.status} />
+                  {project.is_verified && <span className="badge badge-green">✓ Verified</span>}
+                </div>
+                {project.client_name && <p className="text-white/75 text-sm mt-1">Client: {project.client_name}</p>}
+                <p className="text-white/70 text-xs mt-2">{project.city}, {project.state}</p>
+              </div>
+              <div className="text-left sm:text-right">
+                <p className="text-xs text-white/65">Recoverable Silver</p>
+                <p className="font-display text-2xl font-bold text-amber-300">{totalSilver.toFixed(2)}g</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </MotionSection>
+
+      <MotionSection className="mb-6">
         <div className="flex items-center gap-3 mb-3">
-          <Link href="/projects" className="btn-ghost flex items-center gap-1 text-sm px-3 py-1.5 rounded-lg">
-            <RiArrowLeftLine /> Projects
-          </Link>
+          <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Project Operations</p>
         </div>
         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-3 flex-wrap">
-              <h1 className="font-display font-bold text-2xl text-forest-900">{project.name}</h1>
-              <StatusBadge status={project.status} />
-              {project.is_verified && <span className="badge badge-green">✓ Verified</span>}
-            </div>
-            {project.client_name && <p className="text-slate-500 text-sm mt-0.5">Client: {project.client_name}</p>}
-          </div>
+          <div />
           <div className="flex flex-wrap gap-2">
             {transitions.map(t => (
               <button key={t} onClick={() => handleStatusUpdate(t)} disabled={statusUpdating}
@@ -190,9 +210,9 @@ export default function ProjectDetail() {
             </button>
           </div>
         </div>
-      </div>
+      </MotionSection>
 
-      <div className="grid lg:grid-cols-3 gap-6">
+      <MotionSection className="grid lg:grid-cols-3 gap-6">
         {/* Left column */}
         <div className="lg:col-span-2 space-y-5">
           {/* Location & Timeline */}
@@ -441,7 +461,7 @@ export default function ProjectDetail() {
             </div>
           </div>
         </div>
-      </div>
+      </MotionSection>
 
       {/* Delete Confirm Modal */}
       <ConfirmModal
