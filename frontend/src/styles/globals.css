@@ -261,9 +261,17 @@ body {
 
 /* Dark mode utility overrides for existing Tailwind-heavy screens */
 :root[data-theme='dark'] .bg-white { background-color: var(--bg-elevated) !important; }
+:root[data-theme='dark'] .bg-white\/80,
+:root[data-theme='dark'] .bg-white\/70,
+:root[data-theme='dark'] .bg-white\/60 {
+  background-color: color-mix(in srgb, var(--bg-elevated) 78%, transparent) !important;
+}
 :root[data-theme='dark'] .bg-slate-50 { background-color: var(--bg) !important; }
 :root[data-theme='dark'] .bg-slate-100 { background-color: var(--bg-soft) !important; }
 :root[data-theme='dark'] .bg-forest-900 { background-color: #123425 !important; }
+:root[data-theme='dark'] .bg-amber-100 {
+  background-color: color-mix(in srgb, #b45309 22%, var(--bg-soft) 78%) !important;
+}
 :root[data-theme='dark'] .border-slate-100,
 :root[data-theme='dark'] .border-slate-200,
 :root[data-theme='dark'] .border-slate-800 { border-color: var(--surface-border) !important; }
@@ -309,6 +317,30 @@ body {
   border-color: color-mix(in srgb, var(--surface-border) 82%, #334155 18%);
 }
 
+:root[data-theme='dark'] .sidebar-link {
+  color: color-mix(in srgb, var(--text-secondary) 92%, #e2e8f0 8%);
+}
+
+:root[data-theme='dark'] .sidebar-link:hover {
+  background: color-mix(in srgb, var(--bg-soft) 86%, transparent);
+  color: var(--text-primary);
+}
+
+:root[data-theme='dark'] .sidebar-link-active {
+  background: linear-gradient(135deg, #14532d 0%, #0f766e 100%);
+  color: #f8fafc;
+  box-shadow: 0 8px 20px rgba(16, 185, 129, 0.22);
+}
+
+:root[data-theme='dark'] aside.bg-white,
+:root[data-theme='dark'] header.bg-white {
+  background: color-mix(in srgb, var(--bg-elevated) 88%, transparent) !important;
+}
+
+:root[data-theme='dark'] header.bg-white {
+  backdrop-filter: blur(8px);
+}
+
 :root[data-theme='dark'] .page-header {
   border-bottom-color: color-mix(in srgb, var(--surface-border) 88%, #334155 12%);
 }
@@ -322,6 +354,11 @@ body {
   background: color-mix(in srgb, var(--bg-soft) 82%, transparent);
   border-color: color-mix(in srgb, var(--surface-border) 84%, #475569 16%);
   color: var(--text-primary);
+}
+
+:root[data-theme='dark'] .btn-amber {
+  color: #1f2937;
+  box-shadow: 0 10px 22px rgba(245, 158, 11, .22);
 }
 
 :root[data-theme='dark'] .btn-ghost { color: var(--text-secondary); }
@@ -339,6 +376,21 @@ body {
 :root[data-theme='dark'] .badge-slate {
   background: color-mix(in srgb, var(--bg-soft) 85%, transparent) !important;
   color: var(--text-secondary) !important;
+}
+
+:root[data-theme='dark'] .badge-green {
+  background: color-mix(in srgb, #064e3b 45%, var(--bg-soft) 55%) !important;
+  color: #86efac !important;
+}
+
+:root[data-theme='dark'] .badge-amber {
+  background: color-mix(in srgb, #78350f 48%, var(--bg-soft) 52%) !important;
+  color: #fcd34d !important;
+}
+
+:root[data-theme='dark'] .badge-red {
+  background: color-mix(in srgb, #7f1d1d 48%, var(--bg-soft) 52%) !important;
+  color: #fca5a5 !important;
 }
 
 :root[data-theme='dark'] .toast-custom {
