@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { calculatorAPI, downloadBlob, engineeringAPI } from '../../services/api';
 import { getDashboardLayout } from '../../components/Layout';
+import { MotionSection } from '../../components/PageMotion';
 import toast from 'react-hot-toast';
 
 const NIGERIAN_STATES = ['Abia','Adamawa','Akwa Ibom','Anambra','Bauchi','Bayelsa','Benue','Borno','Cross River','Delta','Ebonyi','Edo','Ekiti','Enugu','FCT','Gombe','Imo','Jigawa','Kaduna','Kano','Katsina','Kebbi','Kogi','Kwara','Lagos','Nasarawa','Niger','Ogun','Ondo','Osun','Oyo','Plateau','Rivers','Sokoto','Taraba','Yobe','Zamfara'];
@@ -256,26 +257,21 @@ export default function Calculator() {
     <>
       <Head><title>Value Calculator — SolNuv</title></Head>
 
-      <div className="page-header">
-        <h1 className="font-display font-bold text-2xl text-forest-900">Recovery Value Calculator</h1>
-        <p className="text-slate-500 text-sm mt-0.5">
-          See what your solar equipment is worth at end-of-life — silver, refurbishment, and battery recycling.
-        </p>
-        <div className="mt-4 grid sm:grid-cols-3 gap-3">
-          <div className="rounded-xl bg-forest-900 text-white p-3">
-            <p className="text-xs text-white/70">Engineering Suite</p>
-            <p className="text-sm font-semibold">ROI + SoH + Cable Compliance</p>
-          </div>
-          <div className="rounded-xl bg-amber-50 border border-amber-200 p-3">
-            <p className="text-xs text-amber-700">Offline Ready</p>
-            <p className="text-sm font-semibold text-amber-900">Cable entries auto-sync later</p>
-          </div>
-          <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-3">
-            <p className="text-xs text-emerald-700">Proposal Exports</p>
-            <p className="text-sm font-semibold text-emerald-900">PDF output in one click</p>
+      <MotionSection className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-forest-900 via-emerald-900 to-slate-900 text-white px-8 py-10 mb-8">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(245,158,11,0.12),transparent_60%)]" />
+        <div className="relative">
+          <span className="text-xs font-semibold uppercase tracking-widest text-emerald-300 mb-3 block">Engineering Suite</span>
+          <h1 className="font-display font-bold text-3xl">Recovery Value Calculator</h1>
+          <p className="text-white/70 text-sm mt-2 max-w-xl">
+            Silver, refurbishment, battery recycling, ROI, cable compliance — all in one engineering toolkit.
+          </p>
+          <div className="mt-6 flex flex-wrap gap-3">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 text-white/90 text-xs font-semibold border border-white/10">💡 ROI + SoH + Cable Compliance</span>
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/20 text-amber-200 text-xs font-semibold border border-amber-500/20">📶 Offline Ready — auto-syncs</span>
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-200 text-xs font-semibold border border-emerald-500/20">📄 PDF Exports</span>
           </div>
         </div>
-      </div>
+      </MotionSection>
 
       {/* Tabs */}
       <div className="grid md:grid-cols-3 lg:grid-cols-6 gap-2 mb-6">

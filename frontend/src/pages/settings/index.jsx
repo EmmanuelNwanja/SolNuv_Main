@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { authAPI } from '../../services/api';
 import { supabase } from '../../utils/supabase';
 import { getDashboardLayout } from '../../components/Layout';
+import { MotionSection } from '../../components/PageMotion';
 import { LoadingSpinner } from '../../components/ui/index';
 import { RiUserLine, RiBuildingLine, RiTeamLine, RiShieldCheckLine, RiLinksLine } from 'react-icons/ri';
 import toast from 'react-hot-toast';
@@ -139,10 +140,14 @@ export default function Settings() {
     <>
       <Head><title>Settings — SolNuv</title></Head>
 
-      <div className="page-header">
-        <h1 className="font-display font-bold text-2xl text-forest-900">Settings</h1>
-        <p className="text-slate-500 text-sm mt-0.5">Manage your account, company, and team</p>
-      </div>
+      <MotionSection className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 to-forest-900 text-white px-8 py-10 mb-8">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_left,rgba(245,158,11,0.10),transparent_70%)]" />
+        <div className="relative">
+          <span className="text-xs font-semibold uppercase tracking-widest text-emerald-300 mb-3 block">Account Settings</span>
+          <h1 className="font-display font-bold text-3xl">Settings</h1>
+          <p className="text-white/70 text-sm mt-2">Manage your account, company, and notification preferences</p>
+        </div>
+      </MotionSection>
 
       <div className="max-w-2xl">
         {/* Tabs */}

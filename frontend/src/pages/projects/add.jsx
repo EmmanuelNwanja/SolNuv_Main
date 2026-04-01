@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { projectsAPI, calculatorAPI } from '../../services/api';
 import { getDashboardLayout } from '../../components/Layout';
+import { MotionSection } from '../../components/PageMotion';
 import { RiAddLine, RiDeleteBinLine, RiSunLine, RiBatteryLine, RiMapPinLine, RiInformationLine, RiPlugLine } from 'react-icons/ri';
 import toast from 'react-hot-toast';
 
@@ -125,10 +126,14 @@ export default function AddProject() {
     <>
       <Head><title>Add Project — SolNuv</title></Head>
 
-      <div className="page-header">
-        <h1 className="font-display font-bold text-2xl text-forest-900">Add New Project</h1>
-        <p className="text-slate-500 text-sm mt-0.5">Log a solar installation to start tracking decommissioning and silver recovery</p>
-      </div>
+      <MotionSection className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-forest-900 via-emerald-900 to-slate-900 text-white px-8 py-10 mb-8">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(245,158,11,0.12),transparent_60%)]" />
+        <div className="relative">
+          <span className="text-xs font-semibold uppercase tracking-widest text-emerald-300 mb-3 block">Asset Registration</span>
+          <h1 className="font-display font-bold text-3xl">Add New Project</h1>
+          <p className="text-white/70 text-sm mt-2">Log a solar installation to start tracking decommissioning and silver recovery</p>
+        </div>
+      </MotionSection>
 
       <form onSubmit={handleSubmit} className="max-w-3xl">
         <div className="space-y-6">

@@ -26,14 +26,18 @@ export default function PublicPortfolioPage() {
       <Head><title>{data.profile?.name} — SolNuv Portfolio</title></Head>
       <div className="min-h-screen bg-slate-50">
         <div className="max-w-5xl mx-auto px-4 py-12 space-y-8">
-          <section className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
-            <h1 className="font-display font-bold text-3xl text-forest-900">{data.profile?.name}</h1>
-            <p className="text-slate-500 mt-2">{data.profile?.bio || 'Solar lifecycle and compliance specialist.'}</p>
-            <div className="grid sm:grid-cols-4 gap-4 mt-6">
-              <div className="rounded-xl bg-slate-50 p-4"><p className="text-xs text-slate-500">Projects</p><p className="text-2xl font-bold text-forest-900">{data.stats?.total_projects || 0}</p></div>
-              <div className="rounded-xl bg-slate-50 p-4"><p className="text-xs text-slate-500">Recycled</p><p className="text-2xl font-bold text-emerald-700">{data.stats?.recycled_projects || 0}</p></div>
-              <div className="rounded-xl bg-slate-50 p-4"><p className="text-xs text-slate-500">Avg Rating</p><p className="text-2xl font-bold text-amber-600">{data.stats?.average_rating || 0}</p></div>
-              <div className="rounded-xl bg-slate-50 p-4"><p className="text-xs text-slate-500">Reviews</p><p className="text-2xl font-bold text-forest-900">{data.stats?.total_feedback || 0}</p></div>
+          <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-forest-900 via-emerald-900 to-slate-900 text-white p-8 shadow-lg">
+            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(245,158,11,0.15),transparent_60%)]" />
+            <div className="relative">
+              <span className="text-xs font-semibold uppercase tracking-widest text-emerald-300 mb-3 block">Public Portfolio</span>
+              <h1 className="font-display font-bold text-3xl">{data.profile?.name}</h1>
+              <p className="text-white/70 mt-2">{data.profile?.bio || 'Solar lifecycle and compliance specialist.'}</p>
+              <div className="grid sm:grid-cols-4 gap-4 mt-6">
+                <div className="rounded-xl bg-white/10 border border-white/10 p-4"><p className="text-xs text-white/60">Projects</p><p className="text-2xl font-bold text-white">{data.stats?.total_projects || 0}</p></div>
+                <div className="rounded-xl bg-white/10 border border-white/10 p-4"><p className="text-xs text-white/60">Recycled</p><p className="text-2xl font-bold text-emerald-300">{data.stats?.recycled_projects || 0}</p></div>
+                <div className="rounded-xl bg-white/10 border border-white/10 p-4"><p className="text-xs text-white/60">Avg Rating</p><p className="text-2xl font-bold text-amber-300">{data.stats?.average_rating || 0}</p></div>
+                <div className="rounded-xl bg-white/10 border border-white/10 p-4"><p className="text-xs text-white/60">Reviews</p><p className="text-2xl font-bold text-white">{data.stats?.total_feedback || 0}</p></div>
+              </div>
             </div>
           </section>
 

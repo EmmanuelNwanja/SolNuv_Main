@@ -35,8 +35,8 @@ export default function PaymentVerify() {
   return (
     <>
       <Head><title>{status === 'success' ? 'Payment Successful' : 'Payment Failed'} — SolNuv</title></Head>
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-        <div className="card max-w-md w-full text-center shadow-lg">
+      <div className="auth-shell">
+        <div className="auth-card max-w-md w-full text-center">
           {status === 'success' ? (
             <>
               <RiCheckboxCircleLine className="text-6xl text-emerald-500 mx-auto mb-4" />

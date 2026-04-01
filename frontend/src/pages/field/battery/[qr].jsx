@@ -86,13 +86,16 @@ export default function BatteryLedgerFieldPage() {
   return (
     <>
       <Head><title>Battery Ledger - SolNuv Field</title></Head>
-      <div className="min-h-screen bg-slate-50 p-4 md:p-8">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-emerald-50/20 to-slate-100 p-4 md:p-8">
         <div className="max-w-3xl mx-auto space-y-4">
-          <div className="bg-forest-900 text-white rounded-2xl p-5">
-            <p className="text-xs text-white/70">QR-linked Battery Ledger</p>
-            <h1 className="font-display font-bold text-2xl mt-1">{asset?.brand} · {asset?.chemistry}</h1>
-            <p className="text-sm text-white/80 mt-1">Project: {asset?.projects?.name} ({asset?.projects?.city}, {asset?.projects?.state})</p>
-            <p className="text-xs text-white/70 mt-1">Capacity: {asset?.capacity_kwh}kWh × {asset?.quantity}</p>
+          <div className="relative overflow-hidden bg-gradient-to-br from-forest-900 via-emerald-900 to-slate-900 text-white rounded-2xl p-5">
+            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(245,158,11,0.15),transparent_60%)]" />
+            <div className="relative">
+              <p className="text-xs text-white/60 uppercase tracking-widest font-semibold mb-1">QR-linked Battery Ledger</p>
+              <h1 className="font-display font-bold text-2xl mt-1">{asset?.brand} · {asset?.chemistry}</h1>
+              <p className="text-sm text-white/80 mt-1">Project: {asset?.projects?.name} ({asset?.projects?.city}, {asset?.projects?.state})</p>
+              <p className="text-xs text-white/60 mt-1">Capacity: {asset?.capacity_kwh}kWh × {asset?.quantity}</p>
+            </div>
           </div>
 
           <div className="grid md:grid-cols-2 gap-4">

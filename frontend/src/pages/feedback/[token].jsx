@@ -40,8 +40,8 @@ export default function PublicFeedbackForm() {
   return (
     <>
       <Head><title>Project Feedback — SolNuv</title></Head>
-      <div className="min-h-screen bg-slate-50 p-4 flex items-center justify-center">
-        <div className="w-full max-w-xl card">
+      <div className="auth-shell">
+        <div className="auth-card w-full max-w-xl">
           <h1 className="font-display font-bold text-2xl text-forest-900">Project Feedback</h1>
           <p className="text-sm text-slate-500 mt-1">Rate your installer and share your experience.</p>
 

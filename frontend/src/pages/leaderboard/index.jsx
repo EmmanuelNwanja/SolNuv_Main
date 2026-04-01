@@ -2,6 +2,7 @@ import Head from 'next/head';
 import { useState, useEffect } from 'react';
 import { dashboardAPI } from '../../services/api';
 import { getDashboardLayout } from '../../components/Layout';
+import { MotionSection } from '../../components/PageMotion';
 import { useAuth } from '../../context/AuthContext';
 import { LoadingSpinner } from '../../components/ui/index';
 import { RiTrophyLine, RiMedalLine, RiSunLine, RiRecycleLine, RiLeafLine } from 'react-icons/ri';
@@ -56,17 +57,24 @@ export default function Leaderboard() {
     <>
       <Head><title>Leaderboard — SolNuv</title></Head>
 
-      <div className="page-header flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="font-display font-bold text-2xl text-forest-900 flex items-center gap-2">
-            <RiTrophyLine className="text-amber-500" /> Leaderboard
-          </h1>
-          <p className="text-slate-500 text-sm mt-0.5">
-            Nigeria's leading solar installers ranked by responsible management
-            {currentUserPos && <span className="ml-2 font-semibold text-forest-900">· Your rank: #{currentUserPos}</span>}
-          </p>
+      <MotionSection className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-amber-700 via-amber-800 to-forest-900 text-white px-8 py-10 mb-8">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(255,255,255,0.08),transparent_60%)]" />
+        <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <span className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-amber-200 mb-3">
+              <RiTrophyLine /> Nigeria Rankings
+            </span>
+            <h1 className="font-display font-bold text-3xl">Leaderboard</h1>
+            <p className="text-white/70 text-sm mt-2">Leading solar installers ranked by responsible asset management</p>
+          </div>
+          {currentUserPos && (
+            <div className="flex-shrink-0 bg-white/10 border border-white/20 rounded-xl px-6 py-3 text-center">
+              <p className="text-xs text-white/60 mb-0.5">Your Rank</p>
+              <p className="font-display font-bold text-3xl text-amber-300">#{currentUserPos}</p>
+            </div>
+          )}
         </div>
-      </div>
+      </MotionSection>
 
       {/* Category tabs */}
       <div className="flex gap-2 mb-6 flex-wrap">
