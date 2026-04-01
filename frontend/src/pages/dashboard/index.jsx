@@ -7,6 +7,7 @@ import { dashboardAPI } from '../../services/api';
 import Layout, { getDashboardLayout } from '../../components/Layout';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { StatCard, UrgencyBadge, StatusBadge, EmptyState } from '../../components/ui/index';
+import { MotionSection } from '../../components/PageMotion';
 import {
   RiSunLine, RiRecycleLine, RiAlertLine, RiLeafLine,
   RiAddLine, RiTrophyLine, RiArrowRightLine, RiTimeLine
@@ -60,28 +61,45 @@ export default function Dashboard() {
     <>
       <Head><title>Dashboard — SolNuv</title></Head>
 
-      {/* Header */}
-      <div className="page-header flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="font-display font-bold text-2xl text-forest-900">{greeting}, {displayName} 👋</h1>
-          <p className="text-slate-500 text-sm mt-0.5">
-            {stats.total_projects > 0 ? `Tracking ${stats.total_projects} project${stats.total_projects !== 1 ? 's' : ''} across Nigeria` : 'No projects yet — add your first installation below'}
-          </p>
+      <MotionSection className="mb-6">
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-forest-900 via-forest-800 to-emerald-700 p-6 sm:p-8 text-white">
+          <div className="absolute -top-20 -right-20 h-56 w-56 rounded-full bg-amber-300/20 blur-3xl" />
+          <div className="absolute -bottom-20 -left-20 h-56 w-56 rounded-full bg-emerald-300/20 blur-3xl" />
+          <div className="relative flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6">
+            <div>
+              <p className="text-xs uppercase tracking-[0.22em] text-white/60 mb-3">Operations Pulse</p>
+              <h1 className="font-display font-bold text-3xl sm:text-4xl leading-tight">{greeting}, {displayName}</h1>
+              <p className="text-white/75 text-sm mt-2 max-w-xl">
+                {stats.total_projects > 0
+                  ? `Tracking ${stats.total_projects} project${stats.total_projects !== 1 ? 's' : ''} across Nigeria with end-of-life visibility and recovery value forecasts.`
+                  : 'No projects yet. Start by adding your first installation to activate impact and compliance analytics.'}
+              </p>
+              <div className="mt-5 flex flex-wrap gap-2 text-xs">
+                <span className="rounded-full border border-white/20 bg-white/10 px-3 py-1">{stats.total_projects || 0} tracked projects</span>
+                <span className="rounded-full border border-white/20 bg-white/10 px-3 py-1">{stats.total_panels || 0} solar panels</span>
+                <span className="rounded-full border border-white/20 bg-white/10 px-3 py-1">{stats.pending_recovery || 0} pending recovery</span>
+              </div>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-3 self-start lg:self-auto">
+              <Link href="/projects/add" className="btn-amber flex items-center gap-2">
+                <RiAddLine /> Add Project
+              </Link>
+              <Link href="/leaderboard" className="rounded-xl border border-white/30 px-4 py-2 text-sm font-semibold text-white hover:bg-white/10 transition-colors">
+                View Leaderboard
+              </Link>
+            </div>
+          </div>
         </div>
-        <Link href="/projects/add" className="btn-primary flex items-center gap-2 self-start sm:self-auto">
-          <RiAddLine /> Add Project
-        </Link>
-      </div>
+      </MotionSection>
 
-      {/* STAT CARDS */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+      <MotionSection className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <StatCard label="Active Projects" value={stats.active_projects || 0} sub={`${stats.total_panels || 0} panels`} icon={RiSunLine} color="forest" />
         <StatCard label="Total Panels" value={stats.total_panels || 0} sub={`${stats.total_batteries || 0} batteries`} icon={RiLeafLine} color="emerald" />
         <StatCard label="Pending Recovery" value={stats.pending_recovery || 0} sub="awaiting pickup" icon={RiTimeLine} color="amber" />
         <StatCard label="Recycled" value={stats.recycled || 0} sub="projects completed" icon={RiRecycleLine} color="slate" />
-      </div>
+      </MotionSection>
 
-      <div className="grid sm:grid-cols-3 gap-3 mb-6">
+      <MotionSection className="grid sm:grid-cols-3 gap-3 mb-6">
         <Link href="/dashboard/feedback" className="card-hover">
           <p className="text-xs text-slate-500">Client Reputation</p>
           <p className="text-sm font-semibold text-forest-900 mt-1">Generate feedback links</p>
@@ -104,9 +122,9 @@ export default function Dashboard() {
             <p className="text-xs text-slate-400 mt-1">Showcase projects, impact, and reviews</p>
           </a>
         )}
-      </div>
+      </MotionSection>
 
-      <div className="grid md:grid-cols-3 gap-6 mb-6">
+      <MotionSection className="grid md:grid-cols-3 gap-6 mb-6">
         {/* Silver portfolio card */}
         <div className="md:col-span-2 bg-forest-900 rounded-2xl p-6 text-white">
           <div className="flex items-start justify-between mb-4">
@@ -155,10 +173,10 @@ export default function Dashboard() {
             View Leaderboard <RiArrowRightLine />
           </Link>
         </div>
-      </div>
+      </MotionSection>
 
       {/* Upcoming decommissions */}
-      <div className="card mb-6">
+      <MotionSection className="card mb-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-semibold text-forest-900 flex items-center gap-2">
             <RiAlertLine className="text-amber-500" /> Upcoming Decommissions
@@ -186,17 +204,17 @@ export default function Dashboard() {
             ))}
           </div>
         )}
-      </div>
+      </MotionSection>
 
       {/* Pro upgrade prompt */}
       {!isPro && (
-        <div className="bg-gradient-to-r from-forest-900 to-emerald-800 rounded-2xl p-6 text-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <MotionSection className="bg-gradient-to-r from-forest-900 to-emerald-800 rounded-2xl p-6 text-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
             <p className="font-semibold">Unlock NESREA EPR Compliance Reports</p>
             <p className="text-sm text-white/70 mt-1">Generate Cradle-to-Grave certificates and auto-send EPR reports to NESREA — one click.</p>
           </div>
           <Link href="/plans" className="btn-amber flex-shrink-0">Upgrade to Pro →</Link>
-        </div>
+        </MotionSection>
       )}
     </>
   );

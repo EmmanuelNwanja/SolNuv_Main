@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import ProtectedRoute from './ProtectedRoute';
 import AdminLayout from './AdminLayout';
 import { ThemeToggle } from './ThemeToggle';
+import { PageMotion } from './PageMotion';
 import {
   RiDashboardLine, RiSunLine, RiBarChartLine, RiFileTextLine,
   RiTrophyLine, RiCalculatorLine, RiSettingsLine, RiLogoutBoxLine,
@@ -124,7 +125,7 @@ export default function Layout({ children }) {
 
         {/* Page content */}
         <main className="flex-1 p-4 lg:p-8 overflow-auto">
-          {children}
+          <PageMotion>{children}</PageMotion>
         </main>
       </div>
     </div>

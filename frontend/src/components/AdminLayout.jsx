@@ -16,6 +16,7 @@ import {
 } from 'react-icons/ri';
 import { useAuth } from '../context/AuthContext';
 import { ThemeToggle } from './ThemeToggle';
+import { PageMotion } from './PageMotion';
 import toast from 'react-hot-toast';
 
 const adminNavItems = [
@@ -118,7 +119,7 @@ export default function AdminLayout({ children }) {
         </header>
 
         <main className="flex-1 p-4 lg:p-8 bg-slate-50 text-slate-900 overflow-auto">
-          {children}
+          <PageMotion>{children}</PageMotion>
         </main>
       </div>
     </div>
