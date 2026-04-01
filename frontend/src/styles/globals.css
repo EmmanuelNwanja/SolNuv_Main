@@ -31,13 +31,13 @@
   --bg-elevated: #111b28;
   --bg-soft: #162234;
   --surface-border: #233247;
-  --text-primary: #e2e8f0;
-  --text-secondary: #cbd5e1;
-  --text-muted: #94a3b8;
+  --text-primary: #f1f5f9;
+  --text-secondary: #dbe7f7;
+  --text-muted: #a7b8cd;
   --focus-ring: rgba(52, 211, 153, 0.35);
   --shadow-soft: 0 12px 36px rgba(2, 8, 23, 0.35);
   --shadow-elevated: 0 20px 44px rgba(2, 8, 23, 0.55);
-  --glass: linear-gradient(135deg, rgba(17,27,40,.86), rgba(17,27,40,.7));
+  --glass: linear-gradient(135deg, rgba(20,32,48,.9), rgba(14,24,37,.8));
 }
 
 * { box-sizing: border-box; }
@@ -263,6 +263,7 @@ body {
 :root[data-theme='dark'] .bg-white { background-color: var(--bg-elevated) !important; }
 :root[data-theme='dark'] .bg-slate-50 { background-color: var(--bg) !important; }
 :root[data-theme='dark'] .bg-slate-100 { background-color: var(--bg-soft) !important; }
+:root[data-theme='dark'] .bg-forest-900 { background-color: #123425 !important; }
 :root[data-theme='dark'] .border-slate-100,
 :root[data-theme='dark'] .border-slate-200,
 :root[data-theme='dark'] .border-slate-800 { border-color: var(--surface-border) !important; }
@@ -272,9 +273,74 @@ body {
 :root[data-theme='dark'] .text-slate-600 { color: var(--text-secondary) !important; }
 :root[data-theme='dark'] .text-slate-500,
 :root[data-theme='dark'] .text-slate-400 { color: var(--text-muted) !important; }
+:root[data-theme='dark'] .text-forest-900,
+:root[data-theme='dark'] .text-forest-800,
+:root[data-theme='dark'] .text-forest-700 { color: #d2fbe5 !important; }
+:root[data-theme='dark'] .text-amber-900,
+:root[data-theme='dark'] .text-amber-800,
+:root[data-theme='dark'] .text-amber-700,
+:root[data-theme='dark'] .text-amber-600 { color: #ffd38a !important; }
+:root[data-theme='dark'] .text-emerald-900,
+:root[data-theme='dark'] .text-emerald-800,
+:root[data-theme='dark'] .text-emerald-700,
+:root[data-theme='dark'] .text-emerald-600 { color: #86efc0 !important; }
+
+:root[data-theme='dark'] .bg-amber-50,
+:root[data-theme='dark'] .bg-amber-50\/40,
+:root[data-theme='dark'] .bg-emerald-50,
+:root[data-theme='dark'] .bg-blue-50,
+:root[data-theme='dark'] .bg-red-50,
+:root[data-theme='dark'] .bg-forest-900\/5 {
+  background-color: color-mix(in srgb, var(--bg-soft) 78%, transparent) !important;
+}
+
+:root[data-theme='dark'] .border-amber-200,
+:root[data-theme='dark'] .border-emerald-200,
+:root[data-theme='dark'] .border-blue-200,
+:root[data-theme='dark'] .border-red-200,
+:root[data-theme='dark'] .border-forest-900\/10 {
+  border-color: color-mix(in srgb, var(--surface-border) 72%, #475569 28%) !important;
+}
+
 :root[data-theme='dark'] .card,
 :root[data-theme='dark'] .card-hover,
-:root[data-theme='dark'] .stat-card { background: var(--glass); }
+:root[data-theme='dark'] .stat-card {
+  background: var(--glass);
+  border-color: color-mix(in srgb, var(--surface-border) 82%, #334155 18%);
+}
+
+:root[data-theme='dark'] .page-header {
+  border-bottom-color: color-mix(in srgb, var(--surface-border) 88%, #334155 12%);
+}
+
+:root[data-theme='dark'] .theme-toggle {
+  background: color-mix(in srgb, var(--bg-elevated) 86%, transparent);
+  color: var(--text-secondary);
+}
+
+:root[data-theme='dark'] .btn-outline {
+  background: color-mix(in srgb, var(--bg-soft) 82%, transparent);
+  border-color: color-mix(in srgb, var(--surface-border) 84%, #475569 16%);
+  color: var(--text-primary);
+}
+
+:root[data-theme='dark'] .btn-ghost { color: var(--text-secondary); }
+
+:root[data-theme='dark'] .input {
+  background: color-mix(in srgb, var(--bg-soft) 88%, transparent);
+  border-color: color-mix(in srgb, var(--surface-border) 84%, #475569 16%);
+  color: var(--text-primary);
+}
+
+:root[data-theme='dark'] .input::placeholder {
+  color: color-mix(in srgb, var(--text-muted) 86%, #94a3b8 14%);
+}
+
+:root[data-theme='dark'] .badge-slate {
+  background: color-mix(in srgb, var(--bg-soft) 85%, transparent) !important;
+  color: var(--text-secondary) !important;
+}
+
 :root[data-theme='dark'] .toast-custom {
   background: #0f172a !important;
   color: #e2e8f0 !important;
