@@ -41,6 +41,9 @@ export default function Document() {
             `,
           }}
         />
+        <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+        <link rel="shortcut icon" href="/favicon.svg" />
+        <meta name="theme-color" content="#F59E0B" />
       </Head>
       <body>
         <Main />

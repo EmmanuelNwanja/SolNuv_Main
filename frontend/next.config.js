@@ -17,6 +17,12 @@ const nextConfig = {
       },
     ],
   },
+  async rewrites() {
+    return [
+      // Browsers always probe /favicon.ico regardless of <link> tags — serve the SVG
+      { source: '/favicon.ico', destination: '/favicon.svg' },
+    ];
+  },
   async headers() {
     return [
       {
