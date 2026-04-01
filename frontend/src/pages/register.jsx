@@ -58,8 +58,8 @@ export default function Register() {
   return (
     <>
       <Head><title>Create Account — SolNuv</title></Head>
-      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4">
-        <div className="w-full max-w-md">
+      <div className="auth-shell">
+        <div className="auth-wrap">
           <div className="text-center mb-8">
             <Link href="/" className="inline-flex items-center gap-2 mb-4">
               <div className="w-10 h-10 bg-forest-900 rounded-xl flex items-center justify-center">
@@ -71,7 +71,7 @@ export default function Register() {
             <p className="text-slate-500 text-sm mt-1">Free forever. No credit card required.</p>
           </div>
 
-          <div className="card shadow-md">
+          <div className="auth-card">
             <button onClick={handleGoogle} disabled={submitting} className="w-full flex items-center justify-center gap-3 border-2 border-slate-200 rounded-xl py-3 text-sm font-semibold text-slate-700 hover:border-forest-900 hover:bg-forest-900/5 transition-all mb-6 disabled:opacity-50">
               <RiGoogleLine className="text-lg" />
               Sign up with Google

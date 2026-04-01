@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { paymentsAPI } from '../services/api';
 import { getDashboardLayout } from '../components/Layout';
 import { LoadingSpinner } from '../components/ui/index';
+import { MotionSection } from '../components/PageMotion';
 import { RiCheckLine, RiArrowRightLine } from 'react-icons/ri';
 import toast from 'react-hot-toast';
 
@@ -71,10 +72,14 @@ export default function Plans() {
     <>
       <Head><title>Plans & Pricing — SolNuv</title></Head>
 
-      <div className="page-header text-center">
-        <h1 className="font-display font-bold text-3xl text-forest-900">Choose Your Plan</h1>
-        <p className="text-slate-500 mt-2">Upgrade to unlock NESREA compliance reports, advanced analytics, and team workflows</p>
-        <p className="text-xs text-slate-400 mt-1">All prices in Nigerian Naira. Annual billing includes 10% discount on every paid plan.</p>
+      <MotionSection className="mb-6">
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-forest-900 to-emerald-800 p-6 sm:p-8 text-white text-center">
+          <div className="absolute -top-20 -right-16 h-56 w-56 rounded-full bg-emerald-300/20 blur-3xl" />
+          <div className="absolute -bottom-20 -left-20 h-56 w-56 rounded-full bg-amber-300/20 blur-3xl" />
+          <div className="relative">
+            <h1 className="font-display font-bold text-3xl sm:text-4xl">Choose Your Plan</h1>
+            <p className="text-white/75 mt-2">Upgrade to unlock NESREA compliance reports, advanced analytics, and team workflows</p>
+            <p className="text-xs text-white/60 mt-1">All prices in Nigerian Naira. Annual billing includes 10% discount on every paid plan.</p>
 
         <div className="mt-6 inline-flex rounded-xl bg-slate-100 p-1">
           <button
@@ -120,11 +125,13 @@ export default function Plans() {
         </div>
 
         {promoResult && (
-          <p className="text-xs text-emerald-600 mt-2">
+          <p className="text-xs text-emerald-200 mt-2">
             {promoResult.promo_code} applied: pay N{Number(promoResult.payable_amount_ngn || 0).toLocaleString('en-NG')} instead of N{Number(promoResult.original_amount_ngn || 0).toLocaleString('en-NG')}
           </p>
         )}
-      </div>
+          </div>
+        </div>
+      </MotionSection>
 
       {loading ? (
         <div className="flex justify-center py-16"><LoadingSpinner size="lg" /></div>

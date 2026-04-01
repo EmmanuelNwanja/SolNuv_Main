@@ -99,8 +99,8 @@ export default function Onboarding() {
   return (
     <>
       <Head><title>Setup Your Account — SolNuv</title></Head>
-      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4">
-        <div className="w-full max-w-lg">
+      <div className="auth-shell">
+        <div className="w-full max-w-lg relative z-10">
           {/* Logo */}
           <div className="text-center mb-8">
             <div className="w-12 h-12 bg-forest-900 rounded-2xl flex items-center justify-center mx-auto mb-3">
@@ -125,7 +125,7 @@ export default function Onboarding() {
             ))}
           </div>
 
-          <div className="card shadow-md">
+          <div className="auth-card">
             {/* STEP 1: Account type */}
             {step === 1 && (
               <div className="space-y-5">

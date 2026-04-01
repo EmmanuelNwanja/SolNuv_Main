@@ -95,8 +95,8 @@ export default function VerifyPhone() {
   return (
     <>
       <Head><title>Verify Phone — SolNuv</title></Head>
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-        <div className="w-full max-w-md card shadow-md">
+      <div className="auth-shell">
+        <div className="auth-wrap auth-card">
           <div className="text-center mb-6">
             <div className="w-12 h-12 bg-forest-900 rounded-2xl flex items-center justify-center mx-auto mb-3">
               <RiShieldCheckLine className="text-amber-400 text-2xl" />

@@ -18,6 +18,8 @@ export default function App({ Component, pageProps }) {
     <ThemeProvider>
       <AuthProvider>
         <div className="app-shell">
+          <div className="app-atmo app-atmo-top" />
+          <div className="app-atmo app-atmo-bottom" />
           {getLayout(<Component {...pageProps} />)}
           <FloatingThemeToggle />
         </div>

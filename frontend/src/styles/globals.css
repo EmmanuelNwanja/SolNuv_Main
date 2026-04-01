@@ -58,8 +58,31 @@ body {
 .font-display { font-family: var(--font-display); }
 
 .app-shell {
+  position: relative;
   min-height: 100vh;
   animation: pageFade .45s ease;
+}
+
+.app-atmo {
+  position: fixed;
+  width: 26rem;
+  height: 26rem;
+  pointer-events: none;
+  z-index: 0;
+  filter: blur(68px);
+  opacity: .26;
+}
+
+.app-atmo-top {
+  top: -10rem;
+  right: -8rem;
+  background: radial-gradient(circle, rgba(16,185,129,.68) 0%, rgba(16,185,129,0) 70%);
+}
+
+.app-atmo-bottom {
+  bottom: -12rem;
+  left: -10rem;
+  background: radial-gradient(circle, rgba(245,158,11,.58) 0%, rgba(245,158,11,0) 72%);
 }
 
 @keyframes pageFade {
@@ -193,6 +216,33 @@ body {
   }
   .theme-fab-wrap {
     @apply fixed bottom-5 right-5 z-[70];
+  }
+
+  .auth-shell {
+    @apply min-h-screen flex items-center justify-center p-4;
+    position: relative;
+    z-index: 1;
+  }
+
+  .auth-shell::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(circle at 15% 0%, rgba(16,185,129,.13), transparent 34%),
+      radial-gradient(circle at 85% 8%, rgba(245,158,11,.15), transparent 30%);
+    pointer-events: none;
+  }
+
+  .auth-wrap {
+    @apply w-full max-w-md relative;
+    z-index: 1;
+  }
+
+  .auth-card {
+    @apply card shadow-lg;
+    background: color-mix(in srgb, var(--bg-elevated) 78%, transparent);
+    backdrop-filter: blur(12px);
   }
 }
 

@@ -77,8 +77,8 @@ export default function ResetPasswordPage() {
   return (
     <>
       <Head><title>Reset Password — SolNuv</title></Head>
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-        <div className="w-full max-w-md">
+      <div className="auth-shell">
+        <div className="auth-wrap">
           <div className="text-center mb-8">
             <Link href="/" className="inline-flex items-center gap-2 mb-4">
               <div className="w-10 h-10 bg-forest-900 rounded-xl flex items-center justify-center">
@@ -90,7 +90,7 @@ export default function ResetPasswordPage() {
             <p className="text-slate-500 text-sm mt-1">Receive an OTP via SMS or WhatsApp and reset securely</p>
           </div>
 
-          <div className="card shadow-md">
+          <div className="auth-card">
             {step === 1 && (
               <form onSubmit={requestOtp} className="space-y-4">
                 <div>

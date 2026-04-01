@@ -63,9 +63,9 @@ export default function Home() {
         <link rel="icon" href="/favicon.ico" />
       </Head>
 
-      <div className="min-h-screen bg-white font-body">
+      <div className="min-h-screen bg-white/60 font-body relative">
         {/* NAV */}
-        <nav className="sticky top-0 z-50 bg-white/95 backdrop-blur border-b border-slate-100">
+        <nav className="sticky top-0 z-50 bg-white/80 backdrop-blur-xl border-b border-slate-100/80">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-16">
             <Link href="/" className="flex items-center gap-2">
               <div className="w-8 h-8 bg-forest-900 rounded-lg flex items-center justify-center">
@@ -140,7 +140,7 @@ export default function Home() {
         </div>
 
         {/* HOW IT WORKS */}
-        <section id="how-it-works" className="py-20 bg-white">
+        <section id="how-it-works" className="py-20 bg-white/80 backdrop-blur-sm">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-14">
               <h2 className="section-title mb-4">From Installation to Recycling</h2>
