@@ -125,7 +125,6 @@ export function AuthProvider({ children }) {
     try {
       const { data } = await authAPI.getMe();
       setProfile(data.data);
-      setUser(data.data);
       setProfileResolved(true);
       setWakingServer(false);
       writeProfileCache(data.data); // persist for cold-start resilience

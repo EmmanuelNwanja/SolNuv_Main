@@ -23,12 +23,73 @@ const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
+let accessTokenCache = null;
+let authListenerBound = false;
+
+function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function getSessionSafely(timeoutMs = 1500) {
+  try {
+    const result = await Promise.race([
+      supabase.auth.getSession(),
+      wait(timeoutMs).then(() => null),
+    ]);
+    return result?.data?.session || null;
+  } catch {
+    return null;
+  }
+}
+
+function readAccessTokenFromStorage() {
+  if (typeof window === 'undefined') return null;
+
+  try {
+    const key = Object.keys(window.localStorage).find((k) => /^sb-.*-auth-token$/.test(k));
+    if (!key) return null;
+
+    const raw = window.localStorage.getItem(key);
+    if (!raw) return null;
+
+    const parsed = JSON.parse(raw);
+    if (parsed?.access_token) return parsed.access_token;
+    if (Array.isArray(parsed) && parsed[0]?.access_token) return parsed[0].access_token;
+    if (parsed?.currentSession?.access_token) return parsed.currentSession.access_token;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function ensureAuthListener() {
+  if (typeof window === 'undefined' || authListenerBound) return;
+  authListenerBound = true;
+
+  supabase.auth.onAuthStateChange((_event, session) => {
+    accessTokenCache = session?.access_token || null;
+  });
+}
+
 // Attach Supabase auth token to every request
 api.interceptors.request.use(async (config) => {
-  const { data: { session } } = await supabase.auth.getSession();
-  if (session?.access_token) {
-    config.headers.Authorization = `Bearer ${session.access_token}`;
+  ensureAuthListener();
+
+  if (!accessTokenCache) {
+    accessTokenCache = readAccessTokenFromStorage();
   }
+
+  let token = accessTokenCache;
+  if (!token) {
+    const session = await getSessionSafely();
+    token = session?.access_token || readAccessTokenFromStorage();
+    if (token) accessTokenCache = token;
+  }
+
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+
   return config;
 });
 
