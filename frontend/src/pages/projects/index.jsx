@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import { projectsAPI, downloadBlob } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
+import { getDashboardLayout } from '../../components/Layout';
 import { StatusBadge, UrgencyBadge, EmptyState, LoadingSpinner } from '../../components/ui/index';
 import { MotionSection } from '../../components/PageMotion';
 import { RiAddLine, RiSearchLine, RiFilterLine, RiDownloadLine, RiSunLine } from 'react-icons/ri';
