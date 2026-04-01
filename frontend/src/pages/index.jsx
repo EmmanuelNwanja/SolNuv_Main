@@ -28,7 +28,12 @@ export default function Home() {
   const [calcLoading, setCalcLoading] = useState(false);
 
   useEffect(() => {
-    runSilverCalc(silverForm);
+    // Defer the cold-start API call so fonts + hero paint first.
+    // requestIdleCallback fires after the browser is idle; setTimeout is the fallback.
+    const schedule = typeof window !== 'undefined' && 'requestIdleCallback' in window
+      ? (fn) => window.requestIdleCallback(fn, { timeout: 4000 })
+      : (fn) => setTimeout(fn, 1500);
+    schedule(() => runSilverCalc(silverForm));
   }, []);
 
   useEffect(() => {

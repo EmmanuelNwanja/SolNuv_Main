@@ -41,6 +41,14 @@ export default function Document() {
             `,
           }}
         />
+        {/* Preconnect to Google Fonts to cut DNS + TLS time off the critical path */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        {/* Load fonts via <link> instead of CSS @import — avoids render-blocking two-hop chain */}
+        <link
+          rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,400;0,600;0,700;0,900;1,400&family=DM+Sans:wght@300;400;500;600;700&display=swap"
+        />
         <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
         <link rel="shortcut icon" href="/favicon.svg" />
         <meta name="theme-color" content="#F59E0B" />
