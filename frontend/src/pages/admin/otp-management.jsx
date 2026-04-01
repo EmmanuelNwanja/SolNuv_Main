@@ -2,7 +2,7 @@ import Head from 'next/head';
 import { useEffect, useState } from 'react';
 import { adminAPI } from '../../services/api';
 import { getAdminLayout } from '../../components/Layout';
-import { RiCheckLine, RiCloseLine, RiFileCopyLine, RiRefreshLine, RiAddLine } from 'react-icons/ri';
+import { RiCheckLine, RiCloseLine, RiFileCopyLine, RiRefreshLine, RiAddLine, RiShieldCheckLine, RiKeyLine, RiTimeLine } from 'react-icons/ri';
 import AdminRoute from '../../components/AdminRoute';
 import toast from 'react-hot-toast';
 
@@ -79,9 +79,21 @@ export default function OtpManagement() {
       <Head><title>OTP Management — SolNuv Admin</title></Head>
 
       <AdminRoute requiredRoles={['super_admin']}>
-        <div className="page-header">
-          <h1 className="font-display font-bold text-2xl text-forest-900">OTP Management</h1>
-          <p className="text-slate-500 text-sm mt-0.5">View pending password reset OTPs and manually generate codes for users</p>
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-slate-800 to-emerald-900 p-6 sm:p-8 text-white mb-6">
+          <div className="absolute -top-24 right-0 h-64 w-64 rounded-full bg-emerald-300/15 blur-3xl" />
+          <div className="absolute -bottom-20 -left-20 h-56 w-56 rounded-full bg-cyan-300/10 blur-3xl" />
+          <div className="relative">
+            <p className="text-[11px] tracking-[0.2em] uppercase text-white/60 mb-3">Admin · Access Recovery</p>
+            <h1 className="font-display font-bold text-3xl sm:text-4xl">OTP Management</h1>
+            <p className="text-sm text-white/75 mt-2 max-w-2xl">
+              View active password-reset OTPs and issue single-use codes for users who need assisted account access.
+            </p>
+            <div className="mt-4 flex flex-wrap gap-2 text-xs">
+              <span className="rounded-full border border-white/20 bg-white/10 px-3 py-1 inline-flex items-center gap-1.5"><RiShieldCheckLine /> Super Admin only</span>
+              <span className="rounded-full border border-white/20 bg-white/10 px-3 py-1 inline-flex items-center gap-1.5"><RiKeyLine /> Manual code issuance</span>
+              <span className="rounded-full border border-white/20 bg-white/10 px-3 py-1 inline-flex items-center gap-1.5"><RiTimeLine /> 10-minute expiry</span>
+            </div>
+          </div>
         </div>
 
         {/* Tabs */}

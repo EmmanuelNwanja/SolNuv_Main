@@ -393,6 +393,22 @@ body {
   color: #fca5a5 !important;
 }
 
+/* ── Table dark overrides ────────────────────────── */
+:root[data-theme='dark'] table { color: var(--text-secondary); }
+:root[data-theme='dark'] thead tr,
+:root[data-theme='dark'] thead { background-color: var(--bg-soft) !important; }
+:root[data-theme='dark'] th { color: var(--text-primary) !important; border-color: var(--surface-border) !important; }
+:root[data-theme='dark'] tbody tr { border-color: var(--surface-border) !important; }
+:root[data-theme='dark'] tbody tr:hover { background-color: var(--bg-soft) !important; }
+:root[data-theme='dark'] td { color: var(--text-secondary) !important; }
+
+/* ── Select option dark background ───────────────── */
+:root[data-theme='dark'] select.input option,
+:root[data-theme='dark'] .input option {
+  background-color: #1e293b;
+  color: var(--text-primary);
+}
+
 :root[data-theme='dark'] .toast-custom {
   background: #0f172a !important;
   color: #e2e8f0 !important;
