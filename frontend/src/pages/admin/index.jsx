@@ -510,6 +510,7 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
                   </div>
                 </div>
               </div>
+            </div>
             ))}
           </div>
         </div>
