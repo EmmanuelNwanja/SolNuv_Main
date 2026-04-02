@@ -135,7 +135,7 @@ export default function Home() {
                 <span className="text-amber-400">Into Business Value</span>
               </h1>
               <p className="text-lg text-white/75 mb-8 leading-relaxed max-w-2xl">
-                SolNuv gives solar installers, EPCs, and asset managers across Nigeria the intelligence to track every panel from day one to end-of-life — predict failure using West African climate data, recover silver and battery material value, and generate NESREA EPR compliance reports automatically.
+                Get the intelligence to track every panel from day one to end-of-life — predict failure using West African climate data, recover silver and battery material value, and generate EPR compliance reports with ease.
               </p>
               <div className="flex flex-wrap gap-4">
                 <Link href="/register" className="btn-amber inline-flex items-center gap-2">
@@ -227,7 +227,7 @@ export default function Home() {
                 { step: '01', icon: RiSunLine, title: 'Log Your Projects', desc: 'Register every installation with panels, batteries, brand, and GPS location. Takes under 2 minutes. Works offline for field teams.' },
                 { step: '02', icon: RiMapPinLine, title: 'Get Local Predictions', desc: 'Our degradation engine calibrates for Lagos coastal humidity, Kano desert heat, SE humidity, and inverter surge damage across all 36 states.' },
                 { step: '03', icon: RiFlashlightLine, title: 'Recover Material Value', desc: 'See the real naira value of recoverable silver, lead, and lithium in your fleet. Compare second-life refurbishment vs. dismantling — instantly.' },
-                { step: '04', icon: RiFileTextLine, title: 'Comply Automatically', desc: 'One-click NESREA EPR reports and Cradle-to-Grave certificates. Auto-route to regulatory bodies on Elite and Enterprise plans.' },
+                { step: '04', icon: RiFileTextLine, title: 'Comply With Ease', desc: 'Express NESREA EPR reports and Cradle-to-Grave certificates. Auto-route to regulatory bodies on Elite and Enterprise plans.' },
               ].map((item, i) => (
                 <div key={i} className="relative">
                   {i < 3 && <div className="hidden md:block absolute top-8 left-[calc(100%-1rem)] w-8 h-0.5 bg-slate-200 z-0" />}
@@ -516,12 +516,12 @@ export default function Home() {
             <div className="text-center mb-14">
               <span className="text-xs font-semibold uppercase tracking-widest text-emerald-600">Pricing</span>
               <h2 className="section-title mb-4 mt-2">Simple, Naira-First Pricing</h2>
-              <p className="text-slate-500">No foreign exchange surprises. All prices in Naira. Annual billing on all paid plans saves 10%.</p>
+              <p className="text-slate-500">No FX surprises. All prices in Naira. Annual billing on all paid plans saves 10%.</p>
             </div>
             <div className="grid md:grid-cols-4 gap-6 items-start">
               {[
-                { name: 'Free', price: '₦0', period: '/mo', cta: 'Get Started', href: '/register', features: ['Unlimited project logging', 'West African decommission predictions', 'Silver value calculator', 'Email decommission alerts', '1 user / 1 device'] },
-                { name: 'Pro', price: '₦15,000', period: '/mo', cta: 'Start Pro', href: '/register?plan=pro', popular: true, features: ['Everything in Free', 'NESREA EPR PDF Reports', 'Cradle-to-Grave Certificates', 'Excel export', 'QR code per project', 'Recovery requests', 'Team access (5 users)', 'Standard support', '₦162,000 yearly (save 10%)'] },
+                { name: 'Free', price: '₦0', period: '/mo', cta: 'Get Started', href: '/register', features: ['Unlimited project logging', 'West African decommission predictions', 'QR code per project', 'Silver value calculator', 'Decommission alerts', '1 user / 1 device'] },
+                { name: 'Pro', price: '₦15,000', period: '/mo', cta: 'Start Pro', href: '/register?plan=pro', popular: true, features: ['Everything in Free', 'NESREA EPR PDF Reports', 'Cradle-to-Grave Certificates', 'Excel export', 'Priority Recovery requests', 'Team access (5 users)', 'Standard support', '₦162,000 yearly (save 10%)'] },
                 { name: 'Elite', price: '₦35,000', period: '/mo', cta: 'Go Elite', href: '/register?plan=elite', features: ['Everything in Pro', 'Auto-send to NESREA', 'Team access (15 users)', 'Priority support', 'Featured on leaderboard', '₦378,000 yearly (save 10%)'] },
                 { name: 'Enterprise', price: '₦90,000', period: '/mo', cta: 'Contact Us', href: 'mailto:sales@solnuv.com', features: ['Everything in Elite', 'Custom integrations', 'Team access (50 users)', 'Dedicated account manager', 'Custom reporting', 'Quarterly compliance advisory', '₦972,000 yearly (save 10%)'] },
               ].map((plan, i) => (
@@ -563,7 +563,7 @@ export default function Home() {
               <Link href="/register" className="btn-amber inline-flex items-center gap-2 text-base px-8 py-4 rounded-2xl">
                 Create Free Account <RiArrowRightLine />
               </Link>
-              <a href="mailto:hello@solnuv.com" className="inline-flex items-center gap-2 border border-white/30 text-white px-6 py-4 rounded-2xl text-sm font-semibold hover:bg-white/10 transition-all">
+              <a href="mailto:support@solnuv.com" className="inline-flex items-center gap-2 border border-white/30 text-white px-6 py-4 rounded-2xl text-sm font-semibold hover:bg-white/10 transition-all">
                 Talk to the Team
               </a>
             </div>
@@ -582,7 +582,7 @@ export default function Home() {
                   </div>
                   <span className="font-display font-bold text-white text-sm">SolNuv</span>
                 </div>
-                <p className="text-xs leading-relaxed">Nigeria&apos;s solar lifecycle intelligence platform. Turning e-waste into economic value, one installation at a time.</p>
+                <p className="text-xs leading-relaxed">Nigeria&apos;s solar lifecycle intelligence platform. Serving the full value of solar, one installation at a time.</p>
               </div>
               <div>
                 <p className="text-xs font-semibold uppercase tracking-widest text-white/40 mb-3">Platform</p>
@@ -596,7 +596,7 @@ export default function Home() {
               <div>
                 <p className="text-xs font-semibold uppercase tracking-widest text-white/40 mb-3">Resources</p>
                 <div className="space-y-2 text-xs">
-                  <a href="mailto:hello@solnuv.com" className="block hover:text-white transition-colors">Contact Us</a>
+                  <a href="mailto:support@solnuv.com" className="block hover:text-white transition-colors">Contact Us</a>
                   <a href="mailto:sales@solnuv.com" className="block hover:text-white transition-colors">Enterprise Sales</a>
                   <Link href="/privacy" className="block hover:text-white transition-colors">Privacy Policy</Link>
                   <Link href="/terms" className="block hover:text-white transition-colors">Terms of Service</Link>
@@ -613,8 +613,8 @@ export default function Home() {
               </div>
             </div>
             <div className="border-t border-white/10 pt-6 flex flex-col md:flex-row items-center justify-between gap-4">
-              <p className="text-xs">© {new Date().getFullYear()} SolNuv. Building responsible solar infrastructure in Nigeria.</p>
-              <p className="text-xs text-white/30">Powered by Paystack · Supabase · Next.js</p>
+              <p className="text-xs">© {new Date().getFullYear()} SolNuv. Responsible solar infrastructure for Nigeria.</p>
+              <p className="text-xs text-white/30">Powered by Fudo Greentech · Afrocarb</p>
             </div>
           </div>
         </footer>
