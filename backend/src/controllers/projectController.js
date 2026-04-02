@@ -18,7 +18,7 @@ const { v4: uuidv4 } = require('uuid');
  */
 exports.getProjects = async (req, res) => {
   try {
-    const { page = 1, limit = 20, status, state, search } = req.query;
+    const { page = 1, limit = 20, status, state, search, geo_verified } = req.query;
     const offset = (page - 1) * limit;
 
     let query = supabase
@@ -39,6 +39,8 @@ exports.getProjects = async (req, res) => {
     if (status) query = query.eq('status', status);
     if (state) query = query.eq('state', state);
     if (search) query = query.ilike('name', `%${search}%`);
+    if (geo_verified === 'true') query = query.eq('geo_verified', true);
+    if (geo_verified === 'false') query = query.eq('geo_verified', false);
 
     const { data: projects, count, error } = await query
       .order('created_at', { ascending: false })
@@ -92,6 +94,11 @@ exports.createProject = async (req, res) => {
     // Calculate decommission date from degradation algo
     const degradation = await calculateDecommissionDate(state, installation_date);
 
+    // Determine geo verification source
+    const { geo_source = 'none', project_photo_url = null } = req.body;
+    const validGeoSources = ['image_exif', 'manual', 'none'];
+    const safeGeoSource = validGeoSources.includes(geo_source) ? geo_source : 'none';
+
     // Create project
     const { data: project, error: projectError } = await supabase
       .from('projects')
@@ -111,6 +118,8 @@ exports.createProject = async (req, res) => {
         notes,
         qr_code_data: qrData,
         status: 'active',
+        geo_source: safeGeoSource,
+        project_photo_url: project_photo_url || null,
       })
       .select()
       .single();
@@ -271,7 +280,23 @@ exports.getProject = async (req, res) => {
 exports.updateProject = async (req, res) => {
   try {
     const { id } = req.params;
-    const allowedFields = ['name', 'client_name', 'description', 'address', 'city', 'notes', 'status', 'actual_decommission_date', 'recycling_date', 'recycler_name'];
+    const allowedFields = [
+      'name',
+      'client_name',
+      'description',
+      'address',
+      'city',
+      'state',
+      'latitude',
+      'longitude',
+      'geo_source',
+      'project_photo_url',
+      'notes',
+      'status',
+      'actual_decommission_date',
+      'recycling_date',
+      'recycler_name',
+    ];
 
     const updateData = {};
     for (const field of allowedFields) {
@@ -429,6 +454,10 @@ exports.verifyByQR = async (req, res) => {
         recycling_date,
         total_system_size_kw,
         created_at,
+        geo_source,
+        geo_verified,
+        geo_verified_at,
+        project_photo_url,
         equipment(
           equipment_type,
           brand,
@@ -543,8 +572,17 @@ exports.verifyByQR = async (req, res) => {
         inverter: inverters,
       },
       manufacturers: uniqueManufacturers,
-      verified_by: 'SolNuv Platform',
-      verified_at: new Date().toISOString(),
+      verification_status: project.geo_verified
+        ? 'Verified'
+        : project.geo_source === 'image_exif'
+          ? 'Authenticated'
+          : 'Unverified',
+      geo_source: project.geo_source || 'none',
+      geo_verified: project.geo_verified || false,
+      geo_verified_at: project.geo_verified_at || null,
+      project_photo_url: project.project_photo_url || null,
+      verified_by: project.geo_verified ? 'SolNuv Admin' : 'SolNuv Platform',
+      verified_at: project.geo_verified_at || new Date().toISOString(),
     });
   } catch (_error) {
     return sendError(res, 'Verification failed', 500);

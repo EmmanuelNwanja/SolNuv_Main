@@ -71,6 +71,22 @@ export default function PublicPortfolioPage() {
   const points = data.map_summary?.points || [];
   const selectedPoint = points.find((point) => point.id === selectedMapProjectId) || points[0] || null;
 
+  const clusters = Object.values((points || []).reduce((acc, point) => {
+    const stateKey = point.state || 'Unknown';
+    if (!acc[stateKey]) {
+      acc[stateKey] = { id: stateKey, state: stateKey, points: [], statusCounts: { active: 0, decommissioned: 0, recycled: 0, pending_recovery: 0 } };
+    }
+    acc[stateKey].points.push(point);
+    if (acc[stateKey].statusCounts[point.status] !== undefined) acc[stateKey].statusCounts[point.status] += 1;
+    return acc;
+  }, {})).map((cluster) => ({
+    ...cluster,
+    size: cluster.points.length,
+    intensity: Math.min(1, cluster.points.length / Math.max(points.length, 1)),
+    lat: cluster.points.reduce((s, p) => s + Number(p.latitude || 0), 0) / cluster.points.length,
+    lng: cluster.points.reduce((s, p) => s + Number(p.longitude || 0), 0) / cluster.points.length,
+  }));
+
   const latitudes = points.map((point) => Number(point.latitude));
   const longitudes = points.map((point) => Number(point.longitude));
   const latMin = latitudes.length ? Math.min(...latitudes) : 0;
@@ -83,7 +99,15 @@ export default function PublicPortfolioPage() {
 
   return (
     <>
-      <Head><title>{profile?.name} — SolNuv Portfolio</title></Head>
+      <Head>
+        <title>{profile?.name} - SolNuv Portfolio</title>
+        <meta name="description" content={`Explore ${profile?.name || 'this brand'} portfolio: ${(stats?.total_projects || 0)} projects, ${formatNumber(stats?.cumulative_executed_capacity_mw, 3)} MW deployed across ${(stats?.regional_coverage_states || 0)} states.`} />
+        <meta property="og:title" content={`${profile?.name} - Solar Portfolio`} />
+        <meta property="og:description" content={`Executed capacity: ${formatNumber(stats?.cumulative_executed_capacity_mw, 3)} MW. Storage: ${formatNumber(stats?.cumulative_storage_capacity_mwh, 3)} MWh.`} />
+        <meta property="og:type" content="profile" />
+        {profile?.logo_url && <meta property="og:image" content={profile.logo_url} />}
+        <meta name="twitter:card" content="summary_large_image" />
+      </Head>
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-emerald-50/20 to-slate-100">
         <div className="max-w-7xl mx-auto px-4 py-10 md:py-12 space-y-6">
           <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-forest-900 via-emerald-900 to-slate-900 text-white p-8 shadow-lg">
@@ -138,20 +162,25 @@ export default function PublicPortfolioPage() {
                     <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_30%,rgba(13,59,46,0.10),transparent_45%),radial-gradient(circle_at_80%_70%,rgba(16,185,129,0.10),transparent_45%)]" />
                     <div className="absolute inset-0 opacity-30" style={{ backgroundImage: 'linear-gradient(to right, rgba(148,163,184,0.2) 1px, transparent 1px), linear-gradient(to bottom, rgba(148,163,184,0.2) 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
 
-                    {points.map((point) => {
-                      const x = ((Number(point.longitude) - lngMin) / lngRange) * 86 + 7;
-                      const y = 92 - (((Number(point.latitude) - latMin) / latRange) * 80 + 8);
-                      const isActive = selectedPoint?.id === point.id;
+                    {clusters.map((cluster) => {
+                      const x = ((Number(cluster.lng) - lngMin) / lngRange) * 86 + 7;
+                      const y = 92 - (((Number(cluster.lat) - latMin) / latRange) * 80 + 8);
+                      const isActive = selectedPoint?.state === cluster.state;
+                      const size = Math.min(28, Math.max(12, 10 + cluster.size * 2));
+                      const heatBg = `rgba(16, 185, 129, ${0.15 + (cluster.intensity * 0.6)})`;
 
                       return (
                         <button
-                          key={point.id}
+                          key={cluster.id}
                           type="button"
-                          onClick={() => setSelectedMapProjectId(point.id)}
-                          className={`absolute -translate-x-1/2 -translate-y-1/2 rounded-full border-2 transition-all ${isActive ? 'w-5 h-5 bg-emerald-500 border-white shadow-[0_0_0_6px_rgba(16,185,129,0.25)]' : 'w-4 h-4 bg-forest-900 border-white hover:scale-110'}`}
+                          onClick={() => setSelectedMapProjectId(cluster.points[0]?.id || null)}
+                          className={`absolute -translate-x-1/2 -translate-y-1/2 rounded-full border-2 transition-all flex items-center justify-center text-[10px] font-bold ${isActive ? 'bg-emerald-500 border-white text-white shadow-[0_0_0_8px_rgba(16,185,129,0.25)]' : 'bg-forest-900 border-white text-white hover:scale-110'}`}
                           style={{ left: `${x}%`, top: `${y}%` }}
-                          title={`${point.name} (${point.city}, ${point.state})`}
-                        />
+                          title={`${cluster.state}: ${cluster.size} project${cluster.size !== 1 ? 's' : ''}`}
+                        >
+                          <span style={{ position: 'absolute', width: `${size}px`, height: `${size}px`, borderRadius: '9999px', background: heatBg, zIndex: -1 }} />
+                          {cluster.size}
+                        </button>
                       );
                     })}
                   </div>
@@ -163,6 +192,15 @@ export default function PublicPortfolioPage() {
                       <p className="text-xs text-slate-500 mt-1 capitalize">Status: {selectedPoint.status}</p>
                     </div>
                   )}
+
+                  <div className="mt-3 grid grid-cols-2 md:grid-cols-3 gap-2 text-xs">
+                    {clusters.slice(0, 6).map((cluster) => (
+                      <div key={`heat-${cluster.id}`} className="rounded-lg border border-slate-200 bg-white px-2.5 py-2">
+                        <p className="font-semibold text-slate-700 truncate">{cluster.state}</p>
+                        <p className="text-slate-500">{cluster.size} project{cluster.size !== 1 ? 's' : ''}</p>
+                      </div>
+                    ))}
+                  </div>
                 </>
               )}
             </div>

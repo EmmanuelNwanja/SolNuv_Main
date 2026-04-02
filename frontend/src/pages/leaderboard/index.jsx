@@ -151,6 +151,10 @@ export default function Leaderboard() {
                       <p className="text-xs text-slate-400">
                         {entry.active_projects_count} active · {entry.recycled_count} recycled · {(entry.total_silver_grams || 0).toFixed(1)}g silver · {(entry.average_rating || 0).toFixed(2)} rating
                       </p>
+                      <p className="text-[11px] text-slate-400 mt-0.5">
+                        Verification trust: {(entry.verified_projects_count || 0) * 3 + (entry.unverified_projects_count || 0) * 1} pts
+                        ({entry.verified_projects_count || 0} verified, {entry.unverified_projects_count || 0} unverified)
+                      </p>
                     </div>
                     <div className="text-right flex-shrink-0">
                       <p className="font-bold text-forest-900 text-sm">{getDisplayValue(entry)}</p>

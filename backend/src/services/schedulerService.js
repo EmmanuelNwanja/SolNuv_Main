@@ -48,7 +48,7 @@ async function refreshLeaderboard() {
     // Step 2: Get all projects with equipment in a single flat query
     const { data: projects, error: projError } = await supabase
       .from('projects')
-      .select('id, user_id, company_id, status');
+      .select('id, user_id, company_id, status, geo_verified');
 
     const { data: equipment, error: eqError } = await supabase
       .from('equipment')
@@ -129,13 +129,19 @@ async function refreshLeaderboard() {
 
       const averageRating = totalFeedbacks > 0 ? (ratingSum / totalFeedbacks) : 0;
 
+      // Verification trust score: verified projects = 3pts each, unverified = 1pt each
+      const verifiedCount = userProjects.filter(p => p.geo_verified === true).length;
+      const unverifiedCount = userProjects.length - verifiedCount;
+      const verificationTrustScore = (verifiedCount * 3) + (unverifiedCount * 1);
+
       const impactScore =
         (recycled.length * 3) +
         (decommission.length * 2) +
         (active.length * 1) +
         (totalSilver * 0.1) +
         (co2AvoidedKg * 0.01) +
-        (averageRating * 8);
+        (averageRating * 8) +
+        verificationTrustScore;
 
       // Only include users who have at least one project
       if (userProjects.length === 0) continue;
@@ -159,8 +165,10 @@ async function refreshLeaderboard() {
         co2_avoided_kg:        parseFloat(co2AvoidedKg.toFixed(2)),
         average_rating:        parseFloat(averageRating.toFixed(2)),
         total_feedbacks:       totalFeedbacks,
-        impact_score:          parseFloat(impactScore.toFixed(2)),
-        updated_at:            new Date().toISOString(),
+        impact_score:              parseFloat(impactScore.toFixed(2)),
+        verified_projects_count:   verifiedCount,
+        unverified_projects_count: unverifiedCount,
+        updated_at:                new Date().toISOString(),
       });
     }
 

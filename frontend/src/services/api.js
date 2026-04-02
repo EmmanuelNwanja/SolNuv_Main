@@ -226,6 +226,9 @@ export const adminAPI = {
   upsertAdmin: (data) => api.post('/admin/admins', data),
   getOtps: () => api.get('/admin/otps', { timeout: 20000 }),
   generateOtp: (data) => api.post('/admin/otps', data, { timeout: 20000 }),
+  listAllProjects: (params) => api.get('/admin/projects', { params }),
+  adminBulkUpdateProjects: (projectIds, update) => api.patch('/admin/projects/bulk', { project_ids: projectIds, update }),
+  adminUpdateProject: (id, data) => api.patch(`/admin/projects/${id}`, data),
 };
 
 // ==============================

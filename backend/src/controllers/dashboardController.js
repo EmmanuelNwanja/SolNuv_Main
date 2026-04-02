@@ -198,7 +198,7 @@ exports.refreshLeaderboard = async (req, res) => {
 
     const { data: projects } = await supabase
       .from('projects')
-      .select('id, user_id, company_id, status');
+      .select('id, user_id, company_id, status, geo_verified');
 
     const { data: equipment } = await supabase
       .from('equipment')
@@ -277,13 +277,19 @@ exports.refreshLeaderboard = async (req, res) => {
 
       const averageRating = totalFeedbacks > 0 ? (ratingSum / totalFeedbacks) : 0;
 
+      // Verification trust score: verified = 3pts, unverified = 1pt
+      const verifiedCount = userProjects.filter(p => p.geo_verified === true).length;
+      const unverifiedCount = userProjects.length - verifiedCount;
+      const verificationTrustScore = (verifiedCount * 3) + (unverifiedCount * 1);
+
       const impactScore =
         (recycled.length * 3) +
         (decommission.length * 2) +
         (active.length * 1) +
         (totalSilver * 0.1) +
         (co2AvoidedKg * 0.01) +
-        (averageRating * 8);
+        (averageRating * 8) +
+        verificationTrustScore;
       const entityName  = user.companies?.name || user.brand_name || `${user.first_name} ${user.last_name || ''}`.trim();
 
       entries.push({
@@ -301,6 +307,8 @@ exports.refreshLeaderboard = async (req, res) => {
         average_rating:        parseFloat(averageRating.toFixed(2)),
         total_feedbacks:       totalFeedbacks,
         impact_score:          parseFloat(impactScore.toFixed(2)),
+        verified_projects_count:   verifiedCount,
+        unverified_projects_count: unverifiedCount,
         updated_at:            new Date().toISOString(),
       });
     }
@@ -373,6 +381,8 @@ exports.getLeaderboard = async (req, res) => {
 
     const ranked = (leaderboard || []).map((entry, index) => ({
       ...entry,
+      verified_projects_count: entry.verified_projects_count || 0,
+      unverified_projects_count: entry.unverified_projects_count || 0,
       display_rank: index + 1,
       is_current_user: entry.entity_id === req.user?.id,
     }));

@@ -145,11 +145,21 @@ export default function ProjectVerifyPage() {
   const summary = verification?.summary || {};
   const equipment = verification?.equipment_breakdown || {};
   const manufacturers = verification?.manufacturers || {};
+  const verificationStatus = verification?.verification_status || 'Unverified';
+
+  function printCertificate() {
+    if (typeof window !== 'undefined') window.print();
+  }
 
   return (
     <>
       <Head>
         <title>{project?.name || 'Project'} Verification - SolNuv</title>
+        <meta name="description" content={`Verify ${project?.name || 'solar project'} by ${brand?.name || 'installer'} on SolNuv.`} />
+        <meta property="og:title" content={`${project?.name || 'Project'} Verification`} />
+        <meta property="og:description" content={`Status: ${verificationStatus}. Capacity: ${formatNumber(summary?.total_project_capacity_mw, 4)} MW.`} />
+        <meta property="og:type" content="article" />
+        {brand?.logo_url && <meta property="og:image" content={brand.logo_url} />}
       </Head>
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-emerald-50/20 to-slate-100 p-4 md:p-8 lg:p-10">
         <div className="max-w-6xl mx-auto space-y-6">
@@ -173,7 +183,16 @@ export default function ProjectVerifyPage() {
                 </div>
                 <div className="rounded-xl bg-white/10 border border-white/20 px-3 py-2 text-right">
                   <p className="text-xs text-white/70 uppercase">Verification</p>
-                  <p className="font-semibold flex items-center gap-1"><RiShieldCheckLine /> Authenticated</p>
+                  <p className="font-semibold flex items-center gap-1"><RiShieldCheckLine /> {verificationStatus}</p>
+                </div>
+
+                <div className="flex items-center gap-2 no-print">
+                  <span className={`text-xs font-semibold px-3 py-1 rounded-full border ${verificationStatus === 'Verified' ? 'bg-emerald-400/20 border-emerald-200 text-emerald-100' : verificationStatus === 'Authenticated' ? 'bg-blue-400/20 border-blue-200 text-blue-100' : 'bg-amber-400/20 border-amber-200 text-amber-100'}`}>
+                    {verificationStatus}
+                  </span>
+                  <button onClick={printCertificate} className="rounded-xl bg-white/10 border border-white/20 px-3 py-2 text-sm font-semibold hover:bg-white/20 transition">
+                    Print Certificate
+                  </button>
                 </div>
               </div>
 
@@ -316,6 +335,17 @@ export default function ProjectVerifyPage() {
           </div>
         </div>
       </div>
+
+      <style jsx global>{`
+        @media print {
+          body { background: #fff !important; }
+          .no-print { display: none !important; }
+          .min-h-screen { min-height: auto !important; }
+          .shadow-sm, .shadow-lg { box-shadow: none !important; }
+          .border { border-color: #d1d5db !important; }
+          .rounded-3xl, .rounded-2xl, .rounded-xl { border-radius: 0 !important; }
+        }
+      `}</style>
     </>
   );
 }

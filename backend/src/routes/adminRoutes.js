@@ -27,4 +27,8 @@ router.post('/admins', requireAdminRole('super_admin'), adminController.upsertAd
 router.get('/otps', requireAdminRole('super_admin', 'operations'), adminController.getOtps);
 router.post('/otps', requireAdminRole('super_admin', 'operations'), adminController.generateOtp);
 
+router.get('/projects', requireAdminRole('super_admin', 'operations', 'analytics'), adminController.listAllProjects);
+router.patch('/projects/bulk', requireAdminRole('super_admin', 'operations'), adminController.adminBulkUpdateProjects);
+router.patch('/projects/:id', requireAdminRole('super_admin', 'operations'), adminController.adminUpdateProject);
+
 module.exports = router;

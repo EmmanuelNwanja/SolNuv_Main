@@ -571,3 +571,200 @@ exports.generateOtp = async (req, res) => {
     return sendError(res, 'Failed to generate OTP', 500);
   }
 };
+
+/**
+ * GET /api/admin/projects
+ * List ALL projects across the platform with owner + geo verification details.
+ */
+exports.listAllProjects = async (req, res) => {
+  try {
+    const { search = '', status = '', geo_verified = '', page = 1, limit = 30 } = req.query;
+    const from = (Number(page) - 1) * Number(limit);
+    const to = from + Number(limit) - 1;
+
+    let query = supabase
+      .from('projects')
+      .select(
+        `id, name, state, city, address, status, geo_source, geo_verified, geo_verified_at,
+         is_delisted, installation_date, created_at, total_system_size_kw, project_photo_url,
+         users!projects_user_id_fkey(id, first_name, last_name, email, brand_name),
+         companies!projects_company_id_fkey(id, name, email, phone)`,
+        { count: 'exact' }
+      )
+      .order('created_at', { ascending: false })
+      .range(from, to);
+
+    if (search) query = query.or(`name.ilike.%${search}%,city.ilike.%${search}%,state.ilike.%${search}%`);
+    if (status) query = query.eq('status', status);
+    if (geo_verified === 'true') query = query.eq('geo_verified', true);
+    if (geo_verified === 'false') query = query.eq('geo_verified', false);
+
+    const { data, error, count } = await query;
+    if (error) throw error;
+
+    const enriched = (data || []).map((p) => {
+      const owner = p.users || {};
+      const company = p.companies || {};
+      const brandName = company.name || owner.brand_name || `${owner.first_name || ''} ${owner.last_name || ''}`.trim();
+      const contactEmail = company.email || owner.email || null;
+
+      const verificationStatus = p.geo_verified
+        ? 'Verified'
+        : p.geo_source === 'image_exif'
+          ? 'Authenticated'
+          : 'Unverified';
+
+      return {
+        id: p.id,
+        name: p.name,
+        brand_name: brandName,
+        brand_email: contactEmail,
+        state: p.state,
+        city: p.city,
+        address: p.address,
+        status: p.status,
+        geo_source: p.geo_source,
+        geo_verified: p.geo_verified,
+        geo_verified_at: p.geo_verified_at,
+        verification_status: verificationStatus,
+        is_delisted: p.is_delisted,
+        installation_date: p.installation_date,
+        created_at: p.created_at,
+        total_system_size_kw: p.total_system_size_kw,
+        project_photo_url: p.project_photo_url,
+        owner_id: owner.id || null,
+        company_id: p.companies?.id || null,
+      };
+    });
+
+    return sendSuccess(res, { projects: enriched, total: count || 0, page: Number(page), limit: Number(limit) });
+  } catch (error) {
+    logger.error('Admin: Failed to list projects', { admin_user_id: req.user?.id || null, message: error.message });
+    return sendError(res, 'Failed to list projects', 500);
+  }
+};
+
+/**
+ * PATCH /api/admin/projects/:id
+ * Admin can adjust: status, geo_verified, is_delisted
+ */
+exports.adminUpdateProject = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status, geo_verified, is_delisted } = req.body;
+
+    const allowedStatuses = ['active', 'decommissioned', 'recycled', 'pending_recovery'];
+    const updatePayload = {};
+
+    if (status !== undefined) {
+      if (!allowedStatuses.includes(status)) return sendError(res, 'Invalid status value', 400);
+      updatePayload.status = status;
+      if (status === 'decommissioned') updatePayload.actual_decommission_date = new Date().toISOString().split('T')[0];
+    }
+
+    if (typeof geo_verified === 'boolean') {
+      updatePayload.geo_verified = geo_verified;
+      updatePayload.geo_verified_by = geo_verified ? req.user.id : null;
+      updatePayload.geo_verified_at = geo_verified ? new Date().toISOString() : null;
+    }
+
+    if (typeof is_delisted === 'boolean') {
+      updatePayload.is_delisted = is_delisted;
+    }
+
+    if (Object.keys(updatePayload).length === 0) {
+      return sendError(res, 'No valid fields to update', 400);
+    }
+
+    const { data, error } = await supabase
+      .from('projects')
+      .update(updatePayload)
+      .eq('id', id)
+      .select('id, name, status, geo_verified, is_delisted')
+      .single();
+
+    if (error) throw error;
+    if (!data) return sendError(res, 'Project not found', 404);
+
+    await logPlatformActivity({
+      actorUserId: req.user.id,
+      actorEmail: req.user.email,
+      action: 'admin.project.updated',
+      resourceType: 'projects',
+      resourceId: id,
+      details: updatePayload,
+    });
+
+    return sendSuccess(res, data, 'Project updated');
+  } catch (error) {
+    logger.error('Admin: Failed to update project', { admin_user_id: req.user?.id || null, project_id: req.params?.id || null, message: error.message });
+    return sendError(res, 'Failed to update project', 500);
+  }
+};
+
+/**
+ * PATCH /api/admin/projects/bulk
+ * Bulk admin updates for project verification/listing/status controls.
+ */
+exports.adminBulkUpdateProjects = async (req, res) => {
+  try {
+    const { project_ids = [], update = {} } = req.body || {};
+    if (!Array.isArray(project_ids) || project_ids.length === 0) {
+      return sendError(res, 'project_ids is required', 400);
+    }
+
+    const allowedStatuses = ['active', 'decommissioned', 'recycled', 'pending_recovery'];
+    const updatePayload = {};
+
+    if (update.status !== undefined) {
+      if (!allowedStatuses.includes(update.status)) return sendError(res, 'Invalid status value', 400);
+      updatePayload.status = update.status;
+      if (update.status === 'decommissioned') {
+        updatePayload.actual_decommission_date = new Date().toISOString().split('T')[0];
+      }
+    }
+
+    if (typeof update.geo_verified === 'boolean') {
+      updatePayload.geo_verified = update.geo_verified;
+      updatePayload.geo_verified_by = update.geo_verified ? req.user.id : null;
+      updatePayload.geo_verified_at = update.geo_verified ? new Date().toISOString() : null;
+    }
+
+    if (typeof update.is_delisted === 'boolean') {
+      updatePayload.is_delisted = update.is_delisted;
+    }
+
+    if (Object.keys(updatePayload).length === 0) {
+      return sendError(res, 'No valid update fields provided', 400);
+    }
+
+    const { data, error } = await supabase
+      .from('projects')
+      .update(updatePayload)
+      .in('id', project_ids)
+      .select('id, name, status, geo_verified, is_delisted');
+
+    if (error) throw error;
+
+    await logPlatformActivity({
+      actorUserId: req.user.id,
+      actorEmail: req.user.email,
+      action: 'admin.project.bulk_updated',
+      resourceType: 'projects',
+      resourceId: 'bulk',
+      details: { count: project_ids.length, update: updatePayload },
+    });
+
+    return sendSuccess(res, {
+      updated_count: (data || []).length,
+      projects: data || [],
+    }, 'Projects updated');
+  } catch (error) {
+    logger.error('Admin: Failed bulk project update', {
+      admin_user_id: req.user?.id || null,
+      message: error.message,
+      count: Array.isArray(req.body?.project_ids) ? req.body.project_ids.length : 0,
+    });
+    return sendError(res, 'Failed to bulk update projects', 500);
+  }
+};

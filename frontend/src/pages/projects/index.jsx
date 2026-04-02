@@ -18,6 +18,12 @@ const STATUS_OPTIONS = [
   { value: 'pending_recovery', label: 'Pending Recovery' },
 ];
 
+const VERIFICATION_OPTIONS = [
+  { value: '', label: 'All Verification' },
+  { value: 'true', label: 'Verified' },
+  { value: 'false', label: 'Unverified' },
+];
+
 export default function ProjectsList() {
   const { isOnboarded } = useAuth();
   const router = useRouter();
@@ -25,6 +31,7 @@ export default function ProjectsList() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [verificationFilter, setVerificationFilter] = useState('');
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [exporting, setExporting] = useState(false);
@@ -41,7 +48,7 @@ export default function ProjectsList() {
 
     setLoading(true);
     try {
-      const { data } = await projectsAPI.list({ search, status: statusFilter, page, limit: 20 });
+      const { data } = await projectsAPI.list({ search, status: statusFilter, geo_verified: verificationFilter, page, limit: 20 });
       setProjects(data.data || []);
       setTotal(data.pagination?.total || 0);
     } catch (err) {
@@ -52,7 +59,7 @@ export default function ProjectsList() {
       toast.error('Failed to load projects');
     }
     finally { setLoading(false); }
-  }, [search, statusFilter, page, isOnboarded, router]);
+  }, [search, statusFilter, verificationFilter, page, isOnboarded, router]);
 
   useEffect(() => { fetchProjects(); }, [fetchProjects]);
 
@@ -110,6 +117,12 @@ export default function ProjectsList() {
             {STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
         </div>
+        <div className="relative">
+          <RiFilterLine className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <select className="input pl-10 min-w-[180px]" value={verificationFilter} onChange={e => { setVerificationFilter(e.target.value); setPage(1); }}>
+            {VERIFICATION_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+        </div>
       </MotionSection>
 
       {/* Projects */}
@@ -132,7 +145,12 @@ export default function ProjectsList() {
                   <div className="w-9 h-9 bg-forest-900 rounded-xl flex items-center justify-center group-hover:scale-105 transition-transform">
                     <RiSunLine className="text-amber-400" />
                   </div>
-                  <StatusBadge status={proj.status} />
+                  <div className="flex flex-col items-end gap-1">
+                    <StatusBadge status={proj.status} />
+                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${proj.geo_verified ? 'text-emerald-700 border-emerald-200 bg-emerald-50' : 'text-amber-700 border-amber-200 bg-amber-50'}`}>
+                      {proj.geo_verified ? 'Verified' : 'Unverified'}
+                    </span>
+                  </div>
                 </div>
                 <h3 className="font-semibold text-forest-900 mb-0.5 group-hover:text-emerald-700 transition-colors">{proj.name}</h3>
                 {proj.client_name && <p className="text-xs text-slate-400 mb-2">{proj.client_name}</p>}

@@ -19,6 +19,7 @@ import {
 export const ADMIN_TABS = [
   { id: 'overview', label: 'Overview', path: '/admin', title: 'Admin Control Center - SolNuv' },
   { id: 'users', label: 'Users', path: '/admin/users', title: 'Admin Users - SolNuv' },
+  { id: 'projects', label: 'Projects', path: '/admin/projects', title: 'Admin Projects - SolNuv' },
   { id: 'paystack', label: 'Paystack Plans', path: '/admin/paystack', title: 'Admin Paystack Plans - SolNuv' },
   { id: 'promo', label: 'Promo Codes', path: '/admin/promo', title: 'Admin Promo Codes - SolNuv' },
   { id: 'finance', label: 'Finance', path: '/admin/finance', title: 'Admin Finance - SolNuv' },
@@ -35,6 +36,13 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
   const [loadWarnings, setLoadWarnings] = useState([]);
   const [overview, setOverview] = useState(null);
   const [users, setUsers] = useState([]);
+  const [projects, setProjects] = useState([]);
+  const [projectSearch, setProjectSearch] = useState('');
+  const [projectStatusFilter, setProjectStatusFilter] = useState('');
+  const [projectGeoFilter, setProjectGeoFilter] = useState('');
+  const [selectedProjectIds, setSelectedProjectIds] = useState([]);
+  const [bulkStatus, setBulkStatus] = useState('');
+  const [bulkBusy, setBulkBusy] = useState(false);
   const [search, setSearch] = useState('');
   const [paystackPlans, setPaystackPlans] = useState([]);
   const [promoCodes, setPromoCodes] = useState([]);
@@ -76,6 +84,7 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
     const requestsByTab = {
       overview: [{ key: 'overview', request: adminAPI.getOverview() }],
       users: [{ key: 'users', request: adminAPI.listUsers({ page: 1, limit: 30 }) }],
+      projects: [{ key: 'projects', request: adminAPI.listAllProjects({ page: 1, limit: 100, search: projectSearch, status: projectStatusFilter, geo_verified: projectGeoFilter }) }],
       paystack: [{ key: 'paystack', request: adminAPI.listPaystackPlans() }],
       promo: [{ key: 'promo', request: adminAPI.listPromoCodes() }],
       finance: [{ key: 'finance', request: adminAPI.getFinance() }],
@@ -104,6 +113,7 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
           const payload = result.value?.data?.data;
           if (key === 'overview') setOverview(payload || null);
           if (key === 'users') setUsers(payload?.users || []);
+          if (key === 'projects') setProjects(payload?.projects || []);
           if (key === 'paystack') setPaystackPlans(payload || []);
           if (key === 'promo') setPromoCodes(payload || []);
           if (key === 'finance') setFinance(payload || null);
@@ -117,7 +127,40 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
         }
       })
       .finally(() => setLoading(false));
-  }, [isPlatformAdmin, forcedTab]);
+  }, [isPlatformAdmin, forcedTab, projectSearch, projectStatusFilter, projectGeoFilter]);
+
+  async function refreshProjects() {
+    const { data } = await adminAPI.listAllProjects({ page: 1, limit: 100, search: projectSearch, status: projectStatusFilter, geo_verified: projectGeoFilter });
+    setProjects(data.data?.projects || []);
+  }
+
+  async function handleAdminProjectUpdate(projectId, patch) {
+    try {
+      await adminAPI.adminUpdateProject(projectId, patch);
+      await refreshProjects();
+      toast.success('Project updated');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to update project');
+    }
+  }
+
+  async function handleBulkProjectUpdate(updatePatch) {
+    if (selectedProjectIds.length === 0) {
+      toast.error('Select at least one project');
+      return;
+    }
+    setBulkBusy(true);
+    try {
+      await adminAPI.adminBulkUpdateProjects(selectedProjectIds, updatePatch);
+      await refreshProjects();
+      setSelectedProjectIds([]);
+      toast.success(`Updated ${selectedProjectIds.length} project${selectedProjectIds.length !== 1 ? 's' : ''}`);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Bulk update failed');
+    } finally {
+      setBulkBusy(false);
+    }
+  }
 
   function switchTab(tabId) {
     setActiveTab(tabId);
@@ -255,6 +298,7 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
           </div>
           <div className="grid grid-cols-2 gap-2 sm:gap-3 w-full lg:w-auto">
             <Link href="/admin/users" className="rounded-xl border border-white/25 bg-white/10 px-3 py-2 text-xs font-semibold hover:bg-white/20 transition-colors">Review Users</Link>
+            <Link href="/admin/projects" className="rounded-xl border border-white/25 bg-white/10 px-3 py-2 text-xs font-semibold hover:bg-white/20 transition-colors">Review Projects</Link>
             <Link href="/admin/admins" className="rounded-xl border border-white/25 bg-white/10 px-3 py-2 text-xs font-semibold hover:bg-white/20 transition-colors">Manage Admins</Link>
             <Link href="/admin/finance" className="rounded-xl border border-white/25 bg-white/10 px-3 py-2 text-xs font-semibold hover:bg-white/20 transition-colors">Finance</Link>
             <Link href="/admin/push" className="rounded-xl border border-white/25 bg-white/10 px-3 py-2 text-xs font-semibold hover:bg-white/20 transition-colors">Send Notification</Link>
@@ -354,6 +398,117 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
                 >
                   {u.is_active ? 'Deactivate' : 'Activate'}
                 </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'projects' && (
+        <div className="card">
+          <h2 className="font-semibold text-forest-900 mb-3">All Projects (Platform-wide)</h2>
+          <div className="grid md:grid-cols-4 gap-2 mb-4">
+            <input className="input" placeholder="Search project/location" value={projectSearch} onChange={(e) => setProjectSearch(e.target.value)} />
+            <select className="input" value={projectStatusFilter} onChange={(e) => setProjectStatusFilter(e.target.value)}>
+              <option value="">All status</option>
+              <option value="active">Active</option>
+              <option value="decommissioned">Decommissioned</option>
+              <option value="recycled">Recycled</option>
+              <option value="pending_recovery">Pending Recovery</option>
+            </select>
+            <select className="input" value={projectGeoFilter} onChange={(e) => setProjectGeoFilter(e.target.value)}>
+              <option value="">All verification</option>
+              <option value="true">Verified</option>
+              <option value="false">Unverified</option>
+            </select>
+            <div className="text-xs text-slate-500 flex items-center">{projects.length} records</div>
+          </div>
+
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 mb-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                className="btn-outline text-xs"
+                onClick={() => setSelectedProjectIds(projects.map((p) => p.id))}
+                disabled={projects.length === 0}
+              >
+                Select All
+              </button>
+              <button
+                type="button"
+                className="btn-outline text-xs"
+                onClick={() => setSelectedProjectIds([])}
+                disabled={selectedProjectIds.length === 0}
+              >
+                Clear
+              </button>
+              <span className="text-xs text-slate-500">{selectedProjectIds.length} selected</span>
+            </div>
+
+            <div className="mt-3 grid md:grid-cols-4 gap-2">
+              <button type="button" className="btn-outline text-xs border-emerald-500 text-emerald-700" disabled={bulkBusy} onClick={() => handleBulkProjectUpdate({ geo_verified: true })}>Bulk Verify</button>
+              <button type="button" className="btn-outline text-xs border-amber-500 text-amber-700" disabled={bulkBusy} onClick={() => handleBulkProjectUpdate({ geo_verified: false })}>Bulk Unverify</button>
+              <button type="button" className="btn-outline text-xs border-red-500 text-red-700" disabled={bulkBusy} onClick={() => handleBulkProjectUpdate({ is_delisted: true })}>Bulk Delist</button>
+              <button type="button" className="btn-outline text-xs border-cyan-500 text-cyan-700" disabled={bulkBusy} onClick={() => handleBulkProjectUpdate({ is_delisted: false })}>Bulk Restore</button>
+            </div>
+
+            <div className="mt-2 grid md:grid-cols-4 gap-2">
+              <select className="input text-xs md:col-span-3" value={bulkStatus} onChange={(e) => setBulkStatus(e.target.value)}>
+                <option value="">Select bulk status...</option>
+                <option value="active">Active</option>
+                <option value="decommissioned">Decommissioned</option>
+                <option value="recycled">Recycled</option>
+                <option value="pending_recovery">Pending Recovery</option>
+              </select>
+              <button
+                type="button"
+                className="btn-primary text-xs"
+                disabled={bulkBusy || !bulkStatus}
+                onClick={() => handleBulkProjectUpdate({ status: bulkStatus })}
+              >
+                Apply Status
+              </button>
+            </div>
+          </div>
+
+          <div className="space-y-2 max-h-[640px] overflow-auto pr-1">
+            {projects.map((p) => (
+              <div key={p.id} className="p-3 rounded-xl border border-slate-100">
+                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+                  <div className="flex items-start gap-2">
+                    <input
+                      type="checkbox"
+                      className="mt-1"
+                      checked={selectedProjectIds.includes(p.id)}
+                      onChange={(e) => {
+                        setSelectedProjectIds((prev) => e.target.checked ? [...new Set([...prev, p.id])] : prev.filter((id) => id !== p.id));
+                      }}
+                    />
+                    <div>
+                      <p className="font-semibold text-slate-800">{p.name}</p>
+                    <p className="text-xs text-slate-500">{p.brand_name || 'Unknown brand'} • {p.brand_email || 'No email'}</p>
+                    <p className="text-xs text-slate-500">{p.city}, {p.state} • {p.address || 'No address'}</p>
+                    <p className="text-xs mt-1">
+                      <span className={`px-2 py-0.5 rounded-full border ${p.geo_verified ? 'text-emerald-700 border-emerald-200 bg-emerald-50' : 'text-amber-700 border-amber-200 bg-amber-50'}`}>{p.geo_verified ? 'Verified' : 'Unverified'}</span>
+                      <span className={`ml-2 px-2 py-0.5 rounded-full border ${p.is_delisted ? 'text-red-700 border-red-200 bg-red-50' : 'text-cyan-700 border-cyan-200 bg-cyan-50'}`}>{p.is_delisted ? 'Delisted' : 'Active Listing'}</span>
+                    </p>
+                  </div>
+
+                  <div className="grid sm:grid-cols-3 gap-2">
+                    <select className="input text-xs" defaultValue={p.status} onChange={(e) => handleAdminProjectUpdate(p.id, { status: e.target.value })}>
+                      <option value="active">Active</option>
+                      <option value="decommissioned">Decommissioned</option>
+                      <option value="recycled">Recycled</option>
+                      <option value="pending_recovery">Pending Recovery</option>
+                    </select>
+                    <button className={`btn-outline text-xs ${p.geo_verified ? 'border-amber-400 text-amber-700' : 'border-emerald-500 text-emerald-700'}`} onClick={() => handleAdminProjectUpdate(p.id, { geo_verified: !p.geo_verified })}>
+                      {p.geo_verified ? 'Mark Unverified' : 'Mark Verified'}
+                    </button>
+                    <button className={`btn-outline text-xs ${p.is_delisted ? 'border-cyan-500 text-cyan-700' : 'border-red-500 text-red-700'}`} onClick={() => handleAdminProjectUpdate(p.id, { is_delisted: !p.is_delisted })}>
+                      {p.is_delisted ? 'Restore Listing' : 'Delist Project'}
+                    </button>
+                  </div>
+                </div>
               </div>
             ))}
           </div>

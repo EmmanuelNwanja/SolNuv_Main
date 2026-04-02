@@ -4,8 +4,9 @@ import { useRouter } from 'next/router';
 import { projectsAPI, calculatorAPI } from '../../services/api';
 import { getDashboardLayout } from '../../components/Layout';
 import { MotionSection } from '../../components/PageMotion';
-import { RiAddLine, RiDeleteBinLine, RiSunLine, RiBatteryLine, RiMapPinLine, RiInformationLine, RiPlugLine } from 'react-icons/ri';
+import { RiAddLine, RiDeleteBinLine, RiSunLine, RiBatteryLine, RiMapPinLine, RiInformationLine, RiPlugLine, RiCameraLine, RiShieldCheckLine, RiAlertLine } from 'react-icons/ri';
 import toast from 'react-hot-toast';
+import { supabase } from '../../utils/supabase';
 
 const NIGERIAN_STATES = ['Abia','Adamawa','Akwa Ibom','Anambra','Bauchi','Bayelsa','Benue','Borno','Cross River','Delta','Ebonyi','Edo','Ekiti','Enugu','FCT','Gombe','Imo','Jigawa','Kaduna','Kano','Katsina','Kebbi','Kogi','Kwara','Lagos','Nasarawa','Niger','Ogun','Ondo','Osun','Oyo','Plateau','Rivers','Sokoto','Taraba','Yobe','Zamfara'];
 const CONDITIONS = ['excellent', 'good', 'fair', 'poor', 'damaged'];
@@ -26,6 +27,59 @@ const defaultPanel = () => ({ brand: 'Jinko Solar', model: '', size_watts: 400, 
 const defaultBattery = () => ({ brand: 'Felicity', model: '', capacity_kwh: 2.4, quantity: 1, condition: 'good' });
 const defaultInverter = () => ({ brand: 'Growatt', model: '', power_kw: 5, quantity: 1, condition: 'good' });
 
+// Pure-JS JPEG EXIF GPS extractor — no external library needed
+function extractExifGPS(file) {
+  return new Promise((resolve) => {
+    if (!file) { resolve(null); return; }
+    const isJpeg = file.type === 'image/jpeg' || /\.(jpg|jpeg)$/i.test(file.name || '');
+    if (!isJpeg) { resolve(null); return; }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const buf = e.target.result;
+        const view = new DataView(buf);
+        if (view.getUint16(0, false) !== 0xFFD8) { resolve(null); return; }
+        let offset = 2;
+        while (offset < buf.byteLength - 1) {
+          if (view.getUint8(offset) !== 0xFF) { resolve(null); return; }
+          const mb = view.getUint8(offset + 1);
+          if (mb === 0xD9 || mb === 0xDA) { resolve(null); return; }
+          if (mb === 0xD8 || (mb >= 0xD0 && mb <= 0xD7)) { offset += 2; continue; }
+          const segLen = view.getUint16(offset + 2, false);
+          if (mb === 0xE1) {
+            const s4 = [view.getUint8(offset+4),view.getUint8(offset+5),view.getUint8(offset+6),view.getUint8(offset+7)];
+            if (s4[0]===0x45&&s4[1]===0x78&&s4[2]===0x69&&s4[3]===0x66) {
+              const tiff = offset + 10;
+              const le = view.getUint16(tiff,false) === 0x4949;
+              const ifd0 = tiff + view.getUint32(tiff+4,le);
+              const n0 = view.getUint16(ifd0,le);
+              let gpsIFD = null;
+              for (let i=0;i<n0;i++){const eo=ifd0+2+i*12;if(eo+12>buf.byteLength)break;if(view.getUint16(eo,le)===0x8825){gpsIFD=tiff+view.getUint32(eo+8,le);break;}}
+              if (!gpsIFD) { resolve(null); return; }
+              const gpsN = view.getUint16(gpsIFD,le);
+              let latRef='N',lonRef='E',latDMS=null,lonDMS=null;
+              const rat=(o)=>{const d=view.getUint32(o,le),n=view.getUint32(o+4,le);return n?d/n:0;};
+              const dms=(o)=>[rat(o),rat(o+8),rat(o+16)];
+              for(let i=0;i<gpsN;i++){const eo=gpsIFD+2+i*12;if(eo+12>buf.byteLength)break;const tag=view.getUint16(eo,le);if(tag===1)latRef=String.fromCharCode(view.getUint8(eo+8));else if(tag===2)latDMS=dms(tiff+view.getUint32(eo+8,le));else if(tag===3)lonRef=String.fromCharCode(view.getUint8(eo+8));else if(tag===4)lonDMS=dms(tiff+view.getUint32(eo+8,le));}
+              if(!latDMS||!lonDMS){resolve(null);return;}
+              let lat=latDMS[0]+latDMS[1]/60+latDMS[2]/3600;
+              let lon=lonDMS[0]+lonDMS[1]/60+lonDMS[2]/3600;
+              if(latRef==='S')lat=-lat;if(lonRef==='W')lon=-lon;
+              if(!isFinite(lat)||!isFinite(lon)||(lat===0&&lon===0)){resolve(null);return;}
+              resolve({lat:parseFloat(lat.toFixed(6)),lng:parseFloat(lon.toFixed(6))});
+              return;
+            }
+          }
+          offset += 2 + segLen;
+        }
+        resolve(null);
+      } catch { resolve(null); }
+    };
+    reader.onerror = () => resolve(null);
+    reader.readAsArrayBuffer(file);
+  });
+}
+
 function mergeBrandOptions(apiRows = [], defaults = []) {
   const names = new Set(defaults.map((x) => x.toLowerCase()));
   const out = [...defaults];
@@ -43,6 +97,11 @@ function mergeBrandOptions(apiRows = [], defaults = []) {
 export default function AddProject() {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
+  const [photoFile, setPhotoFile] = useState(null);
+  const [photoPreview, setPhotoPreview] = useState(null);
+  const [photoUploading, setPhotoUploading] = useState(false);
+  const [geoSource, setGeoSource] = useState('none');
+  const [geo, setGeo] = useState({ latitude: '', longitude: '' });
   const [panelBrands, setPanelBrands] = useState([]);
   const [batteryBrands, setBatteryBrands] = useState([]);
   const [inverterBrands, setInverterBrands] = useState([]);
@@ -110,7 +169,29 @@ export default function AddProject() {
     if (panels.length === 0 && batteries.length === 0) { toast.error('Add at least one panel or battery'); return; }
     setSubmitting(true);
     try {
-      const { data } = await projectsAPI.create({ ...form, panels, batteries, inverters });
+      // Upload photo to Supabase storage if provided
+      let project_photo_url = null;
+      if (photoFile) {
+        setPhotoUploading(true);
+        try {
+          const ext = photoFile.name.split('.').pop() || 'jpg';
+          const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+          const { data: uploadData, error: uploadErr } = await supabase.storage
+            .from('project-photos')
+            .upload(path, photoFile, { contentType: photoFile.type, upsert: false });
+          if (!uploadErr && uploadData) {
+            const { data: urlData } = supabase.storage.from('project-photos').getPublicUrl(path);
+            project_photo_url = urlData?.publicUrl || null;
+          }
+        } catch { /* non-critical; proceed without photo */ }
+        setPhotoUploading(false);
+      }
+      const latitude = geo.latitude ? parseFloat(geo.latitude) : null;
+      const longitude = geo.longitude ? parseFloat(geo.longitude) : null;
+      const { data } = await projectsAPI.create({
+        ...form, panels, batteries, inverters,
+        latitude, longitude, geo_source: geoSource, project_photo_url,
+      });
       toast.success('Project created! 🎉');
       router.push(`/projects/${data.data.project.id}`);
     } catch (err) {
@@ -194,6 +275,114 @@ export default function AddProject() {
                   </div>
                 </div>
               </div>
+            )}
+          </div>
+
+          {/* Project Photo & Geolocation */}
+          <div className="card">
+            <h2 className="font-semibold text-forest-900 mb-1 flex items-center gap-2"><RiCameraLine /> Project Photo &amp; Geolocation</h2>
+            <p className="text-xs text-slate-500 mb-4">Upload a photo taken at the site. If the photo contains GPS data, coordinates are auto-populated and marked <span className="font-semibold text-blue-700">Authenticated</span>. Manual coordinates are <span className="font-semibold text-amber-700">Unverified</span> pending admin review.</p>
+
+            <div className="mb-5">
+              <label className="label">Site Photo (Camera / Gallery)</label>
+              <div className="flex items-start gap-4 mt-1">
+                <label className="cursor-pointer flex-shrink-0">
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/jpg,image/png,image/webp"
+                    capture="environment"
+                    className="sr-only"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      setPhotoFile(file);
+                      setPhotoPreview(URL.createObjectURL(file));
+                      const gps = await extractExifGPS(file);
+                      if (gps) {
+                        setGeo({ latitude: String(gps.lat), longitude: String(gps.lng) });
+                        setGeoSource('image_exif');
+                        toast.success('GPS location extracted from photo!');
+                      } else if (geoSource !== 'manual') {
+                        setGeoSource('none');
+                      }
+                    }}
+                  />
+                  <span className="inline-flex items-center gap-2 rounded-xl border-2 border-dashed border-slate-300 hover:border-forest-900 px-5 py-3 text-sm font-semibold text-slate-600 hover:text-forest-900 transition-all bg-slate-50 hover:bg-forest-900/5">
+                    <RiCameraLine className="text-lg" /> {photoFile ? 'Change Photo' : 'Upload / Take Photo'}
+                  </span>
+                </label>
+                {photoPreview && (
+                  <div className="relative">
+                    <img src={photoPreview} alt="Project preview" className="w-24 h-24 rounded-xl object-cover border border-slate-200" />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPhotoFile(null);
+                        setPhotoPreview(null);
+                        if (geoSource === 'image_exif') {
+                          setGeoSource('none');
+                          setGeo({ latitude: '', longitude: '' });
+                        }
+                      }}
+                      className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center hover:bg-red-700"
+                    >
+                      X
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {geoSource === 'image_exif' && (
+              <div className="mb-4 flex items-center gap-2 rounded-xl bg-blue-50 border border-blue-200 px-4 py-2.5 text-sm text-blue-800">
+                <RiShieldCheckLine className="text-blue-600 flex-shrink-0" />
+                <span><span className="font-semibold">Authenticated</span> - GPS coordinates sourced from photo EXIF data. Pending platform verification.</span>
+              </div>
+            )}
+            {geoSource === 'manual' && (
+              <div className="mb-4 flex items-center gap-2 rounded-xl bg-amber-50 border border-amber-200 px-4 py-2.5 text-sm text-amber-800">
+                <RiAlertLine className="text-amber-600 flex-shrink-0" />
+                <span><span className="font-semibold">Unverified</span> - Manually entered coordinates. An admin can verify these after reviewing on-site evidence.</span>
+              </div>
+            )}
+
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div>
+                <label className="label">Latitude</label>
+                <input
+                  type="number"
+                  step="0.000001"
+                  min="-90"
+                  max="90"
+                  className="input"
+                  placeholder="e.g. 6.524379"
+                  value={geo.latitude}
+                  onChange={(e) => {
+                    setGeo((g) => ({ ...g, latitude: e.target.value }));
+                    if (geoSource !== 'image_exif') setGeoSource(e.target.value ? 'manual' : 'none');
+                  }}
+                />
+              </div>
+              <div>
+                <label className="label">Longitude</label>
+                <input
+                  type="number"
+                  step="0.000001"
+                  min="-180"
+                  max="180"
+                  className="input"
+                  placeholder="e.g. 3.379206"
+                  value={geo.longitude}
+                  onChange={(e) => {
+                    setGeo((g) => ({ ...g, longitude: e.target.value }));
+                    if (geoSource !== 'image_exif') setGeoSource(e.target.value ? 'manual' : 'none');
+                  }}
+                />
+              </div>
+            </div>
+
+            {geoSource === 'none' && !photoFile && (
+              <p className="mt-3 text-xs text-slate-400 flex items-center gap-1"><RiAlertLine /> No geolocation provided - project will be marked <span className="font-semibold">Unverified</span>.</p>
             )}
           </div>
 
@@ -355,7 +544,7 @@ export default function AddProject() {
           <div className="flex gap-3">
             <button type="button" onClick={() => router.back()} className="btn-ghost">Cancel</button>
             <button type="submit" disabled={submitting} className="btn-primary flex-1 sm:flex-none">
-              {submitting ? 'Saving...' : 'Create Project →'}
+              {submitting ? (photoUploading ? 'Uploading photo...' : 'Saving...') : 'Create Project ->'}
             </button>
           </div>
         </div>
