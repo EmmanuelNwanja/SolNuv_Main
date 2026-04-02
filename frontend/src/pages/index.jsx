@@ -520,10 +520,10 @@ export default function Home() {
             </div>
             <div className="grid md:grid-cols-4 gap-6 items-start">
               {[
-                { name: 'Free', price: '₦0', period: '/mo', cta: 'Get Started', href: '/register', features: ['Unlimited project logging', 'West African decommission predictions', 'QR code per project', 'Silver value calculator', 'Decommission alerts', '1 user / 1 device'] },
-                { name: 'Pro', price: '₦15,000', period: '/mo', cta: 'Start Pro', href: '/register?plan=pro', popular: true, features: ['Everything in Free', 'NESREA EPR PDF Reports', 'Cradle-to-Grave Certificates', 'Excel export', 'Priority Recovery requests', 'Team access (5 users)', 'Standard support', '₦162,000 yearly (save 10%)'] },
-                { name: 'Elite', price: '₦35,000', period: '/mo', cta: 'Go Elite', href: '/register?plan=elite', features: ['Everything in Pro', 'Auto-send to NESREA', 'Team access (15 users)', 'Priority support', 'Featured on leaderboard', '₦378,000 yearly (save 10%)'] },
-                { name: 'Enterprise', price: '₦90,000', period: '/mo', cta: 'Contact Us', href: 'mailto:sales@solnuv.com', features: ['Everything in Elite', 'Custom integrations', 'Team access (50 users)', 'Dedicated account manager', 'Custom reporting', 'Quarterly compliance advisory', '₦972,000 yearly (save 10%)'] },
+                { name: 'Free', price: '₦0', period: '/mo', cta: 'Get Started', href: '/register', features: ['Unlimited project logging', 'West African decommission predictions', '12 calculator uses/month', 'Decommission alerts', 'Basic silver estimator', '1 user / 1 device'] },
+                { name: 'Pro', price: '₦15,000', period: '/mo', cta: 'Start Pro', href: '/register?plan=pro', popular: true, features: ['Unlimited calculator use', 'NESREA EPR PDF Reports', 'Cradle-to-Grave Certificates', 'CSV & Excel export', 'QR code traceability', 'Custom public portfolio', 'Team access (5 users)', '₦162,000 yearly (save 10%)'] },
+                { name: 'Elite', price: '₦40,000', period: '/mo', cta: 'Go Elite', href: '/register?plan=elite', features: ['Everything in Pro', 'Auto-send to NESREA', 'ROI + Cable Compliance PDFs', 'Team access (15 users)', 'Priority support + onboarding', 'Featured installer badge', '₦432,000 yearly (save 10%)'] },
+                { name: 'Enterprise', price: '₦100,000+', period: '/mo', cta: 'Contact Us', href: 'mailto:sales@solnuv.com', features: ['Everything in Elite', 'Custom API integrations', 'Team access (50 users)', 'Dedicated account manager', 'Quarterly EPR advisory', 'White-label PDF reports', '₦1,080,000 yearly (save 10%)'] },
               ].map((plan, i) => (
                 <div key={i} className={`rounded-2xl overflow-hidden ${plan.popular ? 'ring-2 ring-forest-900 shadow-xl' : 'border border-slate-200'}`}>
                   {plan.popular && <div className="bg-forest-900 text-center py-1.5 text-xs font-bold text-amber-400">MOST POPULAR</div>}

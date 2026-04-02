@@ -2,23 +2,30 @@
 const express = require('express');
 const router = express.Router();
 const calculatorController = require('../controllers/calculatorController');
+const { optionalAuth } = require('../middlewares/authMiddleware');
+const { trackCalculatorUsage, getCalculatorUsage } = require('../middlewares/usageMiddleware');
 
-// All public - no auth required for demo
-router.post('/panel', calculatorController.calculatePanel);       // full: silver + second-life
-router.post('/silver', calculatorController.calculateSilver);
-router.post('/battery', calculatorController.calculateBattery);
-router.post('/degradation', calculatorController.calculateDegradation);
-router.post('/roi', calculatorController.calculateROI);
-router.post('/battery-soh', calculatorController.estimateBatterySoH);
-router.post('/cable-size', calculatorController.calculateCableSize);
-router.post('/roi/pdf', calculatorController.exportRoiPdf);
-router.post('/cable-size/pdf', calculatorController.exportCableCertificatePdf);
-router.get('/silver-price', calculatorController.getSilverPrice);
-router.get('/brands', calculatorController.getBrands);
-router.get('/states', calculatorController.getStates);
+// Usage summary endpoint (requires auth)
+router.get('/usage', optionalAuth, getCalculatorUsage);
+
+// Calculator endpoints: optionalAuth attaches user if token present;
+// trackCalculatorUsage enforces Free plan limits (2 per type/month) when authenticated.
+// Anonymous requests (homepage demo) pass through unrestricted.
+router.post('/panel',         optionalAuth, trackCalculatorUsage('panel'),       calculatorController.calculatePanel);
+router.post('/silver',        optionalAuth,                                       calculatorController.calculateSilver);
+router.post('/battery',       optionalAuth, trackCalculatorUsage('battery'),     calculatorController.calculateBattery);
+router.post('/degradation',   optionalAuth, trackCalculatorUsage('degradation'), calculatorController.calculateDegradation);
+router.post('/roi',           optionalAuth, trackCalculatorUsage('roi'),         calculatorController.calculateROI);
+router.post('/battery-soh',   optionalAuth, trackCalculatorUsage('battery-soh'), calculatorController.estimateBatterySoH);
+router.post('/cable-size',    optionalAuth, trackCalculatorUsage('cable-size'),  calculatorController.calculateCableSize);
+
+// PDF exports — require Pro plan (enforced by subscriptionMiddleware in app.js or here)
+router.post('/roi/pdf',           optionalAuth, calculatorController.exportRoiPdf);
+router.post('/cable-size/pdf',    optionalAuth, calculatorController.exportCableCertificatePdf);
+
+// Reference data (always public)
+router.get('/silver-price',  calculatorController.getSilverPrice);
+router.get('/brands',        calculatorController.getBrands);
+router.get('/states',        calculatorController.getStates);
 
 module.exports = router;
-
-// ================================================
-// paymentRoutes.js (inline for brevity)
-// ================================================

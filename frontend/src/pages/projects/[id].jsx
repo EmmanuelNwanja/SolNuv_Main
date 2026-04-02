@@ -651,14 +651,22 @@ export default function ProjectDetail() {
 
             {/* QR Code */}
             {project.qr_code_url && (
-              <div className="text-center p-4 bg-slate-50 rounded-xl">
-                <p className="text-xs text-slate-500 mb-2 font-medium">PROJECT QR CODE</p>
-                <img src={project.qr_code_url} alt="QR Code" className="w-32 h-32 mx-auto rounded-xl" />
-                <p className="text-xs text-slate-400 mt-2">Scan to verify on-site</p>
-                <a href={project.qr_code_url} download={`${project.name}_QR.png`} className="text-xs text-forest-900 font-medium hover:underline mt-1 block">
-                  Download QR Code
-                </a>
-              </div>
+              isPro ? (
+                <div className="text-center p-4 bg-slate-50 rounded-xl">
+                  <p className="text-xs text-slate-500 mb-2 font-medium">PROJECT QR CODE</p>
+                  <img src={project.qr_code_url} alt="QR Code" className="w-32 h-32 mx-auto rounded-xl" />
+                  <p className="text-xs text-slate-400 mt-2">Scan to verify on-site</p>
+                  <a href={project.qr_code_url} download={`${project.name}_QR.png`} className="text-xs text-forest-900 font-medium hover:underline mt-1 block">
+                    Download QR Code
+                  </a>
+                </div>
+              ) : (
+                <div className="text-center p-4 bg-amber-50 border border-amber-200 rounded-xl">
+                  <p className="text-xs font-semibold text-amber-700 mb-1">🔒 QR Code — Pro Feature</p>
+                  <p className="text-xs text-amber-600 mb-2">Unlock project QR codes for on-site scanning and field traceability.</p>
+                  <Link href="/plans" className="text-xs font-semibold text-forest-900 hover:underline">Upgrade to Pro →</Link>
+                </div>
+              )
             )}
 
             {/* Cradle-to-Grave Certificate */}
@@ -686,50 +694,64 @@ export default function ProjectDetail() {
             <h2 className="font-semibold text-forest-900 mb-1 flex items-center gap-2"><RiQrCodeLine /> Battery Field Ledger</h2>
             <p className="text-xs text-slate-500">Create battery QR cards for technicians to scan, view history, and submit health logs on-site.</p>
 
-            <div className="grid grid-cols-2 gap-2">
-              <input className="input text-sm col-span-2" placeholder="Battery brand" value={assetForm.brand}
-                onChange={(e) => setAssetForm((prev) => ({ ...prev, brand: e.target.value }))} />
-              <select className="input text-sm" value={assetForm.chemistry}
-                onChange={(e) => setAssetForm((prev) => ({ ...prev, chemistry: e.target.value }))}>
-                <option value="LiFePO4">LiFePO4</option>
-                <option value="Lithium-ion">Lithium-ion</option>
-                <option value="Lead-acid">Lead-acid</option>
-              </select>
-              <input type="number" min="0.1" step="0.1" className="input text-sm" placeholder="Capacity kWh" value={assetForm.capacity_kwh}
-                onChange={(e) => setAssetForm((prev) => ({ ...prev, capacity_kwh: e.target.value }))} />
-              <input type="number" min="1" className="input text-sm" placeholder="Units" value={assetForm.quantity}
-                onChange={(e) => setAssetForm((prev) => ({ ...prev, quantity: e.target.value }))} />
-              <input type="number" min="1" max="20" className="input text-sm" placeholder="Warranty years" value={assetForm.warranty_years}
-                onChange={(e) => setAssetForm((prev) => ({ ...prev, warranty_years: e.target.value }))} />
-              <input type="date" className="input text-sm col-span-2" value={assetForm.installation_date}
-                onChange={(e) => setAssetForm((prev) => ({ ...prev, installation_date: e.target.value }))} />
-            </div>
+            {!isPro && (
+              <div className="rounded-xl bg-amber-50 border border-amber-200 p-4 text-center">
+                <p className="text-xs font-semibold text-amber-700 mb-1">🔒 Battery QR Ledger — Pro Feature</p>
+                <p className="text-xs text-amber-600 mb-2">Generate field QR codes for battery health logs and technician tracking.</p>
+                <Link href="/plans" className="text-xs font-semibold text-forest-900 hover:underline">Upgrade to Pro →</Link>
+              </div>
+            )}
 
-            <button onClick={handleCreateBatteryAsset} disabled={assetSubmitting} className="btn-primary w-full text-sm py-2.5">
-              {assetSubmitting ? 'Generating QR...' : 'Generate Battery QR Ledger'}
-            </button>
+            {isPro && (
+              <div className="grid grid-cols-2 gap-2">
+                <input className="input text-sm col-span-2" placeholder="Battery brand" value={assetForm.brand}
+                  onChange={(e) => setAssetForm((prev) => ({ ...prev, brand: e.target.value }))} />
+                <select className="input text-sm" value={assetForm.chemistry}
+                  onChange={(e) => setAssetForm((prev) => ({ ...prev, chemistry: e.target.value }))}>
+                  <option value="LiFePO4">LiFePO4</option>
+                  <option value="Lithium-ion">Lithium-ion</option>
+                  <option value="Lead-acid">Lead-acid</option>
+                </select>
+                <input type="number" min="0.1" step="0.1" className="input text-sm" placeholder="Capacity kWh" value={assetForm.capacity_kwh}
+                  onChange={(e) => setAssetForm((prev) => ({ ...prev, capacity_kwh: e.target.value }))} />
+                <input type="number" min="1" className="input text-sm" placeholder="Units" value={assetForm.quantity}
+                  onChange={(e) => setAssetForm((prev) => ({ ...prev, quantity: e.target.value }))} />
+                <input type="number" min="1" max="20" className="input text-sm" placeholder="Warranty years" value={assetForm.warranty_years}
+                  onChange={(e) => setAssetForm((prev) => ({ ...prev, warranty_years: e.target.value }))} />
+                <input type="date" className="input text-sm col-span-2" value={assetForm.installation_date}
+                  onChange={(e) => setAssetForm((prev) => ({ ...prev, installation_date: e.target.value }))} />
+              </div>
+            )}
 
-            <div className="space-y-3 pt-1">
-              {assetLoading && <p className="text-xs text-slate-400">Loading battery assets...</p>}
-              {!assetLoading && batteryAssets.length === 0 && <p className="text-xs text-slate-400">No battery assets generated yet.</p>}
-              {batteryAssets.map((asset) => (
-                <div key={asset.id} className="p-3 rounded-xl bg-slate-50 border border-slate-100">
-                  <div className="flex justify-between items-start gap-2">
-                    <div>
-                      <p className="text-sm font-semibold text-slate-700">{asset.brand} • {asset.capacity_kwh}kWh</p>
-                      <p className="text-xs text-slate-500">{asset.chemistry} • {asset.quantity} unit{asset.quantity !== 1 ? 's' : ''}</p>
+            {isPro && (
+              <>
+                <button onClick={handleCreateBatteryAsset} disabled={assetSubmitting} className="btn-primary w-full text-sm py-2.5">
+                  {assetSubmitting ? 'Generating QR...' : 'Generate Battery QR Ledger'}
+                </button>
+
+                <div className="space-y-3 pt-1">
+                  {assetLoading && <p className="text-xs text-slate-400">Loading battery assets...</p>}
+                  {!assetLoading && batteryAssets.length === 0 && <p className="text-xs text-slate-400">No battery assets generated yet.</p>}
+                  {batteryAssets.map((asset) => (
+                    <div key={asset.id} className="p-3 rounded-xl bg-slate-50 border border-slate-100">
+                      <div className="flex justify-between items-start gap-2">
+                        <div>
+                          <p className="text-sm font-semibold text-slate-700">{asset.brand} • {asset.capacity_kwh}kWh</p>
+                          <p className="text-xs text-slate-500">{asset.chemistry} • {asset.quantity} unit{asset.quantity !== 1 ? 's' : ''}</p>
+                        </div>
+                        {asset.qr_image_data_url && <img src={asset.qr_image_data_url} alt="Battery QR" className="w-14 h-14 rounded-lg" />}
+                      </div>
+                      <div className="flex gap-2 mt-2">
+                        <a href={asset.qr_link} target="_blank" rel="noreferrer" className="text-xs font-semibold text-forest-900 hover:underline">Open Field Page</a>
+                        {asset.qr_image_data_url && (
+                          <a href={asset.qr_image_data_url} download={`battery_qr_${asset.qr_code_data}.png`} className="text-xs font-semibold text-forest-900 hover:underline">Download QR</a>
+                        )}
+                      </div>
                     </div>
-                    {asset.qr_image_data_url && <img src={asset.qr_image_data_url} alt="Battery QR" className="w-14 h-14 rounded-lg" />}
-                  </div>
-                  <div className="flex gap-2 mt-2">
-                    <a href={asset.qr_link} target="_blank" rel="noreferrer" className="text-xs font-semibold text-forest-900 hover:underline">Open Field Page</a>
-                    {asset.qr_image_data_url && (
-                      <a href={asset.qr_image_data_url} download={`battery_qr_${asset.qr_code_data}.png`} className="text-xs font-semibold text-forest-900 hover:underline">Download QR</a>
-                    )}
-                  </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+              </>
+            )}
           </div>
 
           {/* Project metadata */}

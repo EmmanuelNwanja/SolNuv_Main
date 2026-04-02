@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { calculatorAPI, downloadBlob, engineeringAPI } from '../../services/api';
 import { getDashboardLayout } from '../../components/Layout';
 import { MotionSection } from '../../components/PageMotion';
+import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
 
 const NIGERIAN_STATES = ['Abia','Adamawa','Akwa Ibom','Anambra','Bauchi','Bayelsa','Benue','Borno','Cross River','Delta','Ebonyi','Edo','Ekiti','Enugu','FCT','Gombe','Imo','Jigawa','Kaduna','Kano','Katsina','Kebbi','Kogi','Kwara','Lagos','Nasarawa','Niger','Ogun','Ondo','Osun','Oyo','Plateau','Rivers','Sokoto','Taraba','Yobe','Zamfara'];
@@ -19,9 +20,11 @@ function fmt(n) { return Math.round(n || 0).toLocaleString('en-NG'); }
 function pct(n) { return `${Math.round((n || 0) * 100)}%`; }
 
 export default function Calculator() {
+  const { plan, isPro } = useAuth();
   const [activeTab, setActiveTab] = useState('panel');
   const [loading, setLoading] = useState(false);
   const [brands, setBrands] = useState({ panels: [], batteries: [] });
+  const [usageData, setUsageData] = useState(null);
 
   const [panelForm, setPanelForm] = useState({
     size_watts: 400, quantity: 10,
@@ -87,6 +90,11 @@ export default function Calculator() {
       .then(r => setBrands(r.data.data || { panels: [], batteries: [] }))
       .catch(() => {});
 
+    // Fetch usage data for Free plan users
+    calculatorAPI.getUsage()
+      .then(r => setUsageData(r.data.data || null))
+      .catch(() => {});
+
     const flush = async () => {
       if (typeof window === 'undefined' || !navigator.onLine) return;
       let queued = [];
@@ -119,12 +127,24 @@ export default function Calculator() {
     return () => window.removeEventListener('online', flush);
   }, []);
 
+  function handleCalcError(err, fallbackMsg) {
+    if (err?.response?.status === 429) {
+      const msg = err.response?.data?.message || 'Monthly limit reached.';
+      toast.error(msg, { duration: 6000 });
+      // Refresh usage display
+      calculatorAPI.getUsage().then(r => setUsageData(r.data.data || null)).catch(() => {});
+    } else {
+      toast.error(fallbackMsg);
+    }
+  }
+
   async function runPanel() {
     setLoading(true);
     try {
       const { data } = await calculatorAPI.panel(panelForm);
       setPanelResult(data.data);
-    } catch { toast.error('Calculation failed — check your inputs'); }
+      if (usageData?.is_limited) calculatorAPI.getUsage().then(r => setUsageData(r.data.data || null)).catch(() => {});
+    } catch (err) { handleCalcError(err, 'Calculation failed — check your inputs'); }
     finally { setLoading(false); }
   }
 
@@ -133,7 +153,8 @@ export default function Calculator() {
     try {
       const { data } = await calculatorAPI.battery(batteryForm);
       setBatteryResult(data.data);
-    } catch { toast.error('Calculation failed'); }
+      if (usageData?.is_limited) calculatorAPI.getUsage().then(r => setUsageData(r.data.data || null)).catch(() => {});
+    } catch (err) { handleCalcError(err, 'Calculation failed'); }
     finally { setLoading(false); }
   }
 
@@ -142,7 +163,8 @@ export default function Calculator() {
     try {
       const { data } = await calculatorAPI.degradation(degradForm);
       setDegradResult(data.data);
-    } catch { toast.error('Calculation failed'); }
+      if (usageData?.is_limited) calculatorAPI.getUsage().then(r => setUsageData(r.data.data || null)).catch(() => {});
+    } catch (err) { handleCalcError(err, 'Calculation failed'); }
     finally { setLoading(false); }
   }
 
@@ -151,8 +173,9 @@ export default function Calculator() {
     try {
       const { data } = await calculatorAPI.roi(roiForm);
       setRoiResult(data.data);
-    } catch {
-      toast.error('ROI calculation failed');
+      if (usageData?.is_limited) calculatorAPI.getUsage().then(r => setUsageData(r.data.data || null)).catch(() => {});
+    } catch (err) {
+      handleCalcError(err, 'ROI calculation failed');
     } finally {
       setLoading(false);
     }
@@ -163,8 +186,9 @@ export default function Calculator() {
     try {
       const { data } = await calculatorAPI.batterySoh(sohForm);
       setSohResult(data.data);
-    } catch {
-      toast.error('Battery SoH calculation failed');
+      if (usageData?.is_limited) calculatorAPI.getUsage().then(r => setUsageData(r.data.data || null)).catch(() => {});
+    } catch (err) {
+      handleCalcError(err, 'Battery SoH calculation failed');
     } finally {
       setLoading(false);
     }
@@ -175,8 +199,9 @@ export default function Calculator() {
     try {
       const { data } = await calculatorAPI.cableSize(cableForm);
       setCableResult(data.data);
-    } catch {
-      toast.error('Cable sizing calculation failed');
+      if (usageData?.is_limited) calculatorAPI.getUsage().then(r => setUsageData(r.data.data || null)).catch(() => {});
+    } catch (err) {
+      handleCalcError(err, 'Cable sizing calculation failed');
     } finally {
       setLoading(false);
     }
@@ -283,6 +308,31 @@ export default function Calculator() {
           </button>
         ))}
       </div>
+
+      {/* Usage banner — Free plan only */}
+      {usageData?.is_limited && (
+        <div className="mb-5 rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-semibold text-amber-800">
+              Free Plan Usage — {Object.values(usageData.usage || {}).reduce((a, b) => a + b, 0)} / 12 calculations used this month
+            </p>
+            <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1">
+              {['panel','battery','degradation','roi','battery-soh','cable-size'].map(t => {
+                const used = usageData.usage?.[t] || 0;
+                const labels = { panel: 'Panel', battery: 'Battery', degradation: 'Decommission', roi: 'ROI', 'battery-soh': 'SoH', 'cable-size': 'Cable' };
+                return (
+                  <span key={t} className={`text-xs ${used >= 2 ? 'text-red-600 font-semibold' : 'text-amber-600'}`}>
+                    {labels[t]}: {used}/2{used >= 2 ? ' ✕' : ''}
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+          <Link href="/plans" className="text-xs whitespace-nowrap font-semibold bg-forest-900 text-white px-3 py-2 rounded-lg hover:bg-forest-800 transition-colors">
+            Upgrade to Pro →
+          </Link>
+        </div>
+      )}
 
       <div className="max-w-4xl">
         {/* ── PANEL CALCULATOR ─────────────────────────────────────────────────── */}

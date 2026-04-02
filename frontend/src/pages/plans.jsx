@@ -82,7 +82,7 @@ export default function Plans() {
           <div className="absolute -bottom-20 -left-20 h-56 w-56 rounded-full bg-amber-300/20 blur-3xl" />
           <div className="relative">
             <h1 className="font-display font-bold text-3xl sm:text-4xl">Choose Your Plan</h1>
-            <p className="text-white/75 mt-2">Upgrade to unlock NESREA compliance reports, advanced analytics, and team workflows</p>
+            <p className="text-white/75 mt-2">Unlock NESREA compliance, QR field traceability, CSV/Excel export, and unlimited calculator uses</p>
             <p className="text-xs text-white/60 mt-1">All prices in Nigerian Naira. Annual billing includes 10% discount on every paid plan.</p>
 
         <div className="mt-6 inline-flex rounded-xl bg-slate-100 p-1">

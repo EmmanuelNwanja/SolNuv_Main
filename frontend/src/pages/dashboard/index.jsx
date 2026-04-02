@@ -257,8 +257,8 @@ export default function Dashboard() {
       {!isPro && (
         <MotionSection className="bg-gradient-to-r from-forest-900 to-emerald-800 rounded-2xl p-6 text-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
-            <p className="font-semibold">Unlock NESREA EPR Compliance Reports</p>
-            <p className="text-sm text-white/70 mt-1">Generate Cradle-to-Grave certificates and auto-send EPR reports to NESREA — one click.</p>
+            <p className="font-semibold">Unlock the Full SolNuv Toolkit</p>
+            <p className="text-sm text-white/70 mt-1">Unlimited calculator use · NESREA EPR compliance PDF · QR field traceability · CSV/Excel export · Custom portfolio page — all from &#x20A6;15,000/mo.</p>
           </div>
           <Link href="/plans" className="btn-amber flex-shrink-0">Upgrade to Pro →</Link>
         </MotionSection>

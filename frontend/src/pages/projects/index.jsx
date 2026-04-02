@@ -25,7 +25,7 @@ const VERIFICATION_OPTIONS = [
 ];
 
 export default function ProjectsList() {
-  const { isOnboarded } = useAuth();
+  const { isOnboarded, isPro } = useAuth();
   const router = useRouter();
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -93,9 +93,15 @@ export default function ProjectsList() {
               </div>
             </div>
             <div className="flex gap-3 flex-wrap">
-              <button onClick={handleExportCSV} disabled={exporting} className="rounded-xl border border-white/30 px-4 py-2.5 text-sm font-semibold text-white hover:bg-white/10 transition-colors inline-flex items-center gap-2">
-                <RiDownloadLine /> {exporting ? 'Exporting...' : 'Export CSV'}
-              </button>
+              {isPro ? (
+                <button onClick={handleExportCSV} disabled={exporting} className="rounded-xl border border-white/30 px-4 py-2.5 text-sm font-semibold text-white hover:bg-white/10 transition-colors inline-flex items-center gap-2">
+                  <RiDownloadLine /> {exporting ? 'Exporting...' : 'Export CSV'}
+                </button>
+              ) : (
+                <Link href="/plans" className="rounded-xl border border-amber-400/50 bg-amber-400/10 px-4 py-2.5 text-sm font-semibold text-amber-300 hover:bg-amber-400/20 transition-colors inline-flex items-center gap-2">
+                  🔒 Export CSV — Pro
+                </Link>
+              )}
               <Link href="/projects/add" className="btn-amber flex items-center gap-2">
                 <RiAddLine /> Add Project
               </Link>

@@ -185,6 +185,7 @@ export const calculatorAPI = {
   getSilverPrice: () => api.get('/calculator/silver-price'),
   getBrands: () => api.get('/calculator/brands'),
   getStates: () => api.get('/calculator/states'),
+  getUsage: () => api.get('/calculator/usage'),
 };
 
 export const engineeringAPI = {

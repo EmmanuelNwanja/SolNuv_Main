@@ -7,6 +7,10 @@ const PLAN_LIMITS = {
   enterprise: 50,
 };
 
+// Calculator uses per month per type for Free tier (6 types × 2 = 12 total)
+const FREE_CALC_USES_PER_TYPE = 2;
+const CALC_TYPES = ['panel', 'battery', 'degradation', 'roi', 'battery-soh', 'cable-size'];
+
 const PLAN_DEFINITIONS = {
   free: {
     id: 'free',
@@ -16,7 +20,7 @@ const PLAN_DEFINITIONS = {
     features: [
       'Unlimited project logging',
       'West African decommission predictions',
-      'Silver value calculator',
+      '12 calculator uses/month (2 per tool)',
       'Email decommission alerts',
       '1 user / 1 device',
     ],
@@ -29,11 +33,12 @@ const PLAN_DEFINITIONS = {
     annual_price_ngn: 162000,
     popular: true,
     features: [
-      'Everything in Free',
+      'Everything in Free — unlimited',
       'NESREA EPR Compliance PDF Reports',
       'Cradle-to-Grave Certificates',
-      'Excel export + recovery analytics',
+      'CSV & Excel export',
       'QR code traceability per project',
+      'Custom public portfolio page',
       'Team access (up to 5 users)',
       'Email support',
     ],
@@ -42,32 +47,38 @@ const PLAN_DEFINITIONS = {
   elite: {
     id: 'elite',
     name: 'Elite',
-    monthly_price_ngn: 35000,
-    annual_price_ngn: 378000,
+    monthly_price_ngn: 40000,
+    annual_price_ngn: 432000,
     features: [
       'Everything in Pro',
       'Auto-send reports to NESREA',
+      'ROI Proposal PDF + Cable Compliance PDF',
       'Team access (up to 15 users)',
-      'Priority support + onboarding',
+      'Priority support + onboarding call',
       'Advanced leaderboard insights',
+      'Featured installer badge',
     ],
     cta: 'Go Elite',
   },
   enterprise: {
     id: 'enterprise',
     name: 'Enterprise',
-    monthly_price_ngn: 90000,
-    annual_price_ngn: 972000,
+    monthly_price_ngn: 100000,
+    annual_price_ngn: 1080000,
     features: [
       'Everything in Elite',
-      'Custom integrations',
+      'Custom API integrations',
       'Team access (up to 50 users)',
       'Dedicated account manager',
-      'Quarterly compliance advisory',
+      'Quarterly EPR advisory sessions',
+      'White-label PDF reports',
+      'Custom compliance reporting',
     ],
     cta: 'Contact Sales',
   },
 };
+
+module.exports.__CALC_LIMITS = { FREE_CALC_USES_PER_TYPE, CALC_TYPES };
 
 const PAID_PLAN_IDS = ['pro', 'elite', 'enterprise'];
 

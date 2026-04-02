@@ -364,7 +364,15 @@ export default function Settings() {
             </div>
             <div>
               <label className="label">Public Portfolio Slug</label>
-              <input className="input" value={accountForm.public_slug} onChange={e => setAccountForm(f => ({ ...f, public_slug: e.target.value }))} placeholder="your-brand" />
+              {isPro ? (
+                <input className="input" value={accountForm.public_slug} onChange={e => setAccountForm(f => ({ ...f, public_slug: e.target.value }))} placeholder="your-brand" />
+              ) : (
+                <div className="rounded-xl bg-amber-50 border border-amber-200 p-3">
+                  <p className="text-xs font-semibold text-amber-700 mb-1">🔒 Custom Portfolio — Pro Feature</p>
+                  <p className="text-xs text-amber-600 mb-2">Set a public slug to share your portfolio page with clients and investors.</p>
+                  <a href="/plans" className="text-xs font-semibold text-forest-900 hover:underline">Upgrade to Pro →</a>
+                </div>
+              )}
             </div>
             <div>
               <label className="label">Public Bio</label>
