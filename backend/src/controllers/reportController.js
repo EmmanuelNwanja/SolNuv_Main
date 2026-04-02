@@ -162,7 +162,7 @@ exports.getHistory = async (req, res) => {
  */
 exports.generateExcel = async (req, res) => {
   try {
-    const XLSX = require('xlsx');
+    const ExcelJS = require('exceljs');
     const scopeFilter = req.user.company_id
       ? { field: 'company_id', value: req.user.company_id }
       : { field: 'user_id', value: req.user.id };
@@ -195,11 +195,20 @@ exports.generateExcel = async (req, res) => {
       });
     }
 
-    const ws = XLSX.utils.json_to_sheet(rows);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Projects');
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Projects');
 
-    const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    if (rows.length > 0) {
+      worksheet.columns = Object.keys(rows[0]).map((key) => ({ header: key, key, width: Math.max(16, key.length + 2) }));
+      rows.forEach((row) => worksheet.addRow(row));
+      worksheet.getRow(1).font = { bold: true };
+      worksheet.views = [{ state: 'frozen', ySplit: 1 }];
+    } else {
+      worksheet.columns = [{ header: 'Message', key: 'message', width: 40 }];
+      worksheet.addRow({ message: 'No projects found' });
+    }
+
+    const buffer = await workbook.xlsx.writeBuffer();
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename=SolNuv_Projects_${new Date().toISOString().split('T')[0]}.xlsx`);

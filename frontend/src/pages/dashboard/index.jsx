@@ -64,6 +64,7 @@ export default function Dashboard() {
   const upcoming = data?.upcoming_decommissions || [];
   const silver = data?.silver_portfolio || {};
   const rank = data?.leaderboard_rank;
+  const recycle = data?.recycle_income?.expected || {};
 
   return (
     <>
@@ -96,6 +97,37 @@ export default function Dashboard() {
                 View Leaderboard
               </Link>
             </div>
+          </div>
+        </div>
+      </MotionSection>
+
+      {/* ── Income Forecast ─────────────────────────────────────────────── */}
+      <MotionSection className="grid sm:grid-cols-2 gap-4 mb-6">
+        {/* Total Est. Income (Recycle + Silver) */}
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-700 to-forest-900 p-5 text-white">
+          <div className="absolute -top-8 -right-8 h-28 w-28 rounded-full bg-white/10 blur-2xl pointer-events-none" />
+          <p className="text-[10px] uppercase tracking-[0.22em] text-white/60 mb-1">Total Est. Income</p>
+          <p className="font-display text-3xl sm:text-4xl font-bold text-emerald-300">
+            ₦{(recycle.total_with_silver_ngn || 0).toLocaleString('en-NG')}
+          </p>
+          <p className="text-xs text-white/60 mt-1.5">Recycle + Silver · active fleet</p>
+          <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-white/50">
+            <span>Recycle: ₦{(recycle.total_recycle_ngn || 0).toLocaleString('en-NG')}</span>
+            <span>Silver: ₦{(recycle.silver_ngn || 0).toLocaleString('en-NG')}</span>
+          </div>
+        </div>
+
+        {/* Total Est. Recycle Income */}
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-forest-900 to-slate-800 p-5 text-white">
+          <div className="absolute -top-8 -left-8 h-28 w-28 rounded-full bg-white/10 blur-2xl pointer-events-none" />
+          <p className="text-[10px] uppercase tracking-[0.22em] text-white/60 mb-1">Total Est. Recycle Income</p>
+          <p className="font-display text-3xl sm:text-4xl font-bold text-amber-300">
+            ₦{(recycle.total_recycle_ngn || 0).toLocaleString('en-NG')}
+          </p>
+          <p className="text-xs text-white/60 mt-1.5">Second-life & material recovery</p>
+          <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-white/50">
+            <span>Panels: ₦{(recycle.panel_recycle_ngn || 0).toLocaleString('en-NG')}</span>
+            <span>Batteries: ₦{(recycle.battery_recycle_ngn || 0).toLocaleString('en-NG')}</span>
           </div>
         </div>
       </MotionSection>

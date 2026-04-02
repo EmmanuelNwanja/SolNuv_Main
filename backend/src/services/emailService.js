@@ -18,6 +18,20 @@ const transporter = nodemailer.createTransport({
 
 const FROM = `"${process.env.EMAIL_FROM_NAME || 'SolNuv'}" <${process.env.EMAIL_FROM || 'noreply@solnuv.com'}>`;
 
+function sanitizeHeader(value = '') {
+  return String(value).replace(/[\r\n]+/g, ' ').trim();
+}
+
+function normalizeRecipient(input) {
+  const value = sanitizeHeader(input).toLowerCase();
+  // Strict-enough guard for SMTP header injection and malformed addresses
+  const emailRegex = /^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/i;
+  if (!emailRegex.test(value)) {
+    throw new Error('Invalid recipient email address');
+  }
+  return value;
+}
+
 // ==============================
 // EMAIL TEMPLATES
 // ==============================
@@ -194,10 +208,13 @@ async function sendRecoveryConfirmation(user, project, recoveryRequest) {
 // ==============================
 async function sendEmail(to, subject, htmlContent) {
   try {
+    const safeTo = normalizeRecipient(to);
+    const safeSubject = sanitizeHeader(subject).slice(0, 180);
+
     const info = await transporter.sendMail({
       from: FROM,
-      to,
-      subject,
+      to: safeTo,
+      subject: safeSubject,
       html: baseTemplate(htmlContent),
     });
     return { success: true, messageId: info.messageId };
@@ -210,10 +227,13 @@ async function sendEmail(to, subject, htmlContent) {
 // Send email with PDF attachment
 async function sendEmailWithAttachment(to, subject, htmlContent, attachment) {
   try {
+    const safeTo = normalizeRecipient(to);
+    const safeSubject = sanitizeHeader(subject).slice(0, 180);
+
     const info = await transporter.sendMail({
       from: FROM,
-      to,
-      subject,
+      to: safeTo,
+      subject: safeSubject,
       html: baseTemplate(htmlContent),
       attachments: [attachment],
     });

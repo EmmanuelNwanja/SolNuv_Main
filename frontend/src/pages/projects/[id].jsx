@@ -167,6 +167,7 @@ export default function ProjectDetail() {
   const totalBatteries = batteries.reduce((s, e) => s + e.quantity, 0);
   const totalSilver = panels.reduce((s, e) => s + (e.estimated_silver_grams || 0), 0);
   const totalSilverValue = panels.reduce((s, e) => s + (e.estimated_silver_value_ngn || 0), 0);
+  const recycleIncome = project.recycle_income || {};
   const daysUntil = project.estimated_decommission_date
     ? Math.ceil((new Date(project.estimated_decommission_date) - new Date()) / (1000 * 60 * 60 * 24))
     : null;
@@ -367,6 +368,35 @@ export default function ProjectDetail() {
                 </div>
               </div>
               <p className="text-xs text-white/40 mt-3">Silver is ~47% of total reclaimable economic value of solar panels</p>
+            </div>
+          )}
+
+          {/* Recycle income card */}
+          {(recycleIncome.total_recycle_ngn > 0 || recycleIncome.total_with_silver_ngn > 0) && (
+            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-700 to-forest-900 p-5 text-white">
+              <div className="absolute -top-6 -right-6 h-24 w-24 rounded-full bg-white/10 blur-xl pointer-events-none" />
+              <p className="text-white/70 text-xs font-medium mb-1">EST. RECYCLE INCOME</p>
+              <p className="font-display text-3xl font-bold text-emerald-300">
+                ₦{(recycleIncome.total_with_silver_ngn || 0).toLocaleString('en-NG')}
+              </p>
+              <p className="text-[10px] text-white/50 mt-0.5">Recycle + Silver · this project</p>
+              <div className="mt-3 space-y-1.5 text-xs">
+                <div className="flex justify-between">
+                  <span className="text-white/70">Panels (second-life/material)</span>
+                  <span className="font-semibold text-amber-300">₦{(recycleIncome.panel_recycle_ngn || 0).toLocaleString('en-NG')}</span>
+                </div>
+                {(recycleIncome.battery_recycle_ngn || 0) > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-white/70">Batteries (second-life/material)</span>
+                    <span className="font-semibold text-emerald-300">₦{recycleIncome.battery_recycle_ngn.toLocaleString('en-NG')}</span>
+                  </div>
+                )}
+                <div className="flex justify-between">
+                  <span className="text-white/70">Silver recovery</span>
+                  <span className="font-semibold text-white/80">₦{(recycleIncome.silver_ngn || 0).toLocaleString('en-NG')}</span>
+                </div>
+              </div>
+              <p className="text-[10px] text-white/40 mt-3">Recycling for re-use is typically 40–74× more valuable than silver-only recovery.</p>
             </div>
           )}
 

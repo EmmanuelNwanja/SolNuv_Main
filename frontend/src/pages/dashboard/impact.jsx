@@ -45,6 +45,64 @@ export default function Impact() {
       </MotionSection>
 
       <div className="max-w-3xl space-y-6">
+        {/* ── Income Forecast ──────────────────────────────────────────── */}
+        <MotionSection className="grid sm:grid-cols-2 gap-4">
+          {/* Total Est. Income (Recycle + Silver) – expected fleet */}
+          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-700 to-forest-900 p-5 text-white">
+            <div className="absolute -top-8 -right-8 h-28 w-28 rounded-full bg-white/10 blur-2xl pointer-events-none" />
+            <p className="text-[10px] uppercase tracking-[0.22em] text-white/60 mb-1">Total Est. Income</p>
+            <p className="font-display text-3xl font-bold text-emerald-300">
+              ₦{(data?.recycle_income?.expected?.total_with_silver_ngn || 0).toLocaleString('en-NG')}
+            </p>
+            <p className="text-xs text-white/60 mt-1.5">Recycle + Silver · full fleet</p>
+            <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-white/50">
+              <span>Recycle: ₦{(data?.recycle_income?.expected?.total_recycle_ngn || 0).toLocaleString('en-NG')}</span>
+              <span>Silver: ₦{(data?.recycle_income?.expected?.silver_ngn || 0).toLocaleString('en-NG')}</span>
+            </div>
+          </div>
+
+          {/* Total Est. Recycle Income – expected fleet */}
+          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-forest-900 to-slate-800 p-5 text-white">
+            <div className="absolute -top-8 -left-8 h-28 w-28 rounded-full bg-white/10 blur-2xl pointer-events-none" />
+            <p className="text-[10px] uppercase tracking-[0.22em] text-white/60 mb-1">Total Est. Recycle Income</p>
+            <p className="font-display text-3xl font-bold text-amber-300">
+              ₦{(data?.recycle_income?.expected?.total_recycle_ngn || 0).toLocaleString('en-NG')}
+            </p>
+            <p className="text-xs text-white/60 mt-1.5">Second-life & material recovery</p>
+            <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-white/50">
+              <span>Panels: ₦{(data?.recycle_income?.expected?.panel_recycle_ngn || 0).toLocaleString('en-NG')}</span>
+              <span>Batteries: ₦{(data?.recycle_income?.expected?.battery_recycle_ngn || 0).toLocaleString('en-NG')}</span>
+            </div>
+          </div>
+        </MotionSection>
+
+        {/* Actual income from already-recycled projects */}
+        {(data?.recycle_income?.actual?.total_with_silver_ngn || 0) > 0 && (
+          <MotionSection className="card border-l-4 border-emerald-500 pl-5">
+            <p className="text-xs uppercase tracking-[0.2em] text-slate-400 mb-2">Earned from Recycled Projects</p>
+            <div className="flex flex-wrap gap-6">
+              <div>
+                <p className="text-xs text-slate-500">Total Recycle Income</p>
+                <p className="font-display text-2xl font-bold text-emerald-600">
+                  ₦{(data.recycle_income.actual.total_recycle_ngn || 0).toLocaleString('en-NG')}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-slate-500">Silver Recovery</p>
+                <p className="font-display text-2xl font-bold text-amber-500">
+                  ₦{(data.recycle_income.actual.silver_ngn || 0).toLocaleString('en-NG')}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-slate-500">Combined</p>
+                <p className="font-display text-2xl font-bold text-forest-900">
+                  ₦{(data.recycle_income.actual.total_with_silver_ngn || 0).toLocaleString('en-NG')}
+                </p>
+              </div>
+            </div>
+          </MotionSection>
+        )}
+
         {/* Progress bar */}
         <MotionSection className="card">
           <div className="flex justify-between items-end mb-2">

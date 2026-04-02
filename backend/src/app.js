@@ -9,6 +9,9 @@ const logger = require('./utils/logger');
 
 const app = express();
 
+// Reduce fingerprinting surface
+app.disable('x-powered-by');
+
 // Render runs behind a reverse proxy; trust it so req.ip is the real client IP.
 // Without this, rate limiting can bucket many users together and cause false throttling.
 app.set('trust proxy', 1);
@@ -18,6 +21,10 @@ app.set('trust proxy', 1);
 // ==============================
 app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },
+  referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+  hsts: process.env.NODE_ENV === 'production'
+    ? { maxAge: 15552000, includeSubDomains: true, preload: true }
+    : false,
 }));
 
 // CORS — allow frontend
@@ -43,6 +50,7 @@ app.use(cors({
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
+  optionsSuccessStatus: 204,
 }));
 
 // ==============================

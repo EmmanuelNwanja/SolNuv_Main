@@ -6,7 +6,7 @@
 const supabase = require('../config/database');
 const { sendSuccess, sendError, sendPaginated } = require('../utils/responseHelper');
 const { calculateDecommissionDate } = require('../services/degradationService');
-const { calculatePanelSilver } = require('../services/silverService');
+const { calculatePanelSilver, calculateProjectRecycleIncome } = require('../services/silverService');
 const { refreshLeaderboard } = require('../services/schedulerService');
 const logger = require('../utils/logger');
 const QRCode = require('qrcode');
@@ -250,10 +250,13 @@ exports.getProject = async (req, res) => {
 
     if (error || !project) return sendError(res, 'Project not found', 404);
 
-    // Recalculate degradation for display
-    const degradation = await calculateDecommissionDate(project.state, project.installation_date);
+    // Recalculate degradation for display + compute recycle income (run in parallel)
+    const [degradation, recycleIncome] = await Promise.all([
+      calculateDecommissionDate(project.state, project.installation_date),
+      calculateProjectRecycleIncome(project.equipment || [], project.installation_date),
+    ]);
 
-    return sendSuccess(res, { ...project, degradation_info: degradation });
+    return sendSuccess(res, { ...project, degradation_info: degradation, recycle_income: recycleIncome });
   } catch (_error) {
     return sendError(res, 'Failed to fetch project', 500);
   }

@@ -4,7 +4,7 @@
 
 const supabase = require('../config/database');
 const { sendSuccess, sendError } = require('../utils/responseHelper');
-const { calculatePortfolioSilver } = require('../services/silverService');
+const { calculatePortfolioSilver, calculatePortfolioRecycleIncome } = require('../services/silverService');
 const logger = require('../utils/logger');
 
 function normalizeSlug(value) {
@@ -73,8 +73,11 @@ exports.getDashboard = async (req, res) => {
       .sort((a, b) => a.days_until_decommission - b.days_until_decommission)
       .slice(0, 5); // Top 5 closest
 
-    // Silver portfolio value
-    const silverPortfolio = await calculatePortfolioSilver(userId, companyId);
+    // Silver portfolio + recycle income (run in parallel)
+    const [silverPortfolio, recycleIncome] = await Promise.all([
+      calculatePortfolioSilver(userId, companyId),
+      calculatePortfolioRecycleIncome(userId, companyId),
+    ]);
 
     // User's leaderboard rank — company users are ranked as a company entity
     const leaderboardEntityId = companyId || userId;
@@ -101,6 +104,7 @@ exports.getDashboard = async (req, res) => {
         total_silver_grams: parseFloat(totalSilverGrams.toFixed(4)),
       },
       silver_portfolio: silverPortfolio,
+      recycle_income: recycleIncome,
       upcoming_decommissions: upcoming,
       recent_projects: recent,
       leaderboard_rank: leaderboard || null,
@@ -158,6 +162,8 @@ exports.getImpact = async (req, res) => {
     // Each panel avoids ~230kg CO2 over its lifetime
     const co2Avoided = recycledPanels * 230;
 
+    const recycleIncome = await calculatePortfolioRecycleIncome(userId, companyId);
+
     return sendSuccess(res, {
       actual: {
         panels_recycled: recycledPanels,
@@ -171,6 +177,7 @@ exports.getImpact = async (req, res) => {
         expected_co2_avoided_kg: expectedPanels * 230,
       },
       silver_value_ngn: parseFloat((recycledSilverGrams * 0.35 * 1555).toFixed(2)),
+      recycle_income: recycleIncome,
     });
   } catch (error) {
     logger.error('Failed to calculate impact', { user_id: req.user?.id || null, company_id: req.user?.company_id || null, message: error.message });
