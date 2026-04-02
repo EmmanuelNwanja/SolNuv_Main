@@ -1,14 +1,27 @@
 import Head from 'next/head';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { dashboardAPI } from '../../services/api';
 import toast from 'react-hot-toast';
+
+function buildSubmissionStorageKey(token) {
+  return `solnuv-feedback-submission:${token}`;
+}
+
+function generateSubmissionKey() {
+  if (typeof window !== 'undefined' && window.crypto?.randomUUID) {
+    return window.crypto.randomUUID();
+  }
+
+  return `fb_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+}
 
 export default function PublicFeedbackForm() {
   const router = useRouter();
   const { token } = router.query;
   const [submitting, setSubmitting] = useState(false);
+  const [submissionKey, setSubmissionKey] = useState('');
   const [form, setForm] = useState({
     client_name: '',
     client_email: '',
@@ -21,13 +34,30 @@ export default function PublicFeedbackForm() {
 
   const update = (field, value) => setForm((prev) => ({ ...prev, [field]: value }));
 
+  useEffect(() => {
+    if (!router.isReady || !token || typeof window === 'undefined') return;
+
+    const storageKey = buildSubmissionStorageKey(token);
+    let nextSubmissionKey = window.sessionStorage.getItem(storageKey);
+
+    if (!nextSubmissionKey) {
+      nextSubmissionKey = generateSubmissionKey();
+      window.sessionStorage.setItem(storageKey, nextSubmissionKey);
+    }
+
+    setSubmissionKey(nextSubmissionKey);
+  }, [router.isReady, token]);
+
   async function submit(e) {
     e.preventDefault();
-    if (!token) return;
+    if (!token || !submissionKey || submitting) return;
 
     setSubmitting(true);
     try {
-      await dashboardAPI.submitPublicFeedback(token, form);
+      await dashboardAPI.submitPublicFeedback(token, { ...form, submission_key: submissionKey });
+      if (typeof window !== 'undefined') {
+        window.sessionStorage.removeItem(buildSubmissionStorageKey(token));
+      }
       setDone(true);
       toast.success('Thank you for your feedback');
     } catch (err) {
@@ -84,7 +114,7 @@ export default function PublicFeedbackForm() {
                 <input type="checkbox" checked={form.consent_to_showcase} onChange={(e) => update('consent_to_showcase', e.target.checked)} />
                 Allow this feedback to appear on public portfolio pages
               </label>
-              <button className="btn-primary w-full" disabled={submitting}>{submitting ? 'Submitting...' : 'Submit Feedback'}</button>
+              <button className="btn-primary w-full" disabled={submitting || !submissionKey}>{submitting ? 'Submitting...' : 'Submit Feedback'}</button>
             </form>
           )}
         </div>

@@ -14,6 +14,16 @@ function normalizeSlug(value) {
     .replace(/[^a-z0-9-]/g, '');
 }
 
+function normalizeFeedbackValue(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase();
+}
+
+function normalizeFeedbackText(value) {
+  return normalizeFeedbackValue(value).replace(/\s+/g, ' ');
+}
+
 /**
  * GET /api/dashboard
  * Main dashboard data
@@ -494,10 +504,22 @@ exports.submitPublicFeedback = async (req, res) => {
       rating,
       comment,
       consent_to_showcase = true,
+      submission_key,
     } = req.body || {};
 
-    if (!rating || Number(rating) < 1 || Number(rating) > 5) {
+    const normalizedSubmissionKey = String(submission_key || '').trim() || null;
+    const normalizedName = normalizeFeedbackValue(client_name);
+    const normalizedEmail = normalizeFeedbackValue(client_email);
+    const normalizedPhone = normalizeFeedbackValue(client_phone);
+    const normalizedComment = normalizeFeedbackText(comment);
+    const numericRating = Number(rating);
+
+    if (!rating || numericRating < 1 || numericRating > 5) {
       return sendError(res, 'Rating must be between 1 and 5', 400);
+    }
+
+    if (!String(client_name || '').trim()) {
+      return sendError(res, 'Client name is required', 400);
     }
 
     const { data: project } = await supabase
@@ -508,6 +530,51 @@ exports.submitPublicFeedback = async (req, res) => {
 
     if (!project) return sendError(res, 'Invalid feedback link', 404);
 
+    if (normalizedSubmissionKey) {
+      const { data: existingByKey, error: existingByKeyError } = await supabase
+        .from('project_feedback')
+        .select('*')
+        .eq('project_id', project.id)
+        .eq('submission_key', normalizedSubmissionKey)
+        .limit(1);
+
+      if (existingByKeyError) throw existingByKeyError;
+      if (existingByKey?.length) {
+        return sendSuccess(res, existingByKey[0], 'Feedback already submitted');
+      }
+    }
+
+    const { data: recentFeedback, error: recentFeedbackError } = await supabase
+      .from('project_feedback')
+      .select('*')
+      .eq('project_id', project.id)
+      .order('submitted_at', { ascending: false })
+      .limit(20);
+
+    if (recentFeedbackError) throw recentFeedbackError;
+
+    const duplicateWindowMs = 15 * 60 * 1000;
+    const duplicateFeedback = (recentFeedback || []).find((item) => {
+      const submittedAt = item.submitted_at ? new Date(item.submitted_at).getTime() : 0;
+      const isRecent = submittedAt > 0 && (Date.now() - submittedAt) <= duplicateWindowMs;
+      if (!isRecent) return false;
+
+      const sameIdentity = (
+        (normalizedEmail && normalizeFeedbackValue(item.client_email) === normalizedEmail) ||
+        (normalizedPhone && normalizeFeedbackValue(item.client_phone) === normalizedPhone) ||
+        (normalizedName && normalizeFeedbackValue(item.client_name) === normalizedName)
+      );
+
+      const sameContent = Number(item.rating || 0) === numericRating
+        && normalizeFeedbackText(item.comment) === normalizedComment;
+
+      return sameIdentity && sameContent;
+    });
+
+    if (duplicateFeedback) {
+      return sendSuccess(res, duplicateFeedback, 'Feedback already submitted');
+    }
+
     const { data, error } = await supabase
       .from('project_feedback')
       .insert({
@@ -517,9 +584,10 @@ exports.submitPublicFeedback = async (req, res) => {
         client_name,
         client_email,
         client_phone,
-        rating: Number(rating),
+        rating: numericRating,
         comment,
         consent_to_showcase: consent_to_showcase !== false,
+        submission_key: normalizedSubmissionKey,
       })
       .select('*')
       .single();
