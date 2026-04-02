@@ -531,7 +531,7 @@ exports.getPublicProfile = async (req, res) => {
     const normalizedSlug = normalizeSlug(decodeURIComponent(req.params.slug || ''));
     if (!normalizedSlug) return sendError(res, 'Profile not found', 404);
 
-    const userSelect = 'id, first_name, last_name, brand_name, public_slug, public_bio, is_public_profile, company_id';
+    const userSelect = 'id, first_name, last_name, brand_name, public_slug, public_bio, is_public_profile, company_id, email, phone';
 
     let user = null;
 
@@ -592,7 +592,7 @@ exports.getPublicProfile = async (req, res) => {
     if (user.company_id) {
       const { data: companyData } = await supabase
         .from('companies')
-        .select('name, logo_url, website')
+        .select('name, logo_url, website, email, phone, address, city, state, nesrea_registration_number, branding_primary_color')
         .eq('id', user.company_id)
         .maybeSingle();
       companyMeta = companyData || null;
@@ -603,12 +603,21 @@ exports.getPublicProfile = async (req, res) => {
 
     const { data: projects } = await supabase
       .from('projects')
-      .select('id, name, status, state, city, created_at')
+      .select('id, name, status, state, city, address, latitude, longitude, installation_date, estimated_decommission_date, total_system_size_kw, created_at')
       .eq(scopeField, scopeValue)
       .order('created_at', { ascending: false })
       .limit(30);
 
     const projectIds = (projects || []).map((p) => p.id);
+
+    let equipment = [];
+    if (projectIds.length > 0) {
+      const { data: equipmentRows } = await supabase
+        .from('equipment')
+        .select('project_id, equipment_type, brand, model, size_watts, capacity_kwh, power_kw, quantity')
+        .in('project_id', projectIds);
+      equipment = equipmentRows || [];
+    }
 
     let feedback = [];
     if (projectIds.length > 0) {
@@ -629,13 +638,122 @@ exports.getPublicProfile = async (req, res) => {
     const activeCount = (projects || []).filter((p) => p.status === 'active').length;
     const recycledCount = (projects || []).filter((p) => p.status === 'recycled').length;
 
+    const panelEquipment = equipment.filter((item) => item.equipment_type === 'panel');
+    const batteryEquipment = equipment.filter((item) => item.equipment_type === 'battery');
+    const inverterEquipment = equipment.filter((item) => item.equipment_type === 'inverter');
+
+    const totalPanelCount = panelEquipment.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+    const totalBatteryCount = batteryEquipment.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+    const totalInverterCount = inverterEquipment.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+
+    const panelCapacityKw = panelEquipment.reduce(
+      (sum, item) => sum + ((Number(item.size_watts || 0) * Number(item.quantity || 0)) / 1000),
+      0
+    );
+    const inverterCapacityKw = inverterEquipment.reduce(
+      (sum, item) => sum + (Number(item.power_kw || 0) * Number(item.quantity || 0)),
+      0
+    );
+    const batteryCapacityKwh = batteryEquipment.reduce(
+      (sum, item) => sum + (Number(item.capacity_kwh || 0) * Number(item.quantity || 0)),
+      0
+    );
+
+    const projectsTotalKw = (projects || []).reduce((sum, item) => sum + Number(item.total_system_size_kw || 0), 0);
+    const cumulativeCapacityKw = projectsTotalKw || panelCapacityKw || inverterCapacityKw;
+
+    const manufacturersByType = {
+      panel: [...new Set(panelEquipment.map((item) => item.brand).filter(Boolean))],
+      battery: [...new Set(batteryEquipment.map((item) => item.brand).filter(Boolean))],
+      inverter: [...new Set(inverterEquipment.map((item) => item.brand).filter(Boolean))],
+    };
+
+    const points = (projects || [])
+      .filter((item) => item.latitude !== null && item.longitude !== null)
+      .map((item) => ({
+        id: item.id,
+        name: item.name,
+        city: item.city,
+        state: item.state,
+        status: item.status,
+        latitude: Number(item.latitude),
+        longitude: Number(item.longitude),
+      }));
+
+    const regionalCoverage = [...new Set((projects || []).map((item) => item.state).filter(Boolean))].length;
+
+    const equipmentByProject = equipment.reduce((acc, item) => {
+      const list = acc.get(item.project_id) || [];
+      list.push(item);
+      acc.set(item.project_id, list);
+      return acc;
+    }, new Map());
+
+    const enrichedProjects = (projects || []).map((item) => {
+      const projectEquipment = equipmentByProject.get(item.id) || [];
+      const projectPanelCount = projectEquipment
+        .filter((eq) => eq.equipment_type === 'panel')
+        .reduce((sum, eq) => sum + Number(eq.quantity || 0), 0);
+      const projectBatteryCount = projectEquipment
+        .filter((eq) => eq.equipment_type === 'battery')
+        .reduce((sum, eq) => sum + Number(eq.quantity || 0), 0);
+      const projectInverterCount = projectEquipment
+        .filter((eq) => eq.equipment_type === 'inverter')
+        .reduce((sum, eq) => sum + Number(eq.quantity || 0), 0);
+
+      const projectCapacityKw = Number(item.total_system_size_kw || 0)
+        || projectEquipment
+          .filter((eq) => eq.equipment_type === 'panel')
+          .reduce((sum, eq) => sum + ((Number(eq.size_watts || 0) * Number(eq.quantity || 0)) / 1000), 0)
+        || projectEquipment
+          .filter((eq) => eq.equipment_type === 'inverter')
+          .reduce((sum, eq) => sum + (Number(eq.power_kw || 0) * Number(eq.quantity || 0)), 0);
+
+      return {
+        id: item.id,
+        name: item.name,
+        status: item.status,
+        state: item.state,
+        city: item.city,
+        address: item.address,
+        latitude: item.latitude,
+        longitude: item.longitude,
+        installation_date: item.installation_date,
+        estimated_decommission_date: item.estimated_decommission_date,
+        logging_date: item.created_at,
+        project_capacity_mw: Number((projectCapacityKw / 1000).toFixed(4)),
+        equipment_summary: {
+          panel_count: projectPanelCount,
+          battery_count: projectBatteryCount,
+          inverter_count: projectInverterCount,
+          manufacturers: {
+            panel: [...new Set(projectEquipment.filter((eq) => eq.equipment_type === 'panel').map((eq) => eq.brand).filter(Boolean))],
+            battery: [...new Set(projectEquipment.filter((eq) => eq.equipment_type === 'battery').map((eq) => eq.brand).filter(Boolean))],
+            inverter: [...new Set(projectEquipment.filter((eq) => eq.equipment_type === 'inverter').map((eq) => eq.brand).filter(Boolean))],
+          },
+        },
+      };
+    });
+
+    const primaryName = companyMeta?.name || user.brand_name || `${user.first_name || ''} ${user.last_name || ''}`.trim();
+    const contactPhone = companyMeta?.phone || user.phone || null;
+    const contactEmail = companyMeta?.email || user.email || null;
+    const contactAddress = companyMeta?.address || [companyMeta?.city, companyMeta?.state].filter(Boolean).join(', ') || null;
+
     return sendSuccess(res, {
       profile: {
-        name: companyMeta?.name || user.brand_name || `${user.first_name || ''} ${user.last_name || ''}`.trim(),
+        name: primaryName,
         public_slug: user.public_slug,
         bio: user.public_bio,
         logo_url: companyMeta?.logo_url || null,
         website: companyMeta?.website || null,
+        primary_color: companyMeta?.branding_primary_color || '#0D3B2E',
+        registration: companyMeta?.nesrea_registration_number || null,
+        contact: {
+          phone: contactPhone,
+          email: contactEmail,
+          address: contactAddress,
+        },
       },
       stats: {
         total_projects: (projects || []).length,
@@ -643,8 +761,25 @@ exports.getPublicProfile = async (req, res) => {
         recycled_projects: recycledCount,
         average_rating: Number(averageRating.toFixed(2)),
         total_feedback: feedback.length,
+        cumulative_executed_capacity_mw: Number((cumulativeCapacityKw / 1000).toFixed(4)),
+        cumulative_storage_capacity_mwh: Number((batteryCapacityKwh / 1000).toFixed(4)),
+        total_panels: totalPanelCount,
+        total_batteries: totalBatteryCount,
+        total_inverters: totalInverterCount,
+        regional_coverage_states: regionalCoverage,
       },
-      recent_projects: projects || [],
+      map_summary: {
+        points,
+        total_mapped_projects: points.length,
+      },
+      equipment_summary: {
+        manufacturers: manufacturersByType,
+        panel_capacity_kw: Number(panelCapacityKw.toFixed(2)),
+        inverter_capacity_kw: Number(inverterCapacityKw.toFixed(2)),
+        battery_capacity_kwh: Number(batteryCapacityKwh.toFixed(2)),
+      },
+      recent_projects: enrichedProjects.slice(0, 12),
+      projects: enrichedProjects,
       reviews: feedback,
     });
   } catch (error) {

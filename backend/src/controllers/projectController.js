@@ -410,20 +410,139 @@ exports.verifyByQR = async (req, res) => {
     const { qrCode } = req.params;
     const { data: project } = await supabase
       .from('projects')
-      .select('id, name, state, city, installation_date, estimated_decommission_date, status, equipment(equipment_type, brand, quantity)')
+      .select(`
+        id,
+        user_id,
+        company_id,
+        name,
+        client_name,
+        description,
+        state,
+        city,
+        address,
+        latitude,
+        longitude,
+        status,
+        installation_date,
+        estimated_decommission_date,
+        actual_decommission_date,
+        recycling_date,
+        total_system_size_kw,
+        created_at,
+        equipment(
+          equipment_type,
+          brand,
+          model,
+          size_watts,
+          capacity_kwh,
+          power_kw,
+          quantity,
+          condition
+        )
+      `)
       .eq('qr_code_data', qrCode)
       .single();
 
     if (!project) return sendError(res, 'Project not found', 404);
 
+    let companyMeta = null;
+    if (project.company_id) {
+      const { data: company } = await supabase
+        .from('companies')
+        .select('id, name, email, phone, address, city, state, logo_url, website, nesrea_registration_number')
+        .eq('id', project.company_id)
+        .maybeSingle();
+      companyMeta = company || null;
+    }
+
+    const { data: owner } = await supabase
+      .from('users')
+      .select('id, first_name, last_name, brand_name, email, phone')
+      .eq('id', project.user_id)
+      .maybeSingle();
+
+    const equipment = project.equipment || [];
+    const panels = equipment.filter((item) => item.equipment_type === 'panel');
+    const batteries = equipment.filter((item) => item.equipment_type === 'battery');
+    const inverters = equipment.filter((item) => item.equipment_type === 'inverter');
+
+    const panelQuantity = panels.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+    const batteryQuantity = batteries.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+    const inverterQuantity = inverters.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+
+    const panelCapacityKw = panels.reduce(
+      (sum, item) => sum + ((Number(item.size_watts || 0) * Number(item.quantity || 0)) / 1000),
+      0
+    );
+    const inverterCapacityKw = inverters.reduce(
+      (sum, item) => sum + (Number(item.power_kw || 0) * Number(item.quantity || 0)),
+      0
+    );
+    const batteryCapacityKwh = batteries.reduce(
+      (sum, item) => sum + (Number(item.capacity_kwh || 0) * Number(item.quantity || 0)),
+      0
+    );
+
+    const inferredCapacityKw = Number(project.total_system_size_kw || 0) || panelCapacityKw || inverterCapacityKw;
+
+    const uniqueManufacturers = {
+      panel: [...new Set(panels.map((item) => item.brand).filter(Boolean))],
+      battery: [...new Set(batteries.map((item) => item.brand).filter(Boolean))],
+      inverter: [...new Set(inverters.map((item) => item.brand).filter(Boolean))],
+    };
+
+    const brandName = companyMeta?.name || owner?.brand_name || `${owner?.first_name || ''} ${owner?.last_name || ''}`.trim();
+    const brandEmail = companyMeta?.email || owner?.email || null;
+    const brandPhone = companyMeta?.phone || owner?.phone || null;
+    const brandAddress = companyMeta?.address
+      || [companyMeta?.city, companyMeta?.state].filter(Boolean).join(', ')
+      || null;
+
     return sendSuccess(res, {
-      project_name: project.name,
-      location: `${project.city}, ${project.state}`,
-      installation_date: project.installation_date,
-      estimated_decommission: project.estimated_decommission_date,
-      status: project.status,
-      total_panels: project.equipment?.filter(e => e.equipment_type === 'panel').reduce((s, e) => s + e.quantity, 0),
-      total_batteries: project.equipment?.filter(e => e.equipment_type === 'battery').reduce((s, e) => s + e.quantity, 0),
+      brand: {
+        name: brandName || 'SolNuv Verified Installer',
+        logo_url: companyMeta?.logo_url || null,
+        website: companyMeta?.website || null,
+        registration: companyMeta?.nesrea_registration_number || null,
+        contact: {
+          phone: brandPhone,
+          email: brandEmail,
+          address: brandAddress,
+        },
+      },
+      project: {
+        id: project.id,
+        name: project.name,
+        client_name: project.client_name,
+        description: project.description,
+        status: project.status,
+        location: `${project.city}, ${project.state}`,
+        state: project.state,
+        city: project.city,
+        address: project.address,
+        latitude: project.latitude,
+        longitude: project.longitude,
+        commissioning_date: project.installation_date,
+        logging_date: project.created_at,
+        estimated_decommission_date: project.estimated_decommission_date,
+        actual_decommission_date: project.actual_decommission_date,
+        recycling_date: project.recycling_date,
+      },
+      summary: {
+        total_project_capacity_mw: Number((inferredCapacityKw / 1000).toFixed(4)),
+        total_project_capacity_kw: Number(inferredCapacityKw.toFixed(2)),
+        battery_storage_capacity_mwh: Number((batteryCapacityKwh / 1000).toFixed(4)),
+        battery_storage_capacity_kwh: Number(batteryCapacityKwh.toFixed(2)),
+        total_panels: panelQuantity,
+        total_batteries: batteryQuantity,
+        total_inverters: inverterQuantity,
+      },
+      equipment_breakdown: {
+        panel: panels,
+        battery: batteries,
+        inverter: inverters,
+      },
+      manufacturers: uniqueManufacturers,
       verified_by: 'SolNuv Platform',
       verified_at: new Date().toISOString(),
     });
