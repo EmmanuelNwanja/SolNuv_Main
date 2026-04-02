@@ -187,8 +187,10 @@ exports.createProject = async (req, res) => {
       }
     }
 
-    // Generate QR code URL (data URL for now, can be uploaded to storage)
-    const qrCodeDataUrl = await QRCode.toDataURL(`https://solnuv.com/projects/verify/${qrData}`, {
+    // Generate QR code URL using configured frontend origin
+    const frontendBase = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const qrVerificationLink = `${frontendBase}/projects/verify/${qrData}`;
+    const qrCodeDataUrl = await QRCode.toDataURL(qrVerificationLink, {
       color: { dark: '#0D3B2E', light: '#FFFFFF' },
       width: 300,
     });
