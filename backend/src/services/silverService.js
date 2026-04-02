@@ -192,7 +192,18 @@ async function calculatePanelValue(wattsPerPanel, quantity, installationDate, cl
 
 // ─── BATTERY VALUATION ───────────────────────────────────────────────────────
 async function calculateBatteryValue(brand, capacityKwh, quantity, installationDate, condition = 'good') {
-  const { data: brandData } = await supabase.from('battery_brands').select('*').ilike('brand', brand).single().catch(() => ({ data: null }));
+  // Use maybeSingle() (correct API for 0-or-1 row) inside try-catch.
+  // Avoid chaining .catch() on a PostgREST builder, which is only PromiseLike —
+  // not a full Promise — and may not expose .catch() as a callable method.
+  let brandData = null;
+  try {
+    const { data } = await supabase
+      .from('battery_brands')
+      .select('*')
+      .ilike('brand', brand)
+      .maybeSingle();
+    brandData = data;
+  } catch (_) { /* table missing or network error — fall back to defaults */ }
   const sp  = await getSilverPrice();
   const qty = parseInt(quantity);
   const kwh = parseFloat(capacityKwh);
