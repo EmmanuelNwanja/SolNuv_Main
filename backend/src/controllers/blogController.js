@@ -336,6 +336,9 @@ exports.adminCreateAd = async (req, res) => {
     const { title, image_url, target_url, body_text, placement, priority, start_date, end_date, is_active, max_total_views, max_unique_accounts } = req.body;
     if (!title) return sendError(res, 'title is required', 422);
 
+    const effectivePlacement = placement || 'sidebar';
+    const isPopup = effectivePlacement === 'popup';
+
     const { data, error } = await supabase
       .from('ads')
       .insert({
@@ -343,13 +346,13 @@ exports.adminCreateAd = async (req, res) => {
         image_url: image_url || null,
         target_url: target_url || null,
         body_text: body_text || null,
-        placement: placement || 'sidebar',
+        placement: effectivePlacement,
         priority: Number(priority) || 0,
         start_date: start_date || null,
         end_date: end_date || null,
         is_active: is_active !== false,
-        max_total_views: max_total_views ? Number(max_total_views) : null,
-        max_unique_accounts: max_unique_accounts ? Number(max_unique_accounts) : null,
+        ...(isPopup && { max_total_views: max_total_views ? Number(max_total_views) : null }),
+        ...(isPopup && { max_unique_accounts: max_unique_accounts ? Number(max_unique_accounts) : null }),
         created_by: req.supabaseUser.id,
       })
       .select()
@@ -367,6 +370,7 @@ exports.adminUpdateAd = async (req, res) => {
   try {
     const { id } = req.params;
     const { title, image_url, target_url, body_text, placement, priority, start_date, end_date, is_active, max_total_views, max_unique_accounts } = req.body;
+    const isPopup = (placement || '') === 'popup';
     const updates = {
       ...(title !== undefined && { title }),
       image_url: image_url || null,
@@ -377,8 +381,8 @@ exports.adminUpdateAd = async (req, res) => {
       start_date: start_date || null,
       end_date: end_date || null,
       ...(is_active !== undefined && { is_active }),
-      max_total_views: max_total_views ? Number(max_total_views) : null,
-      max_unique_accounts: max_unique_accounts ? Number(max_unique_accounts) : null,
+      ...(isPopup && { max_total_views: max_total_views ? Number(max_total_views) : null }),
+      ...(isPopup && { max_unique_accounts: max_unique_accounts ? Number(max_unique_accounts) : null }),
       updated_at: new Date().toISOString(),
     };
     const { data, error } = await supabase.from('ads').update(updates).eq('id', id).select().single();
