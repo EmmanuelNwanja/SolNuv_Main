@@ -61,12 +61,12 @@ exports.getFullAnalytics = async (req, res) => {
       supabase.from('page_views').select('path').gte('viewed_at', start).lte('viewed_at', end).limit(5000),
       supabase.from('page_views').select('duration_s').gte('viewed_at', start).lte('viewed_at', end).not('duration_s', 'is', null).limit(5000),
 
-      supabase.from('subscription_transactions').select('amount_ngn,paid_at,subscription_plan,payment_method,company_id').gte('paid_at', start).lte('paid_at', end).limit(5000),
-      supabase.from('subscription_transactions').select('*', { count: 'exact', head: true }).eq('payment_method', 'paystack').gte('paid_at', start).lte('paid_at', end),
-      supabase.from('subscription_transactions').select('*', { count: 'exact', head: true }).neq('payment_method', 'paystack').gte('paid_at', start).lte('paid_at', end),
+      supabase.from('subscription_transactions').select('amount_ngn,paid_at,plan,paystack_reference,company_id').gte('paid_at', start).lte('paid_at', end).limit(5000),
+      supabase.from('subscription_transactions').select('*', { count: 'exact', head: true }).not('paystack_reference', 'is', null).gte('paid_at', start).lte('paid_at', end),
+      supabase.from('subscription_transactions').select('*', { count: 'exact', head: true }).is('paystack_reference', null).gte('paid_at', start).lte('paid_at', end),
 
       supabase.from('users').select('*', { count: 'exact', head: true }),
-      supabase.from('users').select('*', { count: 'exact', head: true }).gte('last_sign_in_at', start),
+      supabase.from('users').select('*', { count: 'exact', head: true }).gte('last_login_at', start),
       supabase.from('users').select('*', { count: 'exact', head: true }).gte('created_at', start),
       supabase.from('calculator_usage').select('calc_type,use_count').gte('last_used_at', start).lte('last_used_at', end).limit(2000),
 
@@ -110,8 +110,8 @@ exports.getFullAnalytics = async (req, res) => {
 
     const revenueByPlan = {};
     for (const t of txData) {
-      const plan = t.subscription_plan || 'unknown';
-      revenueByPlan[plan] = (revenueByPlan[plan] || 0) + Number(t.amount_ngn || 0);
+      const planName = t.plan || 'unknown';
+      revenueByPlan[planName] = (revenueByPlan[planName] || 0) + Number(t.amount_ngn || 0);
     }
 
     const revenueByCompany = {};
