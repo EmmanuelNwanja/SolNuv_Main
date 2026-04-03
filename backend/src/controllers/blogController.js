@@ -288,7 +288,18 @@ exports.adminCreateAd = async (req, res) => {
 
     const { data, error } = await supabase
       .from('ads')
-      .insert({ title, image_url, target_url, body_text, placement: placement || 'sidebar', priority: priority || 0, start_date, end_date, is_active: is_active !== false, created_by: req.user.id })
+      .insert({
+        title,
+        image_url: image_url || null,
+        target_url: target_url || null,
+        body_text: body_text || null,
+        placement: placement || 'sidebar',
+        priority: Number(priority) || 0,
+        start_date: start_date || null,
+        end_date: end_date || null,
+        is_active: is_active !== false,
+        created_by: req.user.id,
+      })
       .select()
       .single();
 
@@ -303,7 +314,19 @@ exports.adminCreateAd = async (req, res) => {
 exports.adminUpdateAd = async (req, res) => {
   try {
     const { id } = req.params;
-    const updates = { ...req.body, updated_at: new Date().toISOString() };
+    const { title, image_url, target_url, body_text, placement, priority, start_date, end_date, is_active } = req.body;
+    const updates = {
+      ...(title !== undefined && { title }),
+      image_url: image_url || null,
+      target_url: target_url || null,
+      body_text: body_text || null,
+      ...(placement !== undefined && { placement }),
+      ...(priority !== undefined && { priority: Number(priority) || 0 }),
+      start_date: start_date || null,
+      end_date: end_date || null,
+      ...(is_active !== undefined && { is_active }),
+      updated_at: new Date().toISOString(),
+    };
     const { data, error } = await supabase.from('ads').update(updates).eq('id', id).select().single();
     if (error) throw error;
     return sendSuccess(res, data, 'Ad updated');
