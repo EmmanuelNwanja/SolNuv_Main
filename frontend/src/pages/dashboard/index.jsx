@@ -42,24 +42,43 @@ function PopupAd() {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={handleClose}>
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 p-0 sm:p-6" onClick={handleClose}>
       <div
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden"
+        className="relative bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl w-full sm:max-w-xs overflow-hidden flex flex-col"
+        style={{ maxHeight: '88vh' }}
         onClick={(e) => e.stopPropagation()}
       >
-        {ad.image_url && (
-          <img src={ad.image_url} alt={ad.title} className="w-full h-48 object-cover" />
-        )}
-        <div className="p-6">
-          <div className="flex items-start justify-between mb-3">
-            <span className="text-[10px] font-semibold uppercase tracking-widest text-amber-600">Sponsored</span>
-            <button onClick={handleClose} className="text-slate-400 hover:text-slate-700 -mt-1 -mr-1 p-1 rounded-lg transition-colors">
-              <RiCloseLine className="text-lg" />
-            </button>
+        {/* Close button — floats over image */}
+        <button
+          onClick={handleClose}
+          className="absolute top-3 right-3 z-10 bg-black/40 hover:bg-black/60 text-white rounded-full p-1.5 transition-colors"
+          aria-label="Close"
+        >
+          <RiCloseLine className="text-base" />
+        </button>
+
+        {/* Image — 4:5 aspect ratio like an Instagram portrait ad */}
+        {ad.image_url ? (
+          <div className="w-full flex-shrink-0" style={{ aspectRatio: '4/5', maxHeight: '62vh' }}>
+            <img
+              src={ad.image_url}
+              alt={ad.title}
+              className="w-full h-full object-cover"
+            />
           </div>
-          <p className="font-bold text-slate-800 text-lg leading-snug">{ad.title}</p>
-          {ad.body_text && <p className="text-sm text-slate-500 mt-2">{ad.body_text}</p>}
-          <div className="mt-5 flex gap-3">
+        ) : (
+          /* Fallback gradient when no image */
+          <div className="w-full flex-shrink-0 bg-gradient-to-br from-forest-900 to-emerald-700 flex items-center justify-center" style={{ aspectRatio: '4/5', maxHeight: '62vh' }}>
+            <span className="text-white/50 text-sm">No image</span>
+          </div>
+        )}
+
+        {/* Text + CTA */}
+        <div className="p-5 flex-shrink-0">
+          <span className="text-[10px] font-semibold uppercase tracking-widest text-amber-600">Sponsored</span>
+          <p className="font-bold text-slate-800 text-base leading-snug mt-1">{ad.title}</p>
+          {ad.body_text && <p className="text-sm text-slate-500 mt-1 line-clamp-2">{ad.body_text}</p>}
+          <div className="mt-4 flex gap-3">
             {ad.target_url && (
               <button onClick={handleClick} className="flex-1 bg-forest-900 hover:bg-forest-800 text-white font-semibold py-2.5 rounded-xl text-sm transition-colors">
                 Learn More
