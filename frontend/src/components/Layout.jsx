@@ -10,7 +10,8 @@ import { authAPI } from '../services/api';
 import {
   RiDashboardLine, RiSunLine, RiBarChartLine, RiFileTextLine,
   RiTrophyLine, RiCalculatorLine, RiSettingsLine, RiLogoutBoxLine,
-  RiMenuLine, RiCloseLine, RiBellLine, RiArrowUpLine, RiLeafLine, RiAdminLine
+  RiMenuLine, RiCloseLine, RiBellLine, RiArrowUpLine, RiLeafLine, RiAdminLine,
+  RiArticleLine
 } from 'react-icons/ri';
 import toast from 'react-hot-toast';
 
@@ -22,6 +23,7 @@ const navItems = [
   { href: '/leaderboard', icon: RiTrophyLine, label: 'Leaderboard' },
   { href: '/reports', icon: RiFileTextLine, label: 'Reports', pro: true },
   { href: '/calculator', icon: RiCalculatorLine, label: 'Calculator' },
+  { href: '/blog', icon: RiArticleLine, label: 'Blog' },
   { href: '/settings', icon: RiSettingsLine, label: 'Settings' },
 ];
 

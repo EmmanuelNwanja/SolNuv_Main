@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '../../context/AuthContext';
-import { dashboardAPI } from '../../services/api';
+import { dashboardAPI, blogAPI } from '../../services/api';
 import Layout, { getDashboardLayout } from '../../components/Layout';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { StatCard, UrgencyBadge, StatusBadge, EmptyState } from '../../components/ui/index';
@@ -12,6 +12,58 @@ import {
   RiSunLine, RiRecycleLine, RiAlertLine, RiLeafLine,
   RiAddLine, RiTrophyLine, RiArrowRightLine, RiTimeLine
 } from 'react-icons/ri';
+
+function DashboardAd({ placement }) {
+  const [ad, setAd] = useState(null);
+
+  useEffect(() => {
+    blogAPI.listAds({ placement, limit: 1 })
+      .then((r) => {
+        const first = r.data.data?.[0];
+        if (first) {
+          setAd(first);
+          blogAPI.trackAdImpression(first.id, { page_path: '/dashboard' }).catch(() => {});;
+        }
+      })
+      .catch(() => {});
+  }, [placement]);
+
+  if (!ad) return null;
+
+  function handleClick() {
+    blogAPI.trackAdClick(ad.id, { page_path: '/dashboard' }).catch(() => {});
+  }
+
+  if (placement === 'banner') {
+    return (
+      <a href={ad.target_url} target="_blank" rel="noopener noreferrer" onClick={handleClick}
+        className="block w-full rounded-2xl overflow-hidden border border-slate-200 hover:border-forest-900/30 transition-colors">
+        {ad.image_url
+          ? <img src={ad.image_url} alt={ad.title} className="w-full h-20 object-cover" />
+          : (
+            <div className="w-full h-16 bg-gradient-to-r from-forest-900 to-emerald-700 flex items-center justify-between px-6">
+              <span className="font-semibold text-white text-sm">{ad.title}</span>
+              {ad.body_text && <span className="text-white/80 text-xs hidden sm:block">{ad.body_text}</span>}
+              <span className="text-amber-400 text-xs font-semibold flex-shrink-0 ml-4">Learn more →</span>
+            </div>
+          )}
+      </a>
+    );
+  }
+
+  // sidebar / in-feed card
+  return (
+    <a href={ad.target_url} target="_blank" rel="noopener noreferrer" onClick={handleClick}
+      className="block rounded-2xl border border-slate-200 hover:border-forest-900/30 transition-colors overflow-hidden">
+      {ad.image_url && <img src={ad.image_url} alt={ad.title} className="w-full h-32 object-cover" />}
+      <div className="p-4 bg-white">
+        <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-1">Sponsored</p>
+        <p className="font-semibold text-sm text-slate-800">{ad.title}</p>
+        {ad.body_text && <p className="text-xs text-slate-500 mt-1 line-clamp-2">{ad.body_text}</p>}
+      </div>
+    </a>
+  );
+}
 
 export default function Dashboard() {
   const { profile, isOnboarded, plan, isPro } = useAuth();
@@ -101,7 +153,12 @@ export default function Dashboard() {
         </div>
       </MotionSection>
 
-      {/* ── Income Forecast ─────────────────────────────────────────────── */}
+      {/* ── Banner Ad ───────────────────────────────────────────────────── */}
+      <MotionSection className="mb-6">
+        <DashboardAd placement="banner" />
+      </MotionSection>
+
+      {/* ── Income Forecast ─────────────────────────────────────────────── */}}
       <MotionSection className="grid sm:grid-cols-2 gap-4 mb-6">
         {/* Total Est. Income (Recycle + Silver) */}
         <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-700 to-forest-900 p-5 text-white">
@@ -263,6 +320,11 @@ export default function Dashboard() {
           <Link href="/plans" className="btn-amber flex-shrink-0">Upgrade to Pro →</Link>
         </MotionSection>
       )}
+
+      {/* ── In-feed Ad ──────────────────────────────────────────────────── */}
+      <MotionSection className="mt-6">
+        <DashboardAd placement="in-feed" />
+      </MotionSection>
     </>
   );
 }
