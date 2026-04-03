@@ -4,10 +4,36 @@ import { FloatingThemeToggle } from '../components/ThemeToggle';
 import { Toaster } from 'react-hot-toast';
 import { useEffect } from 'react';
 import { useRouter } from 'next/router';
+import { analyticsAPI } from '../services/api';
 import '../styles/globals.css';
+
+// Lightweight page-view tracker
+let _pvSession = null;
+function getSessionId() {
+  if (_pvSession) return _pvSession;
+  try {
+    let sid = sessionStorage.getItem('snuv_sid');
+    if (!sid) { sid = Math.random().toString(36).slice(2); sessionStorage.setItem('snuv_sid', sid); }
+    _pvSession = sid;
+    return sid;
+  } catch { return 'unknown'; }
+}
+
+function trackView(path) {
+  if (typeof window === 'undefined') return;
+  analyticsAPI.trackPageView({ path, session_id: getSessionId() }).catch(() => {});
+}
 
 function AppShell({ Component, pageProps }) {
   const router = useRouter();
+
+  // Track page views on route change
+  useEffect(() => {
+    trackView(router.asPath);
+    function onRouteChange(url) { trackView(url); }
+    router.events.on('routeChangeComplete', onRouteChange);
+    return () => router.events.off('routeChangeComplete', onRouteChange);
+  }, [router]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;

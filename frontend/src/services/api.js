@@ -233,6 +233,47 @@ export const adminAPI = {
 };
 
 // ==============================
+// BLOG
+// ==============================
+export const blogAPI = {
+  listPosts: (params) => api.get('/blog/posts', { params }),
+  getPost: (slug) => api.get(`/blog/posts/${slug}`),
+  trackLinkClick: (slug, url) => api.post(`/blog/posts/${slug}/click`, { url }),
+  listAds: (params) => api.get('/blog/ads', { params }),
+  trackAdImpression: (id, page_path) => api.post(`/blog/ads/${id}/impression`, { page_path }),
+  trackAdClick: (id, page_path) => api.post(`/blog/ads/${id}/click`, { page_path }),
+  // Admin
+  adminListPosts: (params) => api.get('/blog/admin/posts', { params }),
+  adminCreatePost: (data) => api.post('/blog/admin/posts', data),
+  adminUpdatePost: (id, data) => api.patch(`/blog/admin/posts/${id}`, data),
+  adminDeletePost: (id) => api.delete(`/blog/admin/posts/${id}`),
+  adminGetPostAnalytics: (id) => api.get(`/blog/admin/posts/${id}/analytics`),
+  adminListAds: () => api.get('/blog/admin/ads'),
+  adminCreateAd: (data) => api.post('/blog/admin/ads', data),
+  adminUpdateAd: (id, data) => api.patch(`/blog/admin/ads/${id}`, data),
+  adminDeleteAd: (id) => api.delete(`/blog/admin/ads/${id}`),
+  adminGetAdAnalytics: (id) => api.get(`/blog/admin/ads/${id}/analytics`),
+};
+
+// ==============================
+// CONTACT
+// ==============================
+export const contactAPI = {
+  submit: (data) => api.post('/contact', data),
+  adminList: (params) => api.get('/contact/admin', { params }),
+  adminUpdate: (id, data) => api.patch(`/contact/admin/${id}`, data),
+  adminDelete: (id) => api.delete(`/contact/admin/${id}`),
+};
+
+// ==============================
+// ANALYTICS
+// ==============================
+export const analyticsAPI = {
+  getFullAnalytics: (params) => api.get('/analytics', { params }),
+  trackPageView: (data) => api.post('/analytics/pageview', data),
+};
+
+// ==============================
 // HELPERS
 // ==============================
 export function downloadBlob(blob, filename) {

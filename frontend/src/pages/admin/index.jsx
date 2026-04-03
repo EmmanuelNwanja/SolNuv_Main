@@ -26,6 +26,9 @@ export const ADMIN_TABS = [
   { id: 'push', label: 'Push Notifications', path: '/admin/push', title: 'Admin Notifications - SolNuv' },
   { id: 'logs', label: 'Activity Log', path: '/admin/logs', title: 'Admin Activity Log - SolNuv' },
   { id: 'admins', label: 'Admin Management', path: '/admin/admins', title: 'Admin Management - SolNuv' },
+  { id: 'blog', label: 'Blog & Ads', path: '/admin/blog', title: 'Blog & Ads - SolNuv' },
+  { id: 'contact', label: 'Contact Inbox', path: '/admin/contact', title: 'Contact Inbox - SolNuv' },
+  { id: 'analytics', label: 'Analytics', path: '/admin/analytics', title: 'Platform Analytics - SolNuv' },
 ];
 
 export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {

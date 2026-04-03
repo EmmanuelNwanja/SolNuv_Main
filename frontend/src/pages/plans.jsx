@@ -55,7 +55,7 @@ export default function Plans() {
 
   async function handleUpgrade(planId) {
     if (planId === 'free') return;
-    if (planId === 'enterprise') { window.location.href = 'mailto:sales@solnuv.com'; return; }
+    if (planId === 'enterprise') { window.location.href = '/contact'; return; }
     if (planId === currentPlan) { toast('You are already on this plan!'); return; }
     setUpgrading(planId);
     try {

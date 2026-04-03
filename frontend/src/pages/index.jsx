@@ -111,6 +111,8 @@ export default function Home() {
               <Link href="#impact" className="hover:text-forest-900 transition-colors">Impact</Link>
               <Link href="#calculator" className="hover:text-forest-900 transition-colors">Calculator</Link>
               <Link href="#plans" className="hover:text-forest-900 transition-colors">Plans</Link>
+              <Link href="/blog" className="hover:text-forest-900 transition-colors">Blog</Link>
+              <Link href="/contact" className="hover:text-forest-900 transition-colors">Contact</Link>
             </div>
             <div className="flex items-center gap-3">
               <Link href="/login" className="text-sm font-medium text-slate-600 hover:text-forest-900 transition-colors hidden sm:block">Sign In</Link>
@@ -523,7 +525,7 @@ export default function Home() {
                 { name: 'Free', price: '₦0', period: '/mo', cta: 'Get Started', href: '/register', features: ['Unlimited project logging', 'West African decommission predictions', '12 calculator uses/month', 'Decommission alerts', 'Basic silver estimator', '1 user / 1 device'] },
                 { name: 'Pro', price: '₦15,000', period: '/mo', cta: 'Start Pro', href: '/register?plan=pro', popular: true, features: ['Unlimited calculator use', 'NESREA EPR PDF Reports', 'Cradle-to-Grave Certificates', 'CSV & Excel export', 'QR code traceability', 'Custom public portfolio', 'Team access (5 users)', '₦162,000 yearly (save 10%)'] },
                 { name: 'Elite', price: '₦40,000', period: '/mo', cta: 'Go Elite', href: '/register?plan=elite', features: ['Everything in Pro', 'Auto-send to NESREA', 'ROI + Cable Compliance PDFs', 'Team access (15 users)', 'Priority support + onboarding', 'Featured installer badge', '₦432,000 yearly (save 10%)'] },
-                { name: 'Enterprise', price: '₦100,000+', period: '/mo', cta: 'Contact Us', href: 'mailto:sales@solnuv.com', features: ['Everything in Elite', 'Custom API integrations', 'Team access (50 users)', 'Dedicated account manager', 'Quarterly EPR advisory', 'White-label PDF reports', '₦1,080,000 yearly (save 10%)'] },
+                { name: 'Enterprise', price: '₦100,000+', period: '/mo', cta: 'Contact Us', href: '/contact', features: ['Everything in Elite', 'Custom API integrations', 'Team access (50 users)', 'Dedicated account manager', 'Quarterly EPR advisory', 'White-label PDF reports', '₦1,080,000 yearly (save 10%)'] },
               ].map((plan, i) => (
                 <div key={i} className={`rounded-2xl overflow-hidden ${plan.popular ? 'ring-2 ring-forest-900 shadow-xl' : 'border border-slate-200'}`}>
                   {plan.popular && <div className="bg-forest-900 text-center py-1.5 text-xs font-bold text-amber-400">MOST POPULAR</div>}
@@ -563,9 +565,9 @@ export default function Home() {
               <Link href="/register" className="btn-amber inline-flex items-center gap-2 text-base px-8 py-4 rounded-2xl">
                 Create Free Account <RiArrowRightLine />
               </Link>
-              <a href="mailto:support@solnuv.com" className="inline-flex items-center gap-2 border border-white/30 text-white px-6 py-4 rounded-2xl text-sm font-semibold hover:bg-white/10 transition-all">
+              <Link href="/contact" className="inline-flex items-center gap-2 border border-white/30 text-white px-6 py-4 rounded-2xl text-sm font-semibold hover:bg-white/10 transition-all">
                 Talk to the Team
-              </a>
+              </Link>
             </div>
             <p className="text-white/40 text-xs mt-6">No credit card required · Cancel anytime · NESREA-compliant from day one</p>
           </div>
@@ -596,7 +598,8 @@ export default function Home() {
               <div>
                 <p className="text-xs font-semibold uppercase tracking-widest text-white/40 mb-3">Resources</p>
                 <div className="space-y-2 text-xs">
-                  <a href="mailto:support@solnuv.com" className="block hover:text-white transition-colors">Contact Us</a>
+                  <Link href="/blog" className="block hover:text-white transition-colors">Blog</Link>
+                  <Link href="/contact" className="block hover:text-white transition-colors">Contact Us</Link>
                   <a href="mailto:sales@solnuv.com" className="block hover:text-white transition-colors">Enterprise Sales</a>
                   <Link href="/privacy" className="block hover:text-white transition-colors">Privacy Policy</Link>
                   <Link href="/terms" className="block hover:text-white transition-colors">Terms of Service</Link>

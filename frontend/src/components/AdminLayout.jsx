@@ -13,6 +13,9 @@ import {
   RiPriceTag3Line,
   RiSettings3Line,
   RiWallet3Line,
+  RiArticleLine,
+  RiBarChartBoxLine,
+  RiMailLine,
 } from 'react-icons/ri';
 import { useAuth } from '../context/AuthContext';
 import { ThemeToggle } from './ThemeToggle';
@@ -29,6 +32,9 @@ const adminNavItems = [
   { href: '/admin/paystack', label: 'Paystack Plans', icon: RiWallet3Line },
   { href: '/admin/logs', label: 'Activity Log', icon: RiFileList3Line },
   { href: '/admin/otp-management', label: 'OTP Operations', icon: RiKey2Line },
+  { href: '/admin/blog', label: 'Blog & Ads', icon: RiArticleLine },
+  { href: '/admin/contact', label: 'Contact Inbox', icon: RiMailLine },
+  { href: '/admin/analytics', label: 'Analytics', icon: RiBarChartBoxLine },
   { href: '/settings', label: 'Platform Settings', icon: RiSettings3Line },
 ];
 
