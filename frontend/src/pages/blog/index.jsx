@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import {
   RiArticleLine, RiTimeLine, RiArrowRightLine, RiSearchLine,
-  RiTagLine, RiCalendarLine, RiEyeLine,
+  RiPriceTag3Line, RiCalendarLine, RiEyeLine,
 } from 'react-icons/ri';
 import { blogAPI } from '../../services/api';
 
@@ -113,7 +113,7 @@ function PostCard({ post }) {
           <div className="flex flex-wrap gap-1 mt-1">
             {post.tags.slice(0, 3).map((t) => (
               <span key={t} className="inline-flex items-center gap-0.5 text-[11px] px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">
-                <RiTagLine />{t}
+                <RiPriceTag3Line />{t}
               </span>
             ))}
           </div>

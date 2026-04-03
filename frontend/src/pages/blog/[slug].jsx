@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useEffect, useRef, useState } from 'react';
 import {
-  RiArrowLeftLine, RiCalendarLine, RiTimeLine, RiTagLine,
+  RiArrowLeftLine, RiCalendarLine, RiTimeLine, RiPriceTag3Line,
   RiArrowRightLine, RiShareLine, RiExternalLinkLine,
 } from 'react-icons/ri';
 import { blogAPI } from '../../services/api';
@@ -164,7 +164,7 @@ export default function BlogPostPage() {
               <div className="mt-8 pt-4 border-t border-slate-100 dark:border-slate-800 flex flex-wrap gap-2">
                 {post.tags.map((t) => (
                   <span key={t} className="inline-flex items-center gap-1 text-xs px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
-                    <RiTagLine />{t}
+                    <RiPriceTag3Line />{t}
                   </span>
                 ))}
               </div>
