@@ -240,6 +240,7 @@ export const blogAPI = {
   getPost: (slug) => api.get(`/blog/posts/${slug}`),
   trackLinkClick: (slug, url) => api.post(`/blog/posts/${slug}/click`, { url }),
   listAds: (params) => api.get('/blog/ads', { params }),
+  getPopupAd: (params) => api.get('/blog/ads/popup', { params }),
   trackAdImpression: (id, page_path) => api.post(`/blog/ads/${id}/impression`, { page_path }),
   trackAdClick: (id, page_path) => api.post(`/blog/ads/${id}/click`, { page_path }),
   // Admin

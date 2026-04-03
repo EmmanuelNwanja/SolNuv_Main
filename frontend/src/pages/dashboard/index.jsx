@@ -10,8 +10,70 @@ import { StatCard, UrgencyBadge, StatusBadge, EmptyState } from '../../component
 import { MotionSection } from '../../components/PageMotion';
 import {
   RiSunLine, RiRecycleLine, RiAlertLine, RiLeafLine,
-  RiAddLine, RiTrophyLine, RiArrowRightLine, RiTimeLine
+  RiAddLine, RiTrophyLine, RiArrowRightLine, RiTimeLine, RiCloseLine
 } from 'react-icons/ri';
+
+function PopupAd() {
+  const [ad, setAd] = useState(null);
+
+  useEffect(() => {
+    let seenIds = [];
+    try { seenIds = JSON.parse(localStorage.getItem('snuv_seen_popups') || '[]'); } catch {}
+
+    blogAPI.getPopupAd({ seen_ids: seenIds.join(',') })
+      .then((r) => {
+        const popup = r.data.data;
+        if (!popup) return;
+        const updated = [...seenIds.filter((id) => id !== popup.id), popup.id].slice(-20);
+        try { localStorage.setItem('snuv_seen_popups', JSON.stringify(updated)); } catch {}
+        setAd(popup);
+        blogAPI.trackAdImpression(popup.id, '/dashboard').catch(() => {});
+      })
+      .catch(() => {});
+  }, []);
+
+  if (!ad) return null;
+
+  function handleClose() { setAd(null); }
+  function handleClick() {
+    blogAPI.trackAdClick(ad.id, '/dashboard').catch(() => {});
+    if (ad.target_url) window.open(ad.target_url, '_blank', 'noopener,noreferrer');
+    setAd(null);
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={handleClose}>
+      <div
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {ad.image_url && (
+          <img src={ad.image_url} alt={ad.title} className="w-full h-48 object-cover" />
+        )}
+        <div className="p-6">
+          <div className="flex items-start justify-between mb-3">
+            <span className="text-[10px] font-semibold uppercase tracking-widest text-amber-600">Sponsored</span>
+            <button onClick={handleClose} className="text-slate-400 hover:text-slate-700 -mt-1 -mr-1 p-1 rounded-lg transition-colors">
+              <RiCloseLine className="text-lg" />
+            </button>
+          </div>
+          <p className="font-bold text-slate-800 text-lg leading-snug">{ad.title}</p>
+          {ad.body_text && <p className="text-sm text-slate-500 mt-2">{ad.body_text}</p>}
+          <div className="mt-5 flex gap-3">
+            {ad.target_url && (
+              <button onClick={handleClick} className="flex-1 bg-forest-900 hover:bg-forest-800 text-white font-semibold py-2.5 rounded-xl text-sm transition-colors">
+                Learn More
+              </button>
+            )}
+            <button onClick={handleClose} className="flex-1 border border-slate-200 text-slate-600 hover:bg-slate-50 font-medium py-2.5 rounded-xl text-sm transition-colors">
+              Dismiss
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function DashboardAd({ placement }) {
   const [ad, setAd] = useState(null);
@@ -22,7 +84,7 @@ function DashboardAd({ placement }) {
         const first = r.data.data?.[0];
         if (first) {
           setAd(first);
-          blogAPI.trackAdImpression(first.id, { page_path: '/dashboard' }).catch(() => {});;
+          blogAPI.trackAdImpression(first.id, '/dashboard').catch(() => {});
         }
       })
       .catch(() => {});
@@ -31,7 +93,7 @@ function DashboardAd({ placement }) {
   if (!ad) return null;
 
   function handleClick() {
-    blogAPI.trackAdClick(ad.id, { page_path: '/dashboard' }).catch(() => {});
+    blogAPI.trackAdClick(ad.id, '/dashboard').catch(() => {});
   }
 
   if (placement === 'banner') {
@@ -122,6 +184,8 @@ export default function Dashboard() {
     <>
       <Head><title>Dashboard — SolNuv</title></Head>
 
+      <PopupAd />
+
       <MotionSection className="mb-6">
         <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-forest-900 via-forest-800 to-emerald-700 p-6 sm:p-8 text-white">
           <div className="absolute -top-20 -right-20 h-56 w-56 rounded-full bg-amber-300/20 blur-3xl" />
@@ -158,7 +222,7 @@ export default function Dashboard() {
         <DashboardAd placement="banner" />
       </MotionSection>
 
-      {/* ── Income Forecast ─────────────────────────────────────────────── */}}
+      {/* Income Forecast */}
       <MotionSection className="grid sm:grid-cols-2 gap-4 mb-6">
         {/* Total Est. Income (Recycle + Silver) */}
         <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-700 to-forest-900 p-5 text-white">

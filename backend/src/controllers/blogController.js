@@ -231,6 +231,56 @@ exports.listAds = async (req, res) => {
   }
 };
 
+exports.getPopupAd = async (req, res) => {
+  try {
+    const { seen_ids } = req.query;
+    const seenList = seen_ids ? seen_ids.split(',').filter(Boolean) : [];
+    const today = new Date().toISOString().split('T')[0];
+
+    const { data: popups, error } = await supabase
+      .from('ads')
+      .select('id,title,image_url,target_url,body_text,max_total_views,max_unique_accounts')
+      .eq('is_active', true)
+      .eq('placement', 'popup')
+      .or(`start_date.is.null,start_date.lte.${today}`)
+      .or(`end_date.is.null,end_date.gte.${today}`)
+      .order('priority', { ascending: false });
+
+    if (error) throw error;
+
+    for (const popup of (popups || [])) {
+      if (seenList.includes(popup.id)) continue;
+
+      let eligible = true;
+
+      if (popup.max_total_views != null) {
+        const { count } = await supabase
+          .from('ad_impressions')
+          .select('id', { count: 'exact', head: true })
+          .eq('ad_id', popup.id);
+        if ((count || 0) >= popup.max_total_views) eligible = false;
+      }
+
+      if (eligible && popup.max_unique_accounts != null) {
+        const { data: imps } = await supabase
+          .from('ad_impressions')
+          .select('user_id')
+          .eq('ad_id', popup.id)
+          .not('user_id', 'is', null);
+        const uniqueCount = new Set((imps || []).map((r) => r.user_id)).size;
+        if (uniqueCount >= popup.max_unique_accounts) eligible = false;
+      }
+
+      if (eligible) return sendSuccess(res, popup);
+    }
+
+    return sendSuccess(res, null);
+  } catch (error) {
+    logger.error('getPopupAd failed', { message: error.message });
+    return sendError(res, 'Failed to get popup ad', 500);
+  }
+};
+
 exports.trackAdImpression = async (req, res) => {
   try {
     const { id } = req.params;
@@ -283,7 +333,7 @@ exports.adminListAds = async (req, res) => {
 
 exports.adminCreateAd = async (req, res) => {
   try {
-    const { title, image_url, target_url, body_text, placement, priority, start_date, end_date, is_active } = req.body;
+    const { title, image_url, target_url, body_text, placement, priority, start_date, end_date, is_active, max_total_views, max_unique_accounts } = req.body;
     if (!title) return sendError(res, 'title is required', 422);
 
     const { data, error } = await supabase
@@ -298,6 +348,8 @@ exports.adminCreateAd = async (req, res) => {
         start_date: start_date || null,
         end_date: end_date || null,
         is_active: is_active !== false,
+        max_total_views: max_total_views ? Number(max_total_views) : null,
+        max_unique_accounts: max_unique_accounts ? Number(max_unique_accounts) : null,
         created_by: req.supabaseUser.id,
       })
       .select()
@@ -314,7 +366,7 @@ exports.adminCreateAd = async (req, res) => {
 exports.adminUpdateAd = async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, image_url, target_url, body_text, placement, priority, start_date, end_date, is_active } = req.body;
+    const { title, image_url, target_url, body_text, placement, priority, start_date, end_date, is_active, max_total_views, max_unique_accounts } = req.body;
     const updates = {
       ...(title !== undefined && { title }),
       image_url: image_url || null,
@@ -325,6 +377,8 @@ exports.adminUpdateAd = async (req, res) => {
       start_date: start_date || null,
       end_date: end_date || null,
       ...(is_active !== undefined && { is_active }),
+      max_total_views: max_total_views ? Number(max_total_views) : null,
+      max_unique_accounts: max_unique_accounts ? Number(max_unique_accounts) : null,
       updated_at: new Date().toISOString(),
     };
     const { data, error } = await supabase.from('ads').update(updates).eq('id', id).select().single();

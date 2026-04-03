@@ -12,6 +12,7 @@ router.post('/posts/:slug/click', blogController.trackLinkClick);
 
 // Public ads
 router.get('/ads', blogController.listAds);
+router.get('/ads/popup', blogController.getPopupAd);
 router.post('/ads/:id/impression', blogController.trackAdImpression);
 router.post('/ads/:id/click', blogController.trackAdClick);
 

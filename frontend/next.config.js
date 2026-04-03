@@ -8,15 +8,7 @@ const nextConfig = {
     remotePatterns: [
       {
         protocol: 'https',
-        hostname: 'lh3.googleusercontent.com',
-      },
-      {
-        protocol: 'https',
-        hostname: 'avatars.githubusercontent.com',
-      },
-      {
-        protocol: 'https',
-        hostname: 'solnuv.com',
+        hostname: '**',
       },
     ],
   },
@@ -42,7 +34,7 @@ const nextConfig = {
               "script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com https://js.paystack.co",
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "font-src 'self' https://fonts.gstatic.com",
-              "img-src 'self' data: blob: https://lh3.googleusercontent.com https://avatars.githubusercontent.com https://solnuv.com",
+              "img-src 'self' data: blob: https:",
               "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.paystack.co https://solnuv-backend.onrender.com https://api.solnuv.com https://cloudflareinsights.com",
               "frame-src https://checkout.paystack.com https://js.paystack.co",
               "object-src 'none'",

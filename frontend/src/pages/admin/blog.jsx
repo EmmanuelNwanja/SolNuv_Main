@@ -17,14 +17,14 @@ const STATUS_COLORS = {
   archived: 'bg-red-900/30 text-red-400 border-red-800',
 };
 
-const PLACEMENTS = ['sidebar', 'banner', 'in-feed', 'footer', 'blog-top', 'blog-bottom'];
+const PLACEMENTS = ['sidebar', 'banner', 'in-feed', 'footer', 'blog-top', 'blog-bottom', 'popup'];
 
 function emptyPost() {
   return { title: '', slug: '', excerpt: '', content: '', cover_image_url: '', category: '', tags: '', status: 'draft', read_time_mins: 3 };
 }
 
 function emptyAd() {
-  return { title: '', image_url: '', target_url: '', body_text: '', placement: 'sidebar', priority: 0, start_date: '', end_date: '', is_active: true };
+  return { title: '', image_url: '', target_url: '', body_text: '', placement: 'sidebar', priority: 0, start_date: '', end_date: '', is_active: true, max_total_views: '', max_unique_accounts: '' };
 }
 
 function Modal({ title, onClose, children }) {
@@ -163,6 +163,20 @@ function AdForm({ initial, onSave, onCancel, saving }) {
           <input className="input" type="date" value={form.end_date} onChange={(e) => set('end_date', e.target.value)} />
         </div>
       </div>
+      {form.placement === 'popup' && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border border-amber-800/40 rounded-xl p-4 bg-amber-900/10">
+          <div>
+            <label className="label">Max Total Views</label>
+            <p className="text-[10px] text-slate-400 mb-1">Popup stops showing after this many impressions. Leave blank for unlimited.</p>
+            <input className="input" type="number" min="1" placeholder="Unlimited" value={form.max_total_views} onChange={(e) => set('max_total_views', e.target.value)} />
+          </div>
+          <div>
+            <label className="label">Max Unique Accounts</label>
+            <p className="text-[10px] text-slate-400 mb-1">Popup stops after this many distinct logged-in users see it. Leave blank for unlimited.</p>
+            <input className="input" type="number" min="1" placeholder="Unlimited" value={form.max_unique_accounts} onChange={(e) => set('max_unique_accounts', e.target.value)} />
+          </div>
+        </div>
+      )}
       <div className="flex gap-3 pt-2">
         <button type="button" onClick={onCancel} className="flex-1 py-2 rounded-lg border border-slate-700 text-slate-300 hover:bg-slate-800 text-sm">Cancel</button>
         <button type="submit" disabled={saving} className="flex-1 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-sm disabled:opacity-60 flex items-center justify-center gap-2">
