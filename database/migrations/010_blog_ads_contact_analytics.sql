@@ -64,7 +64,7 @@ CREATE TABLE IF NOT EXISTS ads (
   image_url       text,
   target_url      text,
   body_text       text,
-  placement       text NOT NULL DEFAULT 'sidebar' CHECK (placement IN ('sidebar','banner','in-feed','footer','blog-top','blog-bottom')),
+  placement       text NOT NULL DEFAULT 'sidebar' CHECK (placement IN ('sidebar','banner','in-feed','footer','blog-top','blog-bottom','popup')),
   is_active       boolean NOT NULL DEFAULT true,
   priority        smallint NOT NULL DEFAULT 0,
   start_date      date,
