@@ -64,7 +64,7 @@ exports.adminUpdateSubmission = async (req, res) => {
 
     const updates = { status, admin_notes };
     if (status === 'resolved') {
-      updates.resolved_by = req.user.id;
+      updates.resolved_by = req.supabaseUser.id;
       updates.resolved_at = new Date().toISOString();
     }
 

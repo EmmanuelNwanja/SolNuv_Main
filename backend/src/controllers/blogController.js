@@ -135,7 +135,7 @@ exports.adminCreatePost = async (req, res) => {
         read_time_mins: read_time_mins || 1,
         status: status || 'draft',
         published_at: status === 'published' ? (published_at || new Date().toISOString()) : null,
-        author_id: req.user.id,
+        author_id: req.supabaseUser.id,
       })
       .select()
       .single();
@@ -298,7 +298,7 @@ exports.adminCreateAd = async (req, res) => {
         start_date: start_date || null,
         end_date: end_date || null,
         is_active: is_active !== false,
-        created_by: req.user.id,
+        created_by: req.supabaseUser.id,
       })
       .select()
       .single();
