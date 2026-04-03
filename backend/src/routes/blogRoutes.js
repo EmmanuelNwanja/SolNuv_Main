@@ -29,4 +29,11 @@ router.patch('/admin/ads/:id', requireAuth, requireAdmin, requireAdminRole('supe
 router.delete('/admin/ads/:id', requireAuth, requireAdmin, requireAdminRole('super_admin', 'operations'), blogController.adminDeleteAd);
 router.get('/admin/ads/:id/analytics', requireAuth, requireAdmin, requireAdminRole('super_admin', 'operations', 'analytics'), blogController.adminGetAdAnalytics);
 
+// Popup campaigns (public fetch + admin CRUD)
+router.get('/campaigns/popup', blogController.getCampaignPopups);
+router.get('/admin/campaigns', requireAuth, requireAdmin, requireAdminRole('super_admin', 'operations', 'analytics'), blogController.adminListCampaigns);
+router.post('/admin/campaigns', requireAuth, requireAdmin, requireAdminRole('super_admin', 'operations'), blogController.adminCreateCampaign);
+router.patch('/admin/campaigns/:id', requireAuth, requireAdmin, requireAdminRole('super_admin', 'operations'), blogController.adminUpdateCampaign);
+router.delete('/admin/campaigns/:id', requireAuth, requireAdmin, requireAdminRole('super_admin', 'operations'), blogController.adminDeleteCampaign);
+
 module.exports = router;

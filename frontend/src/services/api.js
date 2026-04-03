@@ -241,9 +241,10 @@ export const blogAPI = {
   trackLinkClick: (slug, url) => api.post(`/blog/posts/${slug}/click`, { url }),
   listAds: (params) => api.get('/blog/ads', { params }),
   getPopupAd: (params) => api.get('/blog/ads/popup', { params }),
+  getCampaignPopups: () => api.get('/blog/campaigns/popup'),
   trackAdImpression: (id, page_path) => api.post(`/blog/ads/${id}/impression`, { page_path }),
   trackAdClick: (id, page_path) => api.post(`/blog/ads/${id}/click`, { page_path }),
-  // Admin
+  // Admin ads
   adminListPosts: (params) => api.get('/blog/admin/posts', { params }),
   adminCreatePost: (data) => api.post('/blog/admin/posts', data),
   adminUpdatePost: (id, data) => api.patch(`/blog/admin/posts/${id}`, data),
@@ -254,6 +255,11 @@ export const blogAPI = {
   adminUpdateAd: (id, data) => api.patch(`/blog/admin/ads/${id}`, data),
   adminDeleteAd: (id) => api.delete(`/blog/admin/ads/${id}`),
   adminGetAdAnalytics: (id) => api.get(`/blog/admin/ads/${id}/analytics`),
+  // Admin campaigns
+  adminListCampaigns: () => api.get('/blog/admin/campaigns'),
+  adminCreateCampaign: (data) => api.post('/blog/admin/campaigns', data),
+  adminUpdateCampaign: (id, data) => api.patch(`/blog/admin/campaigns/${id}`, data),
+  adminDeleteCampaign: (id) => api.delete(`/blog/admin/campaigns/${id}`),
 };
 
 // ==============================

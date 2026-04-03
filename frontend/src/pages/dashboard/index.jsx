@@ -10,81 +10,189 @@ import { StatCard, UrgencyBadge, StatusBadge, EmptyState } from '../../component
 import { MotionSection } from '../../components/PageMotion';
 import {
   RiSunLine, RiRecycleLine, RiAlertLine, RiLeafLine,
-  RiAddLine, RiTrophyLine, RiArrowRightLine, RiTimeLine, RiCloseLine
+  RiAddLine, RiTrophyLine, RiArrowRightLine, RiTimeLine, RiCloseLine,
+  RiArrowLeftSLine, RiArrowRightSLine
 } from 'react-icons/ri';
 
-function PopupAd() {
-  const [ad, setAd] = useState(null);
+// Popup carousel — shows a campaign's ads in order, auto-advances every 6s,
+// tracks impressions per ad. Triggers: on login (once/session) or on interval.
+function PopupCampaign() {
+  const [campaign, setCampaign] = useState(null);
+  const [adIndex, setAdIndex] = useState(0);
+  const [progress, setProgress] = useState(0);
 
   useEffect(() => {
-    let seenIds = [];
-    try { seenIds = JSON.parse(localStorage.getItem('snuv_seen_popups') || '[]'); } catch {}
-
-    blogAPI.getPopupAd({ seen_ids: seenIds.join(',') })
+    blogAPI.getCampaignPopups()
       .then((r) => {
-        const popup = r.data.data;
-        if (!popup) return;
-        const updated = [...seenIds.filter((id) => id !== popup.id), popup.id].slice(-20);
-        try { localStorage.setItem('snuv_seen_popups', JSON.stringify(updated)); } catch {}
-        setAd(popup);
-        blogAPI.trackAdImpression(popup.id, '/dashboard').catch(() => {});
+        for (const c of (r.data.data || [])) {
+          if (!c.ads?.length) continue;
+
+          const sessionKey = `snuv_camp_s_${c.id}`;
+          const intervalKey = `snuv_camp_i_${c.id}`;
+          let shouldShow = false;
+
+          if (c.show_on_login && !sessionStorage.getItem(sessionKey)) {
+            shouldShow = true;
+          }
+          if (c.show_on_interval && c.interval_minutes) {
+            const last = localStorage.getItem(intervalKey);
+            if (!last || (Date.now() - Number(last)) / 60000 >= c.interval_minutes) {
+              shouldShow = true;
+            }
+          }
+
+          if (shouldShow) {
+            try { sessionStorage.setItem(sessionKey, '1'); } catch {}
+            if (c.show_on_interval) {
+              try { localStorage.setItem(intervalKey, String(Date.now())); } catch {}
+            }
+            setCampaign(c);
+            return;
+          }
+        }
       })
       .catch(() => {});
   }, []);
 
-  if (!ad) return null;
+  // Record impression whenever the visible ad changes
+  const currentAd = campaign?.ads?.[adIndex];
+  useEffect(() => {
+    if (currentAd) {
+      blogAPI.trackAdImpression(currentAd.id, '/dashboard').catch(() => {});
+    }
+  }, [currentAd?.id]);
 
-  function handleClose() { setAd(null); }
+  // Auto-advance with smooth progress bar (6 s per ad, loops)
+  useEffect(() => {
+    if (!campaign) return;
+    setProgress(0);
+    let prog = 0;
+    const tick = 50; // ms
+    const total = 6000;
+    const step = (tick / total) * 100;
+    const timer = setInterval(() => {
+      prog += step;
+      if (prog >= 100) {
+        setAdIndex((i) => (i + 1) % campaign.ads.length);
+        prog = 0;
+      }
+      setProgress(prog);
+    }, tick);
+    return () => clearInterval(timer);
+  }, [campaign, adIndex]);
+
+  if (!campaign?.ads?.length) return null;
+
+  const ad = campaign.ads[adIndex];
+  const total = campaign.ads.length;
+  function goTo(i) { setAdIndex((i + total) % total); setProgress(0); }
+  function handleClose() { setCampaign(null); }
   function handleClick() {
     blogAPI.trackAdClick(ad.id, '/dashboard').catch(() => {});
     if (ad.target_url) window.open(ad.target_url, '_blank', 'noopener,noreferrer');
-    setAd(null);
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 p-0 sm:p-6" onClick={handleClose}>
+    <div
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 p-0 sm:p-6"
+      onClick={handleClose}
+    >
       <div
         className="relative bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl w-full sm:max-w-xs overflow-hidden flex flex-col"
         style={{ maxHeight: '88vh' }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Close button — floats over image */}
-        <button
-          onClick={handleClose}
-          className="absolute top-3 right-3 z-10 bg-black/40 hover:bg-black/60 text-white rounded-full p-1.5 transition-colors"
-          aria-label="Close"
-        >
-          <RiCloseLine className="text-base" />
-        </button>
+        {/* Story-style progress bars */}
+        <div className="absolute top-0 left-0 right-0 z-20 flex gap-1 p-2 pt-2.5">
+          {campaign.ads.map((_, i) => (
+            <div key={i} className="flex-1 h-[3px] bg-white/30 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-white rounded-full"
+                style={{
+                  width: i < adIndex ? '100%' : i === adIndex ? `${progress}%` : '0%',
+                  transition: i === adIndex ? 'none' : undefined,
+                }}
+              />
+            </div>
+          ))}
+        </div>
 
-        {/* Image — 4:5 aspect ratio like an Instagram portrait ad */}
+        {/* Top-right: counter + close */}
+        <div className="absolute top-3 right-3 z-20 flex items-center gap-1.5">
+          {total > 1 && (
+            <span className="bg-black/50 text-white text-[11px] font-bold px-2 py-0.5 rounded-full">
+              {adIndex + 1}/{total}
+            </span>
+          )}
+          <button
+            onClick={handleClose}
+            className="bg-black/50 hover:bg-black/70 text-white rounded-full p-1.5 transition-colors"
+            aria-label="Close"
+          >
+            <RiCloseLine className="text-base" />
+          </button>
+        </div>
+
+        {/* Invisible tap zones: left third = prev, right third = next */}
+        {total > 1 && (
+          <>
+            <button
+              className="absolute left-0 top-0 w-1/3 h-full z-10 opacity-0"
+              onClick={(e) => { e.stopPropagation(); goTo(adIndex - 1); }}
+              aria-label="Previous ad"
+            />
+            <button
+              className="absolute right-0 top-0 w-1/3 h-full z-10 opacity-0"
+              onClick={(e) => { e.stopPropagation(); goTo(adIndex + 1); }}
+              aria-label="Next ad"
+            />
+          </>
+        )}
+
+        {/* 4:5 portrait image */}
         {ad.image_url ? (
           <div className="w-full flex-shrink-0" style={{ aspectRatio: '4/5', maxHeight: '62vh' }}>
-            <img
-              src={ad.image_url}
-              alt={ad.title}
-              className="w-full h-full object-cover"
-            />
+            <img src={ad.image_url} alt={ad.title} className="w-full h-full object-cover" />
           </div>
         ) : (
-          /* Fallback gradient when no image */
-          <div className="w-full flex-shrink-0 bg-gradient-to-br from-forest-900 to-emerald-700 flex items-center justify-center" style={{ aspectRatio: '4/5', maxHeight: '62vh' }}>
-            <span className="text-white/50 text-sm">No image</span>
+          <div
+            className="w-full flex-shrink-0 bg-gradient-to-br from-forest-900 to-emerald-700 flex items-center justify-center"
+            style={{ aspectRatio: '4/5', maxHeight: '62vh' }}
+          >
+            <span className="text-white/40 text-sm uppercase tracking-widest text-xs">Sponsored</span>
           </div>
         )}
 
         {/* Text + CTA */}
         <div className="p-5 flex-shrink-0">
-          <span className="text-[10px] font-semibold uppercase tracking-widest text-amber-600">Sponsored</span>
-          <p className="font-bold text-slate-800 text-base leading-snug mt-1">{ad.title}</p>
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[10px] font-semibold uppercase tracking-widest text-amber-600">Sponsored</span>
+            {total > 1 && (
+              <div className="flex gap-1">
+                <button onClick={() => goTo(adIndex - 1)} className="p-1 rounded-lg text-slate-400 hover:text-slate-700 transition-colors">
+                  <RiArrowLeftSLine className="text-base" />
+                </button>
+                <button onClick={() => goTo(adIndex + 1)} className="p-1 rounded-lg text-slate-400 hover:text-slate-700 transition-colors">
+                  <RiArrowRightSLine className="text-base" />
+                </button>
+              </div>
+            )}
+          </div>
+          <p className="font-bold text-slate-800 text-base leading-snug">{ad.title}</p>
           {ad.body_text && <p className="text-sm text-slate-500 mt-1 line-clamp-2">{ad.body_text}</p>}
           <div className="mt-4 flex gap-3">
             {ad.target_url && (
-              <button onClick={handleClick} className="flex-1 bg-forest-900 hover:bg-forest-800 text-white font-semibold py-2.5 rounded-xl text-sm transition-colors">
+              <button
+                onClick={handleClick}
+                className="flex-1 bg-forest-900 hover:bg-forest-800 text-white font-semibold py-2.5 rounded-xl text-sm transition-colors"
+              >
                 Learn More
               </button>
             )}
-            <button onClick={handleClose} className="flex-1 border border-slate-200 text-slate-600 hover:bg-slate-50 font-medium py-2.5 rounded-xl text-sm transition-colors">
+            <button
+              onClick={handleClose}
+              className="flex-1 border border-slate-200 text-slate-600 hover:bg-slate-50 font-medium py-2.5 rounded-xl text-sm transition-colors"
+            >
               Dismiss
             </button>
           </div>
@@ -203,7 +311,7 @@ export default function Dashboard() {
     <>
       <Head><title>Dashboard — SolNuv</title></Head>
 
-      <PopupAd />
+      <PopupCampaign />
 
       <MotionSection className="mb-6">
         <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-forest-900 via-forest-800 to-emerald-700 p-6 sm:p-8 text-white">

@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   RiArticleLine, RiAdvertisementLine, RiAddLine, RiEditLine, RiDeleteBinLine,
   RiCheckLine, RiCloseLine, RiEyeLine, RiMouseLine, RiBarChartLine,
-  RiSaveLine, RiToggleLine
+  RiSaveLine, RiToggleLine, RiMegaphoneLine
 } from 'react-icons/ri';
 import { useAuth } from '../../context/AuthContext';
 import AdminRoute from '../../components/AdminRoute';
@@ -24,7 +24,11 @@ function emptyPost() {
 }
 
 function emptyAd() {
-  return { title: '', image_url: '', target_url: '', body_text: '', placement: 'sidebar', priority: 0, start_date: '', end_date: '', is_active: true, max_total_views: '', max_unique_accounts: '' };
+  return { title: '', image_url: '', target_url: '', body_text: '', placement: 'sidebar', priority: 0, start_date: '', end_date: '', is_active: true, max_total_views: '', max_unique_accounts: '', campaign_id: '', display_order: 0 };
+}
+
+function emptyCampaign() {
+  return { title: '', is_active: true, show_on_login: true, show_on_interval: false, interval_minutes: '' };
 }
 
 function Modal({ title, onClose, children }) {
@@ -110,7 +114,7 @@ function PostForm({ initial, onSave, onCancel, saving }) {
   );
 }
 
-function AdForm({ initial, onSave, onCancel, saving }) {
+function AdForm({ initial, onSave, onCancel, saving, campaigns = [] }) {
   const [form, setForm] = useState(initial || emptyAd());
   function set(key, value) { setForm((f) => ({ ...f, [key]: value })); }
 
@@ -164,16 +168,32 @@ function AdForm({ initial, onSave, onCancel, saving }) {
         </div>
       </div>
       {form.placement === 'popup' && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border border-amber-800/40 rounded-xl p-4 bg-amber-900/10">
-          <div>
-            <label className="label">Max Total Views</label>
-            <p className="text-[10px] text-slate-400 mb-1">Popup stops showing after this many impressions. Leave blank for unlimited.</p>
-            <input className="input" type="number" min="1" placeholder="Unlimited" value={form.max_total_views} onChange={(e) => set('max_total_views', e.target.value)} />
+        <div className="space-y-4 border border-amber-800/40 rounded-xl p-4 bg-amber-900/10">
+          <p className="text-xs font-semibold text-amber-400 uppercase tracking-widest">Popup Settings</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="label">Max Total Views</label>
+              <p className="text-[10px] text-slate-400 mb-1">Stop after this many impressions. Blank = unlimited.</p>
+              <input className="input" type="number" min="1" placeholder="Unlimited" value={form.max_total_views} onChange={(e) => set('max_total_views', e.target.value)} />
+            </div>
+            <div>
+              <label className="label">Max Unique Accounts</label>
+              <p className="text-[10px] text-slate-400 mb-1">Stop after this many distinct users. Blank = unlimited.</p>
+              <input className="input" type="number" min="1" placeholder="Unlimited" value={form.max_unique_accounts} onChange={(e) => set('max_unique_accounts', e.target.value)} />
+            </div>
           </div>
-          <div>
-            <label className="label">Max Unique Accounts</label>
-            <p className="text-[10px] text-slate-400 mb-1">Popup stops after this many distinct logged-in users see it. Leave blank for unlimited.</p>
-            <input className="input" type="number" min="1" placeholder="Unlimited" value={form.max_unique_accounts} onChange={(e) => set('max_unique_accounts', e.target.value)} />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="label">Campaign</label>
+              <select className="input" value={form.campaign_id} onChange={(e) => set('campaign_id', e.target.value)}>
+                <option value="">— None (standalone) —</option>
+                {campaigns.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="label">Display Order in Campaign</label>
+              <input className="input" type="number" min="0" value={form.display_order} onChange={(e) => set('display_order', Number(e.target.value))} />
+            </div>
           </div>
         </div>
       )}
@@ -187,13 +207,66 @@ function AdForm({ initial, onSave, onCancel, saving }) {
   );
 }
 
+function CampaignForm({ initial, onSave, onCancel, saving }) {
+  const [form, setForm] = useState(initial || emptyCampaign());
+  function set(key, value) { setForm((f) => ({ ...f, [key]: value })); }
+  return (
+    <form onSubmit={(e) => { e.preventDefault(); onSave(form); }} className="space-y-4">
+      <div>
+        <label className="label">Campaign Title *</label>
+        <input className="input" value={form.title} onChange={(e) => set('title', e.target.value)} required placeholder="e.g. Rainy Season Promo" />
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label className="label">Status</label>
+          <select className="input" value={form.is_active ? 'true' : 'false'} onChange={(e) => set('is_active', e.target.value === 'true')}>
+            <option value="true">Active</option>
+            <option value="false">Inactive</option>
+          </select>
+        </div>
+      </div>
+      <div className="border border-slate-700 rounded-xl p-4 space-y-3">
+        <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest">Display Triggers</p>
+        <label className="flex items-start gap-3 cursor-pointer">
+          <input type="checkbox" checked={form.show_on_login} onChange={(e) => set('show_on_login', e.target.checked)} className="mt-0.5 accent-emerald-500" />
+          <div>
+            <p className="text-sm font-medium text-slate-200">Show on Login</p>
+            <p className="text-xs text-slate-400">Display once per session when the user logs in</p>
+          </div>
+        </label>
+        <label className="flex items-start gap-3 cursor-pointer">
+          <input type="checkbox" checked={form.show_on_interval} onChange={(e) => set('show_on_interval', e.target.checked)} className="mt-0.5 accent-emerald-500" />
+          <div>
+            <p className="text-sm font-medium text-slate-200">Show on Interval</p>
+            <p className="text-xs text-slate-400">Reappear every N minutes while the user is active</p>
+          </div>
+        </label>
+        {form.show_on_interval && (
+          <div>
+            <label className="label">Interval (minutes)</label>
+            <input className="input" type="number" min="1" placeholder="e.g. 60" value={form.interval_minutes} onChange={(e) => set('interval_minutes', e.target.value)} />
+          </div>
+        )}
+      </div>
+      <div className="flex gap-3 pt-2">
+        <button type="button" onClick={onCancel} className="flex-1 py-2 rounded-lg border border-slate-700 text-slate-300 hover:bg-slate-800 text-sm">Cancel</button>
+        <button type="submit" disabled={saving} className="flex-1 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-sm disabled:opacity-60 flex items-center justify-center gap-2">
+          <RiSaveLine /> {saving ? 'Saving…' : 'Save Campaign'}
+        </button>
+      </div>
+    </form>
+  );
+}
+
 function BlogAdminPage() {
   const [tab, setTab] = useState('posts');
   const [posts, setPosts] = useState([]);
   const [ads, setAds] = useState([]);
+  const [campaigns, setCampaigns] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [postModal, setPostModal] = useState(null); // null | 'create' | post object
+  const [postModal, setPostModal] = useState(null);
   const [adModal, setAdModal] = useState(null);
+  const [campaignModal, setCampaignModal] = useState(null); // null | 'create' | campaign obj
   const [saving, setSaving] = useState(false);
   const [analytics, setAnalytics] = useState({});
 
@@ -215,10 +288,25 @@ function BlogAdminPage() {
     finally { setLoading(false); }
   }, []);
 
+  const loadCampaigns = useCallback(async () => {
+    setLoading(true);
+    try {
+      const { data } = await blogAPI.adminListCampaigns();
+      setCampaigns(data.data || []);
+    } catch { toast.error('Failed to load campaigns'); }
+    finally { setLoading(false); }
+  }, []);
+
+  // Also keep campaigns list fresh for AdForm dropdown
+  useEffect(() => {
+    blogAPI.adminListCampaigns().then((r) => setCampaigns(r.data.data || [])).catch(() => {});
+  }, []);
+
   useEffect(() => {
     if (tab === 'posts') loadPosts();
-    else loadAds();
-  }, [tab, loadPosts, loadAds]);
+    else if (tab === 'ads') loadAds();
+    else loadCampaigns();
+  }, [tab, loadPosts, loadAds, loadCampaigns]);
 
   async function savePost(form) {
     setSaving(true);
@@ -272,6 +360,33 @@ function BlogAdminPage() {
     } catch { toast.error('Failed to delete ad'); }
   }
 
+  async function saveCampaign(form) {
+    setSaving(true);
+    try {
+      if (campaignModal === 'create') {
+        await blogAPI.adminCreateCampaign(form);
+        toast.success('Campaign created');
+      } else {
+        await blogAPI.adminUpdateCampaign(campaignModal.id, form);
+        toast.success('Campaign updated');
+      }
+      setCampaignModal(null);
+      loadCampaigns();
+      blogAPI.adminListCampaigns().then((r) => setCampaigns(r.data.data || [])).catch(() => {});
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to save campaign');
+    } finally { setSaving(false); }
+  }
+
+  async function deleteCampaign(id) {
+    if (!confirm('Delete this campaign? Ads inside will be unlinked but not deleted.')) return;
+    try {
+      await blogAPI.adminDeleteCampaign(id);
+      toast.success('Campaign deleted');
+      loadCampaigns();
+    } catch { toast.error('Failed to delete campaign'); }
+  }
+
   async function loadPostAnalytics(id) {
     try {
       const { data } = await blogAPI.adminGetPostAnalytics(id);
@@ -303,16 +418,24 @@ function BlogAdminPage() {
             <p className="text-sm text-slate-400">Create and manage blog posts and advertisements</p>
           </div>
           <button
-            onClick={() => tab === 'posts' ? setPostModal('create') : setAdModal('create')}
+            onClick={() => {
+              if (tab === 'posts') setPostModal('create');
+              else if (tab === 'ads') setAdModal('create');
+              else setCampaignModal('create');
+            }}
             className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-sm transition-colors"
           >
-            <RiAddLine /> {tab === 'posts' ? 'New Post' : 'New Ad'}
+            <RiAddLine /> {tab === 'posts' ? 'New Post' : tab === 'ads' ? 'New Ad' : 'New Campaign'}
           </button>
         </div>
 
         {/* Tabs */}
         <div className="flex gap-1 mb-6 p-1 bg-slate-800/50 rounded-xl w-fit">
-          {[{ key: 'posts', icon: RiArticleLine, label: 'Blog Posts' }, { key: 'ads', icon: RiAdvertisementLine, label: 'Advertisements' }].map(({ key, icon: Icon, label }) => (
+          {[
+            { key: 'posts', icon: RiArticleLine, label: 'Blog Posts' },
+            { key: 'ads', icon: RiAdvertisementLine, label: 'Advertisements' },
+            { key: 'campaigns', icon: RiMegaphoneLine, label: 'Popup Campaigns' },
+          ].map(({ key, icon: Icon, label }) => (
             <button
               key={key}
               onClick={() => setTab(key)}
@@ -364,7 +487,7 @@ function BlogAdminPage() {
               );
             })}
           </div>
-        ) : (
+        ) : tab === 'ads' ? (
           <div className="space-y-3">
             {ads.length === 0 && <p className="text-slate-400 text-sm py-8 text-center">No ads yet. Create your first ad.</p>}
             {ads.map((ad) => {
@@ -403,6 +526,57 @@ function BlogAdminPage() {
               );
             })}
           </div>
+        ) : (
+          /* Campaigns tab */
+          <div className="space-y-3">
+            {campaigns.length === 0 && (
+              <p className="text-slate-400 text-sm py-8 text-center">No campaigns yet. Create your first popup campaign.</p>
+            )}
+            {campaigns.map((campaign) => (
+              <div key={campaign.id} className="bg-slate-900 border border-slate-800 rounded-xl p-4">
+                <div className="flex flex-wrap items-start gap-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-slate-100">{campaign.title}</p>
+                    <div className="flex flex-wrap gap-2 mt-1">
+                      {campaign.show_on_login && (
+                        <span className="text-xs bg-blue-900/30 text-blue-400 border border-blue-800 px-2 py-0.5 rounded-full">On Login</span>
+                      )}
+                      {campaign.show_on_interval && (
+                        <span className="text-xs bg-purple-900/30 text-purple-400 border border-purple-800 px-2 py-0.5 rounded-full">
+                          Every {campaign.interval_minutes}min
+                        </span>
+                      )}
+                      <span className="text-xs text-slate-400">{campaign.ads?.length || 0} ad(s)</span>
+                    </div>
+                    {campaign.ads?.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {campaign.ads.map((ad) => (
+                          <div key={ad.id} className="flex items-center gap-1.5 bg-slate-800 rounded-lg px-2 py-1">
+                            {ad.image_url && (
+                              <img src={ad.image_url} alt="" className="w-5 h-5 rounded object-cover flex-shrink-0" />
+                            )}
+                            <span className="text-xs text-slate-300 truncate max-w-[120px]">{ad.title}</span>
+                            <span className="text-[10px] text-slate-500">#{ad.display_order}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <span className={`text-xs px-2 py-0.5 rounded-full border font-semibold ${campaign.is_active ? 'bg-emerald-900/30 text-emerald-400 border-emerald-800' : 'bg-slate-700 text-slate-400 border-slate-600'}`}>
+                    {campaign.is_active ? 'Active' : 'Inactive'}
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <button onClick={() => setCampaignModal(campaign)} className="p-2 rounded-lg hover:bg-slate-700 text-slate-400 hover:text-white transition-colors" title="Edit">
+                      <RiEditLine />
+                    </button>
+                    <button onClick={() => deleteCampaign(campaign.id)} className="p-2 rounded-lg hover:bg-slate-700 text-slate-400 hover:text-red-400 transition-colors" title="Delete">
+                      <RiDeleteBinLine />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         )}
       </div>
 
@@ -425,6 +599,19 @@ function BlogAdminPage() {
             initial={adModal !== 'create' ? adModal : undefined}
             onSave={saveAd}
             onCancel={() => setAdModal(null)}
+            saving={saving}
+            campaigns={campaigns}
+          />
+        </Modal>
+      )}
+
+      {/* Campaign modal */}
+      {campaignModal !== null && (
+        <Modal title={campaignModal === 'create' ? 'New Popup Campaign' : 'Edit Campaign'} onClose={() => setCampaignModal(null)}>
+          <CampaignForm
+            initial={campaignModal !== 'create' ? campaignModal : undefined}
+            onSave={saveCampaign}
+            onCancel={() => setCampaignModal(null)}
             saving={saving}
           />
         </Modal>
