@@ -333,7 +333,7 @@ exports.adminListAds = async (req, res) => {
 
 exports.adminCreateAd = async (req, res) => {
   try {
-    const { title, image_url, target_url, body_text, placement, priority, start_date, end_date, is_active, max_total_views, max_unique_accounts } = req.body;
+    const { title, image_url, target_url, body_text, placement, priority, start_date, end_date, is_active, max_total_views, max_unique_accounts, campaign_id, display_order } = req.body;
     if (!title) return sendError(res, 'title is required', 422);
 
     const effectivePlacement = placement || 'sidebar';
@@ -353,6 +353,8 @@ exports.adminCreateAd = async (req, res) => {
         is_active: is_active !== false,
         ...(isPopup && { max_total_views: max_total_views ? Number(max_total_views) : null }),
         ...(isPopup && { max_unique_accounts: max_unique_accounts ? Number(max_unique_accounts) : null }),
+        campaign_id: campaign_id || null,
+        display_order: Number(display_order) || 0,
         created_by: req.supabaseUser.id,
       })
       .select()
@@ -369,7 +371,7 @@ exports.adminCreateAd = async (req, res) => {
 exports.adminUpdateAd = async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, image_url, target_url, body_text, placement, priority, start_date, end_date, is_active, max_total_views, max_unique_accounts } = req.body;
+    const { title, image_url, target_url, body_text, placement, priority, start_date, end_date, is_active, max_total_views, max_unique_accounts, campaign_id, display_order } = req.body;
     const isPopup = (placement || '') === 'popup';
     const updates = {
       ...(title !== undefined && { title }),
@@ -383,6 +385,8 @@ exports.adminUpdateAd = async (req, res) => {
       ...(is_active !== undefined && { is_active }),
       ...(isPopup && { max_total_views: max_total_views ? Number(max_total_views) : null }),
       ...(isPopup && { max_unique_accounts: max_unique_accounts ? Number(max_unique_accounts) : null }),
+      campaign_id: campaign_id || null,
+      display_order: Number(display_order) || 0,
       updated_at: new Date().toISOString(),
     };
     const { data, error } = await supabase.from('ads').update(updates).eq('id', id).select().single();
