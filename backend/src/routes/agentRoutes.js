@@ -6,18 +6,18 @@ const { requireAuth } = require('../middlewares/authMiddleware');
 const { requireAdmin, requireAdminRole } = require('../middlewares/adminMiddleware');
 const { validateAgentAccess, agentRateLimiter } = require('../middlewares/agentMiddleware');
 const { requirePlan } = require('../middlewares/subscriptionMiddleware');
-const { resolveEnvironment } = require('../middlewares/environmentMiddleware');
+const { attachEnvironment } = require('../middlewares/environmentMiddleware');
 
 // ── User endpoints (all require auth) ────────────────────────────────────────
 
-router.get('/instances',       requireAuth, resolveEnvironment,                                   agentController.getInstances);
-router.post('/chat',           requireAuth, resolveEnvironment, requirePlan('free'), validateAgentAccess, agentRateLimiter, agentController.chat);
-router.get('/conversations',   requireAuth, resolveEnvironment,                                   agentController.getConversations);
-router.get('/conversations/:id/messages', requireAuth, resolveEnvironment,                        agentController.getMessages);
-router.patch('/conversations/:id/close',  requireAuth, resolveEnvironment,                        agentController.closeConversation);
-router.post('/tasks',          requireAuth, resolveEnvironment, requirePlan('elite'), validateAgentAccess, agentController.createTask);
-router.get('/tasks',           requireAuth, resolveEnvironment,                                   agentController.getTasks);
-router.get('/tasks/:id',       requireAuth, resolveEnvironment,                                   agentController.getTaskDetail);
+router.get('/instances',       requireAuth, attachEnvironment,                                   agentController.getInstances);
+router.post('/chat',           requireAuth, attachEnvironment, requirePlan('free'), validateAgentAccess, agentRateLimiter, agentController.chat);
+router.get('/conversations',   requireAuth, attachEnvironment,                                   agentController.getConversations);
+router.get('/conversations/:id/messages', requireAuth, attachEnvironment,                        agentController.getMessages);
+router.patch('/conversations/:id/close',  requireAuth, attachEnvironment,                        agentController.closeConversation);
+router.post('/tasks',          requireAuth, attachEnvironment, requirePlan('elite'), validateAgentAccess, agentController.createTask);
+router.get('/tasks',           requireAuth, attachEnvironment,                                   agentController.getTasks);
+router.get('/tasks/:id',       requireAuth, attachEnvironment,                                   agentController.getTaskDetail);
 
 // ── Admin endpoints ──────────────────────────────────────────────────────────
 

@@ -282,7 +282,7 @@ export default function Settings() {
           </form>
         )}
 
-        {/* Company Tab */
+        {/* Company Tab */}
         {activeTab === 'company' && company && (
           <div className="card space-y-4">
             <h2 className="font-semibold text-forest-900 mb-2">Company Details</h2>
