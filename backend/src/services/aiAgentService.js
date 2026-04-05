@@ -136,11 +136,12 @@ async function seedAgentDefinitions() {
 
       // Create internal agent instance (no company)
       if (seed.tier === 'internal' && created) {
-        await supabase.from('ai_agent_instances').insert({
+        const { error: instErr } = await supabase.from('ai_agent_instances').insert({
           definition_id: created.id,
           company_id: null,
           is_active: true,
-        }).catch(() => {}); // ignore duplicate
+        });
+        if (instErr) logger.warn(`Internal instance already exists for ${seed.slug}`);
       }
 
       logger.info(`Seeded agent definition: ${seed.slug} (${seed.tier})`);
@@ -154,11 +155,12 @@ async function seedAgentDefinitions() {
       .maybeSingle();
 
     if (generalDef) {
-      await supabase.from('ai_agent_instances').upsert({
+      const { error: genErr } = await supabase.from('ai_agent_instances').upsert({
         definition_id: generalDef.id,
         company_id: null,
         is_active: true,
-      }, { onConflict: 'definition_id,company_id' }).catch(() => {});
+      }, { onConflict: 'definition_id,company_id' });
+      if (genErr) logger.warn('General agent instance upsert failed', { message: genErr.message });
     }
   } catch (err) {
     logger.error('Agent seeding error', { message: err.message });
@@ -481,14 +483,15 @@ async function executeTask(taskId) {
       }).eq('id', taskId);
 
       // Create escalation
-      await supabase.from('ai_escalations').insert({
+      const { error: escErr } = await supabase.from('ai_escalations').insert({
         task_id: taskId,
         agent_instance_id: instance.id,
         user_id: task.created_by,
         reason: `Task failed after ${newRetries} attempts: ${err.message}`,
         severity: 'high',
         environment: task.environment || 'test',
-      }).catch(() => {});
+      });
+      if (escErr) logger.warn('Escalation insert failed', { message: escErr.message });
     } else {
       // Retry
       await supabase.from('ai_tasks').update({
