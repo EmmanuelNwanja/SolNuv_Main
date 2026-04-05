@@ -273,6 +273,17 @@ export const contactAPI = {
 };
 
 // ==============================
+// FAQ
+// ==============================
+export const faqAPI = {
+  list: () => api.get('/faq'),
+  adminList: () => api.get('/faq/admin'),
+  adminCreate: (data) => api.post('/faq/admin', data),
+  adminUpdate: (id, data) => api.patch(`/faq/admin/${id}`, data),
+  adminDelete: (id) => api.delete(`/faq/admin/${id}`),
+};
+
+// ==============================
 // ANALYTICS
 // ==============================
 export const analyticsAPI = {

@@ -11,6 +11,7 @@ router.use('/payments', require('./paymentRoutes'));
 router.use('/admin', require('./adminRoutes'));
 router.use('/blog', require('./blogRoutes'));
 router.use('/contact', require('./contactRoutes'));
+router.use('/faq', require('./faqRoutes'));
 router.use('/analytics', require('./analyticsRoutes'));
 
 router.get('/health', (req, res) => res.json({
