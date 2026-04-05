@@ -16,6 +16,7 @@ export default function Register() {
   const [confirm, setConfirm] = useState('');
   const [showPw, setShowPw] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [agreed, setAgreed] = useState(false);
 
   useEffect(() => {
     if (session && !loading && profileResolved) {
@@ -27,6 +28,10 @@ export default function Register() {
   async function handleGoogle() {
     if (!phone.trim()) {
       toast.error('Phone number is required before Google sign up');
+      return;
+    }
+    if (!agreed) {
+      toast.error('Please accept the Terms of Service and Privacy Policy to continue');
       return;
     }
 
@@ -45,6 +50,7 @@ export default function Register() {
     if (password !== confirm) { toast.error('Passwords do not match'); return; }
     if (password.length < 8) { toast.error('Password must be at least 8 characters'); return; }
     if (!phone.trim()) { toast.error('Phone number is required'); return; }
+    if (!agreed) { toast.error('Please accept the Terms of Service and Privacy Policy to continue'); return; }
     setSubmitting(true);
     const { error } = await signUpWithEmail(email, password, { phone, business_type: businessType });
     if (error) { toast.error(error.message); setSubmitting(false); }
@@ -120,15 +126,24 @@ export default function Register() {
                 <label className="label">Confirm password</label>
                 <input type="password" className="input" placeholder="Repeat your password" value={confirm} onChange={e => setConfirm(e.target.value)} required />
               </div>
-              <button type="submit" disabled={submitting} className="btn-primary w-full">
+              <label className="flex items-start gap-3 cursor-pointer group">
+                <input
+                  type="checkbox"
+                  checked={agreed}
+                  onChange={e => setAgreed(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 flex-shrink-0 rounded border-slate-300 text-forest-900 accent-forest-900 cursor-pointer"
+                />
+                <span className="text-xs text-slate-500 leading-relaxed group-hover:text-slate-700 transition-colors">
+                  I have read and agree to the{' '}
+                  <Link href="/terms" target="_blank" rel="noopener noreferrer" className="font-semibold text-forest-700 underline hover:text-forest-900" onClick={e => e.stopPropagation()}>Terms of Service</Link>
+                  {' and '}
+                  <Link href="/privacy" target="_blank" rel="noopener noreferrer" className="font-semibold text-forest-700 underline hover:text-forest-900" onClick={e => e.stopPropagation()}>Privacy Policy</Link>
+                  . I confirm I am at least 18 years old.
+                </span>
+              </label>
+              <button type="submit" disabled={submitting || !agreed} className="btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed">
                 {submitting ? 'Creating account...' : 'Create Free Account'}
               </button>
-              <p className="text-xs text-center text-slate-400">
-                By signing up you agree to our{' '}
-                <Link href="/terms" className="underline hover:text-forest-900">Terms of Service</Link>
-                {' & '}
-                <Link href="/privacy" className="underline hover:text-forest-900">Privacy Policy</Link>
-              </p>
             </form>
           </div>
 
