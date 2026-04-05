@@ -314,15 +314,15 @@ export default function Calculator() {
         <div className="mb-5 rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <p className="text-sm font-semibold text-amber-800">
-              Free Plan Usage — {Object.values(usageData.usage || {}).reduce((a, b) => a + b, 0)} / 12 calculations used this month
+              Basic Plan Usage — {Object.values(usageData.usage || {}).reduce((a, b) => a + b, 0)} / 42 calculations used this month
             </p>
             <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1">
               {['panel','battery','degradation','roi','battery-soh','cable-size'].map(t => {
                 const used = usageData.usage?.[t] || 0;
                 const labels = { panel: 'Panel', battery: 'Battery', degradation: 'Decommission', roi: 'ROI', 'battery-soh': 'SoH', 'cable-size': 'Cable' };
                 return (
-                  <span key={t} className={`text-xs ${used >= 2 ? 'text-red-600 font-semibold' : 'text-amber-600'}`}>
-                    {labels[t]}: {used}/2{used >= 2 ? ' ✕' : ''}
+                  <span key={t} className={`text-xs ${used >= 7 ? 'text-red-600 font-semibold' : 'text-amber-600'}`}>
+                    {labels[t]}: {used}/7{used >= 7 ? ' ✕' : ''}
                   </span>
                 );
               })}

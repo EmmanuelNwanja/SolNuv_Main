@@ -136,7 +136,7 @@ export default function Layout({ children }) {
           <div className="flex items-center gap-3">
             <ThemeToggle compact />
             <span className={`badge ${plan === 'free' ? 'badge-slate' : plan === 'pro' ? 'badge-green' : plan === 'elite' ? 'badge-forest' : 'badge-amber'}`}>
-              {plan.toUpperCase()}
+              {plan === 'free' ? 'BASIC' : plan.toUpperCase()}
             </span>
             <Link href="/notifications" className="relative text-slate-500 hover:text-forest-900 transition-colors p-1">
               <RiBellLine className="text-xl" />

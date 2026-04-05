@@ -264,7 +264,7 @@ exports.initializePayment = async (req, res) => {
     const { plan, billing_interval = 'monthly', promo_code = null, auto_renew = true } = req.body;
 
     if (!PAID_PLAN_IDS.includes(plan)) {
-      return sendError(res, 'Invalid plan. Choose pro, elite, or enterprise', 400);
+      return sendError(res, 'Invalid plan. Choose basic, pro, elite, or enterprise', 400);
     }
     if (!BILLING_INTERVALS.includes(billing_interval)) {
       return sendError(res, 'Invalid billing interval. Choose monthly or annual', 400);

@@ -518,13 +518,13 @@ export default function Home() {
             <div className="text-center mb-14">
               <span className="text-xs font-semibold uppercase tracking-widest text-emerald-600">Pricing</span>
               <h2 className="section-title mb-4 mt-2">Simple, Naira-First Pricing</h2>
-              <p className="text-slate-500">No FX surprises. All prices in Naira. Annual billing on all paid plans saves 10%.</p>
+              <p className="text-slate-500">No FX surprises. All prices in Naira. Annual billing saves 10% on all plans.</p>
             </div>
             <div className="grid md:grid-cols-4 gap-6 items-start">
               {[
-                { name: 'Free', price: '₦0', period: '/mo', cta: 'Get Started', href: '/register', features: ['Unlimited project logging', 'West African decommission predictions', '12 calculator uses/month', 'Decommission alerts', 'Basic silver estimator', '1 user / 1 device'] },
-                { name: 'Pro', price: '₦15,000', period: '/mo', cta: 'Start Pro', href: '/register?plan=pro', popular: true, features: ['Unlimited calculator use', 'NESREA EPR PDF Reports', 'Cradle-to-Grave Certificates', 'CSV & Excel export', 'QR code traceability', 'Custom public portfolio', 'Team access (5 users)', '₦162,000 yearly (save 10%)'] },
-                { name: 'Elite', price: '₦40,000', period: '/mo', cta: 'Go Elite', href: '/register?plan=elite', features: ['Everything in Pro', 'Auto-send to NESREA', 'ROI + Cable Compliance PDFs', 'Team access (15 users)', 'Priority support + onboarding', 'Featured installer badge', '₦432,000 yearly (save 10%)'] },
+                { name: 'Basic', price: '₦5,000', period: '/mo', cta: 'Get Basic', href: '/register', features: ['Unlimited project logging', 'West African decommission predictions', '42 calculator uses/month (7 per tool)', 'Decommission alerts', 'Basic silver estimator', '1 user / 1 device', '₦54,000 yearly (save 10%)'] },
+                { name: 'Pro', price: '₦15,000', period: '/mo', cta: 'Start Pro', href: '/register?plan=pro', popular: true, features: ['Everything in Basic', 'NESREA EPR PDF Reports (coming soon)', 'Cradle-to-Grave Certificates', 'CSV & Excel export', 'QR code traceability', 'Custom public portfolio', 'Team access (5 users)', '₦162,000 yearly (save 10%)'] },
+                { name: 'Elite', price: '₦40,000', period: '/mo', cta: 'Go Elite', href: '/register?plan=elite', features: ['Everything in Pro', 'Auto-send to NESREA', 'ROI + Cable Compliance PDFs', 'Team access (15 users)', 'Priority support + onboarding', 'Featured installer badge', 'AI Portfolio Analysis (coming soon)', '₦432,000 yearly (save 10%)'] },
                 { name: 'Enterprise', price: '₦100,000+', period: '/mo', cta: 'Contact Us', href: '/contact', features: ['Everything in Elite', 'Custom API integrations', 'Team access (50 users)', 'Dedicated account manager', 'Quarterly EPR advisory', 'White-label PDF reports', '₦1,080,000 yearly (save 10%)'] },
               ].map((plan, i) => (
                 <div key={i} className={`rounded-2xl overflow-hidden ${plan.popular ? 'ring-2 ring-forest-900 shadow-xl' : 'border border-slate-200'}`}>

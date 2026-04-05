@@ -7,24 +7,24 @@ const PLAN_LIMITS = {
   enterprise: 50,
 };
 
-// Calculator uses per month per type for Free tier (6 types × 2 = 12 total)
-const FREE_CALC_USES_PER_TYPE = 2;
+// Calculator uses per month per type for Basic tier (6 types × 7 = 42 total)
+const FREE_CALC_USES_PER_TYPE = 7;
 const CALC_TYPES = ['panel', 'battery', 'degradation', 'roi', 'battery-soh', 'cable-size'];
 
 const PLAN_DEFINITIONS = {
   free: {
     id: 'free',
-    name: 'Free',
-    monthly_price_ngn: 0,
-    annual_price_ngn: 0,
+    name: 'Basic',
+    monthly_price_ngn: 5000,
+    annual_price_ngn: 54000,
     features: [
       'Unlimited project logging',
       'West African decommission predictions',
-      '12 calculator uses/month (2 per tool)',
+      '42 calculator uses/month (7 per tool)',
       'Email decommission alerts',
       '1 user / 1 device',
     ],
-    cta: 'Get Started Free',
+    cta: 'Get Basic',
   },
   pro: {
     id: 'pro',
@@ -33,8 +33,8 @@ const PLAN_DEFINITIONS = {
     annual_price_ngn: 162000,
     popular: true,
     features: [
-      'Everything in Free — unlimited',
-      'NESREA EPR Compliance PDF Reports',
+      'Everything in Basic',
+      'NESREA EPR Compliance PDF Reports (coming soon)',
       'Cradle-to-Grave Certificates',
       'CSV & Excel export',
       'QR code traceability per project',
@@ -57,6 +57,7 @@ const PLAN_DEFINITIONS = {
       'Priority support + onboarding call',
       'Advanced leaderboard insights',
       'Featured installer badge',
+      'AI Portfolio Analysis (coming soon)',
     ],
     cta: 'Go Elite',
   },
@@ -80,7 +81,7 @@ const PLAN_DEFINITIONS = {
 
 module.exports.__CALC_LIMITS = { FREE_CALC_USES_PER_TYPE, CALC_TYPES };
 
-const PAID_PLAN_IDS = ['pro', 'elite', 'enterprise'];
+const PAID_PLAN_IDS = ['free', 'pro', 'elite', 'enterprise'];
 
 function getPlanPrice(planId, interval = 'monthly') {
   const def = PLAN_DEFINITIONS[planId];

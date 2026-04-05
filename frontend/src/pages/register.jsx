@@ -71,7 +71,7 @@ export default function Register() {
               <span className="font-display font-bold text-forest-900 text-2xl">SolNuv</span>
             </Link>
             <h1 className="font-display font-bold text-forest-900 text-2xl">Create your account</h1>
-            <p className="text-slate-500 text-sm mt-1">Free forever. No credit card required.</p>
+            <p className="text-slate-500 text-sm mt-1">Start from ₦5,000/mo. No credit card required to sign up.</p>
           </div>
 
           <div className="auth-card">

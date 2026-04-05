@@ -54,7 +54,6 @@ export default function Plans() {
   }
 
   async function handleUpgrade(planId) {
-    if (planId === 'free') return;
     if (planId === 'enterprise') { window.location.href = '/contact'; return; }
     if (planId === currentPlan) { toast('You are already on this plan!'); return; }
     setUpgrading(planId);
@@ -108,6 +107,7 @@ export default function Plans() {
             onChange={(e) => setPromoPlanForCheck(e.target.value)}
             className="input sm:col-span-1"
           >
+            <option value="free">Basic</option>
             <option value="pro">Pro</option>
             <option value="elite">Elite</option>
             <option value="enterprise">Enterprise</option>
@@ -157,7 +157,7 @@ export default function Plans() {
                       ? `N${Number(plan.annual_price_ngn || 0).toLocaleString('en-NG')}`
                       : `N${Number(plan.monthly_price_ngn || 0).toLocaleString('en-NG')}`}
                   </span>
-                  {plan.id !== 'free' && <span className="text-slate-400 text-sm pb-1">/{billingInterval === 'annual' ? 'year' : 'month'}</span>}
+                  {plan.monthly_price_ngn > 0 && <span className="text-slate-400 text-sm pb-1">/{billingInterval === 'annual' ? 'year' : 'month'}</span>}
                 </div>
                 {billingInterval === 'annual' && plan.annual_savings_ngn > 0 && (
                   <p className="text-xs text-emerald-600 -mt-3 mb-4">Save N{Number(plan.annual_savings_ngn).toLocaleString('en-NG')} annually</p>
@@ -178,9 +178,7 @@ export default function Plans() {
                     ? <LoadingSpinner size="sm" />
                     : plan.id === currentPlan
                       ? '✓ Current Plan'
-                      : plan.id === 'free'
-                        ? 'Free Forever'
-                        : <>{plan.cta} <RiArrowRightLine /></>}
+                      : <>{plan.cta} <RiArrowRightLine /></>}
                 </button>
               </div>
             </div>

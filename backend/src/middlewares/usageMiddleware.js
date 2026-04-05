@@ -1,15 +1,15 @@
 /**
  * SolNuv Calculator Usage Middleware
- * Tracks calculator usage and enforces per-type monthly limits for Free plan.
+ * Tracks calculator usage and enforces per-type monthly limits for Basic plan.
  *
- * Free plan: 2 uses per calculator type per month (6 types × 2 = 12 total)
+ * Basic plan: 7 uses per calculator type per month (6 types × 7 = 42 total)
  * Pro / Elite / Enterprise: Unlimited
  */
 
 const supabase = require('../config/database');
 const { sendError } = require('../utils/responseHelper');
 
-const FREE_LIMIT_PER_TYPE = 2;
+const FREE_LIMIT_PER_TYPE = 7;
 const PLAN_HIERARCHY = { free: 0, pro: 1, elite: 2, enterprise: 3 };
 
 /**
@@ -37,7 +37,7 @@ function trackCalculatorUsage(calcType) {
     // Paid plans are unrestricted
     if (planLevel > 0) return next();
 
-    // Free plan — check + increment monthly usage for this type
+    // Basic plan — check + increment monthly usage for this type
     const { year, month } = currentPeriod();
 
     try {

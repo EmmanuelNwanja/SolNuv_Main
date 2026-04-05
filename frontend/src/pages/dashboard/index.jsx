@@ -506,7 +506,7 @@ export default function Dashboard() {
         <MotionSection className="bg-gradient-to-r from-forest-900 to-emerald-800 rounded-2xl p-6 text-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
             <p className="font-semibold">Unlock the Full SolNuv Toolkit</p>
-            <p className="text-sm text-white/70 mt-1">Unlimited calculator use · NESREA EPR compliance PDF · QR field traceability · CSV/Excel export · Custom portfolio page — all from &#x20A6;15,000/mo.</p>
+            <p className="text-sm text-white/70 mt-1">Unlimited calculator use · QR field traceability · CSV/Excel export · Custom portfolio page · NESREA EPR PDFs coming soon — all from &#x20A6;15,000/mo.</p>
           </div>
           <Link href="/plans" className="btn-amber flex-shrink-0">Upgrade to Pro →</Link>
         </MotionSection>

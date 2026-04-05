@@ -9,7 +9,7 @@ const { trackCalculatorUsage, getCalculatorUsage } = require('../middlewares/usa
 router.get('/usage', optionalAuth, getCalculatorUsage);
 
 // Calculator endpoints: optionalAuth attaches user if token present;
-// trackCalculatorUsage enforces Free plan limits (2 per type/month) when authenticated.
+// trackCalculatorUsage enforces Basic plan limits (7 per type/month) when authenticated.
 // Anonymous requests (homepage demo) pass through unrestricted.
 router.post('/panel',         optionalAuth, trackCalculatorUsage('panel'),       calculatorController.calculatePanel);
 router.post('/silver',        optionalAuth,                                       calculatorController.calculateSilver);
