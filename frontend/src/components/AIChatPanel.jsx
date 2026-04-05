@@ -62,7 +62,11 @@ export default function AIChatPanel() {
   }, []);
 
   const handleSend = async () => {
-    if (!input.trim() || sending || !selectedAgent) return;
+    if (!input.trim() || sending) return;
+    if (!selectedAgent) {
+      toast.error('AI agents are still loading. Please wait a moment.');
+      return;
+    }
     const text = input.trim();
     setInput('');
     setSending(true);
@@ -119,15 +123,16 @@ export default function AIChatPanel() {
 
   const agentName = selectedAgent?.ai_agent_definitions?.name || 'AI Assistant';
   const agentTier = selectedAgent?.ai_agent_definitions?.tier || 'general';
+  const agentsLoading = open && agents.length === 0;
 
   if (!session) return null;
 
   return (
     <>
-      {/* Floating action button */}
+      {/* Floating action button — positioned above the theme toggle FAB */}
       <button
         onClick={() => setOpen(true)}
-        className="fixed bottom-6 right-6 z-40 w-14 h-14 rounded-full bg-forest-900 text-white shadow-xl hover:bg-forest-800 transition-all hover:scale-105 flex items-center justify-center"
+        className="fixed bottom-20 right-5 z-[60] w-14 h-14 rounded-full bg-forest-900 text-white shadow-xl hover:bg-forest-800 transition-all hover:scale-105 flex items-center justify-center"
         title="AI Assistant"
       >
         <RiRobotLine className="text-2xl" />
@@ -215,8 +220,12 @@ export default function AIChatPanel() {
               {!loadingMessages && messages.length === 0 && (
                 <div className="text-center py-12 text-slate-400">
                   <RiRobotLine className="text-4xl mx-auto mb-3 opacity-40" />
-                  <p className="text-sm font-medium">Start a conversation</p>
-                  <p className="text-xs mt-1">Ask me anything about your solar projects, compliance, or the platform.</p>
+                  <p className="text-sm font-medium">{agentsLoading ? 'Connecting to AI...' : 'Start a conversation'}</p>
+                  <p className="text-xs mt-1">
+                    {agentsLoading
+                      ? 'Loading your available agents...'
+                      : 'Ask me anything about your solar projects, compliance, or the platform.'}
+                  </p>
                 </div>
               )}
 
@@ -258,14 +267,14 @@ export default function AIChatPanel() {
                   value={input}
                   onChange={e => setInput(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  placeholder="Type a message..."
-                  disabled={sending || !selectedAgent}
+                  placeholder={agentsLoading ? 'Connecting...' : 'Type a message...'}
+                  disabled={sending}
                   className="flex-1 resize-none text-sm border border-slate-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-forest-500 focus:border-transparent max-h-24 disabled:opacity-50"
                   style={{ minHeight: '42px' }}
                 />
                 <button
                   onClick={handleSend}
-                  disabled={!input.trim() || sending || !selectedAgent}
+                  disabled={!input.trim() || sending}
                   className="w-10 h-10 flex-shrink-0 rounded-xl bg-forest-900 text-white flex items-center justify-center hover:bg-forest-800 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   {sending ? <RiLoader4Line className="animate-spin" /> : <RiSendPlaneLine />}
