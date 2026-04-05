@@ -7,6 +7,7 @@ const supabase = require('../config/database');
 const { sendSuccess, sendError, sendPaginated } = require('../utils/responseHelper');
 const { calculateDecommissionDate } = require('../services/degradationService');
 const { calculatePanelSilver, calculateProjectRecycleIncome } = require('../services/silverService');
+const { PANEL_TECHNOLOGIES } = require('../constants/technologyConstants');
 const { refreshLeaderboard } = require('../services/schedulerService');
 const logger = require('../utils/logger');
 const QRCode = require('qrcode');
@@ -273,6 +274,7 @@ exports.createProject = async (req, res) => {
         climate_zone: degradation.climate_zone,
         degradation_factor: degradation.degradation_factor,
         sourcing_info: panel.sourcing_info || null,
+        panel_technology: (panel.panel_technology && PANEL_TECHNOLOGIES[panel.panel_technology]) ? panel.panel_technology : null,
       });
     }
 
@@ -288,6 +290,7 @@ exports.createProject = async (req, res) => {
         quantity: battery.quantity,
         condition: battery.condition || 'good',
         sourcing_info: battery.sourcing_info || null,
+        battery_chemistry: battery.battery_chemistry || null,
       });
     }
 
@@ -780,7 +783,7 @@ exports.verifyByQR = async (req, res) => {
 exports.addEquipment = async (req, res) => {
   try {
     const { id } = req.params;
-    const { equipment_type, brand, model, size_watts, capacity_kwh, power_kw, quantity, condition, sourcing_info } = req.body;
+    const { equipment_type, brand, model, size_watts, capacity_kwh, power_kw, quantity, condition, sourcing_info, panel_technology, battery_chemistry } = req.body;
 
     if (!equipment_type || !['panel', 'battery', 'inverter'].includes(equipment_type)) {
       return sendError(res, 'equipment_type must be panel, battery, or inverter', 400);
@@ -815,15 +818,18 @@ exports.addEquipment = async (req, res) => {
       if (!size_watts) return sendError(res, 'size_watts is required for panels', 400);
       record.size_watts = Number(size_watts);
       record.total_panels_wattage = Number(size_watts) * Number(quantity);
-      const degradation = await calculateDecommissionDate(project.state, project.installation_date);
+      const validTech = (panel_technology && PANEL_TECHNOLOGIES[panel_technology]) ? panel_technology : null;
+      const degradation = await calculateDecommissionDate(project.state, project.installation_date, null, validTech);
       const silverCalc = await calculatePanelSilver(size_watts, quantity, brand);
       record.estimated_silver_grams = silverCalc.total_silver_grams;
       record.estimated_silver_value_ngn = silverCalc.recovery_value_expected_ngn;
       record.adjusted_failure_date = degradation.adjusted_failure_date;
       record.climate_zone = degradation.climate_zone;
       record.degradation_factor = degradation.degradation_factor;
+      record.panel_technology = validTech;
     } else if (equipment_type === 'battery') {
       if (capacity_kwh) record.capacity_kwh = Number(capacity_kwh);
+      record.battery_chemistry = battery_chemistry || null;
     } else if (equipment_type === 'inverter') {
       if (power_kw) record.size_watts = Number(power_kw) * 1000;
     }
@@ -863,7 +869,7 @@ exports.addEquipment = async (req, res) => {
 exports.updateEquipment = async (req, res) => {
   try {
     const { id, equipmentId } = req.params;
-    const { brand, model, size_watts, capacity_kwh, power_kw, quantity, condition, sourcing_info } = req.body;
+    const { brand, model, size_watts, capacity_kwh, power_kw, quantity, condition, sourcing_info, panel_technology, battery_chemistry } = req.body;
 
     let projectQuery = supabase.from('projects').select('id, status, state, installation_date, user_id, company_id').eq('id', id);
     if (req.user.company_id) {
@@ -896,8 +902,12 @@ exports.updateEquipment = async (req, res) => {
         updateData.estimated_silver_grams = silverCalc.total_silver_grams;
         updateData.estimated_silver_value_ngn = silverCalc.recovery_value_expected_ngn;
       }
+      if (panel_technology !== undefined) {
+        updateData.panel_technology = (panel_technology && PANEL_TECHNOLOGIES[panel_technology]) ? panel_technology : null;
+      }
     } else if (existing.equipment_type === 'battery') {
       if (capacity_kwh !== undefined) updateData.capacity_kwh = capacity_kwh ? Number(capacity_kwh) : null;
+      if (battery_chemistry !== undefined) updateData.battery_chemistry = battery_chemistry || null;
     } else if (existing.equipment_type === 'inverter') {
       if (power_kw !== undefined) updateData.size_watts = power_kw ? Number(power_kw) * 1000 : null;
     }

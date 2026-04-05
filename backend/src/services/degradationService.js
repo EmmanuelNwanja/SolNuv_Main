@@ -48,6 +48,105 @@ async function getStateClimate(state) {
 }
 
 /**
+ * Classify a climate stressor factor into a severity level.
+ * Factor is a multiplier where 1.0 = baseline; higher = more stressful.
+ */
+function classifyFactor(factor) {
+  if (factor >= 1.35) return 'severe';
+  if (factor >= 1.20) return 'high';
+  if (factor >= 1.10) return 'moderate';
+  return 'low';
+}
+
+/**
+ * Generate actionable maintenance recommendations specific to a state's climate profile.
+ */
+function buildMaintenanceRecommendations(climateZone, stressors, primaryStressor, state) {
+  const recs = [];
+
+  // Universal Nigeria recommendation — grid transients damage equipment across all zones
+  recs.push('Install Type 2 surge protection devices (SPD) on both DC and AC sides — grid voltage transients are the leading cause of MPPT and inverter failure in Nigeria.');
+
+  // Zone-specific soiling / harmattan guidance
+  if (climateZone === 'sahel_dry') {
+    recs.push('Clean panels every 2 weeks during harmattan season (Nov–Feb). Anti-soiling coated glass recovers 5–8% annual output vs. standard glass.');
+    recs.push('Inspect panel glass annually for sand-blast micro-abrasion — scratched glass scatters incoming light and accelerates EVA delamination under UV.');
+  } else if (climateZone === 'mixed') {
+    recs.push('Clean panels monthly year-round; increase to bi-weekly during harmattan (Nov–Jan) when dust plumes reach southern savanna states.');
+  } else if (climateZone === 'coastal_humid') {
+    recs.push('Inspect junction boxes and MC4 glands every 6 months for salt-corrosion. Use marine-grade stainless-steel mounting hardware throughout.');
+    recs.push('Rain self-cleans panels frequently, but bird droppings and industrial particulate create hotspots — inspect monthly and spot-clean as needed.');
+  } else if (climateZone === 'se_humid') {
+    recs.push('Inspect mounting rails and fasteners annually for rust — persistent humidity accelerates galvanic corrosion at aluminium-steel interfaces.');
+    recs.push('Clean panels monthly; confirm drainage channels beneath modules are clear to prevent moisture pooling under the frame.');
+  }
+
+  // Heat stressor recommendations
+  if (stressors.heat.severity === 'high' || stressors.heat.severity === 'severe') {
+    recs.push('Ensure ≥150 mm rear-ventilation clearance behind each panel — elevated racking reduces steady-state cell temperature by 3–5 °C and measurably extends panel life.');
+    recs.push('Mount inverter in shade or a ventilated metal enclosure on an east-facing wall to limit afternoon ambient temperature around the unit.');
+  }
+
+  // Humidity stressor recommendations
+  if (stressors.humidity.severity === 'high' || stressors.humidity.severity === 'severe') {
+    recs.push('Apply conformal coating to inverter PCBs or specify an IP65/NEMA-4X rated inverter enclosure to resist humid air and condensation ingress.');
+    recs.push('Torque-check all MC4 connector pairs annually — humidity cycling loosens plugs, leading to resistance heating and potential arcing faults.');
+  }
+
+  // Elevated surge risk
+  if (stressors.surge.severity === 'high' || stressors.surge.severity === 'severe') {
+    recs.push(`Grid instability in ${state} is rated "${stressors.surge.severity}". Consider an Automatic Voltage Stabiliser (AVS) or online double-conversion UPS on the AC output to protect loads from both sags and spikes.`);
+    recs.push('Log generator start/stop events — abrupt generator shutdowns produce transient over-voltages that can damage MPPT inputs more severely than NEPA grid events.');
+  }
+
+  return recs;
+}
+
+/**
+ * Analyse climate stressors from DB-sourced state data and return structured breakdown.
+ */
+function analyseStressors(climate, state) {
+  const {
+    humidity_factor = 1.10,
+    heat_factor     = 1.15,
+    surge_factor    = 1.18,
+    climate_zone    = 'mixed',
+  } = climate;
+
+  const stressors = {
+    humidity: {
+      factor:      parseFloat(Number(humidity_factor).toFixed(3)),
+      severity:    classifyFactor(humidity_factor),
+      description: 'Coastal salt-mist and persistent moisture — drives PID, encapsulant yellowing, and junction-box corrosion.',
+    },
+    heat: {
+      factor:      parseFloat(Number(heat_factor).toFixed(3)),
+      severity:    classifyFactor(heat_factor),
+      description: 'Extreme heat cycling (35–45 °C ambient → 65–75 °C cell) — causes thermal stress, solder fatigue, and glass micro-cracking.',
+    },
+    surge: {
+      factor:      parseFloat(Number(surge_factor).toFixed(3)),
+      severity:    classifyFactor(surge_factor),
+      description: 'Grid instability and transient over-voltage events — damages bypass diodes, MPPT inputs, and inverter capacitors.',
+    },
+  };
+
+  // Primary stressor = factor with greatest deviation above 1.0 (most impact on panel life)
+  const primary = ['humidity', 'heat', 'surge']
+    .map(k => ({ key: k, dev: (climate[`${k}_factor`] || 1.0) - 1.0 }))
+    .sort((a, b) => b.dev - a.dev)[0].key;
+
+  const recommendations = buildMaintenanceRecommendations(climate_zone, stressors, primary, state);
+
+  return {
+    stressors,
+    primary_stressor:            primary,
+    surge_risk_level:            stressors.surge.severity,
+    maintenance_recommendations: recommendations,
+  };
+}
+
+/**
  * Calculate expected decommissioning date for a panel
  * @param {string} state - Nigerian state name
  * @param {Date} installationDate - Date of installation
@@ -106,6 +205,8 @@ async function calculateDecommissionDate(state, installationDate, panelBrand = '
     ? ` (${tech.label}: ${tech.deg_rate_pct_yr}%/yr degradation rate)`
     : '';
 
+  const stressorAnalysis = analyseStressors(climate, state);
+
   return {
     adjusted_failure_date: decommissionDate.toISOString().split('T')[0],
     climate_zone: climate.climate_zone,
@@ -116,6 +217,10 @@ async function calculateDecommissionDate(state, installationDate, panelBrand = '
     panel_technology: panelTechnology || null,
     panel_technology_label: tech ? tech.label : null,
     explanation: `In ${state} (${climate.climate_zone.replace(/_/g, ' ')}), ${tech ? tech.label + ' panels' : 'panels'} are estimated to last ~${clampedLifespan.toFixed(1)} years due to ${getClimateExplanation(climate.climate_zone)}${techNote}.`,
+    climate_stressors:           stressorAnalysis.stressors,
+    primary_stressor:            stressorAnalysis.primary_stressor,
+    surge_risk_level:            stressorAnalysis.surge_risk_level,
+    maintenance_recommendations: stressorAnalysis.maintenance_recommendations,
   };
 }
 

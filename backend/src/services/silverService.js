@@ -79,6 +79,31 @@ const BATTERY_ANNUAL_SOH_LOSS = {
 // A panel cannot exceed its physics-based degradation just because it looks good.
 const CONDITION_MODIFIER = { excellent: 1.00, good: 0.95, fair: 0.80, poor: 0.45, damaged: 0.00 };
 
+// ─── SOILING EFFICIENCY by Nigerian climate zone ──────────────────────────────
+// Dust and harmattan deposits reduce operational output. Unlike permanent degradation,
+// soiling is REVERSIBLE by cleaning and does NOT affect panel SoH or resale value
+// (buyers test panels post-cleaning). These factors reflect real-world output reduction.
+//
+// Baseline assumes monthly cleaning — the industry standard for maintained Nigerian sites.
+// Sources: NREL sub-Saharan soiling study, IEA PVPS Task 13, GOGLA Nigeria field data
+const ZONE_SOILING_BASE = {
+  coastal_humid: 0.96,  // 4% avg annual loss — rain provides frequent natural self-cleaning
+  se_humid:      0.95,  // 5% — good rainfall with minor dry-season deposit buildup
+  mixed:         0.91,  // 9% — moderate harmattan incursion, irregular rainfall support
+  sahel_dry:     0.87,  // 13% — heavy harmattan (Nov–Feb); far less natural rain cleaning
+  default:       0.91,
+};
+
+// Cleaning frequency modifier: added to zone base to get final soiling efficiency.
+// Positive = panel cleaned more often than baseline; negative = cleaned less often.
+const CLEANING_FREQ_MODIFIER = {
+  daily:     +0.030, // Near-zero soiling — staffed utility/commercial sites
+  weekly:    +0.015, // Well-maintained; minimal dust accumulation between cleanings
+  monthly:   +0.000, // Nigerian baseline — used throughout all other calculations
+  quarterly: -0.060, // Harmattan accumulates significantly between quarterly cleanings
+  rarely:    -0.140, // 3–4 months of harmattan deposits → up to 25% output loss in Sahel
+};
+
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 
 async function getSilverPrice() {
@@ -116,7 +141,7 @@ function getSilverGramsPerPanel(installationDate, wattsPerPanel, panelTechnology
   return g;
 }
 
-function calcPanelSOH(wattsPerPanel, installationDate, climateZone = 'mixed', condition = 'good', panelTechnology = null) {
+function calcPanelSOH(wattsPerPanel, installationDate, climateZone = 'mixed', condition = 'good', panelTechnology = null, cleaningFrequency = 'monthly') {
   const yrs = yearsOldFrom(installationDate);
   const tech = panelTechnology && PANEL_TECHNOLOGIES[panelTechnology];
 
@@ -138,14 +163,30 @@ function calcPanelSOH(wattsPerPanel, installationDate, climateZone = 'mixed', co
   const deltaT = 40; // 65°C cell - 25°C STC
   const tempDeratingFactor = parseFloat((1 + (tempCoeff / 100) * deltaT).toFixed(4));
 
+  // ── Soiling factor ──────────────────────────────────────────────────────────
+  // Real-world output is further reduced by dust and harmattan deposits.
+  // Soiling is REVERSIBLE (cleaning restores output) so it does NOT affect:
+  //   - Panel SoH (physical aging is a separate, irreversible process)
+  //   - Second-life resale price (buyers test and value panels post-cleaning)
+  // It DOES critically affect operational kWh generation and accurate system sizing.
+  const baseSoiling = ZONE_SOILING_BASE[climateZone] ?? ZONE_SOILING_BASE.default;
+  const freqAdj     = CLEANING_FREQ_MODIFIER[cleaningFrequency] ?? 0;
+  const soilingFactor   = parseFloat(Math.max(0.50, Math.min(0.99, baseSoiling + freqAdj)).toFixed(3));
+  const soilingLossPct  = Math.round((1 - soilingFactor) * 100);
+  const soilingNote     = `${climateZone.replace(/_/g, ' ')} climate with ${cleaningFrequency} cleaning: ~${soilingLossPct}% annual output loss from dust/harmattan. Increasing cleaning frequency fully recovers this loss.`;
+
   return {
     soh:              parseFloat(soh.toFixed(4)),
     remaining_watts:  Math.round(parseFloat(wattsPerPanel) * soh),
     years_old:        parseFloat(yrs.toFixed(1)),
     degradation_rate: `${(rate * 100).toFixed(2)}%/yr`,
     panel_technology: panelTechnology || null,
-    temp_derating_factor: tempDeratingFactor,
-    effective_output_watts: Math.round(parseFloat(wattsPerPanel) * soh * tempDeratingFactor),
+    temp_derating_factor:          tempDeratingFactor,
+    effective_output_watts:        Math.round(parseFloat(wattsPerPanel) * soh * tempDeratingFactor),
+    soiling_factor:                soilingFactor,
+    soiling_adjusted_output_watts: Math.round(parseFloat(wattsPerPanel) * soh * tempDeratingFactor * soilingFactor),
+    soiling_loss_pct:              soilingLossPct,
+    soiling_note:                  soilingNote,
   };
 }
 
@@ -196,7 +237,7 @@ function techGenerationFactor(panelTechnology) {
 }
 
 // ─── MAIN: PANEL VALUATION ────────────────────────────────────────────────────
-async function calculatePanelValue(wattsPerPanel, quantity, installationDate, climateZone = 'mixed', condition = 'good', panelTechnology = null) {
+async function calculatePanelValue(wattsPerPanel, quantity, installationDate, climateZone = 'mixed', condition = 'good', panelTechnology = null, cleaningFrequency = 'monthly') {
   const sp  = await getSilverPrice();
   const qty = parseInt(quantity);
   const w   = parseFloat(wattsPerPanel);
@@ -208,7 +249,7 @@ async function calculatePanelValue(wattsPerPanel, quantity, installationDate, cl
   const installerSilver  = Math.round(spotNgn * INSTALLER_SILVER_SHARE);
 
   // 2 ── SECOND-LIFE ROUTE ────────────────────────────────────────────────
-  const health = calcPanelSOH(w, installationDate, climateZone, condition, panelTechnology);
+  const health = calcPanelSOH(w, installationDate, climateZone, condition, panelTechnology, cleaningFrequency);
   const { soh, remaining_watts: rW } = health;
   const viable = soh >= MIN_PANEL_SOH_FOR_SECONDLIFE;
 
@@ -424,6 +465,7 @@ async function calculatePortfolioRecycleIncome(userId, companyId) {
     .from('equipment')
     .select(`
       equipment_type, brand, size_watts, capacity_kwh, quantity, condition,
+      panel_technology, battery_chemistry, climate_zone,
       projects!inner(user_id, company_id, status, installation_date, state)
     `)
     .in('projects.status', ['active', 'decommissioned', 'pending_recovery', 'recycled']);
@@ -444,16 +486,19 @@ async function calculatePortfolioRecycleIncome(userId, companyId) {
     const qty      = parseInt(eq.quantity || 1);
     const cond     = eq.condition || 'good';
     const instDate = eq.projects?.installation_date;
-    const climate  = 'mixed';
+    const panelTech = eq.panel_technology || null;
+    const climZone  = eq.climate_zone || 'mixed';
 
-    const silverG   = getSilverGramsPerPanel(instDate, w) * qty;
+    const silverG   = getSilverGramsPerPanel(instDate, w, panelTech) * qty;
     const silverNgn = Math.round(silverG * sp.price_per_gram_ngn * INSTALLER_SILVER_SHARE);
-    const health    = calcPanelSOH(w, instDate, climate, cond);
+    const health    = calcPanelSOH(w, instDate, climZone, cond, panelTech);
 
     let recycleNgn;
     if (health.soh >= MIN_PANEL_SOH_FOR_SECONDLIFE) {
+      const ageFactor  = ageMarketDiscount(health.years_old);
+      const techFactor = panelTech ? techGenerationFactor(panelTech) : 0.75;
       const newEq  = health.remaining_watts * NEW_PANEL_USD_PER_W * sp.usd_to_ngn_rate;
-      recycleNgn   = Math.round(newEq * SECOND_LIFE_PRICE_RATIO * INSTALLER_PANEL_SHARE * qty);
+      recycleNgn   = Math.round(newEq * SECOND_LIFE_PRICE_RATIO * ageFactor * techFactor * INSTALLER_PANEL_SHARE * qty);
     } else {
       // Below second-life threshold — material recycling; use silver as conservative proxy
       recycleNgn = silverNgn;
@@ -468,13 +513,21 @@ async function calculatePortfolioRecycleIncome(userId, companyId) {
     const instDate = eq.projects?.installation_date;
     const totalKwh = kwh * qty;
 
-    // Detect lead-acid by brand/model name; otherwise assume LiFePO4 (most common in Nigeria)
-    const brandLower = (eq.brand || '').toLowerCase();
-    const isLead  = brandLower.includes('lead') || brandLower.includes('trojan') || brandLower.includes('luminous');
-    const chemistry = isLead ? 'lead-acid' : 'lithium-iron-phosphate';
+    // Prefer stored battery_chemistry; fall back to brand-name heuristic
+    let chemistry;
+    if (eq.battery_chemistry) {
+      chemistry = eq.battery_chemistry;
+    } else {
+      const brandLower = (eq.brand || '').toLowerCase();
+      chemistry = (brandLower.includes('lead') || brandLower.includes('trojan') || brandLower.includes('luminous'))
+        ? 'lead-acid' : 'lithium-iron-phosphate';
+    }
+    const isLead   = chemistry.includes('lead');
+    const chemKey  = resolveChemistry(chemistry);
+    const chemData = BATTERY_CHEMISTRIES[chemKey];
 
     const yrs       = yearsOldFrom(instDate);
-    const annualLoss = BATTERY_ANNUAL_SOH_LOSS[chemistry] || BATTERY_ANNUAL_SOH_LOSS.default;
+    const annualLoss = chemData ? chemData.annual_soh_loss_pct : (BATTERY_ANNUAL_SOH_LOSS[chemistry] || BATTERY_ANNUAL_SOH_LOSS.default);
     const rawSoh    = Math.max(0.10, 1 - annualLoss * yrs);
     const soh       = Math.min(1.0, rawSoh * (CONDITION_MODIFIER[cond] ?? 1.00));
     const viable    = soh >= MIN_BATTERY_SOH_FOR_SECONDLIFE;
@@ -591,42 +644,55 @@ async function calculateProjectRecycleIncome(equipment, installationDate) {
 
   for (const eq of equipment) {
     if (eq.equipment_type === 'panel') {
-      const w    = parseFloat(eq.size_watts || 400);
-      const qty  = parseInt(eq.quantity || 1);
-      const cond = eq.condition || 'good';
+      const w        = parseFloat(eq.size_watts || 400);
+      const qty      = parseInt(eq.quantity || 1);
+      const cond     = eq.condition || 'good';
+      const panelTech = eq.panel_technology || null;
+      const climZone  = eq.climate_zone || 'mixed';
 
       // Prefer stored DB silver value (computed at project-creation time with real date)
       const dbSilver = parseFloat(eq.estimated_silver_value_ngn || 0);
       if (dbSilver > 0) {
         silverNgn += dbSilver;
       } else {
-        const sg = getSilverGramsPerPanel(installationDate, w) * qty;
+        const sg = getSilverGramsPerPanel(installationDate, w, panelTech) * qty;
         silverNgn += Math.round(sg * sp.price_per_gram_ngn * INSTALLER_SILVER_SHARE);
       }
 
-      // Panel second-life / material recycle
-      const health = calcPanelSOH(w, installationDate, 'mixed', cond);
+      // Panel second-life / material recycle — same age + tech discounts as calculatePanelValue
+      const health    = calcPanelSOH(w, installationDate, climZone, cond, panelTech);
       if (health.soh >= MIN_PANEL_SOH_FOR_SECONDLIFE) {
+        const ageFactor  = ageMarketDiscount(health.years_old);
+        const techFactor = panelTech ? techGenerationFactor(panelTech) : 0.75;
         const newEq  = health.remaining_watts * NEW_PANEL_USD_PER_W * sp.usd_to_ngn_rate;
-        panelRecycle += Math.round(newEq * SECOND_LIFE_PRICE_RATIO * INSTALLER_PANEL_SHARE * qty);
+        panelRecycle += Math.round(newEq * SECOND_LIFE_PRICE_RATIO * ageFactor * techFactor * INSTALLER_PANEL_SHARE * qty);
       } else {
-        panelRecycle += dbSilver || Math.round(getSilverGramsPerPanel(installationDate, w) * qty * sp.price_per_gram_ngn * INSTALLER_SILVER_SHARE);
+        panelRecycle += dbSilver || Math.round(getSilverGramsPerPanel(installationDate, w, panelTech) * qty * sp.price_per_gram_ngn * INSTALLER_SILVER_SHARE);
       }
     } else if (eq.equipment_type === 'battery') {
-      const kwh     = parseFloat(eq.capacity_kwh || 2.4);
-      const qty     = parseInt(eq.quantity || 1);
-      const cond    = eq.condition || 'good';
+      const kwh      = parseFloat(eq.capacity_kwh || 2.4);
+      const qty      = parseInt(eq.quantity || 1);
+      const cond     = eq.condition || 'good';
       const totalKwh = kwh * qty;
 
-      const brandLower = (eq.brand || '').toLowerCase();
-      const isLead    = brandLower.includes('lead') || brandLower.includes('trojan') || brandLower.includes('luminous');
-      const chemistry = isLead ? 'lead-acid' : 'lithium-iron-phosphate';
+      // Prefer stored battery_chemistry; fall back to brand-name heuristic
+      let chemistry;
+      if (eq.battery_chemistry) {
+        chemistry = eq.battery_chemistry;
+      } else {
+        const brandLower = (eq.brand || '').toLowerCase();
+        chemistry = (brandLower.includes('lead') || brandLower.includes('trojan') || brandLower.includes('luminous'))
+          ? 'lead-acid' : 'lithium-iron-phosphate';
+      }
+      const isLead   = chemistry.includes('lead');
+      const chemKey  = resolveChemistry(chemistry);
+      const chemData = BATTERY_CHEMISTRIES[chemKey];
 
-      const yrs       = yearsOldFrom(installationDate);
-      const annualLoss = BATTERY_ANNUAL_SOH_LOSS[chemistry] || BATTERY_ANNUAL_SOH_LOSS.default;
-      const rawSoh    = Math.max(0.10, 1 - annualLoss * yrs);
-      const soh       = Math.min(1.0, rawSoh * (CONDITION_MODIFIER[cond] ?? 1.00));
-      const viable    = soh >= MIN_BATTERY_SOH_FOR_SECONDLIFE;
+      const yrs      = yearsOldFrom(installationDate);
+      const annualLoss = chemData ? chemData.annual_soh_loss_pct : (BATTERY_ANNUAL_SOH_LOSS[chemistry] || BATTERY_ANNUAL_SOH_LOSS.default);
+      const rawSoh   = Math.max(0.10, 1 - annualLoss * yrs);
+      const soh      = Math.min(1.0, rawSoh * (CONDITION_MODIFIER[cond] ?? 1.00));
+      const viable   = soh >= MIN_BATTERY_SOH_FOR_SECONDLIFE;
 
       if (viable) {
         const newCostNgn = (NEW_BATTERY_USD_PER_KWH[chemistry] || NEW_BATTERY_USD_PER_KWH.default) * totalKwh * sp.usd_to_ngn_rate;

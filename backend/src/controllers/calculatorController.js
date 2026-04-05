@@ -55,12 +55,13 @@ function mergeBrands(dbBrands = [], fallbackBrands = []) {
 exports.calculatePanel = async (req, res) => {
   try {
     const {
-      size_watts       = 400,
-      quantity         = 1,
+      size_watts         = 400,
+      quantity           = 1,
       installation_date,
-      climate_zone     = 'mixed',
-      condition        = 'good',
-      panel_technology = null,
+      climate_zone       = 'mixed',
+      condition          = 'good',
+      panel_technology   = null,
+      cleaning_frequency = 'monthly',
     } = req.body;
 
     if (parseFloat(size_watts) <= 0) return sendError(res, 'Panel wattage must be greater than 0', 400);
@@ -70,6 +71,10 @@ exports.calculatePanel = async (req, res) => {
     // Validate panel_technology if provided
     const tech = panel_technology && PANEL_TECHNOLOGIES[panel_technology] ? panel_technology : null;
 
+    // Validate cleaning_frequency against allowed values; default to monthly if unknown
+    const VALID_CLEANING_FREQ = ['daily', 'weekly', 'monthly', 'quarterly', 'rarely'];
+    const cleanFreq = VALID_CLEANING_FREQ.includes(cleaning_frequency) ? cleaning_frequency : 'monthly';
+
     const result = await calculatePanelValue(
       parseFloat(size_watts),
       parseInt(quantity),
@@ -77,6 +82,7 @@ exports.calculatePanel = async (req, res) => {
       climate_zone,
       condition,
       tech,
+      cleanFreq,
     );
 
     return sendSuccess(res, result);

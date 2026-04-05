@@ -33,6 +33,7 @@ export default function Calculator() {
     climate_zone: 'coastal_humid',
     condition: 'good',
     panel_technology: 'mono_perc',
+    cleaning_frequency: 'monthly',
   });
   const [panelResult, setPanelResult] = useState(null);
 
@@ -413,6 +414,19 @@ export default function Calculator() {
                 </select>
               </div>
 
+              <div>
+                <label className="label">Cleaning Frequency</label>
+                <select className="input" value={panelForm.cleaning_frequency}
+                  onChange={e => setPanelForm(f => ({ ...f, cleaning_frequency: e.target.value }))}>
+                  <option value="daily">Daily — staffed commercial / utility site</option>
+                  <option value="weekly">Weekly — well-maintained residential</option>
+                  <option value="monthly">Monthly — typical maintained install</option>
+                  <option value="quarterly">Quarterly — common reality, many Nigeria sites</option>
+                  <option value="rarely">Rarely / Uncleaned — worst-case soiling</option>
+                </select>
+                <p className="text-xs text-slate-400 mt-1">Harmattan deposits reduce output between cleanings — especially for Sahel and mixed-zone sites.</p>
+              </div>
+
               <button onClick={runPanel} disabled={loading} className="btn-primary w-full">
                 {loading ? 'Calculating...' : 'Calculate Panel Value →'}
               </button>
@@ -447,6 +461,15 @@ export default function Calculator() {
                         🌡️ At 40°C ambient (65°C cell): effective output ~{Math.round(panelResult.panel_health.temp_derating_factor * 100)}% of rated
                         {panelResult.panel_health?.effective_output_watts ? ` = ${panelResult.panel_health.effective_output_watts}W real-world per panel` : ''}.
                       </p>
+                    )}
+                    {panelResult.panel_health?.soiling_factor != null && panelResult.panel_health.soiling_loss_pct > 0 && (
+                      <div className="mt-2 pt-2 border-t border-slate-100">
+                        <p className="text-xs text-orange-600">
+                          🌫️ Dust/harmattan soiling: ~{panelResult.panel_health.soiling_loss_pct}% output loss with current cleaning schedule
+                          {panelResult.panel_health?.soiling_adjusted_output_watts ? ` → ${panelResult.panel_health.soiling_adjusted_output_watts}W real-world output per panel` : ''}.
+                        </p>
+                        <p className="text-xs text-slate-400 mt-0.5">Soiling is reversible — cleaning fully restores output and does not affect panel resale value.</p>
+                      </div>
                     )}
                   </div>
 
@@ -1025,12 +1048,57 @@ export default function Calculator() {
                     <p className="text-xs text-slate-400 leading-relaxed pt-1 border-t border-slate-100">
                       {degradResult.explanation}
                     </p>
+
+                    {/* Climate stressor breakdown */}
+                    {degradResult.climate_stressors && (
+                      <div className="pt-2 border-t border-slate-100 space-y-2">
+                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                          Climate Stressors
+                          {degradResult.primary_stressor && (
+                            <span className="ml-2 font-normal normal-case text-slate-400">
+                              · Primary: <span className="font-semibold capitalize text-slate-600">{degradResult.primary_stressor}</span>
+                            </span>
+                          )}
+                        </p>
+                        {Object.entries(degradResult.climate_stressors).map(([key, s]) => (
+                          <div key={key} className="flex items-start gap-2">
+                            <span className={`mt-0.5 inline-block px-1.5 py-0.5 rounded text-xs font-bold leading-none flex-shrink-0 ${
+                              s.severity === 'severe'   ? 'bg-red-100 text-red-700' :
+                              s.severity === 'high'     ? 'bg-orange-100 text-orange-700' :
+                              s.severity === 'moderate' ? 'bg-amber-100 text-amber-700' :
+                                                          'bg-slate-100 text-slate-500'}`}>
+                              {s.severity.toUpperCase()}
+                            </span>
+                            <div>
+                              <p className="text-xs font-semibold text-slate-700 capitalize">{key} (×{s.factor})</p>
+                              <p className="text-xs text-slate-400">{s.description}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
                     <div className="bg-blue-50 rounded-xl p-3">
                       <p className="text-xs text-blue-600 font-medium">vs. OEM Warranty (20–25 years)</p>
                       <p className="text-xs text-blue-500 mt-1">
                         Standard panels are rated for 20–25 years. In West African conditions, expect 7–12 years. Our algorithm uses local climate data, not the factory default.
                       </p>
                     </div>
+
+                    {/* Maintenance recommendations */}
+                    {degradResult.maintenance_recommendations?.length > 0 && (
+                      <div className="pt-2 border-t border-slate-100">
+                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Maintenance Recommendations</p>
+                        <ul className="space-y-1.5">
+                          {degradResult.maintenance_recommendations.map((rec, i) => (
+                            <li key={i} className="flex items-start gap-1.5 text-xs text-slate-600">
+                              <span className="text-emerald-500 flex-shrink-0 mt-0.5">✓</span>
+                              <span>{rec}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
                   </div>
                 </>
               ) : (

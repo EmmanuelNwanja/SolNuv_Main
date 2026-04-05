@@ -28,13 +28,13 @@ const PANEL_TECHNOLOGIES = {
     label:            'Polycrystalline BSF (Legacy)',
     group:            'p-type',
     silver_mg_per_wp: 0.55,
-    deg_rate_pct_yr:  0.70,
-    first_year_loss:  0.025,
-    temp_coeff_pct_c: -0.45,
+    deg_rate_pct_yr:  0.70,  // ≤0.70%/yr per standard BSF warranty (IEC 61215)
+    first_year_loss:  0.030, // 3.0%: higher LID in p-type BSF, compounded by LETID in hot climate
+    temp_coeff_pct_c: -0.45, // P-type poly BSF: -0.43 to -0.47%/°C (Clean Energy Reviews)
     bifacial:         false,
     bifacial_gain_min: 0,
     bifacial_gain_max: 0,
-    notes: 'Older technology still common in African fields. Higher degradation and temperature sensitivity.',
+    notes: 'Older technology still common in African fields. Deg rate per IEC 61215 / standard BSF warranty specs. First-year LID 3% elevated due to p-type BSF + LETID in high-heat environments.',
   },
 
   // ── Monocrystalline PERC (monofacial) ────────────────────────────────────
@@ -70,13 +70,13 @@ const PANEL_TECHNOLOGIES = {
     label:            'n-type TOPCon (Monofacial)',
     group:            'n-type',
     silver_mg_per_wp: 0.40,
-    deg_rate_pct_yr:  0.35,
-    first_year_loss:  0.015,
-    temp_coeff_pct_c: -0.30,
+    deg_rate_pct_yr:  0.40,  // ≤0.40%/yr: JA Solar Deep Blue 4.0, Jinko Tiger Neo, LONGi Hi-MO 6 all specify this
+    first_year_loss:  0.010, // 1.0%: JA Solar & Jinko n-type warranty — first-year ≤1.0% (user-facing spec)
+    temp_coeff_pct_c: -0.30, // N-type TOPCon: -0.29 to -0.32%/°C (Clean Energy Reviews confirmed range)
     bifacial:         false,
     bifacial_gain_min: 0,
     bifacial_gain_max: 0,
-    notes: 'Lower degradation than p-type. Better performance in heat due to improved temp coefficient.',
+    notes: 'Deg rate and first-year loss sourced from JA Solar Deep Blue 4.0, Jinko Tiger Neo warranty specs. Temp coeff confirmed by Clean Energy Reviews independent review.',
   },
 
   // ── n-type TOPCon Bifacial ───────────────────────────────────────────────
@@ -84,13 +84,13 @@ const PANEL_TECHNOLOGIES = {
     label:            'n-type TOPCon Bifacial',
     group:            'n-type',
     silver_mg_per_wp: 0.40,
-    deg_rate_pct_yr:  0.35,
-    first_year_loss:  0.015,
-    temp_coeff_pct_c: -0.30,
+    deg_rate_pct_yr:  0.40,  // ≤0.40%/yr: JA Solar Deep Blue 4.0 Pro, Jinko Tiger Neo N bifacial spec
+    first_year_loss:  0.010, // 1.0%: JA Solar n-type warranty — first-year ≤1.0%
+    temp_coeff_pct_c: -0.30, // N-type TOPCon: -0.29 to -0.32%/°C
     bifacial:         true,
     bifacial_gain_min: 0.10,
     bifacial_gain_max: 0.25,
-    notes: 'Most popular new installation choice 2024+. Rear-side gain 10–25% on reflective surfaces.',
+    notes: 'Most popular new installation choice 2024+. Deg rates per JA Solar Deep Blue 4.0 Pro / Jinko Tiger Neo N warranty. Rear-side gain 10–25% on reflective surfaces.',
   },
 
   // ── HPBC Mono (LONGi Hi-MO 6 style rear-contact) ────────────────────────
@@ -98,13 +98,13 @@ const PANEL_TECHNOLOGIES = {
     label:            'HPBC Mono (Rear Contact)',
     group:            'n-type',
     silver_mg_per_wp: 0.30,
-    deg_rate_pct_yr:  0.35,
-    first_year_loss:  0.015,
-    temp_coeff_pct_c: -0.29,
+    deg_rate_pct_yr:  0.40,  // ≤0.40%/yr: LONGi Hi-MO X6 (HPBC) official warranty spec
+    first_year_loss:  0.010, // 1.0%: n-type HPBC has no LID advantage over TOPCon in year-1 warranty
+    temp_coeff_pct_c: -0.29, // LONGi Hi-MO X6 datasheet: -0.29%/°C
     bifacial:         false,
     bifacial_gain_min: 0,
     bifacial_gain_max: 0,
-    notes: 'LONGi HPBC rear-contact. No front busbar shading. Lower silver on front contacts.',
+    notes: 'LONGi HPBC rear-contact. Deg rate and first-year loss from LONGi Hi-MO X6 official warranty. Temp coeff from LONGi datasheet.',
   },
 
   // ── HPBC Bifacial ────────────────────────────────────────────────────────
@@ -112,13 +112,13 @@ const PANEL_TECHNOLOGIES = {
     label:            'HPBC Bifacial (Rear Contact)',
     group:            'n-type',
     silver_mg_per_wp: 0.30,
-    deg_rate_pct_yr:  0.32,
-    first_year_loss:  0.013,
-    temp_coeff_pct_c: -0.29,
+    deg_rate_pct_yr:  0.40,  // ≤0.40%/yr: LONGi Hi-MO X6 bifacial warranty spec
+    first_year_loss:  0.010, // 1.0%: n-type substrate — same first-year spec as HPBC mono
+    temp_coeff_pct_c: -0.29, // LONGi Hi-MO X6 datasheet: -0.29%/°C
     bifacial:         true,
     bifacial_gain_min: 0.08,
     bifacial_gain_max: 0.22,
-    notes: 'Best in class rear-contact bifacial. Combined gain from bifaciality and low temp coefficient.',
+    notes: 'LONGi HPBC bifacial. Deg rate and first-year loss from LONGi Hi-MO X6 bifacial warranty. Rear-side gain 8–22% on reflective surfaces.',
   },
 
   // ── HJT (Heterojunction) ─────────────────────────────────────────────────
@@ -126,13 +126,15 @@ const PANEL_TECHNOLOGIES = {
     label:            'HJT (Heterojunction)',
     group:            'n-type',
     silver_mg_per_wp: 0.50,
-    deg_rate_pct_yr:  0.25,
-    first_year_loss:  0.010,
-    temp_coeff_pct_c: -0.24,
+    deg_rate_pct_yr:  0.25,  // ≤0.25%/yr: REC Alpha Pro, Huasun Himalaya, Risen Titan S warranty specs
+    first_year_loss:  0.005, // 0.5%: HJT uses amorphous Si passivation — no p-type LID mechanism.
+                             // First-year and subsequent years are nearly identical by physics.
+                             // REC Alpha Pro specifies identical rate from year 1 onward.
+    temp_coeff_pct_c: -0.24, // REC Alpha Pro and Huasun datasheets: -0.24%/°C (premium HJT)
     bifacial:         true,
     bifacial_gain_min: 0.10,
     bifacial_gain_max: 0.25,
-    notes: 'Best temperature coefficient — ideal for hot climates. Uses low-temperature paste requiring more silver than PERC/TOPCon. Lowest degradation of all crystalline Si.',
+    notes: 'Best temperature coefficient — ideal for hot climates. HJT has NO LID because there is no p-type crystalline Si; first-year loss is negligible (0.5%). Deg rate per REC Alpha Pro / Huasun Himalaya warranty. Uses low-temp paste requiring more silver than PERC/TOPCon.',
   },
 
   // ── IBC (Interdigitated Back Contact) ────────────────────────────────────
@@ -140,13 +142,14 @@ const PANEL_TECHNOLOGIES = {
     label:            'IBC (All-Back Contact)',
     group:            'n-type',
     silver_mg_per_wp: 0.28,
-    deg_rate_pct_yr:  0.25,
-    first_year_loss:  0.008,
-    temp_coeff_pct_c: -0.27,
+    deg_rate_pct_yr:  0.25,  // ≤0.25%/yr: Maxeon 3/5/6 warranty spec
+    first_year_loss:  0.003, // 0.3%: IBC is high-purity n-type with no p-type LID by design.
+                             // Maxeon warranty does not bifurcate first-year from subsequent years.
+    temp_coeff_pct_c: -0.27, // Maxeon 7 datasheet: -0.27%/°C; range -0.26 to -0.30 (Clean Energy Reviews)
     bifacial:         false,
     bifacial_gain_min: 0,
     bifacial_gain_max: 0,
-    notes: 'Premium all-back-contact design. Highest efficiency, no front-side shading losses. SunPower / Maxeon cells.',
+    notes: 'Premium all-back-contact design. Deg rate per Maxeon 3/5/6/7 warranty. Negligible LID by design — high-purity n-type substrate with no p-type boron-oxygen defect mechanism.',
   },
 
   // ── Thin Film CdTe ───────────────────────────────────────────────────────
@@ -154,13 +157,15 @@ const PANEL_TECHNOLOGIES = {
     label:            'Thin Film CdTe (First Solar)',
     group:            'thin-film',
     silver_mg_per_wp: 0,
-    deg_rate_pct_yr:  0.40,
-    first_year_loss:  0.008,
-    temp_coeff_pct_c: -0.27,
+    deg_rate_pct_yr:  0.40,  // ≤0.40%/yr: First Solar Series 6/7 warranty spec
+    first_year_loss:  0.020, // 2.0%: CdTe undergoes an initial thermal stabilisation period.
+                             // First Solar warranty explicitly lists a higher first-year loss
+                             // before the module reaches stable operating state.
+    temp_coeff_pct_c: -0.27, // First Solar Series 6: -0.27%/°C per datasheet
     bifacial:         false,
     bifacial_gain_min: 0,
     bifacial_gain_max: 0,
-    notes: 'No silver. CdTe semiconductor. Good performance in diffuse light conditions. First Solar dominant.',
+    notes: 'No silver. Deg rate per First Solar Series 6/7 warranty. First-year loss reflects CdTe thermal stabilisation — after which degradation stabilises to the annual rate.',
   },
 
   // ── Thin Film CIGS ───────────────────────────────────────────────────────
@@ -168,13 +173,13 @@ const PANEL_TECHNOLOGIES = {
     label:            'Thin Film CIGS',
     group:            'thin-film',
     silver_mg_per_wp: 0,
-    deg_rate_pct_yr:  0.45,
-    first_year_loss:  0.012,
-    temp_coeff_pct_c: -0.33,
+    deg_rate_pct_yr:  0.45,  // ≤0.45%/yr: conservative CIGS field data (IEA PVPS Task 13)
+    first_year_loss:  0.015, // 1.5%: CIGS has voltage-induced metastability (VIM) in early operation
+    temp_coeff_pct_c: -0.33, // Typical CIGS: -0.30 to -0.36%/°C
     bifacial:         false,
     bifacial_gain_min: 0,
     bifacial_gain_max: 0,
-    notes: 'No silver. Copper-Indium-Gallium-Selenide. Flexible substrate options available.',
+    notes: 'No silver. Deg rate from IEA PVPS Task 13 field data. First-year loss reflects CIGS voltage-induced metastability (VIM) — modules stabilise after initial field conditioning.',
   },
 };
 
