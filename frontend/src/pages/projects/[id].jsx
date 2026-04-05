@@ -845,7 +845,7 @@ export default function ProjectDetail() {
             </div>
           )}
 
-          {/* Batteries */
+          {/* Batteries */}
           {(batteries.length > 0 || (canEditEquipment && addingEquipType === 'battery')) && (
             <div className="card">
               <div className="flex items-center justify-between mb-4">
