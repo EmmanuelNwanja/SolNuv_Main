@@ -228,7 +228,7 @@ export const adminAPI = {
   listPromoCodes: () => api.get('/admin/promo-codes'),
   createPromoCode: (data) => api.post('/admin/promo-codes', data),
   togglePromoCode: (id, active) => api.patch(`/admin/promo-codes/${id}/toggle`, { active }),
-  getFinance: () => api.get('/admin/finance'),
+  getFinance: (params) => api.get('/admin/finance', { params }),
   sendPushNotification: (data) => api.post('/admin/push-notifications', data),
   getActivityLogs: () => api.get('/admin/activity-logs'),
   listAdmins: () => api.get('/admin/admins'),
@@ -243,6 +243,9 @@ export const adminAPI = {
   deleteUser: (id, data) => api.delete(`/admin/users/${id}`, { data }),
   listRecoveryRequests: (params) => api.get('/admin/recovery-requests', { params }),
   approveDecommission: (id, data) => api.patch(`/admin/recovery-requests/${id}/approve`, data || {}),
+  // Environment mode (test/live)
+  getEnvironmentMode: () => api.get('/admin/settings/environment'),
+  toggleEnvironmentMode: (mode) => api.patch('/admin/settings/environment', { mode }),
 };
 
 // ==============================

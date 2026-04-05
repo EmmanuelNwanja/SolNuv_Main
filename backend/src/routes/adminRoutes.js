@@ -3,8 +3,9 @@ const router = express.Router();
 const adminController = require('../controllers/adminController');
 const { requireAuth, requireProfile } = require('../middlewares/authMiddleware');
 const { requireAdmin, requireAdminRole } = require('../middlewares/adminMiddleware');
+const { attachEnvironment } = require('../middlewares/environmentMiddleware');
 
-router.use(requireAuth, requireProfile, requireAdmin);
+router.use(requireAuth, requireProfile, requireAdmin, attachEnvironment);
 
 router.get('/overview', adminController.getOverview);
 router.get('/users', adminController.listUsers);
@@ -35,5 +36,9 @@ router.patch('/projects/:id', requireAdminRole('super_admin', 'operations'), adm
 
 router.get('/recovery-requests', requireAdminRole('super_admin', 'operations'), adminController.listRecoveryRequests);
 router.patch('/recovery-requests/:id/approve', requireAdminRole('super_admin', 'operations'), adminController.approveDecommission);
+
+// Platform settings (test/live mode)
+router.get('/settings/environment', requireAdminRole('super_admin'), adminController.getEnvironmentMode);
+router.patch('/settings/environment', requireAdminRole('super_admin'), adminController.toggleEnvironmentMode);
 
 module.exports = router;

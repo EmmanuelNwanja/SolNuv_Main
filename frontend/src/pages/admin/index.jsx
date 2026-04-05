@@ -66,6 +66,26 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
   const [mgmtDeleteConfirm, setMgmtDeleteConfirm] = useState('');
   const [mgmtBusy, setMgmtBusy] = useState(false);
   const [mgmtAction, setMgmtAction] = useState(null); // 'suspend' | 'delete' | null
+
+  // Payment tracking for plan upgrades
+  const [mgmtPayChannel, setMgmtPayChannel] = useState('');
+  const [mgmtBankRef, setMgmtBankRef] = useState('');
+  const [mgmtBankDate, setMgmtBankDate] = useState('');
+  const [mgmtBankTime, setMgmtBankTime] = useState('');
+  const [mgmtCouponCode, setMgmtCouponCode] = useState('');
+  const [mgmtCouponValue, setMgmtCouponValue] = useState('');
+  const [mgmtCouponType, setMgmtCouponType] = useState('flat');
+  const [mgmtAmountReceived, setMgmtAmountReceived] = useState('');
+  const [mgmtUpgradeReason, setMgmtUpgradeReason] = useState('');
+
+  // Finance filters
+  const [financeChannel, setFinanceChannel] = useState('');
+  const [financePlan, setFinancePlan] = useState('');
+  const [financePage, setFinancePage] = useState(1);
+
+  // Environment mode
+  const [envMode, setEnvMode] = useState('test');
+  const [envSwitching, setEnvSwitching] = useState(false);
   const [adminUserSearch, setAdminUserSearch] = useState('');
   const [adminUserSearchResults, setAdminUserSearchResults] = useState([]);
   const [adminRoleForm, setAdminRoleForm] = useState({
@@ -104,7 +124,7 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
       projects: [{ key: 'projects', request: adminAPI.listAllProjects({ page: 1, limit: 100, search: projectSearch, status: projectStatusFilter, geo_verified: projectGeoFilter }) }],
       paystack: [{ key: 'paystack', request: adminAPI.listPaystackPlans() }],
       promo: [{ key: 'promo', request: adminAPI.listPromoCodes() }],
-      finance: [{ key: 'finance', request: adminAPI.getFinance() }],
+      finance: [{ key: 'finance', request: adminAPI.getFinance({ page: financePage, limit: 50, channel: financeChannel || undefined, plan: financePlan || undefined }) }],
       push: [],
       logs: [{ key: 'logs', request: adminAPI.getActivityLogs() }],
       admins: [{ key: 'admins', request: adminAPI.listAdmins() }],
@@ -146,7 +166,14 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
         }
       })
       .finally(() => setLoading(false));
-  }, [isPlatformAdmin, forcedTab, projectSearch, projectStatusFilter, projectGeoFilter]);
+  }, [isPlatformAdmin, forcedTab, projectSearch, projectStatusFilter, projectGeoFilter, financePage, financeChannel, financePlan]);
+
+  // Fetch environment mode once on mount
+  useEffect(() => {
+    adminAPI.getEnvironmentMode().then(r => {
+      setEnvMode(r.data?.data?.mode || 'test');
+    }).catch(() => {});
+  }, []);
 
   async function refreshProjects() {
     const { data } = await adminAPI.listAllProjects({ page: 1, limit: 100, search: projectSearch, status: projectStatusFilter, geo_verified: projectGeoFilter });
@@ -323,6 +350,34 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
             <Link href="/admin/push" className="rounded-xl border border-white/25 bg-white/10 px-3 py-2 text-xs font-semibold hover:bg-white/20 transition-colors">Send Notification</Link>
           </div>
         </div>
+
+        {/* Test / Live Mode Toggle */}
+        <div className="relative mt-4 flex items-center gap-3">
+          <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold tracking-wide ${envMode === 'live' ? 'bg-emerald-500/20 text-emerald-200 border border-emerald-400/30' : 'bg-amber-500/20 text-amber-200 border border-amber-400/30'}`}>
+            <span className={`inline-block w-2 h-2 rounded-full ${envMode === 'live' ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
+            {envMode === 'live' ? 'LIVE MODE' : 'TEST MODE'}
+          </span>
+          {platformAdminRole === 'super_admin' && (
+            <button
+              disabled={envSwitching}
+              onClick={async () => {
+                const next = envMode === 'test' ? 'live' : 'test';
+                if (!window.confirm(`Switch to ${next.toUpperCase()} mode? All admin views will show ${next} data only.`)) return;
+                setEnvSwitching(true);
+                try {
+                  await adminAPI.toggleEnvironmentMode(next);
+                  setEnvMode(next);
+                  toast.success(`Switched to ${next.toUpperCase()} mode`);
+                } catch (err) { toast.error(err.response?.data?.message || 'Failed to switch mode'); }
+                finally { setEnvSwitching(false); }
+              }}
+              className="rounded-xl border border-white/25 bg-white/10 px-3 py-1.5 text-xs font-semibold hover:bg-white/20 transition-colors"
+            >
+              {envSwitching ? 'Switching...' : `Switch to ${envMode === 'test' ? 'Live' : 'Test'}`}
+            </button>
+          )}
+          <span className="text-[10px] text-white/40">Data scope: all admin views filter by current mode</span>
+        </div>
         {loadWarnings.length > 0 && (
           <p className="text-xs text-amber-200 mt-4">
             Partial data loaded. Retry affected sections: {loadWarnings.join(', ')}.
@@ -441,6 +496,15 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
                           setMgmtDeleteReason('');
                           setMgmtDeleteConfirm('');
                           setMgmtAction(null);
+                          setMgmtPayChannel('');
+                          setMgmtBankRef('');
+                          setMgmtBankDate('');
+                          setMgmtBankTime('');
+                          setMgmtCouponCode('');
+                          setMgmtCouponValue('');
+                          setMgmtCouponType('flat');
+                          setMgmtAmountReceived('');
+                          setMgmtUpgradeReason('');
                         }
                       }}
                       className={`text-sm px-4 py-2 rounded-xl font-semibold border transition-all whitespace-nowrap ${
@@ -479,14 +543,109 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
                             <label className="label text-xs">Max Team Members</label>
                             <input className="input text-sm w-24" type="number" min={1} max={100} value={mgmtMaxTeam} onChange={e => setMgmtMaxTeam(Number(e.target.value))} />
                           </div>
+                        </div>
+
+                        {/* Payment tracking — required for non-free plan changes */}
+                        {mgmtPlan !== 'free' && mgmtPlan !== (u.companies?.subscription_plan || 'free') && (
+                          <div className="mt-4 p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
+                            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Payment Confirmation</p>
+                            <div className="flex flex-wrap gap-3 items-end">
+                              <div>
+                                <label className="label text-xs">Payment Channel <span className="text-red-500">*</span></label>
+                                <select className="input text-sm" value={mgmtPayChannel} onChange={e => setMgmtPayChannel(e.target.value)}>
+                                  <option value="">Select channel...</option>
+                                  <option value="paystack">Paystack</option>
+                                  <option value="direct_transfer">Direct Bank Transfer</option>
+                                  <option value="coupon_only">Coupon Only</option>
+                                  <option value="admin_grant">Admin Grant (free upgrade)</option>
+                                </select>
+                              </div>
+                              <div>
+                                <label className="label text-xs">Amount Received (₦)</label>
+                                <input className="input text-sm w-32" type="number" min={0} placeholder="0" value={mgmtAmountReceived} onChange={e => setMgmtAmountReceived(e.target.value)} />
+                              </div>
+                            </div>
+
+                            {/* Direct transfer requires bank confirmation */}
+                            {mgmtPayChannel === 'direct_transfer' && (
+                              <div className="flex flex-wrap gap-3 items-end">
+                                <div>
+                                  <label className="label text-xs">Bank Reference / Receipt No. <span className="text-red-500">*</span></label>
+                                  <input className="input text-sm w-48" type="text" placeholder="e.g. TRF-2024-001" value={mgmtBankRef} onChange={e => setMgmtBankRef(e.target.value)} />
+                                </div>
+                                <div>
+                                  <label className="label text-xs">Bank Confirmation Date <span className="text-red-500">*</span></label>
+                                  <input className="input text-sm" type="date" value={mgmtBankDate} onChange={e => setMgmtBankDate(e.target.value)} />
+                                </div>
+                                <div>
+                                  <label className="label text-xs">Confirmation Time <span className="text-red-500">*</span></label>
+                                  <input className="input text-sm" type="time" value={mgmtBankTime} onChange={e => setMgmtBankTime(e.target.value)} />
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Coupon fields */}
+                            {(mgmtPayChannel === 'coupon_only' || mgmtPayChannel === 'paystack') && (
+                              <div className="flex flex-wrap gap-3 items-end">
+                                <div>
+                                  <label className="label text-xs">Coupon Code {mgmtPayChannel === 'coupon_only' && <span className="text-red-500">*</span>}</label>
+                                  <input className="input text-sm w-40" type="text" placeholder="PROMO2024" value={mgmtCouponCode} onChange={e => setMgmtCouponCode(e.target.value)} />
+                                </div>
+                                <div>
+                                  <label className="label text-xs">Discount Value</label>
+                                  <input className="input text-sm w-28" type="number" min={0} placeholder="0" value={mgmtCouponValue} onChange={e => setMgmtCouponValue(e.target.value)} />
+                                </div>
+                                <div>
+                                  <label className="label text-xs">Discount Type</label>
+                                  <select className="input text-sm" value={mgmtCouponType} onChange={e => setMgmtCouponType(e.target.value)}>
+                                    <option value="flat">Flat (₦)</option>
+                                    <option value="percent">Percent (%)</option>
+                                  </select>
+                                </div>
+                              </div>
+                            )}
+
+                            <div>
+                              <label className="label text-xs">Upgrade Reason / Notes</label>
+                              <textarea className="input text-sm w-full" rows={2} placeholder="Reason for this plan upgrade..." value={mgmtUpgradeReason} onChange={e => setMgmtUpgradeReason(e.target.value)} />
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="mt-3">
                           <button
-                            disabled={mgmtBusy}
+                            disabled={mgmtBusy || (mgmtPlan !== 'free' && mgmtPlan !== (u.companies?.subscription_plan || 'free') && !mgmtPayChannel)}
                             onClick={async () => {
                               setMgmtBusy(true);
                               try {
-                                await adminAPI.updateUserManagement({ user_id: u.id, company_plan: mgmtPlan, subscription_interval: mgmtInterval, max_team_members: mgmtMaxTeam });
+                                const payload = {
+                                  user_id: u.id,
+                                  company_plan: mgmtPlan,
+                                  subscription_interval: mgmtInterval,
+                                  max_team_members: mgmtMaxTeam,
+                                };
+                                // Attach payment info for plan upgrades
+                                if (mgmtPlan !== 'free' && mgmtPlan !== (u.companies?.subscription_plan || 'free')) {
+                                  payload.payment_channel = mgmtPayChannel;
+                                  if (mgmtAmountReceived) payload.amount_received = Number(mgmtAmountReceived);
+                                  if (mgmtUpgradeReason) payload.upgrade_reason = mgmtUpgradeReason;
+                                  if (mgmtPayChannel === 'direct_transfer') {
+                                    payload.bank_reference = mgmtBankRef;
+                                    payload.bank_confirmed_at = mgmtBankDate && mgmtBankTime ? new Date(`${mgmtBankDate}T${mgmtBankTime}`).toISOString() : undefined;
+                                  }
+                                  if (mgmtCouponCode) {
+                                    payload.coupon_code = mgmtCouponCode;
+                                    if (mgmtCouponValue) payload.coupon_discount_value = Number(mgmtCouponValue);
+                                    payload.coupon_discount_type = mgmtCouponType;
+                                  }
+                                }
+                                await adminAPI.updateUserManagement(payload);
                                 setUsers(prev => prev.map(x => x.id === u.id ? { ...x, companies: { ...x.companies, subscription_plan: mgmtPlan, subscription_interval: mgmtInterval, max_team_members: mgmtMaxTeam } } : x));
                                 toast.success('Plan updated');
+                                // Reset payment fields
+                                setMgmtPayChannel(''); setMgmtBankRef(''); setMgmtBankDate(''); setMgmtBankTime('');
+                                setMgmtCouponCode(''); setMgmtCouponValue(''); setMgmtCouponType('flat');
+                                setMgmtAmountReceived(''); setMgmtUpgradeReason('');
                               } catch (err) { toast.error(err.response?.data?.message || 'Failed to update plan'); }
                               finally { setMgmtBusy(false); }
                             }}
@@ -494,6 +653,9 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
                           >
                             {mgmtBusy ? 'Saving...' : 'Save Plan'}
                           </button>
+                          {mgmtPlan !== 'free' && mgmtPlan !== (u.companies?.subscription_plan || 'free') && !mgmtPayChannel && (
+                            <p className="text-xs text-amber-600 mt-1">Select a payment channel to proceed with plan upgrade</p>
+                          )}
                         </div>
                       </div>
 
@@ -822,12 +984,151 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
       )}
 
       {activeTab === 'finance' && finance && (
-        <div className="card">
-          <h2 className="font-semibold text-forest-900 mb-3">Finance Summary</h2>
-          <div className="grid sm:grid-cols-3 gap-3 mb-4">
-            <div className="bg-slate-50 rounded-xl p-3"><p className="text-xs text-slate-500">Revenue</p><p className="text-lg font-bold text-forest-900">N{Number(finance.summary?.revenue_ngn || 0).toLocaleString('en-NG')}</p></div>
-            <div className="bg-slate-50 rounded-xl p-3"><p className="text-xs text-slate-500">Discounts</p><p className="text-lg font-bold text-amber-700">N{Number(finance.summary?.discounts_ngn || 0).toLocaleString('en-NG')}</p></div>
-            <div className="bg-slate-50 rounded-xl p-3"><p className="text-xs text-slate-500">Transactions</p><p className="text-lg font-bold text-forest-900">{finance.summary?.transactions || 0}</p></div>
+        <div className="space-y-4">
+          {/* Summary cards */}
+          <div className="grid sm:grid-cols-4 gap-3">
+            <div className="card"><p className="text-xs text-slate-500">Total Revenue</p><p className="text-xl font-bold text-forest-900">₦{Number(finance.summary?.revenue_ngn || 0).toLocaleString('en-NG')}</p></div>
+            <div className="card"><p className="text-xs text-slate-500">Total Discounts</p><p className="text-xl font-bold text-amber-700">₦{Number(finance.summary?.discounts_ngn || 0).toLocaleString('en-NG')}</p></div>
+            <div className="card"><p className="text-xs text-slate-500">Transactions</p><p className="text-xl font-bold text-forest-900">{finance.summary?.transactions || 0}</p></div>
+            <div className="card"><p className="text-xs text-slate-500">Coupon Uses</p><p className="text-xl font-bold text-purple-700">{finance.summary?.coupon_count || 0} (₦{Number(finance.summary?.coupon_discounts_ngn || 0).toLocaleString('en-NG')} off)</p></div>
+          </div>
+
+          {/* Per-channel & per-plan breakdown */}
+          <div className="grid sm:grid-cols-2 gap-3">
+            <div className="card">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Revenue by Channel</p>
+              <div className="space-y-1">
+                {Object.entries(finance.summary?.by_channel || {}).map(([ch, v]) => (
+                  <div key={ch} className="flex justify-between text-sm">
+                    <span className="text-slate-600 capitalize">{ch.replace(/_/g, ' ')}</span>
+                    <span className="font-medium text-forest-900">₦{Number(v.revenue_ngn).toLocaleString('en-NG')} ({v.count})</span>
+                  </div>
+                ))}
+                {Object.keys(finance.summary?.by_channel || {}).length === 0 && <p className="text-xs text-slate-400">No transactions yet</p>}
+              </div>
+            </div>
+            <div className="card">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Revenue by Plan</p>
+              <div className="space-y-1">
+                {Object.entries(finance.summary?.by_plan || {}).map(([p, v]) => (
+                  <div key={p} className="flex justify-between text-sm">
+                    <span className="text-slate-600 capitalize">{p === 'free' ? 'Basic' : p}</span>
+                    <span className="font-medium text-forest-900">₦{Number(v.revenue_ngn).toLocaleString('en-NG')} ({v.count})</span>
+                  </div>
+                ))}
+                {Object.keys(finance.summary?.by_plan || {}).length === 0 && <p className="text-xs text-slate-400">No transactions yet</p>}
+              </div>
+            </div>
+          </div>
+
+          {/* Filters */}
+          <div className="card">
+            <div className="flex flex-wrap gap-3 items-end mb-4">
+              <div>
+                <label className="label text-xs">Channel</label>
+                <select className="input text-sm" value={financeChannel} onChange={e => { setFinanceChannel(e.target.value); setFinancePage(1); }}>
+                  <option value="">All Channels</option>
+                  <option value="paystack">Paystack</option>
+                  <option value="direct_transfer">Direct Transfer</option>
+                  <option value="coupon_only">Coupon Only</option>
+                  <option value="admin_grant">Admin Grant</option>
+                </select>
+              </div>
+              <div>
+                <label className="label text-xs">Plan</label>
+                <select className="input text-sm" value={financePlan} onChange={e => { setFinancePlan(e.target.value); setFinancePage(1); }}>
+                  <option value="">All Plans</option>
+                  <option value="pro">Pro</option>
+                  <option value="elite">Elite</option>
+                  <option value="enterprise">Enterprise</option>
+                </select>
+              </div>
+              <span className="text-xs text-slate-400 ml-auto">{finance.total || 0} total • Page {finance.page || 1} • {finance.environment?.toUpperCase()} mode</span>
+            </div>
+
+            {/* Transaction table */}
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-200 text-left text-xs text-slate-500 uppercase">
+                    <th className="py-2 pr-3">Date / Time</th>
+                    <th className="py-2 pr-3">User</th>
+                    <th className="py-2 pr-3">Plan</th>
+                    <th className="py-2 pr-3">Channel</th>
+                    <th className="py-2 pr-3">Amount (₦)</th>
+                    <th className="py-2 pr-3">Discount</th>
+                    <th className="py-2 pr-3">Coupon</th>
+                    <th className="py-2 pr-3">Admin / Ref</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(finance.transactions || []).map(tx => {
+                    const ch = tx.payment_channel || 'paystack';
+                    const channelBadge = {
+                      paystack: 'bg-blue-100 text-blue-800',
+                      direct_transfer: 'bg-emerald-100 text-emerald-800',
+                      coupon_only: 'bg-purple-100 text-purple-800',
+                      admin_grant: 'bg-amber-100 text-amber-800',
+                    }[ch] || 'bg-slate-100 text-slate-600';
+                    return (
+                      <tr key={tx.id} className="border-b border-slate-50 hover:bg-slate-50/50">
+                        <td className="py-2 pr-3 whitespace-nowrap">
+                          <p className="font-medium text-slate-800">{new Date(tx.paid_at).toLocaleDateString('en-NG')}</p>
+                          <p className="text-xs text-slate-400">{new Date(tx.paid_at).toLocaleTimeString('en-NG')}</p>
+                        </td>
+                        <td className="py-2 pr-3">
+                          <p className="font-medium text-slate-700">{tx.user?.first_name || ''} {tx.user?.last_name || ''}</p>
+                          <p className="text-xs text-slate-400">{tx.user?.email || tx.user_id?.slice(0, 8)}</p>
+                        </td>
+                        <td className="py-2 pr-3">
+                          <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-forest-100 text-forest-800">{(tx.plan || 'free').toUpperCase()}</span>
+                          <p className="text-xs text-slate-400 mt-0.5">{tx.billing_interval || 'monthly'}</p>
+                        </td>
+                        <td className="py-2 pr-3">
+                          <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${channelBadge}`}>{ch.replace(/_/g, ' ')}</span>
+                        </td>
+                        <td className="py-2 pr-3 font-semibold text-slate-800">₦{Number(tx.amount_ngn || 0).toLocaleString('en-NG')}</td>
+                        <td className="py-2 pr-3 text-amber-700">{Number(tx.discount_amount_ngn || 0) > 0 ? `₦${Number(tx.discount_amount_ngn).toLocaleString('en-NG')}` : '—'}</td>
+                        <td className="py-2 pr-3">
+                          {tx.coupon_code_used || tx.promo_code ? (
+                            <div>
+                              <span className="inline-block px-2 py-0.5 rounded-full text-xs font-mono bg-purple-50 text-purple-700">{tx.coupon_code_used || tx.promo_code}</span>
+                              {tx.coupon_discount_value > 0 && (
+                                <p className="text-xs text-slate-400 mt-0.5">{tx.coupon_discount_type === 'percent' ? `${tx.coupon_discount_value}%` : `₦${Number(tx.coupon_discount_value).toLocaleString('en-NG')}`} off</p>
+                              )}
+                            </div>
+                          ) : '—'}
+                        </td>
+                        <td className="py-2 pr-3 text-xs">
+                          {tx.admin_upgrader ? (
+                            <div>
+                              <p className="text-slate-700 font-medium">{tx.admin_upgrader.first_name} {tx.admin_upgrader.last_name}</p>
+                              <p className="text-slate-400">{tx.admin_upgrader.email}</p>
+                            </div>
+                          ) : tx.bank_reference ? (
+                            <span className="text-slate-500 font-mono">{tx.bank_reference}</span>
+                          ) : tx.paystack_reference ? (
+                            <span className="text-slate-400 font-mono truncate max-w-[120px] inline-block">{tx.paystack_reference}</span>
+                          ) : '—'}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {(!finance.transactions || finance.transactions.length === 0) && (
+                    <tr><td colSpan={8} className="py-8 text-center text-slate-400">No transactions found</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination */}
+            {(finance.total || 0) > 50 && (
+              <div className="flex justify-center gap-2 mt-4">
+                <button disabled={financePage <= 1} onClick={() => setFinancePage(p => Math.max(1, p - 1))} className="btn-ghost text-sm">← Prev</button>
+                <span className="text-sm text-slate-500 py-2">Page {financePage}</span>
+                <button disabled={(financePage * 50) >= (finance.total || 0)} onClick={() => setFinancePage(p => p + 1)} className="btn-ghost text-sm">Next →</button>
+              </div>
+            )}
           </div>
         </div>
       )}

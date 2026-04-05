@@ -50,6 +50,14 @@ export default function Settings() {
   const [team, setTeam] = useState(null);
   const [loadingTeam, setLoadingTeam] = useState(false);
 
+  const [upgradeForm, setUpgradeForm] = useState({
+    company_name: '',
+    company_email: '',
+    company_state: '',
+    company_city: '',
+    company_address: '',
+  });
+
   useEffect(() => {
     setProfileForm({
       first_name: profile?.first_name || '',
@@ -128,6 +136,30 @@ export default function Settings() {
     } finally { setSaving(false); }
   }
 
+  async function handleUpgradeToCompany(e) {
+    e.preventDefault();
+    if (!upgradeForm.company_name.trim()) { toast.error('Company name is required'); return; }
+    setSaving(true);
+    try {
+      await authAPI.saveProfile({
+        ...profileForm,
+        user_type: profile.user_type,
+        business_type: 'registered',
+        company_name: upgradeForm.company_name,
+        company_email: upgradeForm.company_email,
+        company_state: upgradeForm.company_state,
+        company_city: upgradeForm.company_city,
+        company_address: upgradeForm.company_address,
+      });
+      await refreshProfile();
+      toast.success('Account upgraded! Company features are now unlocked.');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to upgrade account');
+    } finally {
+      setSaving(false);
+    }
+  }
+
   const tabs = [
     { id: 'profile', label: 'Profile', icon: RiUserLine },
     { id: 'company', label: 'Company', icon: RiBuildingLine, show: !!company },
@@ -197,7 +229,60 @@ export default function Settings() {
           </form>
         )}
 
-        {/* Company Tab */}
+        {/* Upgrade to Company Account — solo users only */}
+        {activeTab === 'profile' && profile?.business_type === 'solo' && (
+          <form onSubmit={handleUpgradeToCompany} className="card space-y-4 mt-4 border-2 border-dashed border-emerald-200">
+            <div className="flex items-start gap-3">
+              <div className="w-9 h-9 rounded-xl bg-emerald-100 flex items-center justify-center flex-shrink-0">
+                <RiBuildingLine className="text-emerald-700" />
+              </div>
+              <div>
+                <h2 className="font-semibold text-forest-900">Upgrade to Company Account</h2>
+                <p className="text-xs text-slate-500 mt-0.5">You registered as a solo engineer. If your business is now CAC-registered, enter your company details to unlock team management, compliance reports, and branding.</p>
+              </div>
+            </div>
+            <div>
+              <label className="label">Company Name <span className="text-red-500">*</span></label>
+              <input className="input" required value={upgradeForm.company_name}
+                onChange={e => setUpgradeForm(f => ({ ...f, company_name: e.target.value }))}
+                placeholder="Bright Solar Engineering Ltd." />
+            </div>
+            <div>
+              <label className="label">Company Email</label>
+              <input className="input" type="email" value={upgradeForm.company_email}
+                onChange={e => setUpgradeForm(f => ({ ...f, company_email: e.target.value }))}
+                placeholder="hello@yourcompany.com" />
+              <p className="text-xs text-slate-400 mt-1">Leave blank to use your personal email.</p>
+            </div>
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div>
+                <label className="label">City</label>
+                <input className="input" value={upgradeForm.company_city}
+                  onChange={e => setUpgradeForm(f => ({ ...f, company_city: e.target.value }))} />
+              </div>
+              <div>
+                <label className="label">State</label>
+                <select className="input" value={upgradeForm.company_state}
+                  onChange={e => setUpgradeForm(f => ({ ...f, company_state: e.target.value }))}>
+                  <option value="">— Select State —</option>
+                  {['Abia','Adamawa','Akwa Ibom','Anambra','Bauchi','Bayelsa','Benue','Borno','Cross River','Delta','Ebonyi','Edo','Ekiti','Enugu','FCT','Gombe','Imo','Jigawa','Kaduna','Kano','Katsina','Kebbi','Kogi','Kwara','Lagos','Nasarawa','Niger','Ogun','Ondo','Osun','Oyo','Plateau','Rivers','Sokoto','Taraba','Yobe','Zamfara'].map(s => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div>
+              <label className="label">Address</label>
+              <input className="input" value={upgradeForm.company_address}
+                onChange={e => setUpgradeForm(f => ({ ...f, company_address: e.target.value }))} />
+            </div>
+            <button type="submit" disabled={saving} className="btn-primary w-full">
+              {saving ? 'Upgrading...' : 'Upgrade to Company Account →'}
+            </button>
+          </form>
+        )}
+
+        {/* Company Tab */
         {activeTab === 'company' && company && (
           <div className="card space-y-4">
             <h2 className="font-semibold text-forest-900 mb-2">Company Details</h2>

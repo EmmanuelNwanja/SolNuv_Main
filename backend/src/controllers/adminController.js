@@ -1,6 +1,7 @@
 const supabase = require('../config/database');
 const { sendSuccess, sendError } = require('../utils/responseHelper');
 const { logPlatformActivity } = require('../services/auditService');
+const { invalidateEnvironmentCache } = require('../middlewares/environmentMiddleware');
 const logger = require('../utils/logger');
 
 exports.getOverview = async (req, res) => {
@@ -102,7 +103,19 @@ exports.listUsers = async (req, res) => {
 
 exports.updateUserVerification = async (req, res) => {
   try {
-    const { user_id, is_active, company_verified, company_plan, subscription_interval, max_team_members } = req.body;
+    const {
+      user_id, is_active, company_verified,
+      company_plan, subscription_interval, max_team_members,
+      // Payment/upgrade tracking fields
+      payment_channel,       // 'paystack' | 'direct_transfer' | 'coupon_only' | 'admin_grant'
+      bank_reference,
+      bank_confirmed_at,     // ISO datetime string
+      coupon_code,
+      coupon_discount_value,
+      coupon_discount_type,  // 'percent' | 'flat'
+      amount_received,       // actual NGN received after discount
+      upgrade_reason,
+    } = req.body;
     if (!user_id) return sendError(res, 'user_id is required', 400);
 
     const { data: targetUser } = await supabase
@@ -117,6 +130,23 @@ exports.updateUserVerification = async (req, res) => {
       await supabase.from('users').update({ is_active }).eq('id', user_id);
     }
 
+    // Plan upgrade with payment tracking
+    const isPlanChange = !!company_plan;
+    if (isPlanChange && company_plan !== 'free') {
+      if (!payment_channel) {
+        return sendError(res, 'Payment channel is required for plan upgrades (paystack, direct_transfer, coupon_only, admin_grant)', 400);
+      }
+
+      if (payment_channel === 'direct_transfer') {
+        if (!bank_confirmed_at) return sendError(res, 'Bank confirmation date/time is required for direct transfers', 400);
+        if (!bank_reference) return sendError(res, 'Bank reference / receipt number is required for direct transfers', 400);
+      }
+
+      if ((payment_channel === 'coupon_only' || coupon_code) && !coupon_code) {
+        return sendError(res, 'Coupon code is required when payment channel is coupon_only', 400);
+      }
+    }
+
     if (targetUser.company_id) {
       const companyUpdate = {};
       if (typeof company_verified === 'boolean') {
@@ -129,21 +159,67 @@ exports.updateUserVerification = async (req, res) => {
         companyUpdate.max_team_members = max_team_members;
       }
 
+      if (isPlanChange && company_plan !== 'free') {
+        const now = new Date();
+        const expiresAt = new Date(now);
+        expiresAt.setMonth(expiresAt.getMonth() + (subscription_interval === 'annual' ? 12 : 1));
+        companyUpdate.subscription_started_at = now.toISOString();
+        companyUpdate.subscription_expires_at = expiresAt.toISOString();
+        companyUpdate.subscription_auto_renew = payment_channel === 'paystack';
+      }
+
       if (Object.keys(companyUpdate).length > 0) {
         await supabase.from('companies').update(companyUpdate).eq('id', targetUser.company_id);
+      }
+
+      // Record transaction for non-free plan changes
+      if (isPlanChange && company_plan !== 'free') {
+        const { PLAN_LIMITS } = require('../services/billingService');
+        const env = req.env || 'test';
+        const paidAtDate = payment_channel === 'direct_transfer' && bank_confirmed_at
+          ? bank_confirmed_at
+          : new Date().toISOString();
+
+        await supabase.from('subscription_transactions').insert({
+          user_id: targetUser.id,
+          company_id: targetUser.company_id,
+          plan: company_plan,
+          billing_interval: subscription_interval || 'monthly',
+          amount_ngn: amount_received || 0,
+          original_amount_ngn: amount_received || 0,
+          discount_amount_ngn: coupon_discount_value || 0,
+          promo_code: coupon_code || null,
+          paystack_reference: bank_reference || `admin-${Date.now()}`,
+          paystack_status: 'admin_confirmed',
+          payment_channel: payment_channel,
+          admin_upgraded_by: req.user.id,
+          admin_upgrade_reason: upgrade_reason || null,
+          bank_confirmed_at: bank_confirmed_at || null,
+          bank_reference: bank_reference || null,
+          coupon_code_used: coupon_code || null,
+          coupon_discount_value: coupon_discount_value || 0,
+          coupon_discount_type: coupon_discount_type || null,
+          paid_at: paidAtDate,
+          environment: env,
+        });
       }
     }
 
     await logPlatformActivity({
       actorUserId: req.user.id,
       actorEmail: req.user.email,
-      action: 'admin.user.updated',
+      action: isPlanChange ? 'admin.user.plan_upgraded' : 'admin.user.updated',
       resourceType: 'user',
       resourceId: user_id,
-      details: { is_active, company_verified, company_plan, subscription_interval, max_team_members },
+      details: {
+        is_active, company_verified, company_plan, subscription_interval, max_team_members,
+        payment_channel, bank_reference, bank_confirmed_at,
+        coupon_code, coupon_discount_value, coupon_discount_type,
+        amount_received, upgrade_reason,
+      },
     });
 
-    return sendSuccess(res, { user_id }, 'User updated');
+    return sendSuccess(res, { user_id }, isPlanChange ? 'Plan upgraded & transaction recorded' : 'User updated');
   } catch (error) {
     logger.error('Failed to update user verification', { admin_user_id: req.user?.id || null, target_user_id: req.body?.user_id || null, message: error.message });
     return sendError(res, 'Failed to update user', 500);
@@ -412,22 +488,91 @@ exports.togglePromoCode = async (req, res) => {
 
 exports.getFinance = async (req, res) => {
   try {
-    const { data, error } = await supabase
+    const env = req.env || 'test';
+    const { page = 1, limit = 50, channel, plan, from_date, to_date } = req.query;
+    const offset = (Number(page) - 1) * Number(limit);
+
+    let query = supabase
       .from('subscription_transactions')
-      .select('*')
+      .select(
+        `*, user:users!subscription_transactions_user_id_fkey(id, first_name, last_name, email),
+         company:companies!subscription_transactions_company_id_fkey(id, name),
+         admin_upgrader:users!subscription_transactions_admin_upgraded_by_fkey(id, first_name, last_name, email)`,
+        { count: 'exact' }
+      )
+      .eq('environment', env)
       .order('paid_at', { ascending: false })
-      .limit(200);
+      .range(offset, offset + Number(limit) - 1);
+
+    if (channel) query = query.eq('payment_channel', channel);
+    if (plan) query = query.eq('plan', plan);
+    if (from_date) query = query.gte('paid_at', from_date);
+    if (to_date) query = query.lte('paid_at', to_date);
+
+    let { data, error, count } = await query;
+
+    // Fallback if FK alias names differ in this environment
+    if (error) {
+      let fallback = supabase
+        .from('subscription_transactions')
+        .select('*', { count: 'exact' })
+        .eq('environment', env)
+        .order('paid_at', { ascending: false })
+        .range(offset, offset + Number(limit) - 1);
+
+      if (channel) fallback = fallback.eq('payment_channel', channel);
+      if (plan) fallback = fallback.eq('plan', plan);
+      if (from_date) fallback = fallback.gte('paid_at', from_date);
+      if (to_date) fallback = fallback.lte('paid_at', to_date);
+
+      const fb = await fallback;
+      data = fb.data;
+      count = fb.count;
+      error = fb.error;
+    }
 
     if (error) throw error;
 
-    const summary = (data || []).reduce((acc, tx) => {
+    const txns = data || [];
+    const summary = txns.reduce((acc, tx) => {
       acc.revenue_ngn += Number(tx.amount_ngn || 0);
       acc.discounts_ngn += Number(tx.discount_amount_ngn || 0);
       acc.transactions += 1;
-      return acc;
-    }, { revenue_ngn: 0, discounts_ngn: 0, transactions: 0 });
 
-    return sendSuccess(res, { summary, transactions: data || [] });
+      // Per-channel breakdown
+      const ch = tx.payment_channel || 'paystack';
+      if (!acc.by_channel[ch]) acc.by_channel[ch] = { revenue_ngn: 0, count: 0 };
+      acc.by_channel[ch].revenue_ngn += Number(tx.amount_ngn || 0);
+      acc.by_channel[ch].count += 1;
+
+      // Per-plan breakdown
+      const p = tx.plan || 'free';
+      if (!acc.by_plan[p]) acc.by_plan[p] = { revenue_ngn: 0, count: 0 };
+      acc.by_plan[p].revenue_ngn += Number(tx.amount_ngn || 0);
+      acc.by_plan[p].count += 1;
+
+      // Coupon tracking
+      if (tx.coupon_code_used || tx.promo_code) {
+        acc.coupon_revenue_ngn += Number(tx.amount_ngn || 0);
+        acc.coupon_discounts_ngn += Number(tx.coupon_discount_value || tx.discount_amount_ngn || 0);
+        acc.coupon_count += 1;
+      }
+
+      return acc;
+    }, {
+      revenue_ngn: 0, discounts_ngn: 0, transactions: 0,
+      by_channel: {}, by_plan: {},
+      coupon_revenue_ngn: 0, coupon_discounts_ngn: 0, coupon_count: 0,
+    });
+
+    return sendSuccess(res, {
+      summary,
+      transactions: txns,
+      total: count || 0,
+      page: Number(page),
+      limit: Number(limit),
+      environment: env,
+    });
   } catch (error) {
     logger.error('Failed to load finance data', { admin_user_id: req.user?.id || null, message: error.message });
     return sendError(res, 'Failed to load finance data', 500);
@@ -945,5 +1090,71 @@ exports.approveDecommission = async (req, res) => {
   } catch (error) {
     logger.error('Admin: Failed to approve decommission', { id: req.params?.id, message: error.message });
     return sendError(res, 'Failed to approve decommission', 500);
+  }
+};
+
+/**
+ * GET /api/admin/settings/environment
+ * Returns current environment mode (test | live)
+ */
+exports.getEnvironmentMode = async (req, res) => {
+  try {
+    const { data } = await supabase
+      .from('platform_settings')
+      .select('value, updated_at')
+      .eq('key', 'environment_mode')
+      .maybeSingle();
+
+    return sendSuccess(res, {
+      mode: data?.value?.mode || 'test',
+      switched_at: data?.value?.switched_at || null,
+      switched_by: data?.value?.switched_by || null,
+      updated_at: data?.updated_at || null,
+    });
+  } catch (error) {
+    logger.error('Failed to get environment mode', { message: error.message });
+    return sendError(res, 'Failed to get environment mode', 500);
+  }
+};
+
+/**
+ * PATCH /api/admin/settings/environment
+ * Toggle between test and live mode. Super admin only.
+ */
+exports.toggleEnvironmentMode = async (req, res) => {
+  try {
+    const { mode } = req.body;
+    if (!['test', 'live'].includes(mode)) {
+      return sendError(res, 'mode must be "test" or "live"', 400);
+    }
+
+    const now = new Date().toISOString();
+    const { error } = await supabase
+      .from('platform_settings')
+      .upsert({
+        key: 'environment_mode',
+        value: { mode, switched_at: now, switched_by: req.user.email },
+        updated_by: req.user.id,
+        updated_at: now,
+      }, { onConflict: 'key' });
+
+    if (error) throw error;
+
+    // Bust the in-memory cache so all subsequent requests see the new mode
+    invalidateEnvironmentCache();
+
+    await logPlatformActivity({
+      actorUserId: req.user.id,
+      actorEmail: req.user.email,
+      action: `admin.environment.switched_to_${mode}`,
+      resourceType: 'platform_settings',
+      resourceId: 'environment_mode',
+      details: { new_mode: mode },
+    });
+
+    return sendSuccess(res, { mode }, `Switched to ${mode.toUpperCase()} mode`);
+  } catch (error) {
+    logger.error('Failed to toggle environment mode', { message: error.message });
+    return sendError(res, 'Failed to toggle environment mode', 500);
   }
 };

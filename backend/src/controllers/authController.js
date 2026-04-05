@@ -94,6 +94,18 @@ exports.createOrUpdateProfile = async (req, res) => {
         // Never do an email-based lookup/create path here; that path can create a brand-new
         // free company and overwrite the user's paid plan.
         companyId = preCheckUser.company_id;
+
+        // Solo → registered upgrade path: update the company's identity fields so the
+        // real registered name/email replaces any generated name (e.g. "John's Workspace"
+        // created by ensureCompanyForBilling).  Subscription/billing columns are untouched.
+        await supabase
+          .from('companies')
+          .update({
+            name: company_name,
+            business_type: 'registered',
+            ...(company_email ? { email: company_email } : {}),
+          })
+          .eq('id', companyId);
       } else {
         // New registration — find or create company by email
         const { data: existingCompany } = await supabase
