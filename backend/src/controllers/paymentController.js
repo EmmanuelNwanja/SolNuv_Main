@@ -47,6 +47,24 @@ async function ensureCompanyForBilling(user) {
     return company;
   }
 
+  // Re-fetch the user row inside a tight window to handle concurrent payment
+  // initializations racing to create a company for the same user.
+  // If another request already created the company and updated company_id, reuse it.
+  const { data: freshUser } = await supabase
+    .from('users')
+    .select('company_id')
+    .eq('id', user.id)
+    .single();
+
+  if (freshUser?.company_id) {
+    const { data: existingCompany } = await supabase
+      .from('companies')
+      .select('*')
+      .eq('id', freshUser.company_id)
+      .single();
+    if (existingCompany) return existingCompany;
+  }
+
   const generatedName = user.brand_name || `${user.first_name || 'SolNuv'} Workspace`;
   const { data: company, error } = await supabase
     .from('companies')
@@ -61,7 +79,24 @@ async function ensureCompanyForBilling(user) {
     .select('*')
     .single();
 
-  if (error) throw error;
+  // A unique constraint on companies.email (if present) will surface a duplicate
+  // error here when two requests race past the re-fetch check above.  Handle it
+  // by looking up and returning the winner's row instead of throwing.
+  if (error) {
+    if (error.code === '23505') {
+      // Unique violation — another concurrent request already inserted this company.
+      const { data: raceWinner } = await supabase
+        .from('companies')
+        .select('*')
+        .eq('email', user.email)
+        .maybeSingle();
+      if (raceWinner) {
+        await supabase.from('users').update({ company_id: raceWinner.id }).eq('id', user.id);
+        return raceWinner;
+      }
+    }
+    throw error;
+  }
 
   await supabase.from('users').update({ company_id: company.id }).eq('id', user.id);
   return company;

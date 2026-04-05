@@ -55,7 +55,7 @@ exports.listUsers = async (req, res) => {
     const to = from + Number(limit) - 1;
 
     const baseSelect = 'id, first_name, last_name, email, role, is_active, created_at, company_id';
-    const enrichedSelect = `${baseSelect}, companies:companies!users_company_id_fkey(name, subscription_plan, subscription_expires_at, subscription_interval, max_team_members), admin_users:admin_users!admin_users_user_id_fkey(role, is_active)`;
+    const enrichedSelect = `${baseSelect}, companies:companies!users_company_id_fkey(name, subscription_plan, subscription_expires_at, subscription_interval, max_team_members, verified_at), admin_users:admin_users!admin_users_user_id_fkey(role, is_active)`;
 
     let query = supabase
       .from('users')
@@ -102,7 +102,7 @@ exports.listUsers = async (req, res) => {
 
 exports.updateUserVerification = async (req, res) => {
   try {
-    const { user_id, is_active, company_verified, company_plan } = req.body;
+    const { user_id, is_active, company_verified, company_plan, subscription_interval, max_team_members } = req.body;
     if (!user_id) return sendError(res, 'user_id is required', 400);
 
     const { data: targetUser } = await supabase
@@ -124,6 +124,10 @@ exports.updateUserVerification = async (req, res) => {
         companyUpdate.verified_by = company_verified ? req.user.id : null;
       }
       if (company_plan) companyUpdate.subscription_plan = company_plan;
+      if (subscription_interval) companyUpdate.subscription_interval = subscription_interval;
+      if (typeof max_team_members === 'number' && max_team_members > 0) {
+        companyUpdate.max_team_members = max_team_members;
+      }
 
       if (Object.keys(companyUpdate).length > 0) {
         await supabase.from('companies').update(companyUpdate).eq('id', targetUser.company_id);
@@ -136,7 +140,7 @@ exports.updateUserVerification = async (req, res) => {
       action: 'admin.user.updated',
       resourceType: 'user',
       resourceId: user_id,
-      details: { is_active, company_verified, company_plan },
+      details: { is_active, company_verified, company_plan, subscription_interval, max_team_members },
     });
 
     return sendSuccess(res, { user_id }, 'User updated');

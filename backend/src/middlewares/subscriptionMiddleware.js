@@ -49,7 +49,18 @@ async function checkTeamLimit(req, res, next) {
   if (!req.user || !req.user.company_id) return next();
 
   const supabase = require('../config/database');
-  const company = req.user.companies;
+
+  // req.user.companies may be undefined when the auth middleware fell back to the
+  // plain (no-join) query path.  Always resolve from the DB so the limit is enforced.
+  let company = req.user.companies;
+  if (!company) {
+    const { data } = await supabase
+      .from('companies')
+      .select('id, subscription_plan, max_team_members')
+      .eq('id', req.user.company_id)
+      .maybeSingle();
+    company = data;
+  }
 
   if (!company) return next();
 
