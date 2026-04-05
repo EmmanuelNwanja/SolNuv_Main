@@ -127,23 +127,50 @@ exports.createOrUpdateProfile = async (req, res) => {
       }
 
       // Keep company profile details in sync from settings edits
-      if (companyId) {
-        const companyUpdate = {
-          address: company_address || address || undefined,
-          state: company_state || undefined,
-          city: company_city || city || undefined,
-          nesrea_registration_number: nesrea_registration_number || undefined,
-          website: website || undefined,
-          logo_url: logo_url || undefined,
-          company_signature_url: company_signature_url || undefined,
-          branding_primary_color: branding_primary_color || undefined,
-          notification_preferences: notification_preferences || undefined,
-        };
+    }
 
-        await supabase
+    // Sync company details for ALL users who have a company — including solo users whose
+    // billing company was created by ensureCompanyForBilling (Paystack upgrade path).
+    // Running this outside the 'registered' block means solo upgraders can also update
+    // their company/branding fields from Settings without being silently ignored.
+    // Use conditional spreads (not `|| undefined`) so empty strings clear fields to null.
+    const resolvedCompanyId = companyId ?? preCheckUser?.company_id;
+    const hasCompanyFields = [
+      company_address, address, company_state, company_city, city,
+      nesrea_registration_number, website, logo_url, company_signature_url,
+      branding_primary_color, notification_preferences,
+    ].some((f) => f !== undefined);
+
+    if (resolvedCompanyId && hasCompanyFields) {
+      const companyUpdate = {
+        ...(company_address !== undefined || address !== undefined
+          ? { address: company_address || address || null } : {}),
+        ...(company_state !== undefined ? { state: company_state || null } : {}),
+        ...(company_city !== undefined || city !== undefined
+          ? { city: company_city || city || null } : {}),
+        ...(nesrea_registration_number !== undefined
+          ? { nesrea_registration_number: nesrea_registration_number || null } : {}),
+        ...(website !== undefined ? { website: website || null } : {}),
+        ...(logo_url !== undefined ? { logo_url: logo_url || null } : {}),
+        ...(company_signature_url !== undefined
+          ? { company_signature_url: company_signature_url || null } : {}),
+        ...(branding_primary_color !== undefined
+          ? { branding_primary_color: branding_primary_color || null } : {}),
+        ...(notification_preferences !== undefined
+          ? { notification_preferences } : {}),
+      };
+
+      if (Object.keys(companyUpdate).length > 0) {
+        const { error: companyUpdateError } = await supabase
           .from('companies')
           .update(companyUpdate)
-          .eq('id', companyId);
+          .eq('id', resolvedCompanyId);
+        if (companyUpdateError) {
+          logger.warn('Company profile update failed', {
+            company_id: resolvedCompanyId,
+            error: companyUpdateError.message,
+          });
+        }
       }
     }
 

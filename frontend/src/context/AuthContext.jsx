@@ -209,6 +209,10 @@ export function AuthProvider({ children }) {
   }
 
   async function refreshProfile() {
+    // Force a fresh fetch even if another fetch is nominally in-flight.
+    // Without this reset, a call from Settings after saving profile could be
+    // silently dropped if the auth system's initial fetch hasn't fully settled.
+    profileFetchInFlight.current = false;
     await fetchProfile();
   }
 
