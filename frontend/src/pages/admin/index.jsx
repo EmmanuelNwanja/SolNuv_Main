@@ -30,6 +30,7 @@ export const ADMIN_TABS = [
   { id: 'contact', label: 'Contact Inbox', path: '/admin/contact', title: 'Contact Inbox - SolNuv' },
   { id: 'analytics', label: 'Analytics', path: '/admin/analytics', title: 'Platform Analytics - SolNuv' },
   { id: 'pickup', label: 'Pickup Requests', path: '/admin/pickup', title: 'Pickup Requests - SolNuv' },
+  { id: 'agents', label: 'AI Agents', path: '/admin/agents', title: 'AI Agents - SolNuv' },
 ];
 
 export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
