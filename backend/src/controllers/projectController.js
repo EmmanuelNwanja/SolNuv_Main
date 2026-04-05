@@ -160,10 +160,10 @@ exports.getProjects = async (req, res) => {
         total_silver_grams: p.equipment?.filter(e => e.equipment_type === 'panel').reduce((s, e) => s + (e.estimated_silver_grams || 0), 0) || 0,
         has_pending_recovery: p.recovery_requests?.some(r => r.status === 'requested'),
         // Re-calculate capacity if not yet stored (backward compat with rows created before migration)
-        capacity_kw: p.capacity_kw ?? calcCapacityKw(
+        capacity_kw: (p.capacity_kw ?? calcCapacityKw(
           p.equipment?.filter(e => e.equipment_type === 'panel') || [],
           p.equipment?.filter(e => e.equipment_type === 'battery') || []
-        ) || null,
+        )) || null,
         capacity_category: p.capacity_category ?? getCapacityCategory(
           calcCapacityKw(
             p.equipment?.filter(e => e.equipment_type === 'panel') || [],
