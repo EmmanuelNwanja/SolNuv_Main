@@ -26,6 +26,7 @@
  */
 
 const supabase = require('../config/database');
+const { PANEL_TECHNOLOGIES, DEFAULT_PANEL_TECHNOLOGY, BATTERY_CHEMISTRIES, resolveChemistry } = require('../constants/technologyConstants');
 
 // ─── SILVER: per-panel by manufacture era (grams, NOT mg/Wp) ──────────────
 // Source: NREL PV Reliability Workshop, Fraunhofer ISE, IEA PVPS Task 12
@@ -93,43 +94,78 @@ function yearsOldFrom(installationDate) {
   return Math.max(0, (Date.now() - new Date(installationDate || Date.now())) / (365.25 * 24 * 3600 * 1000));
 }
 
-function getSilverGramsPerPanel(installationDate, wattsPerPanel) {
+function getSilverGramsPerPanel(installationDate, wattsPerPanel, panelTechnology = null) {
+  const w = parseFloat(wattsPerPanel);
+  // If a known technology is specified, use its mg/Wp value converted to grams per panel.
+  // This is more accurate than era-based estimates when the technology is known.
+  const tech = panelTechnology && PANEL_TECHNOLOGIES[panelTechnology];
+  if (tech) {
+    // mg/Wp × watts = mg total; ÷1000 = grams
+    // No bifacial silver doubling: both sides share the same Wp capacity
+    return parseFloat(((tech.silver_mg_per_wp * w) / 1000).toFixed(5));
+  }
+  // Era-based fallback for backward compatibility
   const mfgYear = Math.max(2014, new Date(installationDate || Date.now()).getFullYear() - 1);
   const key = mfgYear <= 2014 ? 'pre2015' : mfgYear >= 2025 ? 'post2024' : mfgYear;
   let g = SILVER_GRAMS_BY_ERA[key] || 0.12;
   // Half-cut / bifacial panels >500W have ~double the cell count
-  if (parseFloat(wattsPerPanel) > 500) g *= 1.85;
+  if (w > 500) g *= 1.85;
   return g;
 }
 
-function calcPanelSOH(wattsPerPanel, installationDate, climateZone = 'mixed', condition = 'good') {
+function calcPanelSOH(wattsPerPanel, installationDate, climateZone = 'mixed', condition = 'good', panelTechnology = null) {
   const yrs = yearsOldFrom(installationDate);
-  const rate = ANNUAL_DEGRADATION[climateZone] || ANNUAL_DEGRADATION.default;
-  const lid  = 0.02; // Light Induced Degradation in year 1
+  const tech = panelTechnology && PANEL_TECHNOLOGIES[panelTechnology];
+
+  // Degradation rate: technology-specific takes precedence over climate-zone default.
+  // When technology is known, the tech rate already reflects real-world performance;
+  // climate zone applies a relative multiplier (harsher climate = +10–20% on tech rate).
+  const baseRate = tech ? (tech.deg_rate_pct_yr / 100) : (ANNUAL_DEGRADATION[climateZone] || ANNUAL_DEGRADATION.default);
+  const climateMult = tech ? getClimateMult(climateZone) : 1.0;
+  const rate = baseRate * climateMult;
+
+  // First-year LID: use technology-specific value if known, else 2% default
+  const lid = tech ? tech.first_year_loss : 0.02;
+
   const rawSoh = Math.max(0.50, (1 - lid) - (rate * Math.max(0, yrs - 1)));
   const soh    = Math.min(1.0, rawSoh * (CONDITION_MODIFIER[condition] ?? 1.00));
+
+  // Temperature derating at typical West African operating temperature (65°C cell temp from 40°C ambient)
+  const tempCoeff = tech ? tech.temp_coeff_pct_c : -0.40;
+  const deltaT = 40; // 65°C cell - 25°C STC
+  const tempDeratingFactor = parseFloat((1 + (tempCoeff / 100) * deltaT).toFixed(4));
+
   return {
     soh:              parseFloat(soh.toFixed(4)),
     remaining_watts:  Math.round(parseFloat(wattsPerPanel) * soh),
     years_old:        parseFloat(yrs.toFixed(1)),
     degradation_rate: `${(rate * 100).toFixed(2)}%/yr`,
+    panel_technology: panelTechnology || null,
+    temp_derating_factor: tempDeratingFactor,
+    effective_output_watts: Math.round(parseFloat(wattsPerPanel) * soh * tempDeratingFactor),
   };
 }
 
+// Climate zone multiplier for technology-based degradation: harsher = slightly faster
+function getClimateMult(climateZone) {
+  const multipliers = { coastal_humid: 1.15, sahel_dry: 1.12, se_humid: 1.08, mixed: 1.00 };
+  return multipliers[climateZone] || 1.00;
+}
+
 // ─── MAIN: PANEL VALUATION ────────────────────────────────────────────────────
-async function calculatePanelValue(wattsPerPanel, quantity, installationDate, climateZone = 'mixed', condition = 'good') {
+async function calculatePanelValue(wattsPerPanel, quantity, installationDate, climateZone = 'mixed', condition = 'good', panelTechnology = null) {
   const sp  = await getSilverPrice();
   const qty = parseInt(quantity);
   const w   = parseFloat(wattsPerPanel);
 
   // 1 ── SILVER ROUTE ─────────────────────────────────────────────────────
-  const silverPerPanel   = getSilverGramsPerPanel(installationDate, w);
+  const silverPerPanel   = getSilverGramsPerPanel(installationDate, w, panelTechnology);
   const totalSilver      = silverPerPanel * qty;
   const spotNgn          = totalSilver * sp.price_per_gram_ngn;
   const installerSilver  = Math.round(spotNgn * INSTALLER_SILVER_SHARE);
 
   // 2 ── SECOND-LIFE ROUTE ────────────────────────────────────────────────
-  const health = calcPanelSOH(w, installationDate, climateZone, condition);
+  const health = calcPanelSOH(w, installationDate, climateZone, condition, panelTechnology);
   const { soh, remaining_watts: rW } = health;
   const viable = soh >= MIN_PANEL_SOH_FOR_SECONDLIFE;
 
@@ -149,6 +185,8 @@ async function calculatePanelValue(wattsPerPanel, quantity, installationDate, cl
   return {
     original_watts: w, quantity: qty, installation_date: installationDate,
     climate_zone: climateZone, condition,
+    panel_technology: panelTechnology || null,
+    panel_technology_label: (panelTechnology && PANEL_TECHNOLOGIES[panelTechnology]?.label) || null,
 
     panel_health: { ...health, is_viable_for_second_life: viable },
 
@@ -212,12 +250,14 @@ async function calculateBatteryValue(brand, capacityKwh, quantity, installationD
   const chemistry  = (brandData?.chemistry || 'lithium-iron-phosphate').toLowerCase();
   const isLeadAcid = chemistry.includes('lead');
 
-  // SOH calculation
-  const yrs        = yearsOldFrom(installationDate);
-  const annualLoss = BATTERY_ANNUAL_SOH_LOSS[chemistry] || BATTERY_ANNUAL_SOH_LOSS.default;
-  const rawSoh     = Math.max(0.10, 1 - annualLoss * yrs);
-  const soh        = Math.min(1.0, rawSoh * (CONDITION_MODIFIER[condition] ?? 1.00));
-  const viable     = soh >= MIN_BATTERY_SOH_FOR_SECONDLIFE;
+  // SOH calculation — use expanded BATTERY_CHEMISTRIES constants when available
+  const yrs         = yearsOldFrom(installationDate);
+  const chemKey     = resolveChemistry(chemistry);
+  const chemData    = BATTERY_CHEMISTRIES[chemKey];
+  const annualLoss  = chemData ? chemData.annual_soh_loss_pct : (BATTERY_ANNUAL_SOH_LOSS[chemistry] || BATTERY_ANNUAL_SOH_LOSS.default);
+  const rawSoh      = Math.max(0.10, 1 - annualLoss * yrs);
+  const soh         = Math.min(1.0, rawSoh * (CONDITION_MODIFIER[condition] ?? 1.00));
+  const viable      = soh >= MIN_BATTERY_SOH_FOR_SECONDLIFE;
 
   // ── RECYCLING VALUE ───────────────────────────────────────────────────
   let recyclingNgn = 0;

@@ -7,6 +7,7 @@ const { sendSuccess, sendError } = require('../utils/responseHelper');
 const { calculatePanelValue, calculateBatteryValue, getSilverPrice } = require('../services/silverService');
 const { calculateDecommissionDate } = require('../services/degradationService');
 const { generateProposalPdf, generateCableComplianceCertificate } = require('../services/pdfService');
+const { PANEL_TECHNOLOGIES, BATTERY_CHEMISTRIES, resolveChemistry, cyclesAtDoD } = require('../constants/technologyConstants');
 const supabase = require('../config/database');
 
 const TARIFF_BANDS = {
@@ -23,21 +24,8 @@ function toNum(value, fallback = 0) {
 }
 
 function cycleLifeAtDoD(chemistry, dodPct) {
-  const dod = Math.max(5, Math.min(100, toNum(dodPct, 60)));
-  if (chemistry === 'lithium-iron-phosphate' || chemistry === 'lithium') {
-    const a = 9500;
-    const b = 1.12;
-    return a * Math.pow(100 / dod, b);
-  }
-  if (chemistry === 'lead-acid') {
-    const a = 1600;
-    const b = 1.18;
-    return a * Math.pow(100 / dod, b);
-  }
-
-  const a = 4000;
-  const b = 1.1;
-  return a * Math.pow(100 / dod, b);
+  // Delegate to the canonical implementation in technologyConstants
+  return cyclesAtDoD(resolveChemistry(String(chemistry).toLowerCase()), toNum(dodPct, 60));
 }
 
 function nearestStandardMm2(required) {
@@ -72,11 +60,15 @@ exports.calculatePanel = async (req, res) => {
       installation_date,
       climate_zone     = 'mixed',
       condition        = 'good',
+      panel_technology = null,
     } = req.body;
 
     if (parseFloat(size_watts) <= 0) return sendError(res, 'Panel wattage must be greater than 0', 400);
     if (parseInt(quantity) <= 0)     return sendError(res, 'Quantity must be at least 1', 400);
     if (parseInt(quantity) > 200000) return sendError(res, 'Maximum 200,000 panels per calculation', 400);
+
+    // Validate panel_technology if provided
+    const tech = panel_technology && PANEL_TECHNOLOGIES[panel_technology] ? panel_technology : null;
 
     const result = await calculatePanelValue(
       parseFloat(size_watts),
@@ -84,6 +76,7 @@ exports.calculatePanel = async (req, res) => {
       installation_date || null,
       climate_zone,
       condition,
+      tech,
     );
 
     return sendSuccess(res, result);
@@ -159,11 +152,12 @@ exports.calculateBattery = async (req, res) => {
  */
 exports.calculateDegradation = async (req, res) => {
   try {
-    const { state, installation_date, brand } = req.body;
+    const { state, installation_date, brand, panel_technology = null } = req.body;
     if (!state)             return sendError(res, 'State is required', 400);
     if (!installation_date) return sendError(res, 'Installation date is required', 400);
 
-    const result = await calculateDecommissionDate(state, installation_date, brand);
+    const tech = panel_technology && PANEL_TECHNOLOGIES[panel_technology] ? panel_technology : null;
+    const result = await calculateDecommissionDate(state, installation_date, brand, tech);
     return sendSuccess(res, result);
   } catch (_error) {
     return sendError(res, 'Calculation failed', 500);
@@ -399,14 +393,20 @@ exports.estimateBatterySoH = async (req, res) => {
     const ageDays = Math.max(1, Math.ceil((now - installed) / (1000 * 60 * 60 * 24)));
     const ageYears = ageDays / 365;
 
+    const chemKey = resolveChemistry(String(chemistry).toLowerCase());
+    const chemData = BATTERY_CHEMISTRIES[chemKey];
+
     const cyclesPerDay = Math.max(0.1, toNum(estimated_cycles_per_day, 1));
     const totalCycles = ageDays * cyclesPerDay;
     const dod = Math.max(5, Math.min(100, toNum(avg_depth_of_discharge_pct, 65)));
-    const cycleLife = cycleLifeAtDoD(String(chemistry).toLowerCase(), dod);
+    const cycleLife = cycleLifeAtDoD(chemKey, dod);
 
-    const alpha = 0.005;
-    const thermalPenalty = 1 + Math.max(0, (toNum(ambient_temperature_c, 30) - 25) * alpha);
-    const cumulativeDamage = Math.min(1, (totalCycles / cycleLife) * thermalPenalty);
+    // Temperature penalty: uses chemistry-specific sensitivity when available
+    const tempSensitivity = chemData ? chemData.temp_sensitivity : 1.4;
+    const ambientTemp = toNum(ambient_temperature_c, 30);
+    // Arrhenius-style penalty: doubles per 10°C above 25°C (for sensitivity=2.0)
+    const tempPenaltyFactor = Math.pow(tempSensitivity, Math.max(0, (ambientTemp - 25) / 10));
+    const cumulativeDamage = Math.min(1, (totalCycles / cycleLife) * tempPenaltyFactor);
 
     const nominalSoh = Math.max(0.35, 1 - cumulativeDamage);
     const rated = Math.max(0.5, toNum(rated_capacity_kwh, 10));
@@ -415,7 +415,8 @@ exports.estimateBatterySoH = async (req, res) => {
     const finalSoh = measuredSoh !== null ? Math.min(nominalSoh, measuredSoh) : nominalSoh;
 
     const warrantyWindowOpen = ageYears <= Math.max(1, toNum(warranty_years, 5));
-    const likelyUserAbuse = dod > 80 && cyclesPerDay > 1.2;
+    const recDod = chemData ? chemData.recommended_dod_pct : 80;
+    const likelyUserAbuse = dod > recDod * 1.1 && cyclesPerDay > 1.2;
     const warrantyRisk = !warrantyWindowOpen
       ? 'out_of_warranty'
       : likelyUserAbuse
@@ -426,14 +427,18 @@ exports.estimateBatterySoH = async (req, res) => {
 
     return sendSuccess(res, {
       chemistry,
+      chemistry_resolved: chemKey,
+      chemistry_label: chemData?.label || chemistry,
       age_days: ageDays,
       age_years: parseFloat(ageYears.toFixed(2)),
       cycle_model: {
         avg_depth_of_discharge_pct: dod,
+        recommended_dod_pct: recDod,
         estimated_cycles_per_day: cyclesPerDay,
         total_cycles: Math.round(totalCycles),
         estimated_cycle_life_at_dod: Math.round(cycleLife),
         cumulative_damage_pct: parseFloat((cumulativeDamage * 100).toFixed(2)),
+        round_trip_efficiency_pct: chemData ? Math.round(chemData.round_trip_eff * 100) : null,
       },
       soh: {
         estimated_soh_pct: parseFloat((finalSoh * 100).toFixed(2)),
@@ -605,3 +610,34 @@ exports.exportCableCertificatePdf = async (req, res) => {
   }
 };
 
+/**
+ * GET /api/calculator/technologies
+ * Returns all panel technologies and battery chemistries for frontend pickers.
+ * Includes engineering metadata useful for hints in the UI.
+ */
+exports.getTechnologies = (req, res) => {
+  const panelTechs = Object.entries(PANEL_TECHNOLOGIES).map(([key, t]) => ({
+    key,
+    label:            t.label,
+    group:            t.group,
+    silver_mg_per_wp: t.silver_mg_per_wp,
+    deg_rate_pct_yr:  t.deg_rate_pct_yr,
+    temp_coeff_pct_c: t.temp_coeff_pct_c,
+    bifacial:         t.bifacial,
+    notes:            t.notes,
+  }));
+
+  const batteryChems = Object.entries(BATTERY_CHEMISTRIES).map(([key, c]) => ({
+    key,
+    label:               c.label,
+    group:               c.group,
+    recommended_dod_pct: c.recommended_dod_pct,
+    round_trip_eff_pct:  Math.round(c.round_trip_eff * 100),
+    cycle_life_ref:      c.cycle_life_ref,
+    reference_dod_pct:   c.reference_dod_pct,
+    annual_soh_loss_pct: c.annual_soh_loss_pct,
+    notes:               c.notes,
+  }));
+
+  return sendSuccess(res, { panel_technologies: panelTechs, battery_chemistries: batteryChems });
+};

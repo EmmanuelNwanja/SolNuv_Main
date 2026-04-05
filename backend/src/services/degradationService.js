@@ -10,6 +10,7 @@
  */
 
 const supabase = require('../config/database');
+const { PANEL_TECHNOLOGIES } = require('../constants/technologyConstants');
 
 // Base lifespan range (in years) - West African conditions
 const BASE_LIFESPAN_YEARS = { min: 7, max: 12 };
@@ -50,25 +51,38 @@ async function getStateClimate(state) {
  * Calculate expected decommissioning date for a panel
  * @param {string} state - Nigerian state name
  * @param {Date} installationDate - Date of installation
- * @param {string} panelBrand - Brand name for condition factor
- * @returns {object} - { date, climateZone, factor, yearsExpected, explanation }
+ * @param {string} panelBrand - Brand name (kept for backward compat, not used in calc)
+ * @param {string} panelTechnology - Optional panel technology key from PANEL_TECHNOLOGIES
+ * @returns {object}
  */
-async function calculateDecommissionDate(state, installationDate, panelBrand = 'Other') {
+async function calculateDecommissionDate(state, installationDate, panelBrand = 'Other', panelTechnology = null) {
   const climate = await getStateClimate(state);
 
-  // Base lifespan: 9.5 years average for West Africa
-  const baseLifespan = 9.5;
+  // Technology-specific degradation rate takes precedence when known.
+  // We derive expected lifespan from: when does cumulative degradation hit 80% (i.e. 20% loss)?
+  // lifespan = (degradation_threshold - first_year_loss) / annual_deg_rate_per_year
+  const tech = panelTechnology && PANEL_TECHNOLOGIES[panelTechnology];
 
-  // Degradation multiplier from climate zone (higher = more degradation = shorter life)
-  const climateDegradation = climate.degradation_multiplier || 1.15;
+  let clampedLifespan;
 
-  // Adjusted lifespan: base / climate factor
-  // If degradation_multiplier is 1.35 (Lagos), life is 9.5/1.35 = ~7 years
-  // If degradation_multiplier is 1.08 (mild zone), life is 9.5/1.08 = ~8.8 years
-  const adjustedLifespan = baseLifespan / (climateDegradation - 1 + 1.1);
-
-  // Clamp between 5 and 12 years
-  const clampedLifespan = Math.min(12, Math.max(5, adjustedLifespan));
+  if (tech) {
+    // Climate multiplier: harsher zones accelerate degradation by 8–15%
+    const climateMultipliers = {
+      coastal_humid: 1.15, sahel_dry: 1.12, se_humid: 1.08, mixed: 1.00, default: 1.05,
+    };
+    const climateMult = climateMultipliers[climate.climate_zone] || climateMultipliers.default;
+    const effectiveDegRate = (tech.deg_rate_pct_yr / 100) * climateMult;
+    // 80% SoH threshold (20% total loss), accounting for first-year LID
+    const remainingDeg = 0.20 - tech.first_year_loss;
+    const rawLifespan = remainingDeg > 0 ? (1 + remainingDeg / effectiveDegRate) : 10;
+    clampedLifespan = Math.min(15, Math.max(5, rawLifespan));
+  } else {
+    // Original climate-factor-based calculation
+    const baseLifespan = 9.5;
+    const climateDegradation = climate.degradation_multiplier || 1.15;
+    const adjustedLifespan = baseLifespan / (climateDegradation - 1 + 1.1);
+    clampedLifespan = Math.min(12, Math.max(5, adjustedLifespan));
+  }
 
   const installDate = new Date(installationDate);
   const decommissionDate = new Date(installDate);
@@ -80,8 +94,12 @@ async function calculateDecommissionDate(state, installationDate, panelBrand = '
 
   let urgency = 'normal';
   if (daysUntil < 0) urgency = 'overdue';
-  else if (daysUntil < 180) urgency = 'critical'; // < 6 months
-  else if (daysUntil < 365) urgency = 'soon'; // < 1 year
+  else if (daysUntil < 180) urgency = 'critical';
+  else if (daysUntil < 365) urgency = 'soon';
+
+  const techNote = tech
+    ? ` (${tech.label}: ${tech.deg_rate_pct_yr}%/yr degradation rate)`
+    : '';
 
   return {
     adjusted_failure_date: decommissionDate.toISOString().split('T')[0],
@@ -90,7 +108,9 @@ async function calculateDecommissionDate(state, installationDate, panelBrand = '
     years_expected: parseFloat(clampedLifespan.toFixed(1)),
     days_until_decommission: daysUntil,
     urgency,
-    explanation: `In ${state} (${climate.climate_zone.replace(/_/g, ' ')}), panels are estimated to last ~${clampedLifespan.toFixed(1)} years due to ${getClimateExplanation(climate.climate_zone)}.`,
+    panel_technology: panelTechnology || null,
+    panel_technology_label: tech ? tech.label : null,
+    explanation: `In ${state} (${climate.climate_zone.replace(/_/g, ' ')}), ${tech ? tech.label + ' panels' : 'panels'} are estimated to last ~${clampedLifespan.toFixed(1)} years due to ${getClimateExplanation(climate.climate_zone)}${techNote}.`,
   };
 }
 

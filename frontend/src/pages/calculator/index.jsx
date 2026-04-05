@@ -24,6 +24,7 @@ export default function Calculator() {
   const [activeTab, setActiveTab] = useState('panel');
   const [loading, setLoading] = useState(false);
   const [brands, setBrands] = useState({ panels: [], batteries: [] });
+  const [technologies, setTechnologies] = useState({ panel_technologies: [], battery_chemistries: [] });
   const [usageData, setUsageData] = useState(null);
 
   const [panelForm, setPanelForm] = useState({
@@ -31,6 +32,7 @@ export default function Calculator() {
     installation_date: '2018-01-01',
     climate_zone: 'coastal_humid',
     condition: 'good',
+    panel_technology: 'mono_perc',
   });
   const [panelResult, setPanelResult] = useState(null);
 
@@ -43,7 +45,7 @@ export default function Calculator() {
   });
   const [batteryResult, setBatteryResult] = useState(null);
 
-  const [degradForm, setDegradForm] = useState({ state: 'Lagos', installation_date: '2021-01-01' });
+  const [degradForm, setDegradForm] = useState({ state: 'Lagos', installation_date: '2021-01-01', panel_technology: null });
   const [degradResult, setDegradResult] = useState(null);
 
   const [roiForm, setRoiForm] = useState({
@@ -88,6 +90,10 @@ export default function Calculator() {
   useEffect(() => {
     calculatorAPI.getBrands()
       .then(r => setBrands(r.data.data || { panels: [], batteries: [] }))
+      .catch(() => {});
+
+    calculatorAPI.getTechnologies()
+      .then(r => setTechnologies(r.data.data || { panel_technologies: [], battery_chemistries: [] }))
       .catch(() => {});
 
     // Fetch usage data for Free plan users
@@ -371,6 +377,35 @@ export default function Calculator() {
               </div>
 
               <div>
+                <label className="label">Panel Technology</label>
+                <select className="input" value={panelForm.panel_technology}
+                  onChange={e => setPanelForm(f => ({ ...f, panel_technology: e.target.value || null }))}>
+                  <option value="">— Unknown / Era-based estimate —</option>
+                  {['p-type','n-type','thin-film'].map(group => {
+                    const opts = technologies.panel_technologies.filter(t => t.group === group);
+                    if (!opts.length) return null;
+                    return (
+                      <optgroup key={group} label={group === 'p-type' ? 'p-type Silicon' : group === 'n-type' ? 'n-type Silicon' : 'Thin Film'}>
+                        {opts.map(t => (
+                          <option key={t.key} value={t.key}>{t.label}</option>
+                        ))}
+                      </optgroup>
+                    );
+                  })}
+                </select>
+                {panelForm.panel_technology && (() => {
+                  const t = technologies.panel_technologies.find(x => x.key === panelForm.panel_technology);
+                  return t ? (
+                    <p className="text-xs text-slate-400 mt-1">
+                      {t.deg_rate_pct_yr}%/yr degradation · {t.temp_coeff_pct_c}%/°C temp coeff
+                      {t.bifacial ? ' · bifacial' : ''}
+                      {t.silver_mg_per_wp === 0 ? ' · no silver' : ` · ${t.silver_mg_per_wp}mg/Wp silver`}
+                    </p>
+                  ) : null;
+                })()}
+              </div>
+
+              <div>
                 <label className="label">Panel Condition</label>
                 <select className="input" value={panelForm.condition}
                   onChange={e => setPanelForm(f => ({ ...f, condition: e.target.value }))}>
@@ -407,6 +442,12 @@ export default function Calculator() {
                       <strong> {panelResult.panel_health?.remaining_watts}W</strong> at its tested output.
                       ({panelResult.panel_health?.degradation_rate} annual degradation in this climate)
                     </p>
+                    {panelResult.panel_health?.temp_derating_factor != null && panelResult.panel_health.temp_derating_factor < 1.0 && (
+                      <p className="text-xs text-amber-600 mt-1">
+                        🌡️ At 40°C ambient (65°C cell): effective output ~{Math.round(panelResult.panel_health.temp_derating_factor * 100)}% of rated
+                        {panelResult.panel_health?.effective_output_watts ? ` = ${panelResult.panel_health.effective_output_watts}W real-world per panel` : ''}.
+                      </p>
+                    )}
                   </div>
 
                   {/* Recommendation banner */}
@@ -578,10 +619,34 @@ export default function Calculator() {
               <div>
                 <label className="label">Chemistry</label>
                 <select className="input" value={sohForm.chemistry} onChange={(e) => setSohForm((f) => ({ ...f, chemistry: e.target.value }))}>
-                  <option value="lithium-iron-phosphate">Lithium Iron Phosphate</option>
-                  <option value="lithium">Lithium</option>
-                  <option value="lead-acid">Lead Acid</option>
+                  <optgroup label="Lithium">
+                    <option value="lfp">LiFePO4 — Lithium Iron Phosphate</option>
+                    <option value="nmc">NMC — Nickel Manganese Cobalt</option>
+                    <option value="nca">NCA — Nickel Cobalt Aluminium (Tesla)</option>
+                    <option value="lto">LTO — Lithium Titanate</option>
+                  </optgroup>
+                  <optgroup label="Lead Acid">
+                    <option value="lead_acid_agm">Lead Acid — AGM (Sealed)</option>
+                    <option value="lead_acid_gel">Lead Acid — Gel (Sealed)</option>
+                    <option value="lead_acid_flooded">Lead Acid — Flooded (VRLA-FLA)</option>
+                  </optgroup>
+                  <optgroup label="Other">
+                    <option value="nicd">NiCd — Nickel Cadmium (Legacy)</option>
+                  </optgroup>
+                  <optgroup label="Legacy aliases">
+                    <option value="lithium-iron-phosphate">Lithium Iron Phosphate (old key)</option>
+                    <option value="lithium">Lithium (generic, old key)</option>
+                    <option value="lead-acid">Lead Acid (generic, old key)</option>
+                  </optgroup>
                 </select>
+                {(() => {
+                  const chem = technologies.battery_chemistries.find(c => c.key === sohForm.chemistry);
+                  return chem ? (
+                    <p className="text-xs text-slate-400 mt-1">
+                      Rec. DoD: {chem.recommended_dod_pct}% · RTE: {chem.round_trip_eff_pct}% · ~{chem.cycle_life_ref.toLocaleString()} cycles @ {chem.reference_dod_pct}% DoD
+                    </p>
+                  ) : null;
+                })()}
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -636,6 +701,12 @@ export default function Calculator() {
                       <p className="text-xl font-bold text-amber-600">{sohResult.cycle_model?.cumulative_damage_pct}%</p>
                     </div>
                   </div>
+                  {sohResult.cycle_model?.round_trip_efficiency_pct != null && (
+                    <div className="card">
+                      <p className="text-xs text-slate-500">Round-Trip Efficiency</p>
+                      <p className="text-xl font-bold text-forest-900">{sohResult.cycle_model.round_trip_efficiency_pct}%</p>
+                    </div>
+                  )}
                   <div className="card">
                     <p className="text-xs text-slate-500">Warranty Risk Flag</p>
                     <p className="text-sm font-semibold text-forest-900 mt-1">{sohResult.warranty_assessment?.risk_flag?.replace(/_/g, ' ')}</p>
@@ -899,6 +970,24 @@ export default function Calculator() {
                 <input type="date" className="input" value={degradForm.installation_date}
                   onChange={e => setDegradForm(f => ({ ...f, installation_date: e.target.value }))} />
               </div>
+
+              <div>
+                <label className="label">Panel Technology <span className="text-slate-400 font-normal">(optional)</span></label>
+                <select className="input" value={degradForm.panel_technology || ''}
+                  onChange={e => setDegradForm(f => ({ ...f, panel_technology: e.target.value || null }))}>
+                  <option value="">— Unknown / Climate-based estimate —</option>
+                  {['p-type','n-type','thin-film'].map(group => {
+                    const opts = technologies.panel_technologies.filter(t => t.group === group);
+                    if (!opts.length) return null;
+                    return (
+                      <optgroup key={group} label={group === 'p-type' ? 'p-type Silicon' : group === 'n-type' ? 'n-type Silicon' : 'Thin Film'}>
+                        {opts.map(t => <option key={t.key} value={t.key}>{t.label}</option>)}
+                      </optgroup>
+                    );
+                  })}
+                </select>
+                <p className="text-xs text-slate-400 mt-1">Technology-specific degradation rates improve accuracy.</p>
+              </div>
               <button onClick={runDegrad} disabled={loading} className="btn-primary w-full">
                 {loading ? 'Calculating...' : 'Predict Decommission Date →'}
               </button>
@@ -923,6 +1012,12 @@ export default function Calculator() {
                       <span className="text-slate-500">Climate Zone</span>
                       <span className="font-semibold text-forest-900">{degradResult.climate_zone?.replace(/_/g, ' ')}</span>
                     </div>
+                    {degradResult.panel_technology_label && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-slate-500">Panel Technology</span>
+                        <span className="font-semibold text-forest-900">{degradResult.panel_technology_label}</span>
+                      </div>
+                    )}
                     <div className="flex justify-between text-sm">
                       <span className="text-slate-500">Expected Lifespan</span>
                       <span className="font-semibold text-forest-900">{degradResult.years_expected} years</span>

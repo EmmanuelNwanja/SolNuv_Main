@@ -192,6 +192,7 @@ export const calculatorAPI = {
   getBrands: () => api.get('/calculator/brands'),
   submitBrand: (data) => api.post('/calculator/brands/submit', data),
   getStates: () => api.get('/calculator/states'),
+  getTechnologies: () => api.get('/calculator/technologies'),
   getUsage: () => api.get('/calculator/usage'),
 };
 

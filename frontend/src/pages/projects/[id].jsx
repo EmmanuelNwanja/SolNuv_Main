@@ -35,6 +35,101 @@ const STAGE_LABELS = {
 
 const NIGERIAN_STATES = ['Abia','Adamawa','Akwa Ibom','Anambra','Bauchi','Bayelsa','Benue','Borno','Cross River','Delta','Ebonyi','Edo','Ekiti','Enugu','FCT','Gombe','Imo','Jigawa','Kaduna','Kano','Katsina','Kebbi','Kogi','Kwara','Lagos','Nasarawa','Niger','Ogun','Ondo','Osun','Oyo','Plateau','Rivers','Sokoto','Taraba','Yobe','Zamfara'];
 
+// ── EquipmentForm must live at MODULE scope (not inside the render function)
+// so React never unmounts it mid-keystroke when parent state updates.
+function EquipmentForm({ equipType, form, setForm, onSubmit, onCancel, submitLabel, submitting }) {
+  return (
+    <form onSubmit={onSubmit} className="mt-3 p-3 bg-white border border-forest-900/20 rounded-xl space-y-3">
+      <div className="grid grid-cols-2 gap-2">
+        <div className="col-span-2">
+          <label className="label text-xs">Brand *</label>
+          <input className="input text-sm" value={form.brand} onChange={e => setForm(p => ({ ...p, brand: e.target.value }))} placeholder="e.g. JA Solar" required />
+        </div>
+        <div>
+          <label className="label text-xs">Model</label>
+          <input className="input text-sm" value={form.model} onChange={e => setForm(p => ({ ...p, model: e.target.value }))} placeholder="Optional" />
+        </div>
+        <div>
+          <label className="label text-xs">Quantity *</label>
+          <input type="number" min="1" className="input text-sm" value={form.quantity} onChange={e => setForm(p => ({ ...p, quantity: e.target.value }))} required />
+        </div>
+        {equipType === 'panel' && (
+          <>
+            <div>
+              <label className="label text-xs">Size (watts) *</label>
+              <input type="number" min="1" className="input text-sm" value={form.size_watts} onChange={e => setForm(p => ({ ...p, size_watts: e.target.value }))} placeholder="e.g. 550" required />
+            </div>
+            <div className="col-span-2">
+              <label className="label text-xs">Panel Technology</label>
+              <select className="input text-sm" value={form.panel_technology || ''} onChange={e => setForm(p => ({ ...p, panel_technology: e.target.value || null }))}>
+                <option value="">— Unknown —</option>
+                <optgroup label="p-type Silicon">
+                  <option value="poly_bsf">Polycrystalline BSF (Legacy)</option>
+                  <option value="mono_perc">Mono PERC (Monofacial)</option>
+                  <option value="mono_perc_bi">Mono PERC Bifacial</option>
+                </optgroup>
+                <optgroup label="n-type Silicon">
+                  <option value="topcon_mono">n-type TOPCon (Monofacial)</option>
+                  <option value="topcon_bi">n-type TOPCon Bifacial</option>
+                  <option value="hpbc_mono">HPBC Mono (Rear Contact)</option>
+                  <option value="hpbc_bi">HPBC Bifacial (Rear Contact)</option>
+                  <option value="hjt">HJT (Heterojunction)</option>
+                  <option value="ibc">IBC (All-Back Contact)</option>
+                </optgroup>
+                <optgroup label="Thin Film">
+                  <option value="thin_film_cdte">Thin Film CdTe (First Solar)</option>
+                  <option value="thin_film_cigs">Thin Film CIGS</option>
+                </optgroup>
+              </select>
+            </div>
+          </>
+        )}
+        {equipType === 'battery' && (
+          <>
+            <div>
+              <label className="label text-xs">Capacity (kWh)</label>
+              <input type="number" min="0.1" step="0.1" className="input text-sm" value={form.capacity_kwh} onChange={e => setForm(p => ({ ...p, capacity_kwh: e.target.value }))} placeholder="e.g. 5.12" />
+            </div>
+            <div>
+              <label className="label text-xs">Chemistry</label>
+              <select className="input text-sm" value={form.battery_chemistry || ''} onChange={e => setForm(p => ({ ...p, battery_chemistry: e.target.value || null }))}>
+                <option value="">— Unknown —</option>
+                <optgroup label="Lithium">
+                  <option value="lfp">LiFePO4</option>
+                  <option value="nmc">NMC</option>
+                  <option value="nca">NCA (Tesla)</option>
+                  <option value="lto">LTO</option>
+                </optgroup>
+                <optgroup label="Lead Acid">
+                  <option value="lead_acid_agm">AGM (Sealed)</option>
+                  <option value="lead_acid_gel">Gel (Sealed)</option>
+                  <option value="lead_acid_flooded">Flooded (VRLA-FLA)</option>
+                </optgroup>
+                <optgroup label="Other">
+                  <option value="nicd">NiCd (Legacy)</option>
+                </optgroup>
+              </select>
+            </div>
+          </>
+        )}
+        <div>
+          <label className="label text-xs">Condition</label>
+          <select className="input text-sm" value={form.condition} onChange={e => setForm(p => ({ ...p, condition: e.target.value }))}>
+            <option value="excellent">Excellent</option>
+            <option value="good">Good</option>
+            <option value="fair">Fair</option>
+            <option value="poor">Poor</option>
+          </select>
+        </div>
+      </div>
+      <div className="flex gap-2 pt-1">
+        <button type="submit" disabled={submitting} className="btn-primary text-xs py-1.5 px-3">{submitting ? 'Saving...' : submitLabel}</button>
+        <button type="button" onClick={onCancel} className="btn-ghost text-xs py-1.5 px-3">Cancel</button>
+      </div>
+    </form>
+  );
+}
+
 function extractExifGPS(file) {
   return new Promise((resolve) => {
     if (!file) { resolve(null); return; }
@@ -131,7 +226,7 @@ export default function ProjectDetail() {
   // Equipment editing (draft / maintenance only)
   const [editEquipmentId, setEditEquipmentId] = useState(null);
   const [addingEquipType, setAddingEquipType] = useState(null);
-  const [editEquipForm, setEditEquipForm] = useState({ brand: '', model: '', size_watts: '', capacity_kwh: '', quantity: 1, condition: 'good', sourcing_info: '' });
+  const [editEquipForm, setEditEquipForm] = useState({ brand: '', model: '', size_watts: '', capacity_kwh: '', quantity: 1, condition: 'good', sourcing_info: '', panel_technology: null, battery_chemistry: null });
   const [equipmentSubmitting, setEquipmentSubmitting] = useState(false);
   const [deleteEquipConfirm, setDeleteEquipConfirm] = useState(null);
   const [editForm, setEditForm] = useState({
@@ -341,6 +436,8 @@ export default function ProjectDetail() {
       quantity: item.quantity || 1,
       condition: item.condition || 'good',
       sourcing_info: item.sourcing_info || '',
+      panel_technology: item.panel_technology || null,
+      battery_chemistry: item.battery_chemistry || null,
     });
   }
 
@@ -357,6 +454,8 @@ export default function ProjectDetail() {
       };
       if (editEquipForm.size_watts !== '') payload.size_watts = Number(editEquipForm.size_watts);
       if (editEquipForm.capacity_kwh !== '') payload.capacity_kwh = Number(editEquipForm.capacity_kwh);
+      if (editEquipForm.panel_technology) payload.panel_technology = editEquipForm.panel_technology;
+      if (editEquipForm.battery_chemistry) payload.battery_chemistry = editEquipForm.battery_chemistry;
       const { data } = await projectsAPI.updateEquipment(id, equipmentId, payload);
       const updated = data.data;
       setProject(prev => ({ ...prev, equipment: prev.equipment.map(eq => eq.id === equipmentId ? updated : eq) }));
@@ -386,13 +485,15 @@ export default function ProjectDetail() {
       if (addingEquipType === 'panel') {
         if (!editEquipForm.size_watts) { toast.error('Panel wattage required'); setEquipmentSubmitting(false); return; }
         payload.size_watts = Number(editEquipForm.size_watts);
-      } else if (addingEquipType === 'battery' && editEquipForm.capacity_kwh) {
-        payload.capacity_kwh = Number(editEquipForm.capacity_kwh);
+        if (editEquipForm.panel_technology) payload.panel_technology = editEquipForm.panel_technology;
+      } else if (addingEquipType === 'battery') {
+        if (editEquipForm.capacity_kwh) payload.capacity_kwh = Number(editEquipForm.capacity_kwh);
+        if (editEquipForm.battery_chemistry) payload.battery_chemistry = editEquipForm.battery_chemistry;
       }
       const { data } = await projectsAPI.addEquipment(id, payload);
       setProject(prev => ({ ...prev, equipment: [...(prev.equipment || []), data.data] }));
       setAddingEquipType(null);
-      setEditEquipForm({ brand: '', model: '', size_watts: '', capacity_kwh: '', quantity: 1, condition: 'good', sourcing_info: '' });
+      setEditEquipForm({ brand: '', model: '', size_watts: '', capacity_kwh: '', quantity: 1, condition: 'good', sourcing_info: '', panel_technology: null, battery_chemistry: null });
       toast.success('Equipment added');
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to add equipment');
@@ -432,53 +533,6 @@ export default function ProjectDetail() {
     : null;
   const transitions = STATUS_TRANSITIONS[project.status] || [];
   const canEditEquipment = project.status === 'draft' || project.status === 'maintenance';
-
-  // Shared inline equipment form (used for both add and edit)
-  function EquipmentForm({ equipType, onSubmit, onCancel, submitLabel }) {
-    return (
-      <form onSubmit={onSubmit} className="mt-3 p-3 bg-white border border-forest-900/20 rounded-xl space-y-3">
-        <div className="grid grid-cols-2 gap-2">
-          <div className="col-span-2">
-            <label className="label text-xs">Brand *</label>
-            <input className="input text-sm" value={editEquipForm.brand} onChange={e => setEditEquipForm(p => ({ ...p, brand: e.target.value }))} placeholder="e.g. JA Solar" required />
-          </div>
-          <div>
-            <label className="label text-xs">Model</label>
-            <input className="input text-sm" value={editEquipForm.model} onChange={e => setEditEquipForm(p => ({ ...p, model: e.target.value }))} placeholder="Optional" />
-          </div>
-          <div>
-            <label className="label text-xs">Quantity *</label>
-            <input type="number" min="1" className="input text-sm" value={editEquipForm.quantity} onChange={e => setEditEquipForm(p => ({ ...p, quantity: e.target.value }))} required />
-          </div>
-          {equipType === 'panel' && (
-            <div>
-              <label className="label text-xs">Size (watts) *</label>
-              <input type="number" min="1" className="input text-sm" value={editEquipForm.size_watts} onChange={e => setEditEquipForm(p => ({ ...p, size_watts: e.target.value }))} placeholder="e.g. 550" required />
-            </div>
-          )}
-          {equipType === 'battery' && (
-            <div>
-              <label className="label text-xs">Capacity (kWh)</label>
-              <input type="number" min="0.1" step="0.1" className="input text-sm" value={editEquipForm.capacity_kwh} onChange={e => setEditEquipForm(p => ({ ...p, capacity_kwh: e.target.value }))} placeholder="e.g. 5.12" />
-            </div>
-          )}
-          <div>
-            <label className="label text-xs">Condition</label>
-            <select className="input text-sm" value={editEquipForm.condition} onChange={e => setEditEquipForm(p => ({ ...p, condition: e.target.value }))}>
-              <option value="excellent">Excellent</option>
-              <option value="good">Good</option>
-              <option value="fair">Fair</option>
-              <option value="poor">Poor</option>
-            </select>
-          </div>
-        </div>
-        <div className="flex gap-2 pt-1">
-          <button type="submit" disabled={equipmentSubmitting} className="btn-primary text-xs py-1.5 px-3">{equipmentSubmitting ? 'Saving...' : submitLabel}</button>
-          <button type="button" onClick={onCancel} className="btn-ghost text-xs py-1.5 px-3">Cancel</button>
-        </div>
-      </form>
-    );
-  }
 
   return (
     <>
@@ -738,7 +792,7 @@ export default function ProjectDetail() {
                   <RiSunLine className="text-amber-500" /> Solar Panels ({totalPanels} total)
                 </h2>
                 {canEditEquipment && addingEquipType !== 'panel' && (
-                  <button type="button" onClick={() => { setAddingEquipType('panel'); setEditEquipmentId(null); setEditEquipForm({ brand: '', model: '', size_watts: '', capacity_kwh: '', quantity: 1, condition: 'good', sourcing_info: '' }); }}
+                  <button type="button" onClick={() => { setAddingEquipType('panel'); setEditEquipmentId(null); setEditEquipForm({ brand: '', model: '', size_watts: '', capacity_kwh: '', quantity: 1, condition: 'good', sourcing_info: '', panel_technology: null, battery_chemistry: null }); }}
                     className="flex items-center gap-1 text-xs font-semibold text-forest-900 border border-forest-900/30 rounded-lg px-2 py-1 hover:bg-forest-900/5 transition-colors">
                     <RiAddLine /> Add Panel
                   </button>
@@ -748,7 +802,7 @@ export default function ProjectDetail() {
                 {panels.map(eq => (
                   <div key={eq.id}>
                     {editEquipmentId === eq.id ? (
-                      <EquipmentForm equipType="panel" onSubmit={e => handleSaveEquipment(e, eq.id)} onCancel={() => setEditEquipmentId(null)} submitLabel="Save Panel" />
+                      <EquipmentForm equipType="panel" form={editEquipForm} setForm={setEditEquipForm} submitting={equipmentSubmitting} onSubmit={e => handleSaveEquipment(e, eq.id)} onCancel={() => setEditEquipmentId(null)} submitLabel="Save Panel" />
                     ) : (
                       <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
                         <div>
@@ -785,13 +839,13 @@ export default function ProjectDetail() {
                   </div>
                 ))}
                 {canEditEquipment && addingEquipType === 'panel' && (
-                  <EquipmentForm equipType="panel" onSubmit={handleAddEquipment} onCancel={() => setAddingEquipType(null)} submitLabel="Add Panel" />
+                  <EquipmentForm equipType="panel" form={editEquipForm} setForm={setEditEquipForm} submitting={equipmentSubmitting} onSubmit={handleAddEquipment} onCancel={() => setAddingEquipType(null)} submitLabel="Add Panel" />
                 )}
               </div>
             </div>
           )}
 
-          {/* Batteries */}
+          {/* Batteries */
           {(batteries.length > 0 || (canEditEquipment && addingEquipType === 'battery')) && (
             <div className="card">
               <div className="flex items-center justify-between mb-4">
@@ -799,7 +853,7 @@ export default function ProjectDetail() {
                   <RiBatteryLine className="text-emerald-500" /> Batteries ({totalBatteries} total)
                 </h2>
                 {canEditEquipment && addingEquipType !== 'battery' && (
-                  <button type="button" onClick={() => { setAddingEquipType('battery'); setEditEquipmentId(null); setEditEquipForm({ brand: '', model: '', size_watts: '', capacity_kwh: '', quantity: 1, condition: 'good', sourcing_info: '' }); }}
+                  <button type="button" onClick={() => { setAddingEquipType('battery'); setEditEquipmentId(null); setEditEquipForm({ brand: '', model: '', size_watts: '', capacity_kwh: '', quantity: 1, condition: 'good', sourcing_info: '', panel_technology: null, battery_chemistry: null }); }}
                     className="flex items-center gap-1 text-xs font-semibold text-forest-900 border border-forest-900/30 rounded-lg px-2 py-1 hover:bg-forest-900/5 transition-colors">
                     <RiAddLine /> Add Battery
                   </button>
@@ -809,7 +863,7 @@ export default function ProjectDetail() {
                 {batteries.map(eq => (
                   <div key={eq.id}>
                     {editEquipmentId === eq.id ? (
-                      <EquipmentForm equipType="battery" onSubmit={e => handleSaveEquipment(e, eq.id)} onCancel={() => setEditEquipmentId(null)} submitLabel="Save Battery" />
+                      <EquipmentForm equipType="battery" form={editEquipForm} setForm={setEditEquipForm} submitting={equipmentSubmitting} onSubmit={e => handleSaveEquipment(e, eq.id)} onCancel={() => setEditEquipmentId(null)} submitLabel="Save Battery" />
                     ) : (
                       <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
                         <div>
@@ -843,14 +897,14 @@ export default function ProjectDetail() {
                   </div>
                 ))}
                 {canEditEquipment && addingEquipType === 'battery' && (
-                  <EquipmentForm equipType="battery" onSubmit={handleAddEquipment} onCancel={() => setAddingEquipType(null)} submitLabel="Add Battery" />
+                  <EquipmentForm equipType="battery" form={editEquipForm} setForm={setEditEquipForm} submitting={equipmentSubmitting} onSubmit={handleAddEquipment} onCancel={() => setAddingEquipType(null)} submitLabel="Add Battery" />
                 )}
               </div>
             </div>
           )}
           {/* Add-equipment prompt cards when project is editable but has no items yet */}
           {canEditEquipment && panels.length === 0 && addingEquipType !== 'panel' && (
-            <button type="button" onClick={() => { setAddingEquipType('panel'); setEditEquipmentId(null); setEditEquipForm({ brand: '', model: '', size_watts: '', capacity_kwh: '', quantity: 1, condition: 'good', sourcing_info: '' }); }}
+            <button type="button" onClick={() => { setAddingEquipType('panel'); setEditEquipmentId(null); setEditEquipForm({ brand: '', model: '', size_watts: '', capacity_kwh: '', quantity: 1, condition: 'good', sourcing_info: '', panel_technology: null, battery_chemistry: null }); }}
               className="w-full border-2 border-dashed border-amber-300 rounded-2xl p-4 text-sm text-amber-700 font-medium hover:bg-amber-50 transition-colors flex items-center justify-center gap-2">
               <RiAddLine /> Add Solar Panels
             </button>
@@ -860,10 +914,10 @@ export default function ProjectDetail() {
               {addingEquipType === 'panel' && (
                 <div className="card">
                   <h2 className="font-semibold text-forest-900 mb-3 flex items-center gap-2"><RiSunLine className="text-amber-500" /> Add Panel</h2>
-                  <EquipmentForm equipType="panel" onSubmit={handleAddEquipment} onCancel={() => setAddingEquipType(null)} submitLabel="Add Panel" />
+                  <EquipmentForm equipType="panel" form={editEquipForm} setForm={setEditEquipForm} submitting={equipmentSubmitting} onSubmit={handleAddEquipment} onCancel={() => setAddingEquipType(null)} submitLabel="Add Panel" />
                 </div>
               )}
-              <button type="button" onClick={() => { setAddingEquipType('battery'); setEditEquipmentId(null); setEditEquipForm({ brand: '', model: '', size_watts: '', capacity_kwh: '', quantity: 1, condition: 'good', sourcing_info: '' }); }}
+              <button type="button" onClick={() => { setAddingEquipType('battery'); setEditEquipmentId(null); setEditEquipForm({ brand: '', model: '', size_watts: '', capacity_kwh: '', quantity: 1, condition: 'good', sourcing_info: '', panel_technology: null, battery_chemistry: null }); }}
                 className="w-full border-2 border-dashed border-emerald-300 rounded-2xl p-4 text-sm text-emerald-700 font-medium hover:bg-emerald-50 transition-colors flex items-center justify-center gap-2">
                 <RiAddLine /> Add Batteries
               </button>

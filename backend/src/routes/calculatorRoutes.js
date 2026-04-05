@@ -27,6 +27,7 @@ router.post('/cable-size/pdf',    optionalAuth, calculatorController.exportCable
 router.get('/silver-price',  calculatorController.getSilverPrice);
 router.get('/brands',        calculatorController.getBrands);
 router.get('/states',        calculatorController.getStates);
+router.get('/technologies',  calculatorController.getTechnologies);
 
 // Custom brand submission — requires authentication
 router.post('/brands/submit', requireAuth, calculatorController.submitBrand);
