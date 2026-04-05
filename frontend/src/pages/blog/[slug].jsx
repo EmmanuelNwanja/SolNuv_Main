@@ -8,45 +8,7 @@ import {
 } from 'react-icons/ri';
 import { blogAPI } from '../../services/api';
 import { getPublicLayout } from '../../components/Layout';
-
-function BlogAdSidebar({ placement = 'sidebar' }) {
-  const [ads, setAds] = useState([]);
-
-  useEffect(() => {
-    blogAPI.listAds({ placement }).then((r) => setAds(r.data.data || [])).catch(() => {});
-  }, [placement]);
-
-  return (
-    <div className="space-y-4">
-      {ads.map((ad) => {
-        function handleClick() {
-          blogAPI.trackAdClick(ad.id, typeof window !== 'undefined' ? window.location.pathname : '').catch(() => {});
-          if (ad.target_url) window.open(ad.target_url, '_blank', 'noopener,noreferrer');
-        }
-        return (
-          <div
-            key={ad.id}
-            role="link"
-            tabIndex={0}
-            onClick={handleClick}
-            onKeyDown={(e) => e.key === 'Enter' && handleClick()}
-            className="cursor-pointer rounded-xl border border-amber-200 bg-amber-50 dark:bg-slate-800 dark:border-slate-700 overflow-hidden hover:shadow-md transition-shadow"
-            aria-label={`Advertisement: ${ad.title}`}
-          >
-            {ad.image_url && (
-              <img src={ad.image_url} alt={ad.title} className="w-full object-cover h-28" loading="lazy" />
-            )}
-            <div className="p-3">
-              <span className="text-[10px] font-semibold uppercase tracking-widest text-amber-600 dark:text-amber-400">Sponsored</span>
-              <p className="mt-1 text-sm font-semibold text-slate-800 dark:text-slate-100 line-clamp-2">{ad.title}</p>
-              {ad.body_text && <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 line-clamp-2">{ad.body_text}</p>}
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
+import AdSlot from '../../components/ui/AdSlot';
 
 // Intercepts outbound link clicks within rendered content
 function useOutboundLinkTracking(slug, containerRef) {
@@ -160,6 +122,9 @@ export default function BlogPostPage() {
               dangerouslySetInnerHTML={{ __html: post.content }}
             />
 
+            {/* Inline ad — shown between content and tags */}
+            <AdSlot slot="inline" page="blog_post" />
+
             {/* Tags */}
             {post.tags?.length > 0 && (
               <div className="mt-8 pt-4 border-t border-slate-100 dark:border-slate-800 flex flex-wrap gap-2">
@@ -188,14 +153,13 @@ export default function BlogPostPage() {
 
           {/* Sidebar */}
           <aside className="w-full lg:w-64 flex-shrink-0 space-y-6">
-            <BlogAdSidebar placement="sidebar" />
+            <AdSlot slot="sidebar" page="blog_post" limit={2} />
             <div className="rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
               <h3 className="font-semibold text-sm text-slate-800 dark:text-white mb-2">Need support?</h3>
               <Link href="/contact" className="flex items-center gap-1 text-sm text-emerald-700 dark:text-emerald-400 hover:underline">
                 Contact us <RiArrowRightLine />
               </Link>
             </div>
-            <BlogAdSidebar placement="footer" />
           </aside>
         </div>
       </div>

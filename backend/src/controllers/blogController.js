@@ -207,19 +207,25 @@ exports.adminGetPostAnalytics = async (req, res) => {
 
 exports.listAds = async (req, res) => {
   try {
-    const { placement } = req.query;
+    const { placement, page, limit = 10 } = req.query;
     const today = new Date().toISOString().split('T')[0];
 
     let query = supabase
       .from('ads')
-      .select('id,title,image_url,target_url,body_text,placement,priority')
+      .select('id,title,image_url,target_url,body_text,placement,priority,page_contexts')
       .eq('is_active', true)
       .or(`start_date.is.null,start_date.lte.${today}`)
       .or(`end_date.is.null,end_date.gte.${today}`)
       .order('priority', { ascending: false })
-      .limit(10);
+      .limit(Number(limit) || 10);
 
     if (placement) query = query.eq('placement', placement);
+
+    // Filter by page context: show ads targeting this specific page OR targeting "all"
+    if (page) {
+      const safePageId = page.toString().replace(/[^a-z0-9_]/g, '');
+      query = query.or(`page_contexts.cs.{${safePageId}},page_contexts.cs.{all}`);
+    }
 
     const { data, error } = await query;
     if (error) throw error;
@@ -333,11 +339,12 @@ exports.adminListAds = async (req, res) => {
 
 exports.adminCreateAd = async (req, res) => {
   try {
-    const { title, image_url, target_url, body_text, placement, priority, start_date, end_date, is_active, max_total_views, max_unique_accounts, campaign_id, display_order } = req.body;
+    const { title, image_url, target_url, body_text, placement, priority, start_date, end_date, is_active, max_total_views, max_unique_accounts, campaign_id, display_order, page_contexts } = req.body;
     if (!title) return sendError(res, 'title is required', 422);
 
     const effectivePlacement = placement || 'sidebar';
     const isPopup = effectivePlacement === 'popup';
+    const effectivePageContexts = Array.isArray(page_contexts) && page_contexts.length > 0 ? page_contexts : ['all'];
 
     const { data, error } = await supabase
       .from('ads')
@@ -351,6 +358,7 @@ exports.adminCreateAd = async (req, res) => {
         start_date: start_date || null,
         end_date: end_date || null,
         is_active: is_active !== false,
+        page_contexts: effectivePageContexts,
         ...(isPopup && { max_total_views: max_total_views ? Number(max_total_views) : null }),
         ...(isPopup && { max_unique_accounts: max_unique_accounts ? Number(max_unique_accounts) : null }),
         campaign_id: campaign_id || null,
@@ -371,7 +379,7 @@ exports.adminCreateAd = async (req, res) => {
 exports.adminUpdateAd = async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, image_url, target_url, body_text, placement, priority, start_date, end_date, is_active, max_total_views, max_unique_accounts, campaign_id, display_order } = req.body;
+    const { title, image_url, target_url, body_text, placement, priority, start_date, end_date, is_active, max_total_views, max_unique_accounts, campaign_id, display_order, page_contexts } = req.body;
     const isPopup = (placement || '') === 'popup';
     const updates = {
       ...(title !== undefined && { title }),
@@ -383,6 +391,7 @@ exports.adminUpdateAd = async (req, res) => {
       start_date: start_date || null,
       end_date: end_date || null,
       ...(is_active !== undefined && { is_active }),
+      ...(page_contexts !== undefined && { page_contexts: Array.isArray(page_contexts) && page_contexts.length > 0 ? page_contexts : ['all'] }),
       ...(isPopup && { max_total_views: max_total_views ? Number(max_total_views) : null }),
       ...(isPopup && { max_unique_accounts: max_unique_accounts ? Number(max_unique_accounts) : null }),
       campaign_id: campaign_id || null,

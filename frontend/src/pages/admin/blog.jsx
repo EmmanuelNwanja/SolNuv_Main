@@ -17,14 +17,35 @@ const STATUS_COLORS = {
   archived: 'bg-red-900/30 text-red-400 border-red-800',
 };
 
-const PLACEMENTS = ['sidebar', 'banner', 'in-feed', 'footer', 'blog-top', 'blog-bottom', 'popup'];
+const PLACEMENTS = ['sidebar', 'banner', 'in-feed', 'footer', 'inline', 'popup'];
+
+const PLACEMENT_DESCRIPTIONS = {
+  sidebar:  'Right-column vertical card',
+  banner:   'Full-width horizontal strip (below hero)',
+  'in-feed':'Horizontal card between list items',
+  footer:   'Compact strip at bottom of page',
+  inline:   'Card inserted inside article body',
+  popup:    'Overlay popup (login / interval triggered)',
+};
+
+const PAGE_CONTEXTS = [
+  { id: 'all',       label: 'All Pages',       desc: 'Everywhere' },
+  { id: 'home',      label: 'Home',            desc: '/' },
+  { id: 'blog',      label: 'Blog Listing',    desc: '/blog' },
+  { id: 'blog_post', label: 'Blog Post',       desc: '/blog/[slug]' },
+  { id: 'faq',       label: 'FAQ',             desc: '/faq' },
+  { id: 'contact',   label: 'Contact',         desc: '/contact' },
+  { id: 'dashboard', label: 'Dashboard',       desc: '/dashboard' },
+  { id: 'calculator',label: 'Calculator',      desc: '/calculator' },
+  { id: 'plans',     label: 'Plans & Pricing', desc: '/plans' },
+];
 
 function emptyPost() {
   return { title: '', slug: '', excerpt: '', content: '', cover_image_url: '', category: '', tags: '', status: 'draft', read_time_mins: 3 };
 }
 
 function emptyAd() {
-  return { title: '', image_url: '', target_url: '', body_text: '', placement: 'sidebar', priority: 0, start_date: '', end_date: '', is_active: true, max_total_views: '', max_unique_accounts: '', campaign_id: '', display_order: 0 };
+  return { title: '', image_url: '', target_url: '', body_text: '', placement: 'sidebar', priority: 0, start_date: '', end_date: '', is_active: true, max_total_views: '', max_unique_accounts: '', campaign_id: '', display_order: 0, page_contexts: ['all'] };
 }
 
 function emptyCampaign() {
@@ -115,8 +136,19 @@ function PostForm({ initial, onSave, onCancel, saving }) {
 }
 
 function AdForm({ initial, onSave, onCancel, saving, campaigns = [] }) {
-  const [form, setForm] = useState(initial || emptyAd());
+  const [form, setForm] = useState(initial ? { ...initial, page_contexts: initial.page_contexts || ['all'] } : emptyAd());
   function set(key, value) { setForm((f) => ({ ...f, [key]: value })); }
+
+  function toggleContext(id) {
+    const isAll = id === 'all';
+    const cur = form.page_contexts || ['all'];
+    if (isAll) {
+      set('page_contexts', cur.includes('all') ? [] : ['all']);
+    } else {
+      const next = cur.includes(id) ? cur.filter((c) => c !== id) : [...cur.filter((c) => c !== 'all'), id];
+      set('page_contexts', next.length ? next : ['all']);
+    }
+  }
 
   return (
     <form onSubmit={(e) => { e.preventDefault(); onSave(form); }} className="space-y-4">
@@ -140,10 +172,13 @@ function AdForm({ initial, onSave, onCancel, saving, campaigns = [] }) {
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div>
-          <label className="label">Placement</label>
+          <label className="label">Placement Slot</label>
           <select className="input" value={form.placement} onChange={(e) => set('placement', e.target.value)}>
             {PLACEMENTS.map((p) => <option key={p} value={p}>{p}</option>)}
           </select>
+          {PLACEMENT_DESCRIPTIONS[form.placement] && (
+            <p className="text-[10px] text-slate-400 mt-1">{PLACEMENT_DESCRIPTIONS[form.placement]}</p>
+          )}
         </div>
         <div>
           <label className="label">Priority (higher = first)</label>
@@ -157,6 +192,37 @@ function AdForm({ initial, onSave, onCancel, saving, campaigns = [] }) {
           </select>
         </div>
       </div>
+
+      {/* Page targeting */}
+      <div className="border border-slate-700 rounded-xl p-4 space-y-3 bg-slate-800/40">
+        <div>
+          <p className="text-xs font-semibold text-slate-300 uppercase tracking-widest mb-0.5">Page Targets</p>
+          <p className="text-[10px] text-slate-500">Select which pages/sections this ad slot appears on. &ldquo;All Pages&rdquo; overrides all other selections.</p>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+          {PAGE_CONTEXTS.map(({ id, label, desc }) => {
+            const allSelected = (form.page_contexts || []).includes('all');
+            const checked = (form.page_contexts || []).includes(id);
+            const disabled = id !== 'all' && allSelected;
+            return (
+              <label key={id} className={`flex items-start gap-2 cursor-pointer rounded-lg px-2.5 py-2 border transition-colors ${checked ? 'border-emerald-700 bg-emerald-900/20' : 'border-slate-700 hover:border-slate-500'} ${disabled ? 'opacity-40 cursor-not-allowed' : ''}`}>
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  disabled={disabled}
+                  onChange={() => toggleContext(id)}
+                  className="mt-0.5 accent-emerald-500 flex-shrink-0"
+                />
+                <div>
+                  <p className="text-xs font-medium text-slate-200 leading-tight">{label}</p>
+                  <p className="text-[10px] text-slate-500">{desc}</p>
+                </div>
+              </label>
+            );
+          })}
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className="label">Start Date</label>
@@ -500,6 +566,13 @@ function BlogAdminPage() {
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-slate-100 truncate">{ad.title}</p>
                     <p className="text-xs text-slate-400 truncate">{ad.placement} · priority {ad.priority}</p>
+                    {ad.page_contexts && ad.page_contexts.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {ad.page_contexts.map((ctx) => (
+                          <span key={ctx} className="text-[10px] px-1.5 py-0.5 rounded bg-slate-700 text-slate-300 font-mono">{ctx}</span>
+                        ))}
+                      </div>
+                    )}
                     {a && (
                       <div className="flex gap-3 mt-1">
                         <span className="flex items-center gap-1 text-xs text-amber-400"><RiEyeLine />{a.impressions} impr.</span>

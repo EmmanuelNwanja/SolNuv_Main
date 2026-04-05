@@ -8,81 +8,9 @@ import {
 } from 'react-icons/ri';
 import { blogAPI } from '../../services/api';
 import { getPublicLayout } from '../../components/Layout';
+import AdSlot from '../../components/ui/AdSlot';
 
 const CATEGORIES = ['All', 'Solar Energy', 'Battery Storage', 'Engineering', 'Industry News', 'Case Studies', 'Regulations'];
-
-function BlogAdBanner({ placement }) {
-  const [ads, setAds] = useState([]);
-
-  useEffect(() => {
-    blogAPI.listAds({ placement }).then((r) => setAds(r.data.data || [])).catch(() => {});
-  }, [placement]);
-
-  if (!ads.length) return null;
-  const ad = ads[0];
-
-  function handleClick() {
-    blogAPI.trackAdClick(ad.id, typeof window !== 'undefined' ? window.location.pathname : '').catch(() => {});
-    if (ad.target_url) window.open(ad.target_url, '_blank', 'noopener,noreferrer');
-  }
-
-  return (
-    <div
-      role="link"
-      tabIndex={0}
-      onClick={handleClick}
-      onKeyDown={(e) => e.key === 'Enter' && handleClick()}
-      className="cursor-pointer rounded-xl border border-amber-200 bg-amber-50 dark:bg-slate-800 dark:border-slate-700 overflow-hidden flex flex-col hover:shadow-md transition-shadow"
-      aria-label={`Advertisement: ${ad.title}`}
-    >
-      {ad.image_url && (
-        <img src={ad.image_url} alt={ad.title} className="w-full object-cover h-32" loading="lazy" />
-      )}
-      <div className="p-3">
-        <span className="text-[10px] font-semibold uppercase tracking-widest text-amber-600 dark:text-amber-400">Sponsored</span>
-        <p className="mt-1 text-sm font-semibold text-slate-800 dark:text-slate-100 line-clamp-2">{ad.title}</p>
-        {ad.body_text && <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 line-clamp-2">{ad.body_text}</p>}
-      </div>
-    </div>
-  );
-}
-
-function BlogAdInFeed({ placement = 'in-feed' }) {
-  const [ads, setAds] = useState([]);
-
-  useEffect(() => {
-    blogAPI.listAds({ placement }).then((r) => setAds(r.data.data || [])).catch(() => {});
-  }, [placement]);
-
-  if (!ads.length) return null;
-  const ad = ads[0];
-
-  function handleClick() {
-    blogAPI.trackAdClick(ad.id, typeof window !== 'undefined' ? window.location.pathname : '').catch(() => {});
-    if (ad.target_url) window.open(ad.target_url, '_blank', 'noopener,noreferrer');
-  }
-
-  return (
-    <div
-      role="link"
-      tabIndex={0}
-      onClick={handleClick}
-      onKeyDown={(e) => e.key === 'Enter' && handleClick()}
-      className="cursor-pointer rounded-xl border border-amber-200/70 bg-gradient-to-br from-amber-50 to-white dark:from-slate-800 dark:to-slate-900 dark:border-slate-700 p-4 flex items-center gap-4 hover:shadow-md transition-shadow"
-      aria-label={`Advertisement: ${ad.title}`}
-    >
-      {ad.image_url && (
-        <img src={ad.image_url} alt={ad.title} className="w-20 h-20 rounded-lg object-cover flex-shrink-0" loading="lazy" />
-      )}
-      <div className="min-w-0">
-        <span className="text-[10px] font-semibold uppercase tracking-widest text-amber-600 dark:text-amber-400">Sponsored</span>
-        <p className="mt-0.5 text-sm font-semibold text-slate-800 dark:text-slate-100 line-clamp-1">{ad.title}</p>
-        {ad.body_text && <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 mt-0.5">{ad.body_text}</p>}
-        <span className="mt-1 inline-flex items-center gap-1 text-xs text-amber-600 font-medium">Learn more <RiArrowRightLine /></span>
-      </div>
-    </div>
-  );
-}
 
 function PostCard({ post }) {
   const date = post.published_at ? new Date(post.published_at).toLocaleDateString('en-NG', { year: 'numeric', month: 'short', day: 'numeric' }) : null;
@@ -199,7 +127,7 @@ export default function BlogIndex() {
 
       {/* Top banner ad */}
       <div className="max-w-6xl mx-auto px-4 pt-4">
-        <BlogAdInFeed placement="blog-top" />
+        <AdSlot slot="banner" page="blog" />
       </div>
 
       {/* Main layout */}
@@ -244,7 +172,7 @@ export default function BlogIndex() {
                       {/* In-feed ad after every 6th post */}
                       {(idx + 1) % 6 === 0 && (
                         <div key={`ad-${idx}`} className="sm:col-span-2 xl:col-span-3">
-                          <BlogAdInFeed placement="in-feed" />
+                          <AdSlot slot="in-feed" page="blog" />
                         </div>
                       )}
                     </>
@@ -277,7 +205,7 @@ export default function BlogIndex() {
 
           {/* Sidebar */}
           <aside className="w-full lg:w-72 space-y-6 flex-shrink-0">
-            <BlogAdBanner placement="sidebar" />
+            <AdSlot slot="sidebar" page="blog" limit={2} />
 
             {/* About box */}
             <div className="rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 p-5">
@@ -288,13 +216,13 @@ export default function BlogIndex() {
               </Link>
             </div>
 
-            <BlogAdBanner placement="footer" />
+            <AdSlot slot="sidebar" page="blog" limit={1} />
           </aside>
         </div>
 
         {/* Bottom ad */}
         <div className="mt-10">
-          <BlogAdInFeed placement="blog-bottom" />
+          <AdSlot slot="footer" page="blog" />
         </div>
       </div>
     </>
