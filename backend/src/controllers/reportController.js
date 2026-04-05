@@ -123,7 +123,14 @@ exports.generateCertificate = async (req, res) => {
 
     const company = project.companies || req.company || { name: req.user.brand_name || req.user.first_name };
 
-    const pdfBuffer = await generateCradleToGraveCertificate(project, company);
+    // Fetch change history for the certificate appendix
+    const { data: history } = await supabase
+      .from('project_history')
+      .select('id, change_type, change_summary, project_stage, changed_fields, actor_name, created_at')
+      .eq('project_id', projectId)
+      .order('created_at', { ascending: true });
+
+    const pdfBuffer = await generateCradleToGraveCertificate(project, company, history || []);
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=SolNuv_Certificate_${project.name.replace(/\s/g, '_')}.pdf`);
@@ -207,6 +214,38 @@ exports.generateExcel = async (req, res) => {
       worksheet.columns = [{ header: 'Message', key: 'message', width: 40 }];
       worksheet.addRow({ message: 'No projects found' });
     }
+
+    // History sheet
+    const { data: allHistory } = await supabase
+      .from('project_history')
+      .select('project_id, change_type, change_summary, project_stage, actor_name, created_at')
+      .in('project_id', (projects || []).map(p => p.id))
+      .order('created_at', { ascending: true });
+
+    const historySheet = workbook.addWorksheet('Project History');
+    historySheet.columns = [
+      { header: 'Date', key: 'date', width: 22 },
+      { header: 'Project', key: 'project', width: 30 },
+      { header: 'Change Type', key: 'change_type', width: 22 },
+      { header: 'Summary', key: 'summary', width: 50 },
+      { header: 'Stage', key: 'stage', width: 16 },
+      { header: 'By', key: 'actor', width: 24 },
+    ];
+    historySheet.getRow(1).font = { bold: true };
+
+    const projectNameMap = {};
+    (projects || []).forEach(p => { projectNameMap[p.id] = p.name; });
+
+    (allHistory || []).forEach(h => {
+      historySheet.addRow({
+        date: h.created_at ? new Date(h.created_at).toLocaleString('en-NG') : '',
+        project: projectNameMap[h.project_id] || h.project_id,
+        change_type: h.change_type,
+        summary: h.change_summary || '',
+        stage: h.project_stage || '',
+        actor: h.actor_name || '',
+      });
+    });
 
     const buffer = await workbook.xlsx.writeBuffer();
 

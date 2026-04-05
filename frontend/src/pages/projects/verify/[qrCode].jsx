@@ -8,6 +8,7 @@ import {
   RiBuildingLine,
   RiCalendarLine,
   RiCheckboxCircleLine,
+  RiHistoryLine,
   RiMailLine,
   RiMapPinLine,
   RiPhoneLine,
@@ -77,6 +78,66 @@ function EquipmentTable({ title, rows, unitLabel, icon }) {
           </table>
         </div>
       )}
+    </section>
+  );
+}
+
+const CHANGE_TYPE_LABELS = {
+  project_created: { label: 'Created', color: 'text-emerald-700 bg-emerald-50 border-emerald-200' },
+  project_updated: { label: 'Updated', color: 'text-blue-700 bg-blue-50 border-blue-200' },
+  equipment_added: { label: 'Equipment Added', color: 'text-forest-900 bg-slate-50 border-slate-200' },
+  equipment_updated: { label: 'Equipment Updated', color: 'text-amber-700 bg-amber-50 border-amber-200' },
+  equipment_removed: { label: 'Equipment Removed', color: 'text-red-700 bg-red-50 border-red-200' },
+};
+
+function HistoryAppendix({ history }) {
+  if (!history || history.length === 0) return null;
+  return (
+    <section className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+      <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-2">
+        <RiHistoryLine className="text-forest-900" />
+        <h3 className="font-semibold text-slate-900">Project History — Appendix</h3>
+        <span className="ml-auto text-xs text-slate-400">{history.length} event{history.length !== 1 ? 's' : ''}</span>
+      </div>
+      <div className="divide-y divide-slate-100">
+        {history.map((entry, i) => {
+          const meta = CHANGE_TYPE_LABELS[entry.change_type] || { label: entry.change_type, color: 'text-slate-600 bg-slate-50 border-slate-200' };
+          const changedFields = entry.changed_fields ? Object.entries(entry.changed_fields) : [];
+          return (
+            <div key={entry.id || i} className="px-5 py-4">
+              <div className="flex flex-wrap items-start gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${meta.color}`}>{meta.label}</span>
+                    {entry.project_stage && (
+                      <span className="text-xs text-slate-400 uppercase tracking-wide">Stage: {entry.project_stage}</span>
+                    )}
+                  </div>
+                  {entry.change_summary && (
+                    <p className="mt-1.5 text-sm text-slate-700">{entry.change_summary}</p>
+                  )}
+                  {changedFields.length > 0 && (
+                    <div className="mt-2 space-y-0.5">
+                      {changedFields.map(([field, diff]) => (
+                        <p key={field} className="text-xs text-slate-500">
+                          <span className="font-medium capitalize">{field.replace(/_/g, ' ')}</span>:&nbsp;
+                          <span className="text-red-500 line-through">{String(diff.from ?? '—')}</span>
+                          &nbsp;→&nbsp;
+                          <span className="text-emerald-600 font-medium">{String(diff.to ?? '—')}</span>
+                        </p>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div className="text-right shrink-0">
+                  <p className="text-xs text-slate-500">{formatDate(entry.created_at)}</p>
+                  {entry.actor_name && <p className="text-xs text-slate-400 mt-0.5">by {entry.actor_name}</p>}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </section>
   );
 }
@@ -329,6 +390,8 @@ export default function ProjectVerifyPage() {
             <EquipmentTable title="Battery Breakdown" rows={equipment.battery || []} unitLabel="kWh" icon={<RiStackLine className="text-amber-700" />} />
             <EquipmentTable title="Inverter Breakdown" rows={equipment.inverter || []} unitLabel="kW" icon={<RiToolsLine className="text-sky-700" />} />
           </div>
+
+          <HistoryAppendix history={verification?.history} />
 
           <div className="text-center pt-2">
             <Link href="/" className="text-sm text-forest-900 font-semibold hover:underline">Back to SolNuv</Link>

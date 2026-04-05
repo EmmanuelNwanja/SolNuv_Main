@@ -22,5 +22,11 @@ router.post('/:id/battery-assets', projectController.createBatteryAsset);
 router.post('/:id/battery-assets/:assetId/logs', projectController.addBatteryHealthLog);
 router.get('/:id/battery-assets/:assetId/logs', projectController.getBatteryHealthLogs);
 router.post('/:id/cable-compliance', projectController.saveCableCompliance);
+// Equipment CRUD (draft / maintenance only)
+router.post('/:id/equipment', projectController.addEquipment);
+router.put('/:id/equipment/:equipmentId', projectController.updateEquipment);
+router.delete('/:id/equipment/:equipmentId', projectController.deleteEquipment);
+// Project history
+router.get('/:id/history', projectController.getProjectHistory);
 
 module.exports = router;

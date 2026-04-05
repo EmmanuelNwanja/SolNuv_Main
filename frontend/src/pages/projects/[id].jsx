@@ -11,7 +11,8 @@ import { MotionSection } from '../../components/PageMotion';
 import {
   RiArrowLeftLine, RiEditLine, RiDeleteBinLine, RiDownloadLine,
   RiQrCodeLine, RiSunLine, RiBatteryLine, RiMapPinLine,
-  RiCalendarLine, RiRecycleLine, RiShieldCheckLine, RiTruckLine, RiCameraLine
+  RiCalendarLine, RiRecycleLine, RiShieldCheckLine, RiTruckLine, RiCameraLine,
+  RiAddLine, RiCloseLine,
 } from 'react-icons/ri';
 import toast from 'react-hot-toast';
 
@@ -127,6 +128,12 @@ export default function ProjectDetail() {
   const [editSubmitting, setEditSubmitting] = useState(false);
   const [editPhotoFile, setEditPhotoFile] = useState(null);
   const [editPhotoPreview, setEditPhotoPreview] = useState(null);
+  // Equipment editing (draft / maintenance only)
+  const [editEquipmentId, setEditEquipmentId] = useState(null);
+  const [addingEquipType, setAddingEquipType] = useState(null);
+  const [editEquipForm, setEditEquipForm] = useState({ brand: '', model: '', size_watts: '', capacity_kwh: '', quantity: 1, condition: 'good', sourcing_info: '' });
+  const [equipmentSubmitting, setEquipmentSubmitting] = useState(false);
+  const [deleteEquipConfirm, setDeleteEquipConfirm] = useState(null);
   const [editForm, setEditForm] = useState({
     name: '',
     client_name: '',
@@ -323,6 +330,88 @@ export default function ProjectDetail() {
     }
   }
 
+  function startEditEquipment(item) {
+    setEditEquipmentId(item.id);
+    setAddingEquipType(null);
+    setEditEquipForm({
+      brand: item.brand || '',
+      model: item.model || '',
+      size_watts: item.size_watts || '',
+      capacity_kwh: item.capacity_kwh || '',
+      quantity: item.quantity || 1,
+      condition: item.condition || 'good',
+      sourcing_info: item.sourcing_info || '',
+    });
+  }
+
+  async function handleSaveEquipment(e, equipmentId) {
+    e.preventDefault();
+    setEquipmentSubmitting(true);
+    try {
+      const payload = {
+        brand: editEquipForm.brand,
+        model: editEquipForm.model || null,
+        quantity: Number(editEquipForm.quantity || 1),
+        condition: editEquipForm.condition,
+        sourcing_info: editEquipForm.sourcing_info || null,
+      };
+      if (editEquipForm.size_watts !== '') payload.size_watts = Number(editEquipForm.size_watts);
+      if (editEquipForm.capacity_kwh !== '') payload.capacity_kwh = Number(editEquipForm.capacity_kwh);
+      const { data } = await projectsAPI.updateEquipment(id, equipmentId, payload);
+      const updated = data.data;
+      setProject(prev => ({ ...prev, equipment: prev.equipment.map(eq => eq.id === equipmentId ? updated : eq) }));
+      setEditEquipmentId(null);
+      toast.success('Equipment updated');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to update equipment');
+    } finally {
+      setEquipmentSubmitting(false);
+    }
+  }
+
+  async function handleAddEquipment(e) {
+    e.preventDefault();
+    if (!addingEquipType) return;
+    if (!editEquipForm.brand.trim()) { toast.error('Brand is required'); return; }
+    setEquipmentSubmitting(true);
+    try {
+      const payload = {
+        equipment_type: addingEquipType,
+        brand: editEquipForm.brand,
+        model: editEquipForm.model || null,
+        quantity: Number(editEquipForm.quantity || 1),
+        condition: editEquipForm.condition || 'good',
+        sourcing_info: editEquipForm.sourcing_info || null,
+      };
+      if (addingEquipType === 'panel') {
+        if (!editEquipForm.size_watts) { toast.error('Panel wattage required'); setEquipmentSubmitting(false); return; }
+        payload.size_watts = Number(editEquipForm.size_watts);
+      } else if (addingEquipType === 'battery' && editEquipForm.capacity_kwh) {
+        payload.capacity_kwh = Number(editEquipForm.capacity_kwh);
+      }
+      const { data } = await projectsAPI.addEquipment(id, payload);
+      setProject(prev => ({ ...prev, equipment: [...(prev.equipment || []), data.data] }));
+      setAddingEquipType(null);
+      setEditEquipForm({ brand: '', model: '', size_watts: '', capacity_kwh: '', quantity: 1, condition: 'good', sourcing_info: '' });
+      toast.success('Equipment added');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to add equipment');
+    } finally {
+      setEquipmentSubmitting(false);
+    }
+  }
+
+  async function handleDeleteEquipment(equipmentId) {
+    try {
+      await projectsAPI.deleteEquipment(id, equipmentId);
+      setProject(prev => ({ ...prev, equipment: (prev.equipment || []).filter(eq => eq.id !== equipmentId) }));
+      setDeleteEquipConfirm(null);
+      toast.success('Equipment removed');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to remove equipment');
+    }
+  }
+
   if (loading) return <div className="flex justify-center py-16"><LoadingSpinner size="lg" /></div>;
   if (!project) return (
     <div className="text-center py-16">
@@ -342,6 +431,54 @@ export default function ProjectDetail() {
     ? Math.ceil((new Date(project.estimated_decommission_date) - new Date()) / (1000 * 60 * 60 * 24))
     : null;
   const transitions = STATUS_TRANSITIONS[project.status] || [];
+  const canEditEquipment = project.status === 'draft' || project.status === 'maintenance';
+
+  // Shared inline equipment form (used for both add and edit)
+  function EquipmentForm({ equipType, onSubmit, onCancel, submitLabel }) {
+    return (
+      <form onSubmit={onSubmit} className="mt-3 p-3 bg-white border border-forest-900/20 rounded-xl space-y-3">
+        <div className="grid grid-cols-2 gap-2">
+          <div className="col-span-2">
+            <label className="label text-xs">Brand *</label>
+            <input className="input text-sm" value={editEquipForm.brand} onChange={e => setEditEquipForm(p => ({ ...p, brand: e.target.value }))} placeholder="e.g. JA Solar" required />
+          </div>
+          <div>
+            <label className="label text-xs">Model</label>
+            <input className="input text-sm" value={editEquipForm.model} onChange={e => setEditEquipForm(p => ({ ...p, model: e.target.value }))} placeholder="Optional" />
+          </div>
+          <div>
+            <label className="label text-xs">Quantity *</label>
+            <input type="number" min="1" className="input text-sm" value={editEquipForm.quantity} onChange={e => setEditEquipForm(p => ({ ...p, quantity: e.target.value }))} required />
+          </div>
+          {equipType === 'panel' && (
+            <div>
+              <label className="label text-xs">Size (watts) *</label>
+              <input type="number" min="1" className="input text-sm" value={editEquipForm.size_watts} onChange={e => setEditEquipForm(p => ({ ...p, size_watts: e.target.value }))} placeholder="e.g. 550" required />
+            </div>
+          )}
+          {equipType === 'battery' && (
+            <div>
+              <label className="label text-xs">Capacity (kWh)</label>
+              <input type="number" min="0.1" step="0.1" className="input text-sm" value={editEquipForm.capacity_kwh} onChange={e => setEditEquipForm(p => ({ ...p, capacity_kwh: e.target.value }))} placeholder="e.g. 5.12" />
+            </div>
+          )}
+          <div>
+            <label className="label text-xs">Condition</label>
+            <select className="input text-sm" value={editEquipForm.condition} onChange={e => setEditEquipForm(p => ({ ...p, condition: e.target.value }))}>
+              <option value="excellent">Excellent</option>
+              <option value="good">Good</option>
+              <option value="fair">Fair</option>
+              <option value="poor">Poor</option>
+            </select>
+          </div>
+        </div>
+        <div className="flex gap-2 pt-1">
+          <button type="submit" disabled={equipmentSubmitting} className="btn-primary text-xs py-1.5 px-3">{equipmentSubmitting ? 'Saving...' : submitLabel}</button>
+          <button type="button" onClick={onCancel} className="btn-ghost text-xs py-1.5 px-3">Cancel</button>
+        </div>
+      </form>
+    );
+  }
 
   return (
     <>
@@ -594,53 +731,143 @@ export default function ProjectDetail() {
           </div>
 
           {/* Panels */}
-          {panels.length > 0 && (
+          {(panels.length > 0 || (canEditEquipment && addingEquipType === 'panel')) && (
             <div className="card">
-              <h2 className="font-semibold text-forest-900 mb-4 flex items-center gap-2">
-                <RiSunLine className="text-amber-500" /> Solar Panels ({totalPanels} total)
-              </h2>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="font-semibold text-forest-900 flex items-center gap-2">
+                  <RiSunLine className="text-amber-500" /> Solar Panels ({totalPanels} total)
+                </h2>
+                {canEditEquipment && addingEquipType !== 'panel' && (
+                  <button type="button" onClick={() => { setAddingEquipType('panel'); setEditEquipmentId(null); setEditEquipForm({ brand: '', model: '', size_watts: '', capacity_kwh: '', quantity: 1, condition: 'good', sourcing_info: '' }); }}
+                    className="flex items-center gap-1 text-xs font-semibold text-forest-900 border border-forest-900/30 rounded-lg px-2 py-1 hover:bg-forest-900/5 transition-colors">
+                    <RiAddLine /> Add Panel
+                  </button>
+                )}
+              </div>
               <div className="space-y-3">
                 {panels.map(eq => (
-                  <div key={eq.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
-                    <div>
-                      <p className="font-semibold text-sm text-slate-800">{eq.brand} {eq.model && `— ${eq.model}`}</p>
-                      <p className="text-xs text-slate-500">{eq.size_watts}W × {eq.quantity} panels = {(eq.size_watts * eq.quantity / 1000).toFixed(2)} kWp</p>
-                      <p className="text-xs text-slate-400 capitalize">Condition: {eq.condition}</p>
-                    </div>
-                    <div className="text-right">
-                      {eq.estimated_silver_grams > 0 && (
-                        <p className="text-xs font-semibold text-amber-600">💎 {eq.estimated_silver_grams.toFixed(2)}g silver</p>
-                      )}
-                      <span className={`badge text-xs ${eq.condition === 'excellent' || eq.condition === 'good' ? 'badge-green' : 'badge-amber'}`}>
-                        {eq.condition}
-                      </span>
-                    </div>
+                  <div key={eq.id}>
+                    {editEquipmentId === eq.id ? (
+                      <EquipmentForm equipType="panel" onSubmit={e => handleSaveEquipment(e, eq.id)} onCancel={() => setEditEquipmentId(null)} submitLabel="Save Panel" />
+                    ) : (
+                      <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
+                        <div>
+                          <p className="font-semibold text-sm text-slate-800">{eq.brand} {eq.model && `— ${eq.model}`}</p>
+                          <p className="text-xs text-slate-500">{eq.size_watts}W × {eq.quantity} panels = {(eq.size_watts * eq.quantity / 1000).toFixed(2)} kWp</p>
+                          <p className="text-xs text-slate-400 capitalize">Condition: {eq.condition}</p>
+                        </div>
+                        <div className="text-right flex flex-col items-end gap-1.5">
+                          {eq.estimated_silver_grams > 0 && (
+                            <p className="text-xs font-semibold text-amber-600">💎 {eq.estimated_silver_grams.toFixed(2)}g silver</p>
+                          )}
+                          <span className={`badge text-xs ${eq.condition === 'excellent' || eq.condition === 'good' ? 'badge-green' : 'badge-amber'}`}>
+                            {eq.condition}
+                          </span>
+                          {canEditEquipment && (
+                            <div className="flex gap-1 mt-0.5">
+                              <button type="button" onClick={() => startEditEquipment(eq)} className="text-xs text-forest-900 hover:underline flex items-center gap-0.5"><RiEditLine className="text-xs" /> Edit</button>
+                              <span className="text-slate-300">·</span>
+                              <button type="button" onClick={() => setDeleteEquipConfirm(eq.id)} className="text-xs text-red-500 hover:underline flex items-center gap-0.5"><RiDeleteBinLine className="text-xs" /> Remove</button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    {deleteEquipConfirm === eq.id && (
+                      <div className="mt-1 p-2 bg-red-50 border border-red-200 rounded-lg flex items-center justify-between gap-2">
+                        <p className="text-xs text-red-700">Remove this panel? This cannot be undone.</p>
+                        <div className="flex gap-2">
+                          <button type="button" onClick={() => handleDeleteEquipment(eq.id)} className="text-xs font-semibold text-red-600 hover:underline">Yes, Remove</button>
+                          <button type="button" onClick={() => setDeleteEquipConfirm(null)} className="text-xs text-slate-500 hover:underline">Cancel</button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ))}
+                {canEditEquipment && addingEquipType === 'panel' && (
+                  <EquipmentForm equipType="panel" onSubmit={handleAddEquipment} onCancel={() => setAddingEquipType(null)} submitLabel="Add Panel" />
+                )}
               </div>
             </div>
           )}
 
           {/* Batteries */}
-          {batteries.length > 0 && (
+          {(batteries.length > 0 || (canEditEquipment && addingEquipType === 'battery')) && (
             <div className="card">
-              <h2 className="font-semibold text-forest-900 mb-4 flex items-center gap-2">
-                <RiBatteryLine className="text-emerald-500" /> Batteries ({totalBatteries} total)
-              </h2>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="font-semibold text-forest-900 flex items-center gap-2">
+                  <RiBatteryLine className="text-emerald-500" /> Batteries ({totalBatteries} total)
+                </h2>
+                {canEditEquipment && addingEquipType !== 'battery' && (
+                  <button type="button" onClick={() => { setAddingEquipType('battery'); setEditEquipmentId(null); setEditEquipForm({ brand: '', model: '', size_watts: '', capacity_kwh: '', quantity: 1, condition: 'good', sourcing_info: '' }); }}
+                    className="flex items-center gap-1 text-xs font-semibold text-forest-900 border border-forest-900/30 rounded-lg px-2 py-1 hover:bg-forest-900/5 transition-colors">
+                    <RiAddLine /> Add Battery
+                  </button>
+                )}
+              </div>
               <div className="space-y-3">
                 {batteries.map(eq => (
-                  <div key={eq.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
-                    <div>
-                      <p className="font-semibold text-sm text-slate-800">{eq.brand} {eq.model && `— ${eq.model}`}</p>
-                      <p className="text-xs text-slate-500">{eq.capacity_kwh ? `${eq.capacity_kwh}kWh` : ''} × {eq.quantity} unit{eq.quantity !== 1 ? 's' : ''}</p>
-                    </div>
-                    <span className={`badge text-xs ${eq.condition === 'excellent' || eq.condition === 'good' ? 'badge-green' : 'badge-amber'}`}>
-                      {eq.condition}
-                    </span>
+                  <div key={eq.id}>
+                    {editEquipmentId === eq.id ? (
+                      <EquipmentForm equipType="battery" onSubmit={e => handleSaveEquipment(e, eq.id)} onCancel={() => setEditEquipmentId(null)} submitLabel="Save Battery" />
+                    ) : (
+                      <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
+                        <div>
+                          <p className="font-semibold text-sm text-slate-800">{eq.brand} {eq.model && `— ${eq.model}`}</p>
+                          <p className="text-xs text-slate-500">{eq.capacity_kwh ? `${eq.capacity_kwh}kWh` : ''} × {eq.quantity} unit{eq.quantity !== 1 ? 's' : ''}</p>
+                          <p className="text-xs text-slate-400 capitalize">Condition: {eq.condition}</p>
+                        </div>
+                        <div className="flex flex-col items-end gap-1.5">
+                          <span className={`badge text-xs ${eq.condition === 'excellent' || eq.condition === 'good' ? 'badge-green' : 'badge-amber'}`}>
+                            {eq.condition}
+                          </span>
+                          {canEditEquipment && (
+                            <div className="flex gap-1">
+                              <button type="button" onClick={() => startEditEquipment(eq)} className="text-xs text-forest-900 hover:underline flex items-center gap-0.5"><RiEditLine className="text-xs" /> Edit</button>
+                              <span className="text-slate-300">·</span>
+                              <button type="button" onClick={() => setDeleteEquipConfirm(eq.id)} className="text-xs text-red-500 hover:underline flex items-center gap-0.5"><RiDeleteBinLine className="text-xs" /> Remove</button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    {deleteEquipConfirm === eq.id && (
+                      <div className="mt-1 p-2 bg-red-50 border border-red-200 rounded-lg flex items-center justify-between gap-2">
+                        <p className="text-xs text-red-700">Remove this battery? This cannot be undone.</p>
+                        <div className="flex gap-2">
+                          <button type="button" onClick={() => handleDeleteEquipment(eq.id)} className="text-xs font-semibold text-red-600 hover:underline">Yes, Remove</button>
+                          <button type="button" onClick={() => setDeleteEquipConfirm(null)} className="text-xs text-slate-500 hover:underline">Cancel</button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ))}
+                {canEditEquipment && addingEquipType === 'battery' && (
+                  <EquipmentForm equipType="battery" onSubmit={handleAddEquipment} onCancel={() => setAddingEquipType(null)} submitLabel="Add Battery" />
+                )}
               </div>
             </div>
+          )}
+          {/* Add-equipment prompt cards when project is editable but has no items yet */}
+          {canEditEquipment && panels.length === 0 && addingEquipType !== 'panel' && (
+            <button type="button" onClick={() => { setAddingEquipType('panel'); setEditEquipmentId(null); setEditEquipForm({ brand: '', model: '', size_watts: '', capacity_kwh: '', quantity: 1, condition: 'good', sourcing_info: '' }); }}
+              className="w-full border-2 border-dashed border-amber-300 rounded-2xl p-4 text-sm text-amber-700 font-medium hover:bg-amber-50 transition-colors flex items-center justify-center gap-2">
+              <RiAddLine /> Add Solar Panels
+            </button>
+          )}
+          {canEditEquipment && batteries.length === 0 && addingEquipType !== 'battery' && (
+            <>
+              {addingEquipType === 'panel' && (
+                <div className="card">
+                  <h2 className="font-semibold text-forest-900 mb-3 flex items-center gap-2"><RiSunLine className="text-amber-500" /> Add Panel</h2>
+                  <EquipmentForm equipType="panel" onSubmit={handleAddEquipment} onCancel={() => setAddingEquipType(null)} submitLabel="Add Panel" />
+                </div>
+              )}
+              <button type="button" onClick={() => { setAddingEquipType('battery'); setEditEquipmentId(null); setEditEquipForm({ brand: '', model: '', size_watts: '', capacity_kwh: '', quantity: 1, condition: 'good', sourcing_info: '' }); }}
+                className="w-full border-2 border-dashed border-emerald-300 rounded-2xl p-4 text-sm text-emerald-700 font-medium hover:bg-emerald-50 transition-colors flex items-center justify-center gap-2">
+                <RiAddLine /> Add Batteries
+              </button>
+            </>
           )}
 
           {/* Recovery requests */}

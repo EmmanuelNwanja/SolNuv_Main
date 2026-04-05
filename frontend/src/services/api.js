@@ -143,6 +143,12 @@ export const projectsAPI = {
   verify: (qrCode) => api.get(`/projects/verify/${qrCode}`),
   getBatteryLedgerByQr: (qrCode) => api.get(`/projects/battery-ledger/${qrCode}`),
   addBatteryLogByQr: (qrCode, data) => api.post(`/projects/battery-ledger/${qrCode}/log`, data),
+  // Equipment CRUD (draft / maintenance only)
+  addEquipment: (id, data) => api.post(`/projects/${id}/equipment`, data),
+  updateEquipment: (id, equipmentId, data) => api.put(`/projects/${id}/equipment/${equipmentId}`, data),
+  deleteEquipment: (id, equipmentId) => api.delete(`/projects/${id}/equipment/${equipmentId}`),
+  // Change history
+  getHistory: (id) => api.get(`/projects/${id}/history`),
 };
 
 // ==============================

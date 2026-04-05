@@ -48,6 +48,71 @@ function getCapacityCategory(kw) {
 }
 
 const VALID_PROJECT_STATUSES = ['draft', 'active', 'maintenance', 'decommissioned', 'recycled', 'pending_recovery'];
+const EDITABLE_STAGES = ['draft', 'maintenance'];
+
+// ---------------------------------------------------------------------------
+// History helper
+// ---------------------------------------------------------------------------
+
+/**
+ * Insert a project_history row.
+ * @param {string} projectId
+ * @param {object} opts
+ */
+async function createHistoryEntry(projectId, {
+  changedBy = null,
+  actorName = null,
+  projectStage = null,
+  changeType,
+  changeSummary = null,
+  changedFields = null,
+}) {
+  try {
+    await supabase.from('project_history').insert({
+      project_id: projectId,
+      changed_by: changedBy,
+      actor_name: actorName,
+      project_stage: projectStage,
+      change_type: changeType,
+      change_summary: changeSummary,
+      changed_fields: changedFields || null,
+    });
+  } catch (err) {
+    // History failures must never break the main request
+    logger.warn('project_history insert failed', { project_id: projectId, message: err.message });
+  }
+}
+
+/**
+ * Diff two project snapshots and return { changedFields, changeSummary }.
+ * Only compares human-visible text/enum fields.
+ */
+function diffProjectFields(oldProject, newData) {
+  const WATCHED = ['name', 'client_name', 'description', 'state', 'city', 'address', 'notes', 'status'];
+  const changedFields = {};
+  const labelMap = {
+    name: 'Name',
+    client_name: 'Client',
+    description: 'Description',
+    state: 'State',
+    city: 'City',
+    address: 'Address',
+    notes: 'Notes',
+    status: 'Stage',
+  };
+  for (const field of WATCHED) {
+    if (newData[field] === undefined) continue;
+    const oldVal = oldProject[field] ?? null;
+    const newVal = newData[field] ?? null;
+    if (String(oldVal ?? '') !== String(newVal ?? '')) {
+      changedFields[field] = { from: oldVal, to: newVal };
+    }
+  }
+  const keys = Object.keys(changedFields);
+  if (keys.length === 0) return null;
+  const summary = 'Updated ' + keys.map(k => labelMap[k] || k).join(', ');
+  return { changedFields, changeSummary: summary };
+}
 
 /**
  * GET /api/projects
@@ -276,6 +341,15 @@ exports.createProject = async (req, res) => {
       .eq('id', project.id)
       .single();
 
+    // Record project creation in history
+    createHistoryEntry(project.id, {
+      changedBy: req.user.id,
+      actorName: `${req.user.first_name || ''} ${req.user.last_name || ''}`.trim() || req.user.email || null,
+      projectStage: safeStatus,
+      changeType: 'project_created',
+      changeSummary: `Project "${name}" created with ${equipmentRecords.length} equipment item(s)`,
+    }).catch(() => {});
+
     // Trigger leaderboard refresh asynchronously without hiding failures.
     refreshLeaderboard().catch((refreshError) => {
       logger.error('Leaderboard refresh failed after project creation', {
@@ -377,6 +451,13 @@ exports.updateProject = async (req, res) => {
       return sendError(res, 'Invalid project status', 400);
     }
 
+    // Fetch old project for history diff
+    const { data: oldProject } = await supabase
+      .from('projects')
+      .select('name, client_name, description, state, city, address, notes, status')
+      .eq('id', id)
+      .maybeSingle();
+
     const { data: project, error } = await supabase
       .from('projects')
       .update(updateData)
@@ -387,8 +468,21 @@ exports.updateProject = async (req, res) => {
 
     if (error) throw error;
 
-    
-    
+    // Record history (non-blocking)
+    if (oldProject) {
+      const diff = diffProjectFields(oldProject, updateData);
+      if (diff) {
+        createHistoryEntry(id, {
+          changedBy: req.user.id,
+          actorName: `${req.user.first_name || ''} ${req.user.last_name || ''}`.trim() || req.user.email || null,
+          projectStage: project.status,
+          changeType: 'project_updated',
+          changeSummary: diff.changeSummary,
+          changedFields: diff.changedFields,
+        }).catch(() => {});
+      }
+    }
+
     return sendSuccess(res, project, 'Project updated');
   } catch (_error) {
     return sendError(res, 'Failed to update project', 500);
@@ -596,6 +690,13 @@ exports.verifyByQR = async (req, res) => {
       || [companyMeta?.city, companyMeta?.state].filter(Boolean).join(', ')
       || null;
 
+    // Fetch project history for appendix
+    const { data: historyRows } = await supabase
+      .from('project_history')
+      .select('id, change_type, change_summary, project_stage, changed_fields, actor_name, created_at')
+      .eq('project_id', project.id)
+      .order('created_at', { ascending: true });
+
     return sendSuccess(res, {
       brand: {
         name: brandName || 'SolNuv Verified Installer',
@@ -652,9 +753,261 @@ exports.verifyByQR = async (req, res) => {
       project_photo_url: project.project_photo_url || null,
       verified_by: project.geo_verified ? 'SolNuv Admin' : 'SolNuv Platform',
       verified_at: project.geo_verified_at || new Date().toISOString(),
+      history: (historyRows || []).map(h => ({
+        id: h.id,
+        change_type: h.change_type,
+        change_summary: h.change_summary,
+        project_stage: h.project_stage,
+        changed_fields: h.changed_fields,
+        actor_name: h.actor_name,
+        created_at: h.created_at,
+      })),
     });
   } catch (_error) {
     return sendError(res, 'Verification failed', 500);
+  }
+};
+
+// ---------------------------------------------------------------------------
+// Equipment CRUD (only in draft / maintenance stages)
+// ---------------------------------------------------------------------------
+
+/**
+ * POST /api/projects/:id/equipment
+ * Add a new equipment item to an existing project.
+ * Only allowed while project status is draft or maintenance.
+ */
+exports.addEquipment = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { equipment_type, brand, model, size_watts, capacity_kwh, power_kw, quantity, condition, sourcing_info } = req.body;
+
+    if (!equipment_type || !['panel', 'battery', 'inverter'].includes(equipment_type)) {
+      return sendError(res, 'equipment_type must be panel, battery, or inverter', 400);
+    }
+    if (!brand) return sendError(res, 'brand is required', 400);
+    if (!quantity || Number(quantity) < 1) return sendError(res, 'quantity must be at least 1', 400);
+
+    // Fetch project and check ownership + stage
+    let projectQuery = supabase.from('projects').select('id, status, state, installation_date, user_id, company_id').eq('id', id);
+    if (req.user.company_id) {
+      projectQuery = projectQuery.eq('company_id', req.user.company_id);
+    } else {
+      projectQuery = projectQuery.eq('user_id', req.user.id);
+    }
+    const { data: project } = await projectQuery.maybeSingle();
+    if (!project) return sendError(res, 'Project not found', 404);
+    if (!EDITABLE_STAGES.includes(project.status)) {
+      return sendError(res, `Equipment can only be added when project is in draft or maintenance stage (current: ${project.status})`, 403);
+    }
+
+    const record = {
+      project_id: id,
+      equipment_type,
+      brand,
+      model: model || null,
+      quantity: Number(quantity),
+      condition: condition || 'good',
+      sourcing_info: sourcing_info || null,
+    };
+
+    if (equipment_type === 'panel') {
+      if (!size_watts) return sendError(res, 'size_watts is required for panels', 400);
+      record.size_watts = Number(size_watts);
+      record.total_panels_wattage = Number(size_watts) * Number(quantity);
+      const degradation = await calculateDecommissionDate(project.state, project.installation_date);
+      const silverCalc = await calculatePanelSilver(size_watts, quantity, brand);
+      record.estimated_silver_grams = silverCalc.total_silver_grams;
+      record.estimated_silver_value_ngn = silverCalc.recovery_value_expected_ngn;
+      record.adjusted_failure_date = degradation.adjusted_failure_date;
+      record.climate_zone = degradation.climate_zone;
+      record.degradation_factor = degradation.degradation_factor;
+    } else if (equipment_type === 'battery') {
+      if (capacity_kwh) record.capacity_kwh = Number(capacity_kwh);
+    } else if (equipment_type === 'inverter') {
+      if (power_kw) record.size_watts = Number(power_kw) * 1000;
+    }
+
+    const { data: newEquipment, error } = await supabase.from('equipment').insert(record).select().single();
+    if (error) throw error;
+
+    // Update project capacity
+    const { data: allEquip } = await supabase.from('equipment').select('equipment_type, size_watts, capacity_kwh, quantity').eq('project_id', id);
+    const newCapacityKw = calcCapacityKw(
+      (allEquip || []).filter(e => e.equipment_type === 'panel'),
+      (allEquip || []).filter(e => e.equipment_type === 'battery')
+    );
+    await supabase.from('projects').update({ capacity_kw: newCapacityKw || null, capacity_category: getCapacityCategory(newCapacityKw) }).eq('id', id);
+
+    createHistoryEntry(id, {
+      changedBy: req.user.id,
+      actorName: `${req.user.first_name || ''} ${req.user.last_name || ''}`.trim() || req.user.email || null,
+      projectStage: project.status,
+      changeType: 'equipment_added',
+      changeSummary: `Added ${quantity}× ${brand}${model ? ' ' + model : ''} ${equipment_type}`,
+      changedFields: { equipment_type, brand, model, quantity: Number(quantity) },
+    }).catch(() => {});
+
+    return sendSuccess(res, newEquipment, 'Equipment added', 201);
+  } catch (err) {
+    logger.error('addEquipment error', { message: err.message });
+    return sendError(res, err.message || 'Failed to add equipment', 500);
+  }
+};
+
+/**
+ * PUT /api/projects/:id/equipment/:equipmentId
+ * Update an existing equipment item.
+ * Only allowed while project status is draft or maintenance.
+ */
+exports.updateEquipment = async (req, res) => {
+  try {
+    const { id, equipmentId } = req.params;
+    const { brand, model, size_watts, capacity_kwh, power_kw, quantity, condition, sourcing_info } = req.body;
+
+    let projectQuery = supabase.from('projects').select('id, status, state, installation_date, user_id, company_id').eq('id', id);
+    if (req.user.company_id) {
+      projectQuery = projectQuery.eq('company_id', req.user.company_id);
+    } else {
+      projectQuery = projectQuery.eq('user_id', req.user.id);
+    }
+    const { data: project } = await projectQuery.maybeSingle();
+    if (!project) return sendError(res, 'Project not found', 404);
+    if (!EDITABLE_STAGES.includes(project.status)) {
+      return sendError(res, `Equipment can only be edited when project is in draft or maintenance stage (current: ${project.status})`, 403);
+    }
+
+    const { data: existing } = await supabase.from('equipment').select('*').eq('id', equipmentId).eq('project_id', id).maybeSingle();
+    if (!existing) return sendError(res, 'Equipment not found', 404);
+
+    const updateData = {};
+    if (brand !== undefined) updateData.brand = brand;
+    if (model !== undefined) updateData.model = model || null;
+    if (quantity !== undefined) updateData.quantity = Number(quantity);
+    if (condition !== undefined) updateData.condition = condition;
+    if (sourcing_info !== undefined) updateData.sourcing_info = sourcing_info || null;
+
+    if (existing.equipment_type === 'panel') {
+      if (size_watts !== undefined) {
+        updateData.size_watts = Number(size_watts);
+        const qty = updateData.quantity ?? existing.quantity;
+        updateData.total_panels_wattage = Number(size_watts) * qty;
+        const silverCalc = await calculatePanelSilver(size_watts, qty, updateData.brand || existing.brand);
+        updateData.estimated_silver_grams = silverCalc.total_silver_grams;
+        updateData.estimated_silver_value_ngn = silverCalc.recovery_value_expected_ngn;
+      }
+    } else if (existing.equipment_type === 'battery') {
+      if (capacity_kwh !== undefined) updateData.capacity_kwh = capacity_kwh ? Number(capacity_kwh) : null;
+    } else if (existing.equipment_type === 'inverter') {
+      if (power_kw !== undefined) updateData.size_watts = power_kw ? Number(power_kw) * 1000 : null;
+    }
+
+    const { data: updated, error } = await supabase.from('equipment').update(updateData).eq('id', equipmentId).select().single();
+    if (error) throw error;
+
+    // Update project capacity
+    const { data: allEquip } = await supabase.from('equipment').select('equipment_type, size_watts, capacity_kwh, quantity').eq('project_id', id);
+    const newCapacityKw = calcCapacityKw(
+      (allEquip || []).filter(e => e.equipment_type === 'panel'),
+      (allEquip || []).filter(e => e.equipment_type === 'battery')
+    );
+    await supabase.from('projects').update({ capacity_kw: newCapacityKw || null, capacity_category: getCapacityCategory(newCapacityKw) }).eq('id', id);
+
+    // Build change summary
+    const changedKeys = Object.keys(updateData);
+    createHistoryEntry(id, {
+      changedBy: req.user.id,
+      actorName: `${req.user.first_name || ''} ${req.user.last_name || ''}`.trim() || req.user.email || null,
+      projectStage: project.status,
+      changeType: 'equipment_updated',
+      changeSummary: `Updated ${existing.equipment_type} (${existing.brand}${existing.model ? ' ' + existing.model : ''}): ${changedKeys.filter(k => !['total_panels_wattage','estimated_silver_grams','estimated_silver_value_ngn'].includes(k)).join(', ')}`,
+      changedFields: updateData,
+    }).catch(() => {});
+
+    return sendSuccess(res, updated, 'Equipment updated');
+  } catch (err) {
+    logger.error('updateEquipment error', { message: err.message });
+    return sendError(res, err.message || 'Failed to update equipment', 500);
+  }
+};
+
+/**
+ * DELETE /api/projects/:id/equipment/:equipmentId
+ * Remove an equipment item.
+ * Only allowed while project status is draft or maintenance.
+ */
+exports.deleteEquipment = async (req, res) => {
+  try {
+    const { id, equipmentId } = req.params;
+
+    let projectQuery = supabase.from('projects').select('id, status, user_id, company_id').eq('id', id);
+    if (req.user.company_id) {
+      projectQuery = projectQuery.eq('company_id', req.user.company_id);
+    } else {
+      projectQuery = projectQuery.eq('user_id', req.user.id);
+    }
+    const { data: project } = await projectQuery.maybeSingle();
+    if (!project) return sendError(res, 'Project not found', 404);
+    if (!EDITABLE_STAGES.includes(project.status)) {
+      return sendError(res, `Equipment can only be removed when project is in draft or maintenance stage (current: ${project.status})`, 403);
+    }
+
+    const { data: existing } = await supabase.from('equipment').select('equipment_type, brand, model, quantity').eq('id', equipmentId).eq('project_id', id).maybeSingle();
+    if (!existing) return sendError(res, 'Equipment not found', 404);
+
+    const { error } = await supabase.from('equipment').delete().eq('id', equipmentId);
+    if (error) throw error;
+
+    // Update project capacity
+    const { data: allEquip } = await supabase.from('equipment').select('equipment_type, size_watts, capacity_kwh, quantity').eq('project_id', id);
+    const newCapacityKw = calcCapacityKw(
+      (allEquip || []).filter(e => e.equipment_type === 'panel'),
+      (allEquip || []).filter(e => e.equipment_type === 'battery')
+    );
+    await supabase.from('projects').update({ capacity_kw: newCapacityKw || null, capacity_category: getCapacityCategory(newCapacityKw) }).eq('id', id);
+
+    createHistoryEntry(id, {
+      changedBy: req.user.id,
+      actorName: `${req.user.first_name || ''} ${req.user.last_name || ''}`.trim() || req.user.email || null,
+      projectStage: project.status,
+      changeType: 'equipment_removed',
+      changeSummary: `Removed ${existing.quantity}× ${existing.brand}${existing.model ? ' ' + existing.model : ''} ${existing.equipment_type}`,
+    }).catch(() => {});
+
+    return sendSuccess(res, null, 'Equipment removed');
+  } catch (err) {
+    logger.error('deleteEquipment error', { message: err.message });
+    return sendError(res, err.message || 'Failed to remove equipment', 500);
+  }
+};
+
+/**
+ * GET /api/projects/:id/history
+ * Return project change history (owner/company only).
+ */
+exports.getProjectHistory = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    let projectQuery = supabase.from('projects').select('id, user_id, company_id').eq('id', id);
+    if (req.user.company_id) {
+      projectQuery = projectQuery.eq('company_id', req.user.company_id);
+    } else {
+      projectQuery = projectQuery.eq('user_id', req.user.id);
+    }
+    const { data: project } = await projectQuery.maybeSingle();
+    if (!project) return sendError(res, 'Project not found', 404);
+
+    const { data: rows, error } = await supabase
+      .from('project_history')
+      .select('*')
+      .eq('project_id', id)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return sendSuccess(res, rows || []);
+  } catch (err) {
+    return sendError(res, 'Failed to fetch history', 500);
   }
 };
 
