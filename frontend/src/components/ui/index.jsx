@@ -140,16 +140,35 @@ export function SelectInput({ label, options, value, onChange, name, required })
   );
 }
 
-// StatusBadge for project status
+// StatusBadge for project status / stage
 export function StatusBadge({ status }) {
   const map = {
-    active: { label: 'Active', className: 'badge-green' },
-    decommissioned: { label: 'Decommissioned', className: 'badge-amber' },
-    recycled: { label: 'Recycled ♻️', className: 'badge-forest' },
-    pending_recovery: { label: 'Recovery Pending', className: 'badge-amber' },
+    draft:             { label: 'Draft',             className: 'badge-slate' },
+    active:            { label: 'Active',            className: 'badge-green' },
+    maintenance:       { label: 'Maintenance',       className: 'badge-amber' },
+    decommissioned:    { label: 'Decommissioned',    className: 'badge-amber' },
+    recycled:          { label: 'Recycled ♻️',       className: 'badge-forest' },
+    pending_recovery:  { label: 'Recovery Pending',  className: 'badge-amber' },
   };
   const config = map[status] || { label: status, className: 'badge-slate' };
   return <span className={`badge ${config.className}`}>{config.label}</span>;
+}
+
+// CapacityBadge — shows size tier derived from kW
+export function CapacityBadge({ category, kw }) {
+  const map = {
+    home:                 { label: 'Home',                icon: '🏠', className: 'text-emerald-700 border-emerald-200 bg-emerald-50' },
+    commercial:           { label: 'Commercial',          icon: '🏢', className: 'text-blue-700 border-blue-200 bg-blue-50' },
+    industrial_minigrid:  { label: 'Industrial / Minigrid', icon: '🏭', className: 'text-violet-700 border-violet-200 bg-violet-50' },
+    utility:              { label: 'Utility',             icon: '⚡', className: 'text-amber-700 border-amber-200 bg-amber-50' },
+  };
+  if (!category) return null;
+  const config = map[category] || { label: category, icon: '⚡', className: 'text-slate-600 border-slate-200 bg-slate-50' };
+  return (
+    <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border ${config.className}`}>
+      {config.icon} {config.label}{kw != null ? ` · ${kw % 1 === 0 ? kw : kw.toFixed(1)} kW` : ''}
+    </span>
+  );
 }
 
 // UrgencyBadge for decommission urgency

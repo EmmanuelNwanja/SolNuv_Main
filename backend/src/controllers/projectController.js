@@ -12,13 +12,50 @@ const logger = require('../utils/logger');
 const QRCode = require('qrcode');
 const { v4: uuidv4 } = require('uuid');
 
+// ---------------------------------------------------------------------------
+// Capacity helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Calculate combined system capacity in kW.
+ * Panel contribution  : sum(size_watts × quantity) / 1000
+ * Battery contribution: sum(capacity_kwh × quantity)  (kWh treated as kW equivalent)
+ * Either side defaults to 0 if absent.
+ */
+function calcCapacityKw(panels = [], batteries = []) {
+  const panelKw = panels.reduce((sum, p) => {
+    return sum + (Number(p.size_watts || 0) * Number(p.quantity || 0)) / 1000;
+  }, 0);
+  const batteryKw = batteries.reduce((sum, b) => {
+    return sum + Number(b.capacity_kwh || 0) * Number(b.quantity || 0);
+  }, 0);
+  return Math.round((panelKw + batteryKw) * 100) / 100;
+}
+
+/**
+ * Derive capacity category from combined kW value.
+ * home              : 0.1 – 30 kW
+ * commercial        : >30 – 100 kW
+ * industrial_minigrid: >100 – 1000 kW
+ * utility           : >1000 kW
+ */
+function getCapacityCategory(kw) {
+  if (kw <= 0) return null;
+  if (kw <= 30) return 'home';
+  if (kw <= 100) return 'commercial';
+  if (kw <= 1000) return 'industrial_minigrid';
+  return 'utility';
+}
+
+const VALID_PROJECT_STATUSES = ['draft', 'active', 'maintenance', 'decommissioned', 'recycled', 'pending_recovery'];
+
 /**
  * GET /api/projects
  * List projects for authenticated user or organization
  */
 exports.getProjects = async (req, res) => {
   try {
-    const { page = 1, limit = 20, status, state, search, geo_verified } = req.query;
+    const { page = 1, limit = 20, status, state, search, geo_verified, capacity_category } = req.query;
     const offset = (page - 1) * limit;
 
     let query = supabase
@@ -41,6 +78,7 @@ exports.getProjects = async (req, res) => {
     if (search) query = query.ilike('name', `%${search}%`);
     if (geo_verified === 'true') query = query.eq('geo_verified', true);
     if (geo_verified === 'false') query = query.eq('geo_verified', false);
+    if (capacity_category) query = query.eq('capacity_category', capacity_category);
 
     const { data: projects, count, error } = await query
       .order('created_at', { ascending: false })
@@ -56,6 +94,17 @@ exports.getProjects = async (req, res) => {
         total_batteries: p.equipment?.filter(e => e.equipment_type === 'battery').reduce((s, e) => s + e.quantity, 0) || 0,
         total_silver_grams: p.equipment?.filter(e => e.equipment_type === 'panel').reduce((s, e) => s + (e.estimated_silver_grams || 0), 0) || 0,
         has_pending_recovery: p.recovery_requests?.some(r => r.status === 'requested'),
+        // Re-calculate capacity if not yet stored (backward compat with rows created before migration)
+        capacity_kw: p.capacity_kw ?? calcCapacityKw(
+          p.equipment?.filter(e => e.equipment_type === 'panel') || [],
+          p.equipment?.filter(e => e.equipment_type === 'battery') || []
+        ) || null,
+        capacity_category: p.capacity_category ?? getCapacityCategory(
+          calcCapacityKw(
+            p.equipment?.filter(e => e.equipment_type === 'panel') || [],
+            p.equipment?.filter(e => e.equipment_type === 'battery') || []
+          )
+        ),
       }
     }));
 
@@ -77,6 +126,7 @@ exports.createProject = async (req, res) => {
       state, city, address, latitude, longitude,
       installation_date,
       notes,
+      status: requestedStatus = 'active',
       panels = [], // array of { brand, model, size_watts, quantity, condition, sourcing_info }
       batteries = [], // array of { brand, model, capacity_kwh, quantity, condition, sourcing_info }
       inverters = [], // array of { brand, model, power_kw, quantity, condition, sourcing_info }
@@ -87,6 +137,13 @@ exports.createProject = async (req, res) => {
     if (!city) return sendError(res, 'City is required', 400);
     if (!installation_date) return sendError(res, 'Installation date is required', 400);
     if (panels.length === 0 && batteries.length === 0) return sendError(res, 'Add at least one panel or battery', 400);
+
+    // Validate requested stage
+    const safeStatus = VALID_PROJECT_STATUSES.includes(requestedStatus) ? requestedStatus : 'active';
+
+    // Compute capacity
+    const capacityKw = calcCapacityKw(panels, batteries);
+    const capacityCategory = getCapacityCategory(capacityKw);
 
     // Generate QR code data
     const qrData = uuidv4().replace(/-/g, '');
@@ -117,7 +174,9 @@ exports.createProject = async (req, res) => {
         estimated_decommission_date: degradation.adjusted_failure_date,
         notes,
         qr_code_data: qrData,
-        status: 'active',
+        status: safeStatus,
+        capacity_kw: capacityKw > 0 ? capacityKw : null,
+        capacity_category: capacityCategory,
         geo_source: safeGeoSource,
         project_photo_url: project_photo_url || null,
       })
@@ -296,6 +355,8 @@ exports.updateProject = async (req, res) => {
       'project_photo_url',
       'notes',
       'status',
+      'capacity_kw',
+      'capacity_category',
       'actual_decommission_date',
       'recycling_date',
       'recycler_name',
@@ -309,6 +370,11 @@ exports.updateProject = async (req, res) => {
     // If marking as decommissioned
     if (req.body.status === 'decommissioned' && !req.body.actual_decommission_date) {
       updateData.actual_decommission_date = new Date().toISOString().split('T')[0];
+    }
+
+    // Sanitise status value if provided
+    if (updateData.status && !VALID_PROJECT_STATUSES.includes(updateData.status)) {
+      return sendError(res, 'Invalid project status', 400);
     }
 
     const { data: project, error } = await supabase

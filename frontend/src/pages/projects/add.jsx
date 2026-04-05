@@ -8,6 +8,7 @@ import {
   RiAddLine, RiDeleteBinLine, RiSunLine, RiBatteryLine, RiMapPinLine,
   RiInformationLine, RiPlugLine, RiCameraLine, RiShieldCheckLine,
   RiAlertLine, RiArrowDownSLine, RiSearchLine, RiShipLine, RiStoreLine,
+  RiFlashlightLine,
 } from 'react-icons/ri';
 import toast from 'react-hot-toast';
 import { supabase } from '../../utils/supabase';
@@ -17,6 +18,28 @@ const CONDITIONS = ['excellent', 'good', 'fair', 'poor', 'damaged'];
 const DEFAULT_PANEL_BRANDS = ['Jinko Solar', 'JA Solar', 'Longi', 'Tongwei', 'Risen', 'Canadian Solar', 'Trina Solar'];
 const DEFAULT_BATTERY_BRANDS = ['Felicity', 'BYD', 'Growatt', 'LG', 'Samsung', 'CATL', 'Victron'];
 const DEFAULT_INVERTER_BRANDS = ['Growatt', 'Solis', 'Schneider Electric', 'Fronius', 'SMA', 'Victron', 'Huawei'];
+
+// Project lifecycle stages available at creation
+const PROJECT_STAGES = [
+  { value: 'draft',       label: 'Draft',                    description: 'Planned / not yet installed' },
+  { value: 'active',      label: 'Active',                   description: 'Currently operational' },
+  { value: 'maintenance', label: 'Under Maintenance/Upgrade', description: 'Temporarily offline for servicing' },
+];
+
+// Capacity category derivation (mirrors backend logic)
+function deriveCapacity(panels = [], batteries = []) {
+  const panelKw = panels.reduce((sum, p) => sum + (Number(p.size_watts || 0) * Number(p.quantity || 0)) / 1000, 0);
+  const batteryKw = batteries.reduce((sum, b) => sum + Number(b.capacity_kwh || 0) * Number(b.quantity || 0), 0);
+  const kw = Math.round((panelKw + batteryKw) * 100) / 100;
+  let category = null;
+  if (kw > 0) {
+    if (kw <= 30) category = { label: 'Home', icon: '🏠', color: 'text-emerald-700 bg-emerald-50 border-emerald-200' };
+    else if (kw <= 100) category = { label: 'Commercial', icon: '🏢', color: 'text-blue-700 bg-blue-50 border-blue-200' };
+    else if (kw <= 1000) category = { label: 'Industrial / Minigrid', icon: '🏭', color: 'text-violet-700 bg-violet-50 border-violet-200' };
+    else category = { label: 'Utility', icon: '⚡', color: 'text-amber-700 bg-amber-50 border-amber-200' };
+  }
+  return { kw, category };
+}
 
 // Equipment condition explanations
 const CONDITION_HELP = {
@@ -337,6 +360,7 @@ export default function AddProject() {
     state: 'Lagos', city: '', address: '',
     installation_date: new Date().toISOString().split('T')[0],
     notes: '',
+    status: 'active',
   });
   const [panels, setPanels] = useState([defaultPanel()]);
   const [batteries, setBatteries] = useState([defaultBattery()]);
@@ -522,7 +546,31 @@ export default function AddProject() {
                 <label className="label">Installation Date *</label>
                 <input type="date" className="input" value={form.installation_date} onChange={e => setForm(f => ({ ...f, installation_date: e.target.value }))} required />
               </div>
-              <div>
+              {/* Stage */}
+              <div className="sm:col-span-2">
+                <label className="label">Project Stage</label>
+                <div className="flex flex-wrap gap-2 mt-1">
+                  {PROJECT_STAGES.map(stage => (
+                    <button
+                      key={stage.value}
+                      type="button"
+                      title={stage.description}
+                      onClick={() => setForm(f => ({ ...f, status: stage.value }))}
+                      className={`flex flex-col items-start text-left px-4 py-2.5 rounded-xl border text-sm font-medium transition-colors ${
+                        form.status === stage.value
+                          ? 'bg-forest-900 text-white border-forest-900'
+                          : 'bg-white text-slate-600 border-slate-200 hover:border-forest-900 hover:text-forest-900'
+                      }`}
+                    >
+                      <span>{stage.label}</span>
+                      <span className={`text-xs font-normal mt-0.5 ${form.status === stage.value ? 'text-white/70' : 'text-slate-400'}`}>
+                        {stage.description}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="sm:col-span-2">
                 <label className="label">Notes</label>
                 <input className="input" placeholder="Any additional notes" value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
               </div>
@@ -755,6 +803,21 @@ export default function AddProject() {
                 <p className="text-xs text-amber-600 mt-0.5">≈ ₦{silverPreview.recovery_value_expected_ngn?.toLocaleString('en-NG')} at formal recycling (35% recovery)</p>
               </div>
             )}
+
+            {/* Capacity preview — updates live as panels change */}
+            {(() => {
+              const { kw, category } = deriveCapacity(panels, batteries);
+              if (!category) return null;
+              return (
+                <div className={`mt-3 flex items-center gap-3 rounded-xl border px-4 py-2.5 ${category.color}`}>
+                  <RiFlashlightLine className="text-lg flex-shrink-0" />
+                  <div>
+                    <p className="text-xs font-semibold">{category.icon} {category.label} System — {kw % 1 === 0 ? kw : kw.toFixed(2)} kW combined capacity</p>
+                    <p className="text-xs font-normal opacity-75">Panel kWp + Battery kWh · auto-classified</p>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
 
           {/* Batteries */}

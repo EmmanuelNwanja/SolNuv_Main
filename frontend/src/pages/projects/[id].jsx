@@ -6,7 +6,7 @@ import { projectsAPI, reportsAPI, engineeringAPI, downloadBlob } from '../../ser
 import { supabase } from '../../utils/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { getDashboardLayout } from '../../components/Layout';
-import { StatusBadge, UrgencyBadge, ConfirmModal, LoadingSpinner } from '../../components/ui/index';
+import { StatusBadge, UrgencyBadge, CapacityBadge, ConfirmModal, LoadingSpinner } from '../../components/ui/index';
 import { MotionSection } from '../../components/PageMotion';
 import {
   RiArrowLeftLine, RiEditLine, RiDeleteBinLine, RiDownloadLine,
@@ -16,9 +16,20 @@ import {
 import toast from 'react-hot-toast';
 
 const STATUS_TRANSITIONS = {
-  active: ['decommissioned'],
-  decommissioned: ['recycled'],
+  draft:            ['active'],
+  active:           ['maintenance', 'decommissioned'],
+  maintenance:      ['active', 'decommissioned'],
+  decommissioned:   ['recycled'],
   pending_recovery: ['decommissioned', 'recycled'],
+};
+
+const STAGE_LABELS = {
+  draft: 'Move to Active',
+  active: null,
+  maintenance: 'Back to Active',
+  decommissioned: 'Mark Recycled',
+  recycled: null,
+  pending_recovery: 'Mark Decommissioned',
 };
 
 const NIGERIAN_STATES = ['Abia','Adamawa','Akwa Ibom','Anambra','Bauchi','Bayelsa','Benue','Borno','Cross River','Delta','Ebonyi','Edo','Ekiti','Enugu','FCT','Gombe','Imo','Jigawa','Kaduna','Kano','Katsina','Kebbi','Kogi','Kwara','Lagos','Nasarawa','Niger','Ogun','Ondo','Osun','Oyo','Plateau','Rivers','Sokoto','Taraba','Yobe','Zamfara'];
@@ -128,6 +139,7 @@ export default function ProjectDetail() {
     geo_source: 'none',
     notes: '',
     project_photo_url: '',
+    status: 'active',
   });
 
   useEffect(() => {
@@ -148,6 +160,7 @@ export default function ProjectDetail() {
           geo_source: payload.geo_source || 'none',
           notes: payload.notes || '',
           project_photo_url: payload.project_photo_url || '',
+          status: payload.status || 'active',
         });
       })
       .catch(() => toast.error('Project not found'))
@@ -219,6 +232,7 @@ export default function ProjectDetail() {
         latitude: editForm.latitude === '' ? null : Number(editForm.latitude),
         longitude: editForm.longitude === '' ? null : Number(editForm.longitude),
         project_photo_url: projectPhotoUrl,
+        status: editForm.status,
       };
 
       const { data } = await projectsAPI.update(id, updatePayload);
@@ -352,6 +366,11 @@ export default function ProjectDetail() {
                 </div>
                 {project.client_name && <p className="text-white/75 text-sm mt-1">Client: {project.client_name}</p>}
                 <p className="text-white/70 text-xs mt-2">{project.city}, {project.state}</p>
+                {(project.capacity_category || project.capacity_kw) && (
+                  <div className="mt-2">
+                    <CapacityBadge category={project.capacity_category} kw={project.capacity_kw} />
+                  </div>
+                )}
               </div>
               <div className="text-left sm:text-right">
                 <p className="text-xs text-white/65">Recoverable Silver</p>
@@ -371,8 +390,19 @@ export default function ProjectDetail() {
           <div className="flex flex-wrap gap-2">
             {transitions.map(t => (
               <button key={t} onClick={() => handleStatusUpdate(t)} disabled={statusUpdating}
-                className={`text-sm px-4 py-2 rounded-xl font-semibold transition-all ${t === 'recycled' ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-amber-100 text-amber-800 hover:bg-amber-200'}`}>
-                {statusUpdating ? '...' : t === 'decommissioned' ? '🔧 Mark Decommissioned' : '♻️ Mark Recycled'}
+                className={`text-sm px-4 py-2 rounded-xl font-semibold transition-all ${
+                  t === 'recycled' ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+                  : t === 'maintenance' ? 'bg-slate-600 text-white hover:bg-slate-700'
+                  : t === 'active' ? 'bg-forest-900 text-white hover:bg-forest-800'
+                  : 'bg-amber-100 text-amber-800 hover:bg-amber-200'
+                }`}>
+                {statusUpdating ? '...' :
+                  t === 'decommissioned' ? '🔧 Mark Decommissioned' :
+                  t === 'recycled' ? '♻️ Mark Recycled' :
+                  t === 'maintenance' ? '🔩 Mark Maintenance' :
+                  t === 'active' ? '✅ Mark Active' :
+                  `Move to ${t}`
+                }
               </button>
             ))}
             {project.status === 'active' && (
@@ -442,6 +472,30 @@ export default function ProjectDetail() {
                   <label className="label">Notes</label>
                   <textarea className="input min-h-[90px]" value={editForm.notes} onChange={(e) => setEditForm((prev) => ({ ...prev, notes: e.target.value }))} />
                 </div>
+                <div className="sm:col-span-2">
+                  <label className="label">Project Stage</label>
+                  <div className="flex flex-wrap gap-2 mt-1">
+                    {[
+                      { value: 'draft', label: 'Draft' },
+                      { value: 'active', label: 'Active' },
+                      { value: 'maintenance', label: 'Under Maintenance/Upgrade' },
+                      { value: 'decommissioned', label: 'Decommissioned' },
+                    ].map(stage => (
+                      <button
+                        key={stage.value}
+                        type="button"
+                        onClick={() => setEditForm(prev => ({ ...prev, status: stage.value }))}
+                        className={`px-3 py-1.5 rounded-lg border text-sm font-medium transition-colors ${
+                          editForm.status === stage.value
+                            ? 'bg-forest-900 text-white border-forest-900'
+                            : 'bg-white text-slate-600 border-slate-200 hover:border-forest-900'
+                        }`}
+                      >
+                        {stage.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
 
               <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3">
@@ -504,6 +558,21 @@ export default function ProjectDetail() {
                   </p>
                 </div>
               </div>
+              {/* Capacity */}
+              {project.capacity_kw > 0 && (
+                <div className="flex items-start gap-3">
+                  <span className="text-forest-900 mt-0.5 flex-shrink-0 text-base">⚡</span>
+                  <div>
+                    <p className="text-xs text-slate-400 font-medium">SYSTEM CAPACITY</p>
+                    <p className="text-sm font-semibold text-slate-800">
+                      {project.capacity_kw % 1 === 0 ? project.capacity_kw : project.capacity_kw?.toFixed(2)} kW combined
+                    </p>
+                    {project.capacity_category && (
+                      <CapacityBadge category={project.capacity_category} />
+                    )}
+                  </div>
+                </div>
+              )}
               {project.estimated_decommission_date && (
                 <div className="flex items-start gap-3">
                   <RiCalendarLine className="text-amber-500 mt-0.5 flex-shrink-0" />

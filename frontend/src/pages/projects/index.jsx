@@ -5,17 +5,27 @@ import { useRouter } from 'next/router';
 import { projectsAPI, downloadBlob } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { getDashboardLayout } from '../../components/Layout';
-import { StatusBadge, UrgencyBadge, EmptyState, LoadingSpinner } from '../../components/ui/index';
+import { StatusBadge, UrgencyBadge, CapacityBadge, EmptyState, LoadingSpinner } from '../../components/ui/index';
 import { MotionSection } from '../../components/PageMotion';
 import { RiAddLine, RiSearchLine, RiFilterLine, RiDownloadLine, RiSunLine } from 'react-icons/ri';
 import toast from 'react-hot-toast';
 
 const STATUS_OPTIONS = [
-  { value: '', label: 'All Statuses' },
+  { value: '', label: 'All Stages' },
+  { value: 'draft', label: 'Draft' },
   { value: 'active', label: 'Active' },
+  { value: 'maintenance', label: 'Maintenance' },
   { value: 'decommissioned', label: 'Decommissioned' },
   { value: 'recycled', label: 'Recycled' },
   { value: 'pending_recovery', label: 'Pending Recovery' },
+];
+
+const CAPACITY_OPTIONS = [
+  { value: '', label: 'All Capacities' },
+  { value: 'home', label: '🏠 Home (≤30 kW)' },
+  { value: 'commercial', label: '🏢 Commercial (≤100 kW)' },
+  { value: 'industrial_minigrid', label: '🏭 Industrial / Minigrid (≤1 MW)' },
+  { value: 'utility', label: '⚡ Utility (>1 MW)' },
 ];
 
 const VERIFICATION_OPTIONS = [
@@ -31,12 +41,15 @@ export default function ProjectsList() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [capacityFilter, setCapacityFilter] = useState('');
   const [verificationFilter, setVerificationFilter] = useState('');
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [exporting, setExporting] = useState(false);
 
   const activeCount = projects.filter((p) => p.status === 'active').length;
+  const maintenanceCount = projects.filter((p) => p.status === 'maintenance').length;
+  const draftCount = projects.filter((p) => p.status === 'draft').length;
   const pendingRecoveryCount = projects.filter((p) => p.status === 'pending_recovery').length;
   const silverTotal = projects.reduce((sum, p) => sum + (p.summary?.total_silver_grams || 0), 0);
 
@@ -48,7 +61,9 @@ export default function ProjectsList() {
 
     setLoading(true);
     try {
-      const { data } = await projectsAPI.list({ search, status: statusFilter, geo_verified: verificationFilter, page, limit: 20 });
+      const params = { search, status: statusFilter, geo_verified: verificationFilter, page, limit: 20 };
+      if (capacityFilter) params.capacity_category = capacityFilter;
+      const { data } = await projectsAPI.list(params);
       setProjects(data.data || []);
       setTotal(data.pagination?.total || 0);
     } catch (err) {
@@ -59,7 +74,7 @@ export default function ProjectsList() {
       toast.error('Failed to load projects');
     }
     finally { setLoading(false); }
-  }, [search, statusFilter, verificationFilter, page, isOnboarded, router]);
+  }, [search, statusFilter, capacityFilter, verificationFilter, page, isOnboarded, router]);
 
   useEffect(() => { fetchProjects(); }, [fetchProjects]);
 
@@ -87,8 +102,10 @@ export default function ProjectsList() {
               <h1 className="font-display font-bold text-3xl sm:text-4xl">My Projects</h1>
               <p className="text-white/75 text-sm mt-2">{total} project{total !== 1 ? 's' : ''} tracked across your deployment network.</p>
               <div className="mt-4 flex flex-wrap gap-2 text-xs">
+                {draftCount > 0 && <span className="rounded-full border border-white/20 bg-white/10 px-3 py-1">{draftCount} draft</span>}
                 <span className="rounded-full border border-white/20 bg-white/10 px-3 py-1">{activeCount} active</span>
-                <span className="rounded-full border border-white/20 bg-white/10 px-3 py-1">{pendingRecoveryCount} pending recovery</span>
+                {maintenanceCount > 0 && <span className="rounded-full border border-white/20 bg-white/10 px-3 py-1">{maintenanceCount} maintenance</span>}
+                {pendingRecoveryCount > 0 && <span className="rounded-full border border-white/20 bg-white/10 px-3 py-1">{pendingRecoveryCount} pending recovery</span>}
                 <span className="rounded-full border border-white/20 bg-white/10 px-3 py-1">{silverTotal.toFixed(1)}g recoverable silver</span>
               </div>
             </div>
@@ -111,21 +128,27 @@ export default function ProjectsList() {
       </MotionSection>
 
       {/* Filters */}
-      <MotionSection className="flex gap-3 mb-6 flex-col sm:flex-row">
-        <div className="relative flex-1">
+      <MotionSection className="flex gap-3 mb-6 flex-col sm:flex-row flex-wrap">
+        <div className="relative flex-1 min-w-[200px]">
           <RiSearchLine className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input type="search" className="input pl-10" placeholder="Search projects..." value={search}
             onChange={e => { setSearch(e.target.value); setPage(1); }} />
         </div>
         <div className="relative">
           <RiFilterLine className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <select className="input pl-10 min-w-[180px]" value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1); }}>
+          <select className="input pl-10 min-w-[165px]" value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1); }}>
             {STATUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
         </div>
         <div className="relative">
           <RiFilterLine className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <select className="input pl-10 min-w-[180px]" value={verificationFilter} onChange={e => { setVerificationFilter(e.target.value); setPage(1); }}>
+          <select className="input pl-10 min-w-[200px]" value={capacityFilter} onChange={e => { setCapacityFilter(e.target.value); setPage(1); }}>
+            {CAPACITY_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+        </div>
+        <div className="relative">
+          <RiFilterLine className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <select className="input pl-10 min-w-[165px]" value={verificationFilter} onChange={e => { setVerificationFilter(e.target.value); setPage(1); }}>
             {VERIFICATION_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
         </div>
@@ -153,6 +176,9 @@ export default function ProjectsList() {
                   </div>
                   <div className="flex flex-col items-end gap-1">
                     <StatusBadge status={proj.status} />
+                    {proj.summary?.capacity_category && (
+                      <CapacityBadge category={proj.summary.capacity_category} kw={proj.summary.capacity_kw} />
+                    )}
                     <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${proj.geo_verified ? 'text-emerald-700 border-emerald-200 bg-emerald-50' : 'text-amber-700 border-amber-200 bg-amber-50'}`}>
                       {proj.geo_verified ? 'Verified' : 'Unverified'}
                     </span>
