@@ -21,7 +21,6 @@ exports.getOverview = async (req, res) => {
       supabase
         .from('companies')
         .select('*', { count: 'exact', head: true })
-        .neq('subscription_plan', 'free')
         .gte('subscription_expires_at', nowIso),
       supabase
         .from('subscription_transactions')

@@ -69,7 +69,7 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
     discount_value: 10,
     max_redemptions: '',
     applies_to_intervals: ['monthly', 'annual'],
-    applies_to_plans: ['pro', 'elite', 'enterprise'],
+    applies_to_plans: ['free', 'pro', 'elite', 'enterprise'],
   });
 
   const [newPush, setNewPush] = useState({ title: '', message: '', target_type: 'all', target_value: '' });
@@ -202,7 +202,7 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
         discount_value: 10,
         max_redemptions: '',
         applies_to_intervals: ['monthly', 'annual'],
-        applies_to_plans: ['pro', 'elite', 'enterprise'],
+        applies_to_plans: ['free', 'pro', 'elite', 'enterprise'],
       });
       refreshPromo();
     } catch (err) {
@@ -386,7 +386,7 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
                 <div>
                   <p className="font-medium text-slate-800">{u.first_name} {u.last_name}</p>
                   <p className="text-xs text-slate-500">{u.email}</p>
-                  <p className="text-xs text-slate-400">Plan: {u.companies?.subscription_plan || 'free'} ({u.companies?.subscription_interval || 'monthly'})</p>
+                  <p className="text-xs text-slate-400">Plan: {u.companies?.subscription_plan === 'free' ? 'basic' : (u.companies?.subscription_plan || 'basic')} ({u.companies?.subscription_interval || 'monthly'})</p>
                 </div>
                 <button
                   className={`btn-outline text-xs px-3 py-1 ${u.is_active ? 'border-emerald-500 text-emerald-700' : 'border-red-500 text-red-700'}`}
