@@ -125,21 +125,21 @@ const PANEL_TECHNOLOGIES = {
   hjt: {
     label:            'HJT (Heterojunction)',
     group:            'n-type',
-    silver_mg_per_wp: 0.20,
+    silver_mg_per_wp: 0.50,
     deg_rate_pct_yr:  0.25,
     first_year_loss:  0.010,
     temp_coeff_pct_c: -0.24,
     bifacial:         true,
     bifacial_gain_min: 0.10,
     bifacial_gain_max: 0.25,
-    notes: 'Best temperature coefficient of all technologies — ideal for hot climates. ~8% more real output vs Poly BSF at 40°C. Lowest degradation.',
+    notes: 'Best temperature coefficient — ideal for hot climates. Uses low-temperature paste requiring more silver than PERC/TOPCon. Lowest degradation of all crystalline Si.',
   },
 
   // ── IBC (Interdigitated Back Contact) ────────────────────────────────────
   ibc: {
     label:            'IBC (All-Back Contact)',
     group:            'n-type',
-    silver_mg_per_wp: 0.20,
+    silver_mg_per_wp: 0.28,
     deg_rate_pct_yr:  0.25,
     first_year_loss:  0.008,
     temp_coeff_pct_c: -0.27,

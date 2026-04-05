@@ -66,16 +66,21 @@ async function calculateDecommissionDate(state, installationDate, panelBrand = '
   let clampedLifespan;
 
   if (tech) {
-    // Climate multiplier: harsher zones accelerate degradation by 8–15%
-    const climateMultipliers = {
-      coastal_humid: 1.15, sahel_dry: 1.12, se_humid: 1.08, mixed: 1.00, default: 1.05,
-    };
-    const climateMult = climateMultipliers[climate.climate_zone] || climateMultipliers.default;
-    const effectiveDegRate = (tech.deg_rate_pct_yr / 100) * climateMult;
-    // 80% SoH threshold (20% total loss), accounting for first-year LID
-    const remainingDeg = 0.20 - tech.first_year_loss;
-    const rawLifespan = remainingDeg > 0 ? (1 + remainingDeg / effectiveDegRate) : 10;
-    clampedLifespan = Math.min(15, Math.max(5, rawLifespan));
+    // West African lifespan approach: start from the original climate-factor
+    // lifespan (7–12 years), then adjust by technology quality ratio.
+    //
+    // A technology with LOWER degradation than the average (mono_perc, 0.45%/yr)
+    // gets a proportional lifespan bonus. One with HIGHER degradation gets a penalty.
+    //
+    // Example: HJT (0.25%/yr) in Sahel → original ~7yr × (0.45/0.25) = ~12.6yr
+    //          poly_bsf (0.70%/yr) in Sahel → ~7yr × (0.45/0.70) = ~4.5yr (clamped to 5)
+    const baseLifespan = 9.5;
+    const climateDegradation = climate.degradation_multiplier || 1.15;
+    const originalLifespan = baseLifespan / (climateDegradation - 1 + 1.1);
+    const REFERENCE_DEG_RATE = 0.45; // mono_perc rate — the most common technology
+    const techQualityRatio = REFERENCE_DEG_RATE / Math.max(0.10, tech.deg_rate_pct_yr);
+    const rawLifespan = originalLifespan * techQualityRatio;
+    clampedLifespan = Math.min(15, Math.max(4, rawLifespan));
   } else {
     // Original climate-factor-based calculation
     const baseLifespan = 9.5;

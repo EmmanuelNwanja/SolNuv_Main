@@ -74,7 +74,10 @@ const BATTERY_ANNUAL_SOH_LOSS = {
   lithium: 0.035,     nmc: 0.035, nca: 0.040, default: 0.035,
 };
 
-const CONDITION_MODIFIER = { excellent: 1.10, good: 1.00, fair: 0.82, poor: 0.45, damaged: 0.00 };
+// Condition multiplier: represents how close the panel is to its theoretical
+// degradation curve. 'Excellent' = performing at theoretical best for its age.
+// A panel cannot exceed its physics-based degradation just because it looks good.
+const CONDITION_MODIFIER = { excellent: 1.00, good: 0.95, fair: 0.80, poor: 0.45, damaged: 0.00 };
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 
@@ -146,10 +149,19 @@ function calcPanelSOH(wattsPerPanel, installationDate, climateZone = 'mixed', co
   };
 }
 
-// Climate zone multiplier for technology-based degradation: harsher = slightly faster
+// Climate zone multiplier for technology-based degradation rates.
+// Technology deg_rate_pct_yr values are IEC/datasheet rates under standard conditions.
+// West African climate (heat, humidity, dust, voltage surges) accelerates degradation
+// significantly: the original system used 0.65–0.85%/yr vs global averages of 0.3–0.5%.
+// These multipliers bridge the gap between datasheet and real-world West African conditions.
 function getClimateMult(climateZone) {
-  const multipliers = { coastal_humid: 1.15, sahel_dry: 1.12, se_humid: 1.08, mixed: 1.00 };
-  return multipliers[climateZone] || 1.00;
+  const multipliers = {
+    coastal_humid: 2.0,   // Salt mist, humidity, PID, high ambient temps (Lagos, Rivers)
+    sahel_dry:     1.85,  // Extreme heat cycling, sand abrasion (Kano, Sokoto, Borno)
+    se_humid:      1.70,  // Persistent humidity, moisture ingress (Enugu, Anambra)
+    mixed:         1.50,  // Moderate but still African climate (FCT, Oyo, Kaduna)
+  };
+  return multipliers[climateZone] || 1.50;
 }
 
 // ─── MAIN: PANEL VALUATION ────────────────────────────────────────────────────
