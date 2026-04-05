@@ -629,3 +629,5 @@ export default function BlogAdminPageWrapper() {
     </AdminRoute>
   );
 }
+
+BlogAdminPageWrapper.getLayout = getAdminLayout;

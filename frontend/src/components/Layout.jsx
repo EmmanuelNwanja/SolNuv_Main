@@ -167,6 +167,11 @@ export function getDashboardLayout(page) {
   );
 }
 
+// Wrap public pages — shows the full nav shell but does NOT require authentication
+export function getPublicLayout(page) {
+  return <Layout>{page}</Layout>;
+}
+
 // Wrap admin pages — skips the isOnboarded check so admin-only accounts can access /admin
 export function getAdminLayout(page) {
   return <AdminLayout>{page}</AdminLayout>;

@@ -7,6 +7,7 @@ import {
   RiArrowRightLine, RiShareLine, RiExternalLinkLine,
 } from 'react-icons/ri';
 import { blogAPI } from '../../services/api';
+import { getPublicLayout } from '../../components/Layout';
 
 function BlogAdSidebar({ placement = 'sidebar' }) {
   const [ads, setAds] = useState([]);
@@ -201,3 +202,5 @@ export default function BlogPostPage() {
     </>
   );
 }
+
+BlogPostPage.getLayout = getPublicLayout;

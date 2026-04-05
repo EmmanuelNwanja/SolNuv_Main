@@ -7,6 +7,7 @@ import {
   RiPriceTag3Line, RiCalendarLine, RiEyeLine,
 } from 'react-icons/ri';
 import { blogAPI } from '../../services/api';
+import { getPublicLayout } from '../../components/Layout';
 
 const CATEGORIES = ['All', 'Solar Energy', 'Battery Storage', 'Engineering', 'Industry News', 'Case Studies', 'Regulations'];
 
@@ -299,3 +300,5 @@ export default function BlogIndex() {
     </>
   );
 }
+
+BlogIndex.getLayout = getPublicLayout;

@@ -6,6 +6,7 @@ import {
   RiCheckLine, RiArrowRightLine, RiWhatsappLine, RiTimeLine,
 } from 'react-icons/ri';
 import { contactAPI } from '../services/api';
+import { getPublicLayout } from '../components/Layout';
 
 const SUBJECTS = [
   'General Enquiry',
@@ -273,3 +274,5 @@ export default function ContactPage() {
     </>
   );
 }
+
+ContactPage.getLayout = getPublicLayout;
