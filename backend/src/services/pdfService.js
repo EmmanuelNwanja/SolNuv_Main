@@ -1,36 +1,149 @@
 /**
  * SolNuv PDF Service
- * Generates NESREA EPR Compliance Reports and Cradle-to-Grave Certificates
+ * Generates NESREA EPR Compliance Reports, Cradle-to-Grave Certificates,
+ * ROI Proposals, and Cable Compliance Certificates.
+ *
+ * All PDFs are branded with the company's logo, primary colour, and signature
+ * when those assets are stored in the company profile (logo_url,
+ * branding_primary_color, company_signature_url).
  */
 
 const PDFDocument = require('pdfkit');
-const { calculatePortfolioSilver } = require('./silverService');
+const axios = require('axios');
 
-// Brand colors
-const COLORS = {
+// ─── Default SolNuv brand colours ────────────────────────────────────────────
+const DEFAULT_BRAND = {
   primary: '#0D3B2E',
   secondary: '#F59E0B',
   accent: '#10B981',
   text: '#1E293B',
   muted: '#64748B',
   light: '#F1F5F9',
+  white: '#FFFFFF',
 };
 
 /**
+ * Build a brand colour palette merging company overrides with SolNuv defaults.
+ * @param {object} company
+ */
+function buildBrand(company) {
+  const primary = (company?.branding_primary_color || DEFAULT_BRAND.primary).trim();
+  return { ...DEFAULT_BRAND, primary };
+}
+
+/**
+ * Fetch an image URL and return a Buffer, or null on failure.
+ * @param {string|null} url
+ */
+async function fetchImageBuffer(url) {
+  if (!url || typeof url !== 'string') return null;
+  try {
+    const response = await axios.get(url, {
+      responseType: 'arraybuffer',
+      timeout: 8000,
+    });
+    return Buffer.from(response.data);
+  } catch {
+    return null;
+  }
+}
+
+/** Draw a horizontal rule */
+function hRule(doc, x, y, w, color) {
+  doc.save().rect(x, y, w, 1.5).fill(color).restore();
+}
+
+/** Draw a small decorative diamond accent */
+function diamond(doc, cx, cy, size, color) {
+  doc.save()
+    .moveTo(cx, cy - size)
+    .lineTo(cx + size, cy)
+    .lineTo(cx, cy + size)
+    .lineTo(cx - size, cy)
+    .closePath()
+    .fill(color)
+    .restore();
+}
+
+/**
+ * Render a branded page header bar.
+ * Returns the Y position immediately after the header.
+ */
+function renderPageHeader(doc, brand, title, subtitle, logoBuffer) {
+  const W = doc.page.width;
+
+  doc.rect(0, 0, W, 70).fill(brand.primary);
+  doc.rect(0, 0, W, 5).fill(brand.secondary);
+
+  let logoEndX = 20;
+  if (logoBuffer) {
+    try {
+      doc.image(logoBuffer, 20, 10, { height: 48, fit: [120, 48] });
+      logoEndX = 150;
+    } catch { /* ignore bad image */ }
+  } else {
+    doc.fillColor(brand.white).fontSize(20).font('Helvetica-Bold').text('SolNuv', 20, 22);
+    doc.fillColor(brand.secondary).fontSize(7).font('Helvetica').text('Solar Waste & Compliance', 20, 46);
+    logoEndX = 145;
+  }
+
+  doc.save().rect(logoEndX + 8, 12, 1, 44).fill(brand.secondary).restore();
+
+  const titleX = logoEndX + 22;
+  doc.fillColor(brand.white).fontSize(14).font('Helvetica-Bold')
+    .text(title, titleX, 18, { width: W - titleX - 20 });
+  if (subtitle) {
+    doc.fillColor(brand.secondary).fontSize(8).font('Helvetica')
+      .text(subtitle, titleX, 39, { width: W - titleX - 20 });
+  }
+
+  doc.rect(0, 65, W, 5).fill(brand.secondary);
+  return 82;
+}
+
+/**
+ * Render footer bars on all buffered pages.
+ */
+function renderFooters(doc, brand, totalPages) {
+  const W = doc.page.width;
+  const range = doc.bufferedPageRange();
+  for (let i = 0; i < range.count; i++) {
+    doc.switchToPage(range.start + i);
+    const footerY = doc.page.height - 28;
+    doc.rect(0, footerY, W, 28).fill(brand.primary);
+    doc.fillColor(brand.secondary).fontSize(7).font('Helvetica-Bold')
+      .text(`Page ${i + 1} of ${totalPages}`, W - 80, footerY + 9, { width: 68, align: 'right' });
+    doc.fillColor('#FFFFFF').fontSize(7).font('Helvetica')
+      .text(
+        `SolNuv Compliance Platform  •  solnuv.com  •  Generated ${new Date().toLocaleDateString('en-NG')}`,
+        0, footerY + 9, { align: 'center', width: W }
+      );
+    doc.rect(0, footerY, 4, 28).fill(brand.secondary);
+  }
+}
+
+/**
  * Generate NESREA EPR Compliance Report PDF
- * @param {object} company - Company data
- * @param {array} projects - Array of projects with equipment
+ * @param {object} company - Company data (must include logo_url, branding_primary_color, company_signature_url)
+ * @param {array}  projects - Array of projects with equipment
  * @param {object} reportMeta - Report period, stats
- * @returns {Buffer} - PDF buffer
+ * @returns {Promise<Buffer>}
  */
 async function generateNesreaReport(company, projects, reportMeta) {
-  return new Promise(async (resolve, reject) => {
+  const brand = buildBrand(company);
+  const [logoBuffer, sigBuffer] = await Promise.all([
+    fetchImageBuffer(company?.logo_url),
+    fetchImageBuffer(company?.company_signature_url),
+  ]);
+
+  return new Promise((resolve, reject) => {
     try {
       const doc = new PDFDocument({
         size: 'A4',
-        margins: { top: 50, bottom: 50, left: 60, right: 60 },
+        margins: { top: 50, bottom: 50, left: 55, right: 55 },
+        bufferPages: true,
         info: {
-          Title: `NESREA EPR Compliance Report - ${company.name}`,
+          Title: `NESREA EPR Compliance Report — ${company?.name || 'Company'}`,
           Author: 'SolNuv Platform',
           Subject: 'Extended Producer Responsibility Report',
           Creator: 'SolNuv | solnuv.com',
@@ -41,230 +154,214 @@ async function generateNesreaReport(company, projects, reportMeta) {
       doc.on('data', buffers.push.bind(buffers));
       doc.on('end', () => resolve(Buffer.concat(buffers)));
 
-      // ============================
-      // PAGE 1: COVER PAGE
-      // ============================
-      // Header bar
-      doc.rect(0, 0, doc.page.width, 8).fill(COLORS.secondary);
-      doc.rect(0, 8, doc.page.width, 130).fill(COLORS.primary);
+      const W = doc.page.width;
+      const L = 55;
+      const contentW = W - 2 * L;
 
-      // Logo area
-      doc.fillColor('#FFFFFF')
-        .fontSize(28)
-        .font('Helvetica-Bold')
-        .text('SolNuv', 60, 40);
+      // ── PAGE 1: COVER ─────────────────────────────────────────────
+      let y = renderPageHeader(
+        doc, brand,
+        'National Environmental (Battery Control) & EPR Compliance Report',
+        'Extended Producer Responsibility — SolNuv Platform',
+        logoBuffer
+      );
+      y += 14;
 
-      doc.fontSize(10).font('Helvetica')
-        .text('Solar Waste Tracking, Recovery & Compliance Platform', 60, 72);
+      // Reporting Entity
+      doc.fillColor(brand.primary).fontSize(8).font('Helvetica-Bold').text('REPORTING ENTITY', L, y);
+      hRule(doc, L, y + 12, contentW, brand.secondary);
+      y += 18;
 
-      doc.fontSize(9).fillColor(COLORS.secondary)
-        .text('solnuv.com | compliance@solnuv.com', 60, 88);
-
-      // Report title
-      doc.fillColor('#FFFFFF').fontSize(20).font('Helvetica-Bold')
-        .text('National Environmental (Battery Control) &', 60, 120, { align: 'right' });
-
-      doc.fontSize(16).fillColor(COLORS.secondary)
-        .text('Extended Producer Responsibility (EPR) Compliance Report', 60, 145, { align: 'right' });
-
-      doc.rect(0, 150, doc.page.width, 3).fill(COLORS.secondary);
-      doc.moveDown(2);
-
-      // Company info box
-      doc.rect(60, 175, doc.page.width - 120, 150).fillAndStroke(COLORS.light, '#E2E8F0');
-
-      doc.fillColor(COLORS.text).fontSize(12).font('Helvetica-Bold')
-        .text('REPORTING ENTITY', 80, 190);
-
-      const companyInfoY = 210;
-      const infoItems = [
-        ['Company Name:', company.name],
-        ['NESREA Registration No.:', company.nesrea_registration_number || 'PENDING REGISTRATION'],
-        ['Address:', `${company.city || ''}, ${company.state || ''}`],
-        ['Email:', company.email],
-        ['Subscription Tier:', company.subscription_plan?.toUpperCase()],
+      doc.rect(L, y, contentW, 138).fillAndStroke(brand.light, '#CBD5E1');
+      const entityFields = [
+        ['Company Name',       company?.name || '—'],
+        ['NESREA Reg. No.',    company?.nesrea_registration_number || 'PENDING REGISTRATION'],
+        ['Address',           [company?.city, company?.state].filter(Boolean).join(', ') || '—'],
+        ['Email',             company?.email || '—'],
+        ['Subscription Tier', (company?.subscription_plan || 'free').toUpperCase()],
+        ['Website',           company?.website || '—'],
       ];
-
-      infoItems.forEach((item, i) => {
-        doc.fontSize(10).font('Helvetica-Bold').fillColor(COLORS.muted)
-          .text(item[0], 80, companyInfoY + (i * 22));
-        doc.font('Helvetica').fillColor(COLORS.text)
-          .text(item[1] || 'N/A', 250, companyInfoY + (i * 22));
+      entityFields.forEach(([label, value], i) => {
+        const fy = y + 10 + i * 21;
+        doc.fillColor(brand.muted).fontSize(8).font('Helvetica-Bold').text(label + ':', L + 12, fy);
+        doc.fillColor(brand.text).font('Helvetica').text(String(value), L + 165, fy);
       });
+      y += 148;
 
-      // Report period box
-      doc.rect(60, 340, doc.page.width - 120, 80).fillAndStroke('#FFF7ED', '#FED7AA');
-      doc.fillColor(COLORS.primary).fontSize(11).font('Helvetica-Bold')
-        .text('REPORT PERIOD', 80, 355);
-      doc.fontSize(10).font('Helvetica').fillColor(COLORS.text)
-        .text(`${new Date(reportMeta.period_start).toLocaleDateString('en-NG', { year: 'numeric', month: 'long', day: 'numeric' })} — ${new Date(reportMeta.period_end).toLocaleDateString('en-NG', { year: 'numeric', month: 'long', day: 'numeric' })}`, 80, 375);
-      doc.fontSize(9).fillColor(COLORS.muted)
-        .text(`Date of Issuance: ${new Date().toLocaleDateString('en-NG', { year: 'numeric', month: 'long', day: 'numeric' })}`, 80, 395);
+      // Report period
+      doc.rect(L, y, contentW, 58).fillAndStroke('#FFF7ED', '#FED7AA');
+      diamond(doc, L + 14, y + 29, 5, brand.secondary);
+      doc.fillColor(brand.primary).fontSize(9).font('Helvetica-Bold').text('REPORT PERIOD', L + 26, y + 12);
+      const ps = new Date(reportMeta.period_start).toLocaleDateString('en-NG', { year: 'numeric', month: 'long', day: 'numeric' });
+      const pe = new Date(reportMeta.period_end).toLocaleDateString('en-NG', { year: 'numeric', month: 'long', day: 'numeric' });
+      doc.fillColor(brand.text).fontSize(10).font('Helvetica-Bold').text(`${ps} — ${pe}`, L + 26, y + 28);
+      doc.fillColor(brand.muted).fontSize(8).font('Helvetica')
+        .text(`Issued: ${new Date().toLocaleDateString('en-NG', { year: 'numeric', month: 'long', day: 'numeric' })}`, L + 26, y + 43);
+      y += 70;
 
-      // Key stats summary
-      doc.fillColor(COLORS.primary).fontSize(13).font('Helvetica-Bold')
-        .text('PORTFOLIO SUMMARY', 60, 445);
+      // Portfolio summary cards
+      doc.fillColor(brand.primary).fontSize(8).font('Helvetica-Bold').text('PORTFOLIO SUMMARY', L, y);
+      hRule(doc, L, y + 12, contentW, brand.secondary);
+      y += 20;
 
-      const stats = [
-        { label: 'Total Projects', value: projects.length, unit: '' },
-        { label: 'Solar Panels', value: reportMeta.total_panels, unit: ' panels' },
-        { label: 'Batteries', value: reportMeta.total_batteries, unit: ' units' },
-        { label: 'Est. Silver (Total Fleet)', value: reportMeta.total_silver_grams?.toFixed(1) || '0', unit: 'g' },
+      const statCards = [
+        { label: 'Total Projects',      value: String(projects.length) },
+        { label: 'Solar Panels',        value: `${reportMeta.total_panels || 0} panels` },
+        { label: 'Battery Units',       value: `${reportMeta.total_batteries || 0} units` },
+        { label: 'Est. Silver (Fleet)', value: `${(reportMeta.total_silver_grams || 0).toFixed(1)}g` },
       ];
-
-      stats.forEach((stat, i) => {
-        const x = 60 + (i * 115);
-        doc.rect(x, 465, 105, 70).fillAndStroke(i % 2 === 0 ? COLORS.primary : COLORS.secondary, 'transparent');
-        doc.fillColor('#FFFFFF').fontSize(22).font('Helvetica-Bold')
-          .text(`${stat.value}${stat.unit}`, x + 8, 480, { width: 89, align: 'center' });
-        doc.fontSize(8).font('Helvetica')
-          .text(stat.label, x + 8, 508, { width: 89, align: 'center' });
+      const cardW = Math.floor(contentW / 4) - 4;
+      statCards.forEach((s, i) => {
+        const cx = L + i * (cardW + 5);
+        const fill = i % 2 === 0 ? brand.primary : brand.secondary;
+        doc.rect(cx, y, cardW, 64).fill(fill);
+        doc.rect(cx, y, cardW, 3).fill(i % 2 === 0 ? brand.secondary : brand.primary);
+        doc.fillColor('#FFFFFF').fontSize(17).font('Helvetica-Bold')
+          .text(s.value, cx + 4, y + 14, { width: cardW - 8, align: 'center' });
+        doc.fontSize(7.5).font('Helvetica')
+          .text(s.label, cx + 4, y + 44, { width: cardW - 8, align: 'center' });
       });
+      y += 76;
 
       // Regulatory basis
-      doc.rect(60, 555, doc.page.width - 120, 130).fillAndStroke('#F0FDF4', '#BBF7D0');
-      doc.fillColor(COLORS.primary).fontSize(11).font('Helvetica-Bold')
-        .text('REGULATORY BASIS', 80, 570);
-      doc.fontSize(9).font('Helvetica').fillColor(COLORS.text)
-        .text('This report is generated in accordance with:', 80, 590);
-      doc.fontSize(9).fillColor(COLORS.text)
-        .text('• National Environmental (Electrical/Electronic Sector) Regulations (NESREA)', 80, 607)
-        .text('• National Environmental (Battery Control) Regulations 2024', 80, 622)
-        .text('• Extended Producer Responsibility (EPR) Guidelines for Solar PV Equipment', 80, 637)
-        .text('• EPRON End-of-Life Accountability Framework', 80, 652);
+      doc.rect(L, y, contentW, 108).fillAndStroke('#F0FDF4', '#BBF7D0');
+      doc.fillColor(brand.primary).fontSize(9).font('Helvetica-Bold').text('REGULATORY BASIS', L + 14, y + 14);
+      doc.fillColor(brand.text).fontSize(8.5).font('Helvetica').text('This report is prepared in accordance with:', L + 14, y + 31);
+      ['• National Environmental (Electrical/Electronic Sector) Regulations (NESREA)',
+       '• National Environmental (Battery Control) Regulations 2024',
+       '• Extended Producer Responsibility (EPR) Guidelines for Solar PV Equipment',
+       '• EPRON End-of-Life Accountability Framework',
+      ].forEach((r, i) => {
+        doc.fillColor(brand.text).fontSize(8).font('Helvetica').text(r, L + 14, y + 47 + i * 14);
+      });
 
-      // Footer
-      doc.rect(0, doc.page.height - 40, doc.page.width, 40).fill(COLORS.primary);
-      doc.fillColor('#FFFFFF').fontSize(8)
-        .text('Generated by SolNuv Platform | solnuv.com | This report is for regulatory compliance purposes', 60, doc.page.height - 25);
-
-      // ============================
-      // PAGE 2: PROJECT DETAILS
-      // ============================
+      // ── PAGE 2: TRACEABILITY ──────────────────────────────────────
       doc.addPage();
+      let y2 = renderPageHeader(
+        doc, brand,
+        'Cradle-to-Grave Traceability Report',
+        `${company?.name || '—'}  •  NESREA Reg: ${company?.nesrea_registration_number || 'N/A'}`,
+        logoBuffer
+      );
+      y2 += 10;
 
-      // Page header
-      doc.rect(0, 0, doc.page.width, 60).fill(COLORS.primary);
-      doc.fillColor('#FFFFFF').fontSize(16).font('Helvetica-Bold')
-        .text('Cradle-to-Grave Traceability Report', 60, 20);
-      doc.fontSize(10).font('Helvetica')
-        .text(`${company.name} | NESREA Reg: ${company.nesrea_registration_number || 'N/A'}`, 60, 42);
-
-      let yPos = 80;
-
-      // Project table header
-      doc.rect(60, yPos, doc.page.width - 120, 25).fill(COLORS.primary);
-      doc.fillColor('#FFFFFF').fontSize(9).font('Helvetica-Bold')
-        .text('Project Name', 65, yPos + 8)
-        .text('Location', 215, yPos + 8)
-        .text('Panels', 310, yPos + 8)
-        .text('Batteries', 360, yPos + 8)
-        .text('Status', 420, yPos + 8)
-        .text('Est. Decommission', 468, yPos + 8);
-
-      yPos += 25;
+      const colX = [L, L + 150, L + 255, L + 303, L + 358, L + 410];
+      const colW = [145, 100, 44, 52, 49, contentW - (colX[5] - L)];
+      doc.rect(L, y2, contentW, 24).fill(brand.primary);
+      ['Project Name', 'Location', 'Panels', 'Batteries', 'Status', 'Est. Decomm.'].forEach((h, i) => {
+        doc.fillColor(brand.white).fontSize(8).font('Helvetica-Bold')
+          .text(h, colX[i] + 3, y2 + 8, { width: colW[i] - 6 });
+      });
+      y2 += 24;
 
       projects.forEach((proj, idx) => {
-        if (yPos > doc.page.height - 100) {
+        if (y2 > doc.page.height - 80) {
           doc.addPage();
-          yPos = 60;
+          y2 = renderPageHeader(doc, brand, 'Traceability Report (cont.)', null, logoBuffer) + 10;
         }
+        const panels = (proj.equipment || []).filter(e => e.equipment_type === 'panel');
+        const batteries = (proj.equipment || []).filter(e => e.equipment_type === 'battery');
+        const totalPanels = panels.reduce((s, e) => s + (e.quantity || 0), 0);
+        const totalBatteries = batteries.reduce((s, e) => s + (e.quantity || 0), 0);
+        const totalSilver = panels.reduce((s, e) => s + (e.estimated_silver_grams || 0), 0);
+        const rowH = totalPanels > 0 ? 36 : 26;
 
-        const bgColor = idx % 2 === 0 ? '#FFFFFF' : COLORS.light;
-        doc.rect(60, yPos, doc.page.width - 120, 35).fill(bgColor);
+        doc.rect(L, y2, contentW, rowH).fill(idx % 2 === 0 ? '#FFFFFF' : brand.light);
+        doc.rect(L, y2, 3, rowH).fill(idx % 2 === 0 ? brand.secondary : brand.primary);
 
-        const panels = proj.equipment?.filter(e => e.equipment_type === 'panel') || [];
-        const batteries = proj.equipment?.filter(e => e.equipment_type === 'battery') || [];
-        const totalPanels = panels.reduce((s, e) => s + e.quantity, 0);
-        const totalBatteries = batteries.reduce((s, e) => s + e.quantity, 0);
+        const ry = y2 + 7;
+        doc.fillColor(brand.text).fontSize(8).font('Helvetica-Bold')
+          .text((proj.name || '').substring(0, 24), colX[0] + 6, ry, { width: colW[0] - 9 });
+        doc.font('Helvetica').fontSize(7.5)
+          .text([proj.city, proj.state].filter(Boolean).join(', '), colX[1] + 3, ry, { width: colW[1] - 6 })
+          .text(String(totalPanels), colX[2] + 3, ry)
+          .text(String(totalBatteries), colX[3] + 3, ry);
 
-        doc.fillColor(COLORS.text).fontSize(8.5).font('Helvetica')
-          .text(proj.name?.substring(0, 22) || 'N/A', 65, yPos + 6, { width: 145 })
-          .text(`${proj.city}, ${proj.state}`, 215, yPos + 6, { width: 90 })
-          .text(totalPanels.toString(), 310, yPos + 6)
-          .text(totalBatteries.toString(), 360, yPos + 6)
-          .text(proj.status?.toUpperCase() || 'ACTIVE', 420, yPos + 6);
+        const statusColor = proj.status === 'active' ? brand.accent
+          : proj.status === 'decommissioned' ? '#B45309' : brand.muted;
+        doc.fillColor(statusColor).fontSize(7).font('Helvetica-Bold')
+          .text((proj.status || '').toUpperCase(), colX[4] + 3, ry, { width: colW[4] - 6 });
 
-        const decommDate = proj.estimated_decommission_date
+        const dDate = proj.estimated_decommission_date
           ? new Date(proj.estimated_decommission_date).toLocaleDateString('en-NG', { year: 'numeric', month: 'short' })
-          : 'Calculating...';
-        doc.text(decommDate, 468, yPos + 6);
+          : 'TBD';
+        doc.fillColor(brand.text).fontSize(7.5).font('Helvetica')
+          .text(dDate, colX[5] + 3, ry, { width: colW[5] - 6 });
 
-        // Silver value if panels exist
-        if (panels.length > 0) {
-          const totalSilver = panels.reduce((s, e) => s + (e.estimated_silver_grams || 0), 0);
-          doc.fontSize(7.5).fillColor(COLORS.accent)
-            .text(`Est. Silver: ${totalSilver.toFixed(2)}g | Route: Formal Hydrometallurgical Recovery`, 65, yPos + 22);
+        if (totalPanels > 0) {
+          doc.fillColor(brand.accent).fontSize(7).font('Helvetica')
+            .text(`Est. Silver: ${totalSilver.toFixed(2)}g  •  Route: Formal Hydrometallurgical Recovery`, colX[0] + 6, y2 + 22, { width: contentW - 12 });
         }
-
-        yPos += 37;
+        doc.rect(L, y2 + rowH - 0.5, contentW, 0.5).fill('#E2E8F0');
+        y2 += rowH;
       });
 
-      // ============================
-      // PAGE 3: SILVER & COMPLIANCE
-      // ============================
+      // ── PAGE 3: SILVER RECOVERY & COMPLIANCE ─────────────────────
       doc.addPage();
+      let y3 = renderPageHeader(
+        doc, brand,
+        'Silver Recovery & Compliance Statement',
+        'Economic Value of Formal End-of-Life Recycling',
+        logoBuffer
+      );
+      y3 += 14;
 
-      doc.rect(0, 0, doc.page.width, 60).fill(COLORS.primary);
-      doc.fillColor('#FFFFFF').fontSize(16).font('Helvetica-Bold')
-        .text('Silver Recovery & Compliance Statement', 60, 20);
-      doc.fontSize(10).font('Helvetica').text('Economic Value of Formal Recycling', 60, 42);
+      doc.fillColor(brand.primary).fontSize(8.5).font('Helvetica-Bold').text('SILVER CONTENT ANALYSIS', L, y3);
+      hRule(doc, L, y3 + 12, contentW, brand.secondary);
+      y3 += 22;
 
-      yPos = 80;
+      doc.fillColor(brand.text).fontSize(9).font('Helvetica')
+        .text(
+          'Silver constitutes ~47% of the reclaimable economic value of crystalline silicon panels despite being only ~0.05% of ' +
+          'panel mass. Projections use a silver content of ~0.35 mg per watt-peak (Wp).',
+          L, y3, { width: contentW, align: 'justify' }
+        );
+      y3 += 36;
 
-      // Silver recovery section
-      doc.fillColor(COLORS.primary).fontSize(13).font('Helvetica-Bold')
-        .text('SILVER CONTENT ANALYSIS', 60, yPos);
-      yPos += 20;
-
-      doc.fontSize(10).font('Helvetica').fillColor(COLORS.text)
-        .text('Based on research and industry data, silver represents approximately 47% of the reclaimable economic value of solar panels, despite constituting only 0.05% of panel mass. The following projections are based on a silver content of ~0.35mg per watt-peak (Wp) for crystalline silicon panels:', 60, yPos, { width: doc.page.width - 120, align: 'justify' });
-
-      yPos += 60;
-
-      // Recovery value table
-      const recoveryData = [
-        ['Total Estimated Silver', `${reportMeta.total_silver_grams?.toFixed(2) || 0}g`, 'Theoretical 100%'],
-        ['Expected Formal Recovery (35%)', `${((reportMeta.total_silver_grams || 0) * 0.35).toFixed(2)}g`, 'At formal recycling'],
-        ['Estimated Recovery Value', `₦${((reportMeta.total_silver_grams || 0) * 0.35 * (reportMeta.silver_price_ngn || 1555)).toLocaleString('en-NG', { maximumFractionDigits: 0 })}`, 'At current silver price'],
-        ['Value Lost to Informal Sector', '~₦0', 'Informal = metal burning'],
+      const silverGrams = reportMeta.total_silver_grams || 0;
+      const silverPrice = reportMeta.silver_price_ngn || 1555;
+      const recoveryRows = [
+        ['Total Estimated Silver',        `${silverGrams.toFixed(2)} g`,    '100% theoretical'],
+        ['Expected Formal Recovery (35%)',`${(silverGrams * 0.35).toFixed(2)} g`, 'Certified recyclers'],
+        ['Estimated Recovery Value',      `₦${(silverGrams * 0.35 * silverPrice).toLocaleString('en-NG', { maximumFractionDigits: 0 })}`, `@ ₦${silverPrice.toLocaleString('en-NG')}/g`],
+        ['Lost to Informal Sector',       '~₦0',                            'Informal = metal burning'],
       ];
-
-      recoveryData.forEach((row, i) => {
-        const rowY = yPos + (i * 35);
-        doc.rect(60, rowY, doc.page.width - 120, 30)
-          .fillAndStroke(i % 2 === 0 ? COLORS.light : '#FFFFFF', '#E2E8F0');
-        doc.fillColor(COLORS.text).fontSize(10).font('Helvetica-Bold')
-          .text(row[0], 75, rowY + 9);
-        doc.font('Helvetica').fillColor(COLORS.accent)
-          .text(row[1], 350, rowY + 9);
-        doc.fillColor(COLORS.muted).fontSize(8.5)
-          .text(row[2], 450, rowY + 10);
+      recoveryRows.forEach((row, i) => {
+        const ry = y3 + i * 34;
+        doc.rect(L, ry, contentW, 30).fillAndStroke(i % 2 === 0 ? brand.light : '#FFFFFF', '#E2E8F0');
+        doc.rect(L, ry, 4, 30).fill(i === 0 ? brand.primary : i === 2 ? brand.secondary : brand.muted);
+        doc.fillColor(brand.text).fontSize(9).font('Helvetica-Bold').text(row[0], L + 12, ry + 9, { width: 230 });
+        doc.fillColor(brand.accent).font('Helvetica-Bold').fontSize(10).text(row[1], L + 250, ry + 9, { width: 130 });
+        doc.fillColor(brand.muted).font('Helvetica').fontSize(7.5).text(row[2], L + 390, ry + 10, { width: contentW - 390 });
       });
-
-      yPos += 160;
+      y3 += 150;
 
       // Compliance declaration
-      doc.rect(60, yPos, doc.page.width - 120, 140)
-        .fillAndStroke('#FFF7ED', COLORS.secondary);
+      doc.rect(L, y3, contentW, 145).fillAndStroke('#FFF7ED', brand.secondary);
+      doc.rect(L, y3, 5, 145).fill(brand.secondary);
+      doc.fillColor(brand.primary).fontSize(10).font('Helvetica-Bold').text('COMPLIANCE DECLARATION', L + 16, y3 + 16);
+      hRule(doc, L + 16, y3 + 32, contentW - 32, brand.secondary);
+      doc.fillColor(brand.text).fontSize(8.5).font('Helvetica')
+        .text(
+          'This organisation hereby declares, under the National Environmental (Battery Control) Regulations 2024 and the ' +
+          'Extended Producer Responsibility (EPR) guidelines administered by NESREA and EPRON, that all solar PV panels and ' +
+          'batteries listed in this report are tracked from installation to end-of-life, and that all decommissioned equipment ' +
+          'will be routed exclusively through EPRON-certified formal recycling channels.',
+          L + 16, y3 + 42, { width: contentW - 32, align: 'justify' }
+        );
 
-      doc.fillColor(COLORS.primary).fontSize(12).font('Helvetica-Bold')
-        .text('COMPLIANCE DECLARATION', 80, yPos + 15);
-      doc.fontSize(9.5).font('Helvetica').fillColor(COLORS.text)
-        .text(`This organization hereby declares, under the National Environmental (Battery Control) Regulations 2024 and the Extended Producer Responsibility (EPR) guidelines administered by NESREA and EPRON, that all solar PV panels and batteries listed in this report are tracked from installation to end-of-life, and that all decommissioned equipment will be routed exclusively through certified formal recycling channels.`, 80, yPos + 40, { width: doc.page.width - 160, align: 'justify' });
-
-      doc.fontSize(9).fillColor(COLORS.muted)
-        .text(`Authorized by: ${company.name}`, 80, yPos + 110)
-        .text(`Date: ${new Date().toLocaleDateString('en-NG')}`, 350, yPos + 110);
-
-      // Footer for all pages
-      const range = doc.bufferedPageRange();
-      for (let i = 0; i < range.count; i++) {
-        doc.switchToPage(range.start + i);
-        doc.rect(0, doc.page.height - 35, doc.page.width, 35).fill(COLORS.primary);
-        doc.fillColor('#FFFFFF').fontSize(7.5)
-          .text(`SolNuv Platform | solnuv.com | Page ${i + 1} of ${range.count} | Generated ${new Date().toLocaleDateString('en-NG')}`, 60, doc.page.height - 22, { align: 'center' });
+      const sigY = y3 + 100;
+      if (sigBuffer) {
+        try { doc.image(sigBuffer, L + 16, sigY - 28, { height: 28, fit: [110, 28] }); } catch { /* skip */ }
       }
+      hRule(doc, L + 16, sigY, 150, brand.muted);
+      doc.fillColor(brand.muted).fontSize(7.5).font('Helvetica')
+        .text(`Authorised by: ${company?.name || '—'}`, L + 16, sigY + 5);
+      hRule(doc, L + 316, sigY, 150, brand.muted);
+      doc.text(`Date: ${new Date().toLocaleDateString('en-NG')}`, L + 316, sigY + 5);
+
+      const totalPages = doc.bufferedPageRange().count;
+      renderFooters(doc, brand, totalPages);
 
       doc.end();
     } catch (err) {
@@ -276,153 +373,178 @@ async function generateNesreaReport(company, projects, reportMeta) {
 /**
  * Generate individual project Cradle-to-Grave Certificate
  * @param {object} project
- * @param {object} company
+ * @param {object} company  (must include logo_url, branding_primary_color, company_signature_url)
  * @param {Array}  history  - project_history rows (oldest first)
  */
 async function generateCradleToGraveCertificate(project, company, history = []) {
+  const brand = buildBrand(company);
+  const [logoBuffer, sigBuffer] = await Promise.all([
+    fetchImageBuffer(company?.logo_url),
+    fetchImageBuffer(company?.company_signature_url),
+  ]);
+
   return new Promise((resolve, reject) => {
     try {
-      const doc = new PDFDocument({ size: 'A4', margins: { top: 60, bottom: 60, left: 70, right: 70 }, bufferPages: true });
+      const doc = new PDFDocument({
+        size: 'A4',
+        margins: { top: 55, bottom: 55, left: 65, right: 65 },
+        bufferPages: true,
+      });
       const buffers = [];
       doc.on('data', buffers.push.bind(buffers));
       doc.on('end', () => resolve(Buffer.concat(buffers)));
 
-      // Certificate border
-      doc.rect(30, 30, doc.page.width - 60, doc.page.height - 60).stroke(COLORS.primary);
-      doc.rect(35, 35, doc.page.width - 70, doc.page.height - 70).stroke(COLORS.secondary);
+      const W = doc.page.width;
+      const L = 65;
+      const contentW = W - 2 * L;
+      const certNumber = `SNV-${(project.id || '').substring(0, 8).toUpperCase()}-${new Date().getFullYear()}`;
 
-      // Header
-      doc.fillColor(COLORS.primary).fontSize(24).font('Helvetica-Bold')
-        .text('CERTIFICATE OF COMPLIANCE', 0, 80, { align: 'center' });
-      doc.fontSize(14).fillColor(COLORS.secondary)
-        .text('Cradle-to-Grave Solar Equipment Traceability', 0, 112, { align: 'center' });
-      doc.fontSize(9).fillColor(COLORS.muted)
-        .text('Issued under NESREA EPR Framework & National Environmental (Battery Control) Regulations 2024', 0, 135, { align: 'center' });
+      // Outer decorative border
+      doc.rect(25, 25, W - 50, doc.page.height - 50).stroke(brand.primary);
+      doc.rect(30, 30, W - 60, doc.page.height - 60).stroke(brand.secondary);
+      doc.rect(30, 30, W - 60, 6).fill(brand.secondary); // gold top band
 
-      doc.rect(70, 155, doc.page.width - 140, 2).fill(COLORS.secondary);
+      // Company logo centred above title
+      let logoRenderH = 0;
+      if (logoBuffer) {
+        try {
+          const logoW = 90;
+          doc.image(logoBuffer, (W - logoW) / 2, 50, { width: logoW, fit: [logoW, 50] });
+          logoRenderH = 58;
+        } catch { /* skip */ }
+      }
 
-      // Certificate body
-      doc.fillColor(COLORS.text).fontSize(12).font('Helvetica-Bold')
-        .text('This certifies that:', 70, 175);
-      doc.fontSize(16).fillColor(COLORS.primary)
-        .text(company.name?.toUpperCase(), 70, 198, { align: 'center' });
+      const titleY = 52 + logoRenderH;
+      doc.fillColor(brand.primary).fontSize(20).font('Helvetica-Bold')
+        .text('CERTIFICATE OF COMPLIANCE', 0, titleY, { align: 'center' });
+      doc.fillColor(brand.secondary).fontSize(11).font('Helvetica-Bold')
+        .text('Cradle-to-Grave Solar Equipment Traceability', 0, titleY + 26, { align: 'center' });
+      doc.fillColor(brand.muted).fontSize(7.5).font('Helvetica')
+        .text('Issued under NESREA EPR Framework & National Environmental (Battery Control) Regulations 2024',
+          0, titleY + 44, { align: 'center' });
 
-      doc.fontSize(11).font('Helvetica').fillColor(COLORS.text)
-        .text('has registered and is tracking the following solar installation in compliance with Nigerian environmental regulations:', 70, 230, { align: 'center', width: doc.page.width - 140 });
+      hRule(doc, L, titleY + 60, contentW, brand.secondary);
+
+      let y = titleY + 74;
+      doc.fillColor(brand.muted).fontSize(9).font('Helvetica')
+        .text('This certifies that:', L, y, { align: 'center', width: contentW });
+      y += 18;
+      doc.fillColor(brand.primary).fontSize(15).font('Helvetica-Bold')
+        .text((company?.name || '—').toUpperCase(), L, y, { align: 'center', width: contentW });
+      y += 24;
+      doc.fillColor(brand.text).fontSize(8.5).font('Helvetica')
+        .text('has registered and is actively tracking the following solar installation in compliance with Nigerian environmental law:',
+          L, y, { align: 'center', width: contentW });
+      y += 24;
 
       // Project details box
-      doc.rect(70, 268, doc.page.width - 140, 200).fillAndStroke(COLORS.light, '#E2E8F0');
+      doc.rect(L, y, contentW, 198).fillAndStroke(brand.light, '#CBD5E1');
+      doc.rect(L, y, 5, 198).fill(brand.secondary);
 
-      const details = [
-        ['Project Name', project.name],
-        ['Location', `${project.city}, ${project.state}`],
-        ['Installation Date', new Date(project.installation_date).toLocaleDateString('en-NG', { year: 'numeric', month: 'long', day: 'numeric' })],
-        ['Est. Decommission (West African Adjusted)', project.estimated_decommission_date ? new Date(project.estimated_decommission_date).toLocaleDateString('en-NG', { year: 'numeric', month: 'long' }) : 'Pending Calculation'],
-        ['Total Panels', `${project.equipment?.filter(e => e.equipment_type === 'panel').reduce((s, e) => s + e.quantity, 0) || 0} panels`],
-        ['Total Batteries', `${project.equipment?.filter(e => e.equipment_type === 'battery').reduce((s, e) => s + e.quantity, 0) || 0} units`],
-        ['Intended Recycling Route', 'Certified Formal Hydrometallurgical Recovery'],
+      const panels = (project.equipment || []).filter(e => e.equipment_type === 'panel');
+      const batteries = (project.equipment || []).filter(e => e.equipment_type === 'battery');
+      const detailItems = [
+        ['Project Name',     project.name || '—'],
+        ['Location',         [project.city, project.state].filter(Boolean).join(', ') || '—'],
+        ['Installation Date', project.installation_date
+          ? new Date(project.installation_date).toLocaleDateString('en-NG', { year: 'numeric', month: 'long', day: 'numeric' })
+          : '—'],
+        ['Est. Decommission (West African Adjusted)', project.estimated_decommission_date
+          ? new Date(project.estimated_decommission_date).toLocaleDateString('en-NG', { year: 'numeric', month: 'long' })
+          : 'Pending Calculation'],
+        ['Total Solar Panels', `${panels.reduce((s, e) => s + (e.quantity || 0), 0)} panels`],
+        ['Total Batteries',    `${batteries.reduce((s, e) => s + (e.quantity || 0), 0)} units`],
+        ['Recycling Route',    'EPRON-Certified Formal Hydrometallurgical Recovery'],
       ];
 
-      details.forEach((item, i) => {
-        doc.fontSize(9.5).font('Helvetica-Bold').fillColor(COLORS.muted)
-          .text(item[0] + ':', 90, 282 + (i * 26));
-        doc.font('Helvetica').fillColor(COLORS.text)
-          .text(item[1] || 'N/A', 300, 282 + (i * 26));
+      detailItems.forEach(([label, value], i) => {
+        const itemY = y + 14 + i * 25;
+        doc.fillColor(brand.muted).fontSize(7.5).font('Helvetica-Bold').text(label + ':', L + 16, itemY, { width: 220 });
+        doc.fillColor(brand.text).font('Helvetica').fontSize(8.5).text(String(value), L + 245, itemY, { width: contentW - 254 });
       });
+      y += 210;
 
-      // Certificate number
-      const certNumber = `SNV-${project.id.substring(0, 8).toUpperCase()}-${new Date().getFullYear()}`;
-      doc.fillColor(COLORS.primary).fontSize(10).font('Helvetica-Bold')
-        .text(`Certificate No: ${certNumber}`, 70, 490, { align: 'center' });
-
-      doc.rect(70, 510, doc.page.width - 140, 2).fill(COLORS.secondary);
+      doc.fillColor(brand.primary).fontSize(9).font('Helvetica-Bold')
+        .text(`Certificate No: ${certNumber}`, L, y, { align: 'center', width: contentW });
+      y += 15;
+      hRule(doc, L, y, contentW, brand.secondary);
+      y += 14;
 
       // Signature area
-      doc.fontSize(10).font('Helvetica').fillColor(COLORS.text)
-        .text('SolNuv Compliance Engine', 70, 530, { align: 'center' });
-      doc.fontSize(8.5).fillColor(COLORS.muted)
-        .text(`Issued: ${new Date().toLocaleDateString('en-NG')} | Valid for the declared project lifecycle`, 70, 548, { align: 'center' });
+      const sigLineY = y + 30;
+      if (sigBuffer) {
+        try { doc.image(sigBuffer, L + 10, y, { height: 28, fit: [120, 28] }); } catch { /* skip */ }
+      }
+      hRule(doc, L + 10, sigLineY, 140, brand.muted);
+      doc.fillColor(brand.muted).fontSize(7.5).font('Helvetica')
+        .text(company?.name || 'Authorised Signatory', L + 10, sigLineY + 5, { width: 140 });
 
-      doc.fontSize(7.5).fillColor(COLORS.muted)
-        .text('This certificate is system-generated by SolNuv (solnuv.com) and represents a declaration of compliance under Nigerian law. Verify at solnuv.com/verify/' + certNumber, 70, 575, { align: 'center', width: doc.page.width - 140 });
+      const sealX = L + contentW - 150;
+      hRule(doc, sealX, sigLineY, 140, brand.muted);
+      doc.text('SolNuv Compliance Engine', sealX, sigLineY + 5, { width: 140 });
+      doc.text(`Issued: ${new Date().toLocaleDateString('en-NG')}`, sealX, sigLineY + 16, { width: 140 });
+      y = sigLineY + 30;
 
-      // ============================
-      // PAGE 2: PROJECT HISTORY APPENDIX
-      // ============================
+      doc.fillColor(brand.muted).fontSize(6.5)
+        .text(`Verify this certificate at: solnuv.com/verify/${certNumber}`, L, y, { align: 'center', width: contentW });
+
+      doc.rect(30, doc.page.height - 36, W - 60, 6).fill(brand.secondary); // gold bottom band
+
+      // ── PAGE 2: PROJECT HISTORY APPENDIX ─────────────────────────
       if (history && history.length > 0) {
         doc.addPage();
-
-        doc.rect(0, 0, doc.page.width, 55).fill(COLORS.primary);
-        doc.fillColor('#FFFFFF').fontSize(16).font('Helvetica-Bold')
-          .text('Project History — Appendix', 70, 18);
-        doc.fontSize(9).font('Helvetica')
-          .text(`${project.name} | ${history.length} event${history.length !== 1 ? 's' : ''}`, 70, 40);
+        let hy = renderPageHeader(
+          doc, brand,
+          'Project History — Appendix',
+          `${project.name || '—'}  •  ${history.length} event${history.length !== 1 ? 's' : ''}`,
+          logoBuffer
+        );
+        hy += 10;
 
         const CHANGE_LABELS = {
-          project_created: 'Created',
-          project_updated: 'Updated',
-          equipment_added: 'Equipment Added',
+          project_created:   'Created',
+          project_updated:   'Updated',
+          equipment_added:   'Equipment Added',
           equipment_updated: 'Equipment Updated',
           equipment_removed: 'Equipment Removed',
         };
 
-        let hy = 75;
-
-        // Table header
-        doc.rect(70, hy, doc.page.width - 140, 22).fill('#1E293B');
-        doc.fillColor('#FFFFFF').fontSize(8).font('Helvetica-Bold')
-          .text('Date', 75, hy + 7)
-          .text('Event', 175, hy + 7)
-          .text('Stage', 290, hy + 7)
-          .text('Summary', 350, hy + 7)
-          .text('By', 490, hy + 7);
+        const hCols = [L, L + 100, L + 200, L + 270, L + 360];
+        const hColW = [95, 95, 65, 88, contentW - (hCols[4] - L)];
+        doc.rect(L, hy, contentW, 22).fill('#1E293B');
+        ['Date', 'Event', 'Stage', 'Summary', 'By'].forEach((h, i) => {
+          doc.fillColor('#FFFFFF').fontSize(7.5).font('Helvetica-Bold')
+            .text(h, hCols[i] + 4, hy + 7, { width: hColW[i] - 8 });
+        });
         hy += 22;
 
         history.forEach((entry, idx) => {
           if (hy > doc.page.height - 80) {
             doc.addPage();
-            hy = 60;
+            hy = renderPageHeader(doc, brand, 'Project History (cont.)', null, logoBuffer) + 10;
           }
-
-          const rowH = 28;
-          const bg = idx % 2 === 0 ? COLORS.light : '#FFFFFF';
-          doc.rect(70, hy, doc.page.width - 140, rowH).fillAndStroke(bg, '#E2E8F0');
+          const rowH = 26;
+          doc.rect(L, hy, contentW, rowH).fill(idx % 2 === 0 ? brand.light : '#FFFFFF');
+          doc.rect(L, hy + rowH - 0.5, contentW, 0.5).fill('#E2E8F0');
 
           const dateStr = entry.created_at
             ? new Date(entry.created_at).toLocaleDateString('en-NG', { year: 'numeric', month: 'short', day: 'numeric' })
-            : 'N/A';
-
+            : '—';
           const label = CHANGE_LABELS[entry.change_type] || entry.change_type || '';
-          const labelColor =
-            entry.change_type === 'project_created' ? COLORS.accent :
-            entry.change_type === 'equipment_removed' ? '#B91C1C' :
-            COLORS.primary;
+          const labelColor = entry.change_type === 'project_created' ? brand.accent
+            : entry.change_type === 'equipment_removed' ? '#B91C1C' : brand.primary;
 
-          doc.fillColor(COLORS.muted).fontSize(7.5).font('Helvetica')
-            .text(dateStr, 75, hy + 9, { width: 95 });
-          doc.fillColor(labelColor).font('Helvetica-Bold')
-            .text(label, 175, hy + 9, { width: 110 });
-          doc.fillColor(COLORS.muted).font('Helvetica')
-            .text((entry.project_stage || '').toUpperCase(), 290, hy + 9, { width: 55 });
-          doc.fillColor(COLORS.text)
-            .text((entry.change_summary || '').substring(0, 60), 350, hy + 9, { width: 135 });
-          doc.fillColor(COLORS.muted)
-            .text((entry.actor_name || '').substring(0, 18), 490, hy + 9, { width: 70 });
-
+          doc.fillColor(brand.muted).fontSize(7.5).font('Helvetica').text(dateStr, hCols[0] + 4, hy + 8, { width: hColW[0] - 8 });
+          doc.fillColor(labelColor).font('Helvetica-Bold').text(label, hCols[1] + 4, hy + 8, { width: hColW[1] - 8 });
+          doc.fillColor(brand.muted).font('Helvetica').text((entry.project_stage || '').toUpperCase(), hCols[2] + 4, hy + 8, { width: hColW[2] - 8 });
+          doc.fillColor(brand.text).text((entry.change_summary || '').substring(0, 55), hCols[3] + 4, hy + 8, { width: hColW[3] - 8 });
+          doc.fillColor(brand.muted).text((entry.actor_name || '').substring(0, 20), hCols[4] + 4, hy + 8, { width: hColW[4] - 8 });
           hy += rowH;
         });
       }
 
-      // Footer on all pages
-      const range2 = doc.bufferedPageRange();
-      for (let i = 0; i < range2.count; i++) {
-        doc.switchToPage(range2.start + i);
-        doc.rect(0, doc.page.height - 30, doc.page.width, 30).fill(COLORS.primary);
-        doc.fillColor('#FFFFFF').fontSize(7.5)
-          .text(`SolNuv Platform | solnuv.com | Page ${i + 1} of ${range2.count} | Generated ${new Date().toLocaleDateString('en-NG')}`,
-            70, doc.page.height - 18, { align: 'center' });
-      }
-
+      const totalPages = doc.bufferedPageRange().count;
+      renderFooters(doc, brand, totalPages);
       doc.end();
     } catch (err) {
       reject(err);
@@ -433,73 +555,90 @@ async function generateCradleToGraveCertificate(project, company, history = []) 
 /**
  * Generate localized hybrid ROI proposal PDF
  */
-async function generateProposalPdf(payload, result) {
+async function generateProposalPdf(payload, result, company = null) {
+  const brand = buildBrand(company);
+  const logoBuffer = await fetchImageBuffer(company?.logo_url);
+
   return new Promise((resolve, reject) => {
     try {
-      const doc = new PDFDocument({ size: 'A4', margins: { top: 50, bottom: 50, left: 55, right: 55 } });
+      const doc = new PDFDocument({
+        size: 'A4',
+        margins: { top: 50, bottom: 50, left: 55, right: 55 },
+        bufferPages: true,
+      });
+
       const buffers = [];
       doc.on('data', buffers.push.bind(buffers));
       doc.on('end', () => resolve(Buffer.concat(buffers)));
 
-      const title = 'Hybrid Solar Proposal & ROI Summary';
-      const generated = new Date().toLocaleString('en-NG');
-
-      doc.rect(0, 0, doc.page.width, 80).fill(COLORS.primary);
-      doc.fillColor('#FFFFFF').fontSize(20).font('Helvetica-Bold')
-        .text(title, 55, 25);
-      doc.fontSize(9).font('Helvetica')
-        .text(`Generated: ${generated}`, 55, 55);
-
-      let y = 95;
-      doc.fillColor(COLORS.text).fontSize(11).font('Helvetica-Bold')
-        .text('Assumptions', 55, y);
+      const W = doc.page.width;
+      const L = 60;
+      const contentW = W - 2 * L;
+      let y = renderPageHeader(
+        doc, brand,
+        'Hybrid Solar ROI Proposal',
+        `Prepared: ${new Date().toLocaleDateString('en-NG')}`,
+        logoBuffer
+      );
       y += 18;
 
+      doc.fillColor(brand.primary).fontSize(9).font('Helvetica-Bold').text('SYSTEM ASSUMPTIONS', L, y);
+      hRule(doc, L, y + 12, contentW, brand.secondary);
+      y += 22;
+
       const rows = [
-        ['Tariff Band', String(payload.tariff_band || 'A')],
-        ['Tariff Rate', `N${Number(payload.tariff_rate_ngn_per_kwh || 0).toLocaleString('en-NG')}/kWh`],
-        ['Generator Fuel Price', `N${Number(payload.generator_fuel_price_ngn_per_liter || 0).toLocaleString('en-NG')}/L`],
-        ['Grid Offset', `${Number(payload.projected_grid_kwh_offset_per_day || 0).toLocaleString('en-NG')} kWh/day`],
-        ['Generator Offset', `${Number(payload.projected_generator_liters_offset_per_day || 0).toLocaleString('en-NG')} L/day`],
-        ['Solar CAPEX', `N${Number(payload.proposed_solar_capex_ngn || 0).toLocaleString('en-NG')}`],
-        ['Annual O&M', `N${Number(payload.annual_om_cost_ngn || 0).toLocaleString('en-NG')}`],
+        ['Tariff Band',          String(payload.tariff_band || 'A')],
+        ['Tariff Rate',          `₦${Number(payload.tariff_rate_ngn_per_kwh || 0).toLocaleString('en-NG')}/kWh`],
+        ['Generator Fuel Price', `₦${Number(payload.generator_fuel_price_ngn_per_liter || 0).toLocaleString('en-NG')}/L`],
+        ['Grid Offset',          `${Number(payload.projected_grid_kwh_offset_per_day || 0).toLocaleString('en-NG')} kWh/day`],
+        ['Generator Offset',     `${Number(payload.projected_generator_liters_offset_per_day || 0).toLocaleString('en-NG')} L/day`],
+        ['Solar CAPEX',          `₦${Number(payload.proposed_solar_capex_ngn || 0).toLocaleString('en-NG')}`],
+        ['Annual O&M',           `₦${Number(payload.annual_om_cost_ngn || 0).toLocaleString('en-NG')}`],
       ];
 
       rows.forEach((r, i) => {
-        const rowY = y + (i * 24);
-        doc.rect(55, rowY, doc.page.width - 110, 22).fill(i % 2 === 0 ? COLORS.light : '#FFFFFF');
-        doc.fillColor(COLORS.muted).fontSize(9).font('Helvetica-Bold').text(r[0], 65, rowY + 7);
-        doc.fillColor(COLORS.text).font('Helvetica').text(r[1], 270, rowY + 7);
+        const ry = y + i * 24;
+        doc.rect(L, ry, contentW, 22).fill(i % 2 === 0 ? brand.light : '#FFFFFF');
+        doc.rect(L, ry, 3, 22).fill(brand.secondary);
+        doc.fillColor(brand.muted).fontSize(8.5).font('Helvetica-Bold').text(r[0], L + 12, ry + 7);
+        doc.fillColor(brand.text).font('Helvetica').text(r[1], L + 250, ry + 7);
       });
 
-      y += (rows.length * 24) + 20;
-      doc.fillColor(COLORS.text).fontSize(11).font('Helvetica-Bold').text('Investment Metrics', 55, y);
-      y += 20;
+      y += rows.length * 24 + 18;
+      doc.fillColor(brand.primary).fontSize(9).font('Helvetica-Bold').text('INVESTMENT METRICS', L, y);
+      hRule(doc, L, y + 12, contentW, brand.secondary);
+      y += 22;
 
       const metricCards = [
-        { label: 'Payback', value: `${result?.investment_metrics?.payback_months ?? '-'} months` },
-        { label: 'Annual Net Savings', value: `N${Number(result?.annual_savings?.net_ngn || 0).toLocaleString('en-NG')}` },
-        { label: '10-Year Net Savings', value: `N${Number(result?.investment_metrics?.ten_year_net_savings_ngn || 0).toLocaleString('en-NG')}` },
-        { label: '10-Year ROI', value: `${result?.investment_metrics?.ten_year_roi_pct ?? 0}%` },
+        { label: 'Payback Period',     value: `${result?.investment_metrics?.payback_months ?? '—'} months` },
+        { label: 'Annual Net Savings', value: `₦${Number(result?.annual_savings?.net_ngn || 0).toLocaleString('en-NG')}` },
+        { label: '10-Year Net Savings',value: `₦${Number(result?.investment_metrics?.ten_year_net_savings_ngn || 0).toLocaleString('en-NG')}` },
+        { label: '10-Year ROI',        value: `${result?.investment_metrics?.ten_year_roi_pct ?? 0}%` },
       ];
 
+      const cardHalf = Math.floor((contentW - 8) / 2);
       metricCards.forEach((m, i) => {
-        const x = 55 + ((i % 2) * 250);
-        const yy = y + (Math.floor(i / 2) * 80);
-        doc.rect(x, yy, 235, 70).fillAndStroke('#F8FAFC', '#E2E8F0');
-        doc.fillColor(COLORS.muted).fontSize(8).font('Helvetica-Bold').text(m.label, x + 12, yy + 12);
-        doc.fillColor(COLORS.primary).fontSize(16).font('Helvetica-Bold').text(m.value, x + 12, yy + 32, { width: 210 });
+        const cx = L + (i % 2) * (cardHalf + 8);
+        const cy = y + Math.floor(i / 2) * 78;
+        doc.rect(cx, cy, cardHalf, 70).fillAndStroke('#F8FAFC', '#E2E8F0');
+        doc.rect(cx, cy, cardHalf, 4).fill(i % 2 === 0 ? brand.primary : brand.secondary);
+        doc.fillColor(brand.muted).fontSize(7.5).font('Helvetica-Bold').text(m.label, cx + 10, cy + 14);
+        doc.fillColor(brand.primary).fontSize(16).font('Helvetica-Bold').text(m.value, cx + 10, cy + 30, { width: cardHalf - 20 });
       });
 
-      y += 180;
-      doc.rect(55, y, doc.page.width - 110, 100).fillAndStroke('#ECFDF5', '#A7F3D0');
-      doc.fillColor(COLORS.primary).fontSize(10).font('Helvetica-Bold').text('Proposal Notes', 70, y + 15);
-      doc.fillColor(COLORS.text).fontSize(9).font('Helvetica')
-        .text('This estimate is localized for African hybrid energy conditions, combining NERC tariff exposure and generator fuel displacement. Final economics depend on site load profile, component selection, and installation quality.', 70, y + 35, { width: doc.page.width - 140, align: 'justify' });
+      y += 168;
+      doc.rect(L, y, contentW, 80).fillAndStroke('#ECFDF5', '#A7F3D0');
+      doc.rect(L, y, 4, 80).fill(brand.accent);
+      doc.fillColor(brand.primary).fontSize(9).font('Helvetica-Bold').text('Proposal Notes', L + 14, y + 14);
+      doc.fillColor(brand.text).fontSize(8).font('Helvetica')
+        .text(
+          'This estimate is localised for African hybrid energy conditions, combining NERC tariff exposure and generator fuel ' +
+          'displacement. Final economics depend on site load profile, component selection, and installation quality.',
+          L + 14, y + 32, { width: contentW - 28, align: 'justify' }
+        );
 
-      doc.rect(0, doc.page.height - 35, doc.page.width, 35).fill(COLORS.primary);
-      doc.fillColor('#FFFFFF').fontSize(8).text('Generated by SolNuv Proposal Engine', 55, doc.page.height - 22);
-
+      const totalPages = doc.bufferedPageRange().count;
+      renderFooters(doc, brand, totalPages);
       doc.end();
     } catch (error) {
       reject(error);
@@ -508,76 +647,99 @@ async function generateProposalPdf(payload, result) {
 }
 
 /**
- * Generate cable compliance certificate PDF
+ * Generate DC cable sizing compliance certificate PDF
+ * @param {object} payload   - Sizing inputs
+ * @param {object} result    - Sizing outputs
+ * @param {object} company   - Optional company for branding
  */
-async function generateCableComplianceCertificate(payload, result) {
+async function generateCableComplianceCertificate(payload, result, company = null) {
+  const brand = buildBrand(company);
+  const logoBuffer = await fetchImageBuffer(company?.logo_url);
+
   return new Promise((resolve, reject) => {
     try {
-      const doc = new PDFDocument({ size: 'A4', margins: { top: 50, bottom: 50, left: 60, right: 60 } });
+      const doc = new PDFDocument({
+        size: 'A4',
+        margins: { top: 50, bottom: 50, left: 60, right: 60 },
+        bufferPages: true,
+      });
       const buffers = [];
       doc.on('data', buffers.push.bind(buffers));
       doc.on('end', () => resolve(Buffer.concat(buffers)));
 
+      const W = doc.page.width;
+      const L = 60;
+      const contentW = W - 2 * L;
       const certRef = `CC-${Date.now()}`;
 
-      doc.rect(0, 0, doc.page.width, 90).fill(COLORS.primary);
-      doc.fillColor('#FFFFFF').fontSize(18).font('Helvetica-Bold')
-        .text('DC Cable Sizing Compliance Certificate', 60, 30);
-      doc.fontSize(9).font('Helvetica')
-        .text(`Certificate Ref: ${certRef}`, 60, 58)
-        .text(`Date: ${new Date().toLocaleDateString('en-NG')}`, 430, 58);
+      let y = renderPageHeader(
+        doc, brand,
+        'DC Cable Sizing Compliance Certificate',
+        `Certificate Ref: ${certRef}  •  Date: ${new Date().toLocaleDateString('en-NG')}`,
+        logoBuffer
+      );
+      y += 14;
 
-      let y = 115;
       const inputs = [
-        ['Current', `${payload.current_amps} A`],
-        ['One-way Length', `${payload.one_way_length_m} m`],
-        ['System Voltage', `${payload.system_voltage_v} V`],
+        ['Current',                `${payload.current_amps} A`],
+        ['One-way Length',         `${payload.one_way_length_m} m`],
+        ['System Voltage',         `${payload.system_voltage_v} V`],
         ['Allowable Voltage Drop', `${payload.allowable_voltage_drop_pct || 3}%`],
-        ['Conductor Material', `${payload.conductor_material || 'copper'}`],
-        ['Ambient Temperature', `${payload.ambient_temperature_c || 30} C`],
+        ['Conductor Material',     `${payload.conductor_material || 'Copper'}`],
+        ['Ambient Temperature',    `${payload.ambient_temperature_c || 30}°C`],
       ];
 
-      doc.fillColor(COLORS.text).fontSize(11).font('Helvetica-Bold').text('Input Parameters', 60, y);
-      y += 20;
+      doc.fillColor(brand.primary).fontSize(9).font('Helvetica-Bold').text('INPUT PARAMETERS', L, y);
+      hRule(doc, L, y + 12, contentW, brand.secondary);
+      y += 22;
+
       inputs.forEach((item, i) => {
-        const rowY = y + (i * 22);
-        doc.rect(60, rowY, doc.page.width - 120, 20).fill(i % 2 === 0 ? COLORS.light : '#FFFFFF');
-        doc.fillColor(COLORS.muted).fontSize(9).font('Helvetica-Bold').text(item[0], 72, rowY + 6);
-        doc.fillColor(COLORS.text).font('Helvetica').text(item[1], 300, rowY + 6);
+        const ry = y + i * 22;
+        doc.rect(L, ry, contentW, 20).fill(i % 2 === 0 ? brand.light : '#FFFFFF');
+        doc.rect(L, ry, 3, 20).fill(brand.secondary);
+        doc.fillColor(brand.muted).fontSize(8.5).font('Helvetica-Bold').text(item[0], L + 12, ry + 6);
+        doc.fillColor(brand.text).font('Helvetica').text(item[1], L + 265, ry + 6);
       });
 
-      y += (inputs.length * 22) + 25;
-      doc.fillColor(COLORS.text).fontSize(11).font('Helvetica-Bold').text('Computed Outputs', 60, y);
-      y += 20;
+      y += inputs.length * 22 + 18;
 
       const cal = result?.calculations || {};
       const outputs = [
-        ['Required Area', `${cal.required_area_mm2 ?? '-'} mm2`],
-        ['Recommended Standard', `${cal.recommended_standard_mm2 ?? '-'} mm2`],
-        ['Predicted Voltage Drop', `${cal.predicted_voltage_drop_v ?? '-'} V`],
-        ['Predicted Drop Percentage', `${cal.predicted_voltage_drop_pct ?? '-'}%`],
-        ['Compliance Status', cal.compliant ? 'PASS' : 'FAIL'],
+        ['Required Cross-Sectional Area',  `${cal.required_area_mm2 ?? '—'} mm²`],
+        ['Recommended Standard Size',      `${cal.recommended_standard_mm2 ?? '—'} mm²`],
+        ['Predicted Voltage Drop',         `${cal.predicted_voltage_drop_v ?? '—'} V`],
+        ['Predicted Drop Percentage',      `${cal.predicted_voltage_drop_pct ?? '—'}%`],
+        ['Compliance Status',              cal.compliant ? 'PASS ✓' : 'FAIL ✗'],
       ];
 
+      doc.fillColor(brand.primary).fontSize(9).font('Helvetica-Bold').text('COMPUTED OUTPUTS', L, y);
+      hRule(doc, L, y + 12, contentW, brand.secondary);
+      y += 22;
+
       outputs.forEach((item, i) => {
-        const rowY = y + (i * 24);
-        doc.rect(60, rowY, doc.page.width - 120, 22).fill(i % 2 === 0 ? '#F8FAFC' : '#FFFFFF');
-        doc.fillColor(COLORS.muted).fontSize(9).font('Helvetica-Bold').text(item[0], 72, rowY + 7);
-        const statusColor = item[0] === 'Compliance Status'
-          ? (cal.compliant ? '#047857' : '#B91C1C')
-          : COLORS.primary;
-        doc.fillColor(statusColor).font('Helvetica-Bold').text(item[1], 300, rowY + 7);
+        const ry = y + i * 26;
+        doc.rect(L, ry, contentW, 24).fill(i % 2 === 0 ? '#F8FAFC' : '#FFFFFF');
+        const isStatus = item[0] === 'Compliance Status';
+        const statusColor = isStatus ? (cal.compliant ? '#047857' : '#B91C1C') : brand.primary;
+        doc.rect(L, ry, 3, 24).fill(isStatus ? statusColor : brand.muted);
+        doc.fillColor(brand.muted).fontSize(8.5).font('Helvetica-Bold').text(item[0], L + 12, ry + 8);
+        doc.fillColor(statusColor).font('Helvetica-Bold').fontSize(isStatus ? 10 : 9).text(item[1], L + 265, ry + 8);
       });
 
-      y += (outputs.length * 24) + 30;
-      doc.rect(60, y, doc.page.width - 120, 110).fillAndStroke('#FFF7ED', '#FED7AA');
-      doc.fillColor(COLORS.primary).fontSize(10).font('Helvetica-Bold').text('Engineering Statement', 75, y + 14);
-      doc.fillColor(COLORS.text).fontSize(9).font('Helvetica')
-        .text('This certificate documents the DC cable sizing calculation for field installation quality assurance. Validate all final selections against applicable site constraints, insulation ratings, and local code requirements.', 75, y + 34, { width: doc.page.width - 150, align: 'justify' });
+      y += outputs.length * 26 + 18;
 
-      doc.rect(0, doc.page.height - 35, doc.page.width, 35).fill(COLORS.primary);
-      doc.fillColor('#FFFFFF').fontSize(8).text('Generated by SolNuv Field Compliance Engine', 60, doc.page.height - 22);
+      doc.rect(L, y, contentW, 80).fillAndStroke('#FFF7ED', '#FED7AA');
+      doc.rect(L, y, 4, 80).fill(brand.secondary);
+      doc.fillColor(brand.primary).fontSize(9).font('Helvetica-Bold').text('Engineering Statement', L + 14, y + 14);
+      doc.fillColor(brand.text).fontSize(8).font('Helvetica')
+        .text(
+          'This certificate documents the DC cable sizing calculation for field installation quality assurance. Validate all final ' +
+          'selections against applicable site constraints, insulation ratings, and local code requirements.',
+          L + 14, y + 32, { width: contentW - 28, align: 'justify' }
+        );
 
+      const totalPages = doc.bufferedPageRange().count;
+      renderFooters(doc, brand, totalPages);
       doc.end();
     } catch (error) {
       reject(error);
@@ -591,3 +753,6 @@ module.exports = {
   generateProposalPdf,
   generateCableComplianceCertificate,
 };
+
+
+

@@ -200,14 +200,24 @@ function extractExifGPS(file) {
 export default function ProjectDetail() {
   const router = useRouter();
   const { id } = router.query;
-  const { isPro, plan } = useAuth();
+  const { isPro, plan, profile, company } = useAuth();
   const [project, setProject] = useState(null);
   const [loading, setLoading] = useState(true);
   const [deleteModal, setDeleteModal] = useState(false);
   const [recoveryModal, setRecoveryModal] = useState(false);
   const [statusUpdating, setStatusUpdating] = useState(false);
   const [certLoading, setCertLoading] = useState(false);
-  const [recoveryForm, setRecoveryForm] = useState({ preferred_date: '', pickup_address: '', notes: '' });
+  const [recoveryForm, setRecoveryForm] = useState({
+    preferred_date: '',
+    pickup_address: '',
+    notes: '',
+    preferred_recycler: '',
+    contact_name: '',
+    contact_phone: '',
+    contact_email: '',
+    requester_company_name: '',
+    project_summary: '',
+  });
   const [batteryAssets, setBatteryAssets] = useState([]);
   const [assetLoading, setAssetLoading] = useState(false);
   const [assetSubmitting, setAssetSubmitting] = useState(false);
@@ -362,19 +372,30 @@ export default function ProjectDetail() {
 
     try {
       await projectsAPI.requestRecovery(id, recoveryForm);
-      toast.success('Recovery request submitted! We\'ll contact you within 24 hours.');
+      toast.success('Pickup request submitted! Our team will contact you within 24 hours.');
       setRecoveryModal(false);
-      setRecoveryForm({ preferred_date: '', pickup_address: '', notes: '' });
+      setRecoveryForm({
+        preferred_date: '',
+        pickup_address: '',
+        notes: '',
+        preferred_recycler: '',
+        contact_name: '',
+        contact_phone: '',
+        contact_email: '',
+        requester_company_name: '',
+        project_summary: '',
+      });
       setProject(prev => ({
         ...prev,
         status: 'pending_recovery',
         recovery_requests: [{
           id: `temp-${Date.now()}`,
           status: 'requested',
+          decommission_approved: false,
           preferred_date: recoveryForm.preferred_date,
         }, ...(prev?.recovery_requests || [])],
       }));
-    } catch (err) { toast.error(err.response?.data?.message || 'Failed to submit recovery'); }
+    } catch (err) { toast.error(err.response?.data?.message || 'Failed to submit pickup request'); }
   }
 
   async function handleDownloadCertificate() {
@@ -579,28 +600,62 @@ export default function ProjectDetail() {
         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
           <div />
           <div className="flex flex-wrap gap-2">
-            {transitions.map(t => (
-              <button key={t} onClick={() => handleStatusUpdate(t)} disabled={statusUpdating}
-                className={`text-sm px-4 py-2 rounded-xl font-semibold transition-all ${
-                  t === 'recycled' ? 'bg-emerald-600 text-white hover:bg-emerald-700'
-                  : t === 'maintenance' ? 'bg-slate-600 text-white hover:bg-slate-700'
-                  : t === 'active' ? 'bg-forest-900 text-white hover:bg-forest-800'
-                  : 'bg-amber-100 text-amber-800 hover:bg-amber-200'
-                }`}>
-                {statusUpdating ? '...' :
-                  t === 'decommissioned' ? '🔧 Mark Decommissioned' :
-                  t === 'recycled' ? '♻️ Mark Recycled' :
-                  t === 'maintenance' ? '🔩 Mark Maintenance' :
-                  t === 'active' ? '✅ Mark Active' :
-                  `Move to ${t}`
-                }
-              </button>
-            ))}
-            {project.status === 'active' && (
-              <button onClick={() => setRecoveryModal(true)}
+            {transitions.map(t => {
+              if (t === 'decommissioned') {
+                const isApproved = project.recovery_requests?.some(r => r.decommission_approved);
+                return (
+                  <button key={t} onClick={() => {
+                    if (!isApproved) {
+                      toast.error('A pickup request must be approved by SolNuv before marking decommissioned.');
+                      return;
+                    }
+                    handleStatusUpdate(t);
+                  }} disabled={statusUpdating}
+                    className={`text-sm px-4 py-2 rounded-xl font-semibold transition-all ${
+                      isApproved ? 'bg-amber-100 text-amber-800 hover:bg-amber-200' : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                    }`}>
+                    {statusUpdating ? '...' : isApproved ? '🔧 Mark Decommissioned' : '🔒 Decommission (Pickup Required)'}
+                  </button>
+                );
+              }
+              return (
+                <button key={t} onClick={() => handleStatusUpdate(t)} disabled={statusUpdating}
+                  className={`text-sm px-4 py-2 rounded-xl font-semibold transition-all ${
+                    t === 'recycled' ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+                    : t === 'maintenance' ? 'bg-slate-600 text-white hover:bg-slate-700'
+                    : t === 'active' ? 'bg-forest-900 text-white hover:bg-forest-800'
+                    : 'bg-amber-100 text-amber-800 hover:bg-amber-200'
+                  }`}>
+                  {statusUpdating ? '...' :
+                    t === 'recycled' ? '♻️ Mark Recycled' :
+                    t === 'maintenance' ? '🔩 Mark Maintenance' :
+                    t === 'active' ? '✅ Mark Active' :
+                    `Move to ${t}`
+                  }
+                </button>
+              );
+            })}
+            {(project.status === 'active' || project.status === 'maintenance') && !project.recovery_requests?.some(r => ['requested', 'scheduled', 'approved'].includes(r.status)) && (
+              <button onClick={() => {
+                setRecoveryForm(f => ({
+                  ...f,
+                  pickup_address: project.address || `${project.city || ''}, ${project.state || ''}`.trim(),
+                  contact_name: `${profile?.first_name || ''} ${profile?.last_name || ''}`.trim(),
+                  contact_phone: profile?.phone || '',
+                  contact_email: profile?.email || '',
+                  requester_company_name: company?.name || '',
+                  project_summary: `${project.equipment?.filter(e=>e.equipment_type==='panel').reduce((s,e)=>s+e.quantity,0)||0} panels, ${project.equipment?.filter(e=>e.equipment_type==='battery').reduce((s,e)=>s+e.quantity,0)||0} batteries — ${project.capacity_kw ? project.capacity_kw+'kW' : ''}`.trim().replace(/,\s*$/, ''),
+                }));
+                setRecoveryModal(true);
+              }}
                 className="text-sm px-4 py-2 rounded-xl font-semibold bg-forest-900 text-white hover:bg-forest-800 flex items-center gap-1.5">
-                <RiTruckLine /> Request Recovery
+                <RiTruckLine /> Request Pickup & Testing
               </button>
+            )}
+            {project.recovery_requests?.some(r => r.status === 'requested' && !r.decommission_approved) && (
+              <span className="text-sm px-3 py-2 rounded-xl bg-amber-50 text-amber-700 font-medium flex items-center gap-1">
+                ⏳ Awaiting Admin Approval
+              </span>
             )}
             <button onClick={() => setDeleteModal(true)} className="p-2.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors" title="Delete project">
               <RiDeleteBinLine />
@@ -1140,14 +1195,43 @@ export default function ProjectDetail() {
         danger
       />
 
-      {/* Recovery Request Modal */}
+      {/* Pickup & Testing Request Modal */}
       {recoveryModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/40" onClick={() => setRecoveryModal(false)} />
-          <div className="relative bg-white rounded-2xl p-6 max-w-md w-full shadow-xl animate-slide-up">
-            <h3 className="font-display font-bold text-forest-900 text-xl mb-1">Request Recovery</h3>
-            <p className="text-sm text-slate-500 mb-5">Submit a formal recovery request for {project.name}. Our certified partners will contact you within 24 hours.</p>
+          <div className="relative bg-white rounded-2xl p-6 max-w-xl w-full shadow-xl animate-slide-up overflow-y-auto max-h-[90vh]">
+            <h3 className="font-display font-bold text-forest-900 text-xl mb-1">Request Pickup & Testing</h3>
+            <p className="text-sm text-slate-500 mb-5">Submit a formal pickup request for <strong>{project.name}</strong>. Once approved, you can mark the project as decommissioned.</p>
+
+            {/* Auto-populated project info */}
+            <div className="bg-slate-50 rounded-xl p-4 mb-5 space-y-1">
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Project Details (Auto-filled)</p>
+              <p className="text-sm text-slate-700"><span className="font-medium">Project:</span> {project.name} — {project.city}, {project.state}</p>
+              <p className="text-sm text-slate-700"><span className="font-medium">System:</span> {recoveryForm.project_summary || 'N/A'}</p>
+              <p className="text-sm text-slate-700"><span className="font-medium">Company:</span> {recoveryForm.requester_company_name || '—'}</p>
+            </div>
+
             <div className="space-y-4">
+              {/* Contact details (auto-populated, editable) */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="label">Your Name</label>
+                  <input className="input" value={recoveryForm.contact_name}
+                    onChange={e => setRecoveryForm(f => ({ ...f, contact_name: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="label">Your Phone</label>
+                  <input className="input" value={recoveryForm.contact_phone}
+                    onChange={e => setRecoveryForm(f => ({ ...f, contact_phone: e.target.value }))} />
+                </div>
+              </div>
+              <div>
+                <label className="label">Your Email</label>
+                <input className="input" type="email" value={recoveryForm.contact_email}
+                  onChange={e => setRecoveryForm(f => ({ ...f, contact_email: e.target.value }))} />
+              </div>
+
+              {/* Pickup details */}
               <div>
                 <label className="label">Preferred Pickup Date</label>
                 <input type="date" className="input" value={recoveryForm.preferred_date}
@@ -1159,15 +1243,33 @@ export default function ProjectDetail() {
                 <input className="input" placeholder="Where should we collect from?" value={recoveryForm.pickup_address}
                   onChange={e => setRecoveryForm(f => ({ ...f, pickup_address: e.target.value }))} />
               </div>
+
+              {/* Recycler preference */}
+              <div>
+                <label className="label">Preferred Recycling Partner</label>
+                <select className="input" value={recoveryForm.preferred_recycler}
+                  onChange={e => setRecoveryForm(f => ({ ...f, preferred_recycler: e.target.value }))}>
+                  <option value="">Leave decision to SolNuv (recommended)</option>
+                  <option value="ocel">OCEL — Oando Clean Energy Ltd (Solar & Battery)</option>
+                  <option value="e-terra">E-Terra Nigeria</option>
+                  <option value="tara_tinafiri">Tara Tinafiri Recycling</option>
+                  <option value="rabtex">Rabtex Industries</option>
+                </select>
+              </div>
+
               <div>
                 <label className="label">Additional Notes</label>
-                <input className="input" placeholder="Any special instructions..." value={recoveryForm.notes}
+                <textarea className="input min-h-[72px]" placeholder="Access instructions, safety concerns, or any special notes..."
+                  value={recoveryForm.notes}
                   onChange={e => setRecoveryForm(f => ({ ...f, notes: e.target.value }))} />
               </div>
             </div>
-            <div className="flex gap-3 mt-6">
+
+            <p className="text-xs text-slate-400 mt-4">SolNuv will review your request and notify you within 1–2 business days. Decommissioning will be unlocked after admin approval.</p>
+
+            <div className="flex gap-3 mt-5">
               <button onClick={() => setRecoveryModal(false)} className="btn-ghost flex-1">Cancel</button>
-              <button onClick={handleRequestRecovery} className="btn-primary flex-1">Submit Request</button>
+              <button onClick={handleRequestRecovery} className="btn-primary flex-1">Submit Pickup Request</button>
             </div>
           </div>
         </div>

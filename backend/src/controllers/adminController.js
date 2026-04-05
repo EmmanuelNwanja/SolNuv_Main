@@ -767,3 +767,81 @@ exports.adminBulkUpdateProjects = async (req, res) => {
     return sendError(res, 'Failed to bulk update projects', 500);
   }
 };
+
+/**
+ * GET /api/admin/recovery-requests
+ * List pickup/recovery requests — optionally filter by status
+ */
+exports.listRecoveryRequests = async (req, res) => {
+  try {
+    const { status, page = 1, limit = 50 } = req.query;
+    const offset = (parseInt(page, 10) - 1) * parseInt(limit, 10);
+
+    let query = supabase
+      .from('recovery_requests')
+      .select(`
+        *,
+        project:projects(id, name, city, state, status, capacity_kw),
+        requester:users!recovery_requests_user_id_fkey(id, first_name, last_name, email, phone)
+      `, { count: 'exact' })
+      .order('created_at', { ascending: false })
+      .range(offset, offset + parseInt(limit, 10) - 1);
+
+    if (status) {
+      query = query.eq('status', status);
+    }
+
+    const { data, error, count } = await query;
+    if (error) throw error;
+
+    return sendSuccess(res, { requests: data || [], total: count || 0 }, 'Recovery requests retrieved');
+  } catch (error) {
+    logger.error('Admin: Failed to list recovery requests', { message: error.message });
+    return sendError(res, 'Failed to retrieve recovery requests', 500);
+  }
+};
+
+/**
+ * PATCH /api/admin/recovery-requests/:id/approve
+ * Approve decommission — unlocks the user's ability to mark project decommissioned
+ */
+exports.approveDecommission = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { admin_notes } = req.body;
+
+    const { data: existing, error: fetchErr } = await supabase
+      .from('recovery_requests')
+      .select('id, project_id, user_id, decommission_approved')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (fetchErr) throw fetchErr;
+    if (!existing) return sendError(res, 'Recovery request not found', 404);
+    if (existing.decommission_approved) return sendError(res, 'Already approved', 409);
+
+    const { data: updated, error: updateErr } = await supabase
+      .from('recovery_requests')
+      .update({
+        decommission_approved: true,
+        decommission_approved_by: req.user.id,
+        decommission_approved_at: new Date().toISOString(),
+        status: 'approved',
+        admin_notes: admin_notes || null,
+      })
+      .eq('id', id)
+      .select('*, project:projects(id, name), requester:users!recovery_requests_user_id_fkey(id, first_name, last_name, phone, email)')
+      .single();
+
+    if (updateErr) throw updateErr;
+
+    // Notify the project owner
+    const { sendDecommissionApproved } = require('../services/notificationService');
+    sendDecommissionApproved(updated.requester, updated.project).catch(console.error);
+
+    return sendSuccess(res, updated, 'Decommission approved');
+  } catch (error) {
+    logger.error('Admin: Failed to approve decommission', { id: req.params?.id, message: error.message });
+    return sendError(res, 'Failed to approve decommission', 500);
+  }
+};

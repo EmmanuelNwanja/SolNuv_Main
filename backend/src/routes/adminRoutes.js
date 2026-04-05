@@ -31,4 +31,7 @@ router.get('/projects', requireAdminRole('super_admin', 'operations', 'analytics
 router.patch('/projects/bulk', requireAdminRole('super_admin', 'operations'), adminController.adminBulkUpdateProjects);
 router.patch('/projects/:id', requireAdminRole('super_admin', 'operations'), adminController.adminUpdateProject);
 
+router.get('/recovery-requests', requireAdminRole('super_admin', 'operations'), adminController.listRecoveryRequests);
+router.patch('/recovery-requests/:id/approve', requireAdminRole('super_admin', 'operations'), adminController.approveDecommission);
+
 module.exports = router;

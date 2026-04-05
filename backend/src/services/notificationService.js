@@ -25,8 +25,38 @@ async function sendRecoveryConfirmation(user, project) {
   return sendSms({ to: phone, message, channel: 'generic' });
 }
 
+async function notifyAdminOfPickupRequest(project, request) {
+  // Fetch super_admin and operations admin phones to notify
+  const supabase = require('../config/database');
+  const { data: admins } = await supabase
+    .from('admin_users')
+    .select('phone, email')
+    .in('role', ['super_admin', 'operations'])
+    .eq('is_active', true)
+    .limit(5);
+
+  if (!admins || admins.length === 0) return;
+
+  const recyclerLabel = request?.preferred_recycler || 'SolNuv to decide';
+  const message = `SolNuv Admin: New pickup request for project "${project?.name || 'N/A'}" (${request?.requester_company_name || ''}). Preferred recycler: ${recyclerLabel}. Review at solnuv.com/admin.`;
+
+  await Promise.allSettled(
+    admins.filter(a => a.phone).map(a => sendSms({ to: a.phone, message, channel: 'generic' }))
+  );
+}
+
+async function sendDecommissionApproved(user, project) {
+  const phone = user?.phone;
+  if (!phone) return { success: false, reason: 'User phone missing' };
+
+  const message = `SolNuv: Your pickup request for "${project?.name || 'your project'}" has been approved. You may now mark the project as decommissioned from your dashboard.`;
+  return sendSms({ to: phone, message, channel: 'generic' });
+}
+
 module.exports = {
   sendWelcomeNotification,
   sendPaymentConfirmation,
   sendRecoveryConfirmation,
+  notifyAdminOfPickupRequest,
+  sendDecommissionApproved,
 };

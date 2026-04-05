@@ -29,6 +29,7 @@ export const ADMIN_TABS = [
   { id: 'blog', label: 'Blog & Ads', path: '/admin/blog', title: 'Blog & Ads - SolNuv' },
   { id: 'contact', label: 'Contact Inbox', path: '/admin/contact', title: 'Contact Inbox - SolNuv' },
   { id: 'analytics', label: 'Analytics', path: '/admin/analytics', title: 'Platform Analytics - SolNuv' },
+  { id: 'pickup', label: 'Pickup Requests', path: '/admin/pickup', title: 'Pickup Requests - SolNuv' },
 ];
 
 export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
@@ -52,6 +53,8 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
   const [finance, setFinance] = useState(null);
   const [logs, setLogs] = useState([]);
   const [admins, setAdmins] = useState([]);
+  const [recoveryRequests, setRecoveryRequests] = useState([]);
+  const [pickupApprovingId, setPickupApprovingId] = useState(null);
   const [adminUserSearch, setAdminUserSearch] = useState('');
   const [adminUserSearchResults, setAdminUserSearchResults] = useState([]);
   const [adminRoleForm, setAdminRoleForm] = useState({
@@ -94,6 +97,7 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
       push: [],
       logs: [{ key: 'logs', request: adminAPI.getActivityLogs() }],
       admins: [{ key: 'admins', request: adminAPI.listAdmins() }],
+      pickup: [{ key: 'pickup', request: adminAPI.listRecoveryRequests({ status: 'requested' }) }],
     };
 
     const requests = requestsByTab[forcedTab] || requestsByTab.overview;
@@ -122,6 +126,7 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
           if (key === 'finance') setFinance(payload || null);
           if (key === 'logs') setLogs(payload || []);
           if (key === 'admins') setAdmins(payload || []);
+          if (key === 'pickup') setRecoveryRequests(payload?.requests || []);
         });
 
         setLoadWarnings(warnings);
@@ -734,6 +739,90 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* ======================== PICKUP REQUESTS ======================== */}
+      {activeTab === 'pickup' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-bold text-forest-900">Pickup & Decommission Requests</h2>
+            <button className="btn-ghost text-sm" onClick={async () => {
+              const { data } = await adminAPI.listRecoveryRequests({ status: 'requested' });
+              setRecoveryRequests(data?.data?.requests || []);
+            }}>Refresh</button>
+          </div>
+
+          {recoveryRequests.length === 0 ? (
+            <p className="text-slate-500 text-sm">No pending pickup requests.</p>
+          ) : (
+            <div className="space-y-3">
+              {recoveryRequests.map(req => (
+                <div key={req.id} className="bg-white border border-slate-200 rounded-2xl p-5 space-y-3">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="font-semibold text-slate-800">{req.project?.name || 'Unknown Project'}</p>
+                      <p className="text-xs text-slate-500">{req.project?.city}, {req.project?.state} • {req.project?.capacity_kw ? req.project.capacity_kw + ' kW' : ''}</p>
+                      <p className="text-xs text-slate-400 mt-0.5">Requested: {new Date(req.created_at).toLocaleDateString('en-NG')}</p>
+                    </div>
+                    <span className={`text-xs px-2 py-1 rounded-lg font-medium ${
+                      req.decommission_approved ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                    }`}>
+                      {req.decommission_approved ? 'Approved' : 'Pending'}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
+                    <div><span className="text-slate-400">Contact:</span> <span className="text-slate-700">{req.contact_name || req.requester?.first_name} {req.requester?.last_name}</span></div>
+                    <div><span className="text-slate-400">Phone:</span> <span className="text-slate-700">{req.contact_phone || req.requester?.phone || '—'}</span></div>
+                    <div><span className="text-slate-400">Company:</span> <span className="text-slate-700">{req.requester_company_name || '—'}</span></div>
+                    <div><span className="text-slate-400">Preferred Date:</span> <span className="text-slate-700">{req.preferred_date ? new Date(req.preferred_date).toLocaleDateString('en-NG') : '—'}</span></div>
+                    <div><span className="text-slate-400">Recycler:</span> <span className="text-slate-700">{req.preferred_recycler || 'Leave to SolNuv'}</span></div>
+                    <div><span className="text-slate-400">Address:</span> <span className="text-slate-700">{req.pickup_address || '—'}</span></div>
+                  </div>
+
+                  {req.project_summary && (
+                    <p className="text-xs text-slate-500">System: {req.project_summary}</p>
+                  )}
+                  {req.notes && (
+                    <p className="text-xs text-slate-500">Notes: {req.notes}</p>
+                  )}
+
+                  {!req.decommission_approved && (
+                    <div className="pt-2 flex gap-3">
+                      <input
+                        className="input text-sm flex-1"
+                        placeholder="Admin notes (optional)"
+                        id={`notes-${req.id}`}
+                        defaultValue=""
+                      />
+                      <button
+                        disabled={pickupApprovingId === req.id}
+                        onClick={async () => {
+                          setPickupApprovingId(req.id);
+                          try {
+                            const notes = document.getElementById(`notes-${req.id}`)?.value;
+                            await adminAPI.approveDecommission(req.id, { admin_notes: notes });
+                            toast.success('Decommission approved — user notified');
+                            setRecoveryRequests(prev => prev.map(r =>
+                              r.id === req.id ? { ...r, decommission_approved: true, status: 'approved' } : r
+                            ));
+                          } catch (err) {
+                            toast.error(err.response?.data?.message || 'Failed to approve');
+                          } finally {
+                            setPickupApprovingId(null);
+                          }
+                        }}
+                        className="btn-primary text-sm whitespace-nowrap"
+                      >
+                        {pickupApprovingId === req.id ? 'Approving...' : '✅ Approve Decommission'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </AdminRoute>

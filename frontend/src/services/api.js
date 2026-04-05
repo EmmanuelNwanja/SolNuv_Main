@@ -238,6 +238,8 @@ export const adminAPI = {
   listAllProjects: (params) => api.get('/admin/projects', { params }),
   adminBulkUpdateProjects: (projectIds, update) => api.patch('/admin/projects/bulk', { project_ids: projectIds, update }),
   adminUpdateProject: (id, data) => api.patch(`/admin/projects/${id}`, data),
+  listRecoveryRequests: (params) => api.get('/admin/recovery-requests', { params }),
+  approveDecommission: (id, data) => api.patch(`/admin/recovery-requests/${id}/approve`, data || {}),
 };
 
 // ==============================

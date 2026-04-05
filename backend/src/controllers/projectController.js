@@ -444,9 +444,21 @@ exports.updateProject = async (req, res) => {
       if (req.body[field] !== undefined) updateData[field] = req.body[field];
     }
 
-    // If marking as decommissioned
-    if (req.body.status === 'decommissioned' && !req.body.actual_decommission_date) {
-      updateData.actual_decommission_date = new Date().toISOString().split('T')[0];
+    // If marking as decommissioned, require an approved pickup request
+    if (req.body.status === 'decommissioned') {
+      const { data: approvedRequest } = await supabase
+        .from('recovery_requests')
+        .select('id')
+        .eq('project_id', id)
+        .eq('decommission_approved', true)
+        .limit(1)
+        .maybeSingle();
+      if (!approvedRequest) {
+        return sendError(res, 'A pickup request must be approved by SolNuv before marking a project as decommissioned', 403);
+      }
+      if (!req.body.actual_decommission_date) {
+        updateData.actual_decommission_date = new Date().toISOString().split('T')[0];
+      }
     }
 
     // Sanitise status value if provided
@@ -519,7 +531,17 @@ exports.deleteProject = async (req, res) => {
 exports.requestRecovery = async (req, res) => {
   try {
     const { id } = req.params;
-    const { preferred_date, pickup_address, notes } = req.body;
+    const {
+      preferred_date,
+      pickup_address,
+      notes,
+      preferred_recycler,
+      contact_name,
+      contact_phone,
+      contact_email,
+      requester_company_name,
+      project_summary,
+    } = req.body;
 
     if (!pickup_address || !String(pickup_address).trim()) {
       return sendError(res, 'Pickup address is required', 400);
@@ -571,6 +593,12 @@ exports.requestRecovery = async (req, res) => {
         preferred_date,
         pickup_address,
         notes,
+        preferred_recycler: preferred_recycler || null,
+        contact_name: contact_name || null,
+        contact_phone: contact_phone || null,
+        contact_email: contact_email || null,
+        requester_company_name: requester_company_name || null,
+        project_summary: project_summary || null,
         status: 'requested',
       })
       .select()
@@ -581,9 +609,10 @@ exports.requestRecovery = async (req, res) => {
     // Update project status
     await supabase.from('projects').update({ status: 'pending_recovery' }).eq('id', id);
 
-    // Send confirmation notification
-    const { sendRecoveryConfirmation } = require('../services/notificationService');
+    // Notify confirmations
+    const { sendRecoveryConfirmation, notifyAdminOfPickupRequest } = require('../services/notificationService');
     sendRecoveryConfirmation(req.user, project, recovery).catch(console.error);
+    notifyAdminOfPickupRequest(project, recovery).catch(console.error);
 
     return sendSuccess(res, recovery, 'Recovery request submitted', 201);
   } catch (error) {
