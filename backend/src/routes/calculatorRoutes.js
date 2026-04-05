@@ -2,7 +2,7 @@
 const express = require('express');
 const router = express.Router();
 const calculatorController = require('../controllers/calculatorController');
-const { optionalAuth } = require('../middlewares/authMiddleware');
+const { optionalAuth, requireAuth } = require('../middlewares/authMiddleware');
 const { trackCalculatorUsage, getCalculatorUsage } = require('../middlewares/usageMiddleware');
 
 // Usage summary endpoint (requires auth)
@@ -27,5 +27,8 @@ router.post('/cable-size/pdf',    optionalAuth, calculatorController.exportCable
 router.get('/silver-price',  calculatorController.getSilverPrice);
 router.get('/brands',        calculatorController.getBrands);
 router.get('/states',        calculatorController.getStates);
+
+// Custom brand submission — requires authentication
+router.post('/brands/submit', requireAuth, calculatorController.submitBrand);
 
 module.exports = router;

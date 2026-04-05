@@ -77,9 +77,9 @@ exports.createProject = async (req, res) => {
       state, city, address, latitude, longitude,
       installation_date,
       notes,
-      panels = [], // array of { brand, model, size_watts, quantity, condition }
-      batteries = [], // array of { brand, model, capacity_kwh, quantity, condition }
-      inverters = [], // array of { brand, model, power_kw, quantity, condition }
+      panels = [], // array of { brand, model, size_watts, quantity, condition, sourcing_info }
+      batteries = [], // array of { brand, model, capacity_kwh, quantity, condition, sourcing_info }
+      inverters = [], // array of { brand, model, power_kw, quantity, condition, sourcing_info }
     } = req.body;
 
     if (!name) return sendError(res, 'Project name is required', 400);
@@ -148,6 +148,7 @@ exports.createProject = async (req, res) => {
         adjusted_failure_date: degradation.adjusted_failure_date,
         climate_zone: degradation.climate_zone,
         degradation_factor: degradation.degradation_factor,
+        sourcing_info: panel.sourcing_info || null,
       });
     }
 
@@ -162,6 +163,7 @@ exports.createProject = async (req, res) => {
         capacity_kwh: battery.capacity_kwh || null,
         quantity: battery.quantity,
         condition: battery.condition || 'good',
+        sourcing_info: battery.sourcing_info || null,
       });
     }
 
@@ -176,6 +178,7 @@ exports.createProject = async (req, res) => {
         size_watts: inverter.power_kw ? Number(inverter.power_kw) * 1000 : null,
         quantity: inverter.quantity,
         condition: inverter.condition || 'good',
+        sourcing_info: inverter.sourcing_info || null,
       });
     }
 

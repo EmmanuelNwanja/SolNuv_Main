@@ -184,6 +184,7 @@ export const calculatorAPI = {
   exportCableCertificatePdf: (data) => api.post('/calculator/cable-size/pdf', data, { responseType: 'blob' }),
   getSilverPrice: () => api.get('/calculator/silver-price'),
   getBrands: () => api.get('/calculator/brands'),
+  submitBrand: (data) => api.post('/calculator/brands/submit', data),
   getStates: () => api.get('/calculator/states'),
   getUsage: () => api.get('/calculator/usage'),
 };

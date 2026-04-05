@@ -227,8 +227,11 @@ exports.getBrands = async (req, res) => {
     let { data: batteryBrands } = await supabase.from('battery_brands').select('brand, chemistry, is_popular_in_nigeria').order('is_popular_in_nigeria', { ascending: false });
     batteryBrands = mergeBrands(batteryBrands || [], POPULAR_BATTERY_BRANDS);
 
-    // Inverters are new, so use fallback for now
-    const inverterBrands = POPULAR_INVERTER_BRANDS;
+    let { data: dbInverterBrands } = await supabase
+      .from('inverter_brands')
+      .select('brand, is_popular_in_nigeria')
+      .order('is_popular_in_nigeria', { ascending: false });
+    const inverterBrands = mergeBrands(dbInverterBrands || [], POPULAR_INVERTER_BRANDS);
 
     return sendSuccess(res, { 
       panels: panelBrands, 
@@ -237,6 +240,57 @@ exports.getBrands = async (req, res) => {
     });
   } catch (_error) {
     return sendError(res, 'Failed to fetch brands', 500);
+  }
+};
+
+/**
+ * POST /api/calculator/brands/submit
+ * Authenticated — submit a custom OEM brand for panel, battery, or inverter.
+ * Inserts into the appropriate brands table if not already present.
+ */
+exports.submitBrand = async (req, res) => {
+  try {
+    const { brand, equipment_type } = req.body;
+    if (!brand || !String(brand).trim()) return sendError(res, 'brand is required', 400);
+    if (!['panel', 'battery', 'inverter'].includes(equipment_type)) {
+      return sendError(res, 'equipment_type must be panel, battery, or inverter', 400);
+    }
+
+    const cleanBrand = String(brand).trim().slice(0, 255);
+    const tableMap = { panel: 'panel_brands', battery: 'battery_brands', inverter: 'inverter_brands' };
+    const table = tableMap[equipment_type];
+
+    // Check for a case-insensitive duplicate before inserting
+    const { data: existing } = await supabase
+      .from(table)
+      .select('id, brand')
+      .ilike('brand', cleanBrand)
+      .limit(1)
+      .maybeSingle();
+
+    if (existing) {
+      return sendSuccess(res, { brand: existing.brand, existed: true }, 'Brand already exists');
+    }
+
+    const insertPayload = {
+      brand: cleanBrand,
+      is_custom: true,
+      is_popular_in_nigeria: false,
+      submitted_by: req.user?.id || null,
+    };
+
+    const { data: newRow, error } = await supabase
+      .from(table)
+      .insert(insertPayload)
+      .select('brand')
+      .single();
+
+    if (error) throw error;
+
+    return sendSuccess(res, { brand: newRow.brand, existed: false }, 'Brand submitted successfully', 201);
+  } catch (error) {
+    logger.error('Failed to submit custom brand', { message: error.message });
+    return sendError(res, 'Failed to submit brand', 500);
   }
 };
 

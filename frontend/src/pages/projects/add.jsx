@@ -1,10 +1,14 @@
 import Head from 'next/head';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
 import { projectsAPI, calculatorAPI } from '../../services/api';
 import { getDashboardLayout } from '../../components/Layout';
 import { MotionSection } from '../../components/PageMotion';
-import { RiAddLine, RiDeleteBinLine, RiSunLine, RiBatteryLine, RiMapPinLine, RiInformationLine, RiPlugLine, RiCameraLine, RiShieldCheckLine, RiAlertLine } from 'react-icons/ri';
+import {
+  RiAddLine, RiDeleteBinLine, RiSunLine, RiBatteryLine, RiMapPinLine,
+  RiInformationLine, RiPlugLine, RiCameraLine, RiShieldCheckLine,
+  RiAlertLine, RiArrowDownSLine, RiSearchLine, RiShipLine, RiStoreLine,
+} from 'react-icons/ri';
 import toast from 'react-hot-toast';
 import { supabase } from '../../utils/supabase';
 
@@ -23,9 +27,229 @@ const CONDITION_HELP = {
   damaged: 'Non-functional. Requires repair or recycling.'
 };
 
-const defaultPanel = () => ({ brand: 'Jinko Solar', model: '', size_watts: 400, quantity: 1, condition: 'good' });
-const defaultBattery = () => ({ brand: 'Felicity', model: '', capacity_kwh: 2.4, quantity: 1, condition: 'good' });
-const defaultInverter = () => ({ brand: 'Growatt', model: '', power_kw: 5, quantity: 1, condition: 'good' });
+const defaultPanel = () => ({
+  brand: 'Jinko Solar', custom_brand: '', model: '', size_watts: 400, quantity: 1,
+  condition: 'good', sourcing_type: '', sourcing_info: {},
+});
+const defaultBattery = () => ({
+  brand: 'Felicity', custom_brand: '', model: '', capacity_kwh: 2.4, quantity: 1,
+  condition: 'good', sourcing_type: '', sourcing_info: {},
+});
+const defaultInverter = () => ({
+  brand: 'Growatt', custom_brand: '', model: '', power_kw: 5, quantity: 1,
+  condition: 'good', sourcing_type: '', sourcing_info: {},
+});
+
+// ---------------------------------------------------------------------------
+// BrandSearchSelect — searchable OEM brand picker with "Other" option
+// ---------------------------------------------------------------------------
+function BrandSearchSelect({ brands = [], value, onChange }) {
+  const [search, setSearch] = useState('');
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef(null);
+
+  // Close on outside click
+  useEffect(() => {
+    if (!open) return;
+    function onOutside(e) {
+      if (containerRef.current && !containerRef.current.contains(e.target)) setOpen(false);
+    }
+    document.addEventListener('mousedown', onOutside);
+    return () => document.removeEventListener('mousedown', onOutside);
+  }, [open]);
+
+  const filtered = brands.filter(b => !search || b.toLowerCase().includes(search.toLowerCase()));
+  const displayLabel = value === 'Other' ? 'Other (Custom Brand)' : value || 'Select brand…';
+
+  return (
+    <div ref={containerRef} className="relative">
+      {/* Trigger button */}
+      <button
+        type="button"
+        className="input text-sm text-left w-full flex items-center justify-between gap-1"
+        onClick={() => setOpen(o => !o)}
+      >
+        <span className={value ? 'text-slate-800 truncate' : 'text-slate-400'}>{displayLabel}</span>
+        <RiArrowDownSLine className={`flex-shrink-0 text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+
+      {open && (
+        <div className="absolute z-30 left-0 right-0 mt-1 bg-white rounded-xl border border-slate-200 shadow-xl">
+          {/* Search input */}
+          <div className="p-2 border-b border-slate-100 flex items-center gap-2">
+            <RiSearchLine className="text-slate-400 flex-shrink-0" />
+            <input
+              autoFocus
+              type="text"
+              className="flex-1 text-sm outline-none placeholder-slate-400"
+              placeholder="Search OEM brand…"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
+          </div>
+          {/* Brand list */}
+          <div className="max-h-44 overflow-y-auto">
+            {filtered.map(brand => (
+              <button
+                key={brand}
+                type="button"
+                className={`w-full text-left px-3 py-2 text-sm transition-colors ${
+                  value === brand
+                    ? 'bg-forest-900/10 text-forest-900 font-semibold'
+                    : 'text-slate-700 hover:bg-forest-900/5'
+                }`}
+                onClick={() => { onChange(brand); setOpen(false); setSearch(''); }}
+              >
+                {brand}
+              </button>
+            ))}
+            {filtered.length === 0 && (
+              <p className="px-3 py-2 text-xs text-slate-400 italic">No brands match "{search}"</p>
+            )}
+            {/* Other option always at bottom */}
+            <button
+              type="button"
+              className={`w-full text-left px-3 py-2 text-sm border-t border-slate-100 transition-colors ${
+                value === 'Other'
+                  ? 'bg-amber-50 text-amber-700 font-semibold'
+                  : 'text-amber-600 hover:bg-amber-50'
+              }`}
+              onClick={() => { onChange('Other'); setOpen(false); setSearch(''); }}
+            >
+              + Other / Custom Brand
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// EquipmentSourceSection — supply chain info subsection per equipment row
+// ---------------------------------------------------------------------------
+function EquipmentSourceSection({ sourcing_type, sourcing_info, onTypeChange, onInfoChange }) {
+  const types = [
+    { value: '', label: 'Not Specified' },
+    { value: 'direct_import', label: 'Direct Import', Icon: RiShipLine },
+    { value: 'local_purchase', label: 'Local Purchase', Icon: RiStoreLine },
+  ];
+
+  return (
+    <div className="mt-3 pt-3 border-t border-slate-200">
+      <p className="text-xs font-semibold text-slate-500 mb-2 uppercase tracking-wide">
+        Equipment Source <span className="font-normal normal-case">(optional)</span>
+      </p>
+      {/* Toggle buttons */}
+      <div className="flex flex-wrap gap-2 mb-3">
+        {types.map(({ value, label, Icon }) => (
+          <button
+            key={value}
+            type="button"
+            className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border font-medium transition-colors ${
+              sourcing_type === value
+                ? 'bg-forest-900 text-white border-forest-900'
+                : 'bg-white text-slate-600 border-slate-200 hover:border-forest-900 hover:text-forest-900'
+            }`}
+            onClick={() => onTypeChange(value)}
+          >
+            {Icon && <Icon className="text-sm" />}
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* Direct Import fields */}
+      {sourcing_type === 'direct_import' && (
+        <div className="grid sm:grid-cols-2 gap-3 bg-blue-50/50 border border-blue-100 rounded-xl p-3">
+          <div>
+            <label className="label text-xs">Supply Contract Date</label>
+            <input
+              type="date"
+              className="input text-sm"
+              value={sourcing_info.supply_contract_date || ''}
+              onChange={e => onInfoChange('supply_contract_date', e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="label text-xs">Import ETA / Clearance Date</label>
+            <input
+              type="date"
+              className="input text-sm"
+              value={sourcing_info.import_eta_date || ''}
+              onChange={e => onInfoChange('import_eta_date', e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="label text-xs">OEM Name</label>
+            <input
+              type="text"
+              className="input text-sm"
+              placeholder="e.g. Jinko Solar Technology Co. Ltd"
+              value={sourcing_info.oem_name || ''}
+              onChange={e => onInfoChange('oem_name', e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="label text-xs">Country of Supply From</label>
+            <input
+              type="text"
+              className="input text-sm"
+              placeholder="e.g. China"
+              value={sourcing_info.country_of_supply || ''}
+              onChange={e => onInfoChange('country_of_supply', e.target.value)}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Local Purchase fields */}
+      {sourcing_type === 'local_purchase' && (
+        <div className="grid sm:grid-cols-2 gap-3 bg-emerald-50/50 border border-emerald-100 rounded-xl p-3">
+          <div>
+            <label className="label text-xs">Supply Contract Date</label>
+            <input
+              type="date"
+              className="input text-sm"
+              value={sourcing_info.supply_contract_date || ''}
+              onChange={e => onInfoChange('supply_contract_date', e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="label text-xs">Date of Delivery / Supply / Pickup</label>
+            <input
+              type="date"
+              className="input text-sm"
+              value={sourcing_info.delivery_date || ''}
+              onChange={e => onInfoChange('delivery_date', e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="label text-xs">Distributor Name</label>
+            <input
+              type="text"
+              className="input text-sm"
+              placeholder="e.g. Alpha Solar Distributors Ltd"
+              value={sourcing_info.distributor_name || ''}
+              onChange={e => onInfoChange('distributor_name', e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="label text-xs">Distributor Location / State</label>
+            <select
+              className="input text-sm"
+              value={sourcing_info.distributor_state || ''}
+              onChange={e => onInfoChange('distributor_state', e.target.value)}
+            >
+              <option value="">Select State</option>
+              {NIGERIAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 // Pure-JS JPEG EXIF GPS extractor — no external library needed
 function extractExifGPS(file) {
@@ -161,14 +385,75 @@ export default function AddProject() {
   function updateInverter(idx, field, val) {
     setInverters(prev => prev.map((inv, i) => i === idx ? { ...inv, [field]: val } : inv));
   }
+  function updatePanelSourcing(idx, field, val) {
+    setPanels(prev => prev.map((p, i) => i === idx ? { ...p, sourcing_info: { ...(p.sourcing_info || {}), [field]: val } } : p));
+  }
+  function updateBatterySourcing(idx, field, val) {
+    setBatteries(prev => prev.map((b, i) => i === idx ? { ...b, sourcing_info: { ...(b.sourcing_info || {}), [field]: val } } : b));
+  }
+  function updateInverterSourcing(idx, field, val) {
+    setInverters(prev => prev.map((inv, i) => i === idx ? { ...inv, sourcing_info: { ...(inv.sourcing_info || {}), [field]: val } } : inv));
+  }
 
   async function handleSubmit(e) {
     e.preventDefault();
     if (!form.name.trim()) { toast.error('Project name is required'); return; }
     if (!form.city.trim()) { toast.error('City is required'); return; }
     if (panels.length === 0 && batteries.length === 0) { toast.error('Add at least one panel or battery'); return; }
+
+    // Validate that "Other" brand selections have a custom name filled in
+    if (panels.some(p => p.brand === 'Other' && !p.custom_brand?.trim())) {
+      toast.error('Enter a custom brand name for each panel marked as "Other"'); return;
+    }
+    if (batteries.some(b => b.brand === 'Other' && !b.custom_brand?.trim())) {
+      toast.error('Enter a custom brand name for each battery marked as "Other"'); return;
+    }
+    if (inverters.some(inv => inv.brand === 'Other' && !inv.custom_brand?.trim())) {
+      toast.error('Enter a custom brand name for each inverter marked as "Other"'); return;
+    }
+
     setSubmitting(true);
     try {
+      // Submit any custom brands to the DB (non-blocking on failure)
+      const customSubmissions = [];
+      for (const p of panels) {
+        if (p.brand === 'Other' && p.custom_brand?.trim())
+          customSubmissions.push(calculatorAPI.submitBrand({ brand: p.custom_brand.trim(), equipment_type: 'panel' }));
+      }
+      for (const b of batteries) {
+        if (b.brand === 'Other' && b.custom_brand?.trim())
+          customSubmissions.push(calculatorAPI.submitBrand({ brand: b.custom_brand.trim(), equipment_type: 'battery' }));
+      }
+      for (const inv of inverters) {
+        if (inv.brand === 'Other' && inv.custom_brand?.trim())
+          customSubmissions.push(calculatorAPI.submitBrand({ brand: inv.custom_brand.trim(), equipment_type: 'inverter' }));
+      }
+      if (customSubmissions.length > 0) {
+        try {
+          await Promise.all(customSubmissions);
+          // Refresh brand lists so the new brand appears in subsequent selections
+          calculatorAPI.getBrands().then(r => {
+            setPanelBrands(mergeBrandOptions(r.data.data?.panels || [], DEFAULT_PANEL_BRANDS));
+            setBatteryBrands(mergeBrandOptions(r.data.data?.batteries || [], DEFAULT_BATTERY_BRANDS));
+            setInverterBrands(mergeBrandOptions(r.data.data?.inverters || [], DEFAULT_INVERTER_BRANDS));
+          }).catch(() => {});
+        } catch { /* non-critical — brand DB save failed, project creation continues */ }
+      }
+
+      // Resolve "Other" → custom_brand name, and attach sourcing_info
+      function resolveEquipment(items) {
+        return items.map(({ custom_brand, sourcing_type, sourcing_info, ...rest }) => ({
+          ...rest,
+          brand: rest.brand === 'Other' ? (custom_brand?.trim() || 'Other') : rest.brand,
+          sourcing_info: sourcing_type
+            ? { type: sourcing_type, ...sourcing_info }
+            : null,
+        }));
+      }
+      const resolvedPanels = resolveEquipment(panels);
+      const resolvedBatteries = resolveEquipment(batteries);
+      const resolvedInverters = resolveEquipment(inverters);
+
       // Upload photo to Supabase storage if provided
       let project_photo_url = null;
       if (photoFile) {
@@ -189,7 +474,10 @@ export default function AddProject() {
       const latitude = geo.latitude ? parseFloat(geo.latitude) : null;
       const longitude = geo.longitude ? parseFloat(geo.longitude) : null;
       const { data } = await projectsAPI.create({
-        ...form, panels, batteries, inverters,
+        ...form,
+        panels: resolvedPanels,
+        batteries: resolvedBatteries,
+        inverters: resolvedInverters,
         latitude, longitude, geo_source: geoSource, project_photo_url,
       });
       toast.success('Project created! 🎉');
@@ -409,34 +697,53 @@ export default function AddProject() {
 
             <div className="space-y-4">
               {panels.map((panel, idx) => (
-                <div key={idx} className="grid sm:grid-cols-5 gap-3 p-4 bg-slate-50 rounded-xl">
-                  <div className="sm:col-span-2">
-                    <label className="label text-xs">Brand *</label>
-                    <select className="input text-sm" value={panel.brand} onChange={e => updatePanel(idx, 'brand', e.target.value)}>
-                      {(panelBrands.length > 0 ? panelBrands : DEFAULT_PANEL_BRANDS).map(brand => <option key={brand} value={brand}>{brand}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="label text-xs">Watts (W) *</label>
-                    <input type="number" className="input text-sm" value={panel.size_watts} min="50" max="700" onChange={e => updatePanel(idx, 'size_watts', e.target.value)} />
-                  </div>
-                  <div>
-                    <label className="label text-xs">Quantity *</label>
-                    <input type="number" className="input text-sm" value={panel.quantity} min="1" onChange={e => updatePanel(idx, 'quantity', e.target.value)} />
-                  </div>
-                  <div className="flex items-end gap-2">
-                    <div className="flex-1">
-                      <label className="label text-xs">Condition</label>
-                      <select className="input text-sm" value={panel.condition} onChange={e => updatePanel(idx, 'condition', e.target.value)} title={CONDITION_HELP[panel.condition]}>
-                        {CONDITIONS.map(c => <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>)}
-                      </select>
+                <div key={idx} className="p-4 bg-slate-50 rounded-xl border border-slate-100">
+                  <div className="grid sm:grid-cols-5 gap-3">
+                    <div className="sm:col-span-2">
+                      <label className="label text-xs">Brand *</label>
+                      <BrandSearchSelect
+                        brands={panelBrands.length > 0 ? panelBrands : DEFAULT_PANEL_BRANDS}
+                        value={panel.brand}
+                        onChange={v => updatePanel(idx, 'brand', v)}
+                      />
+                      {panel.brand === 'Other' && (
+                        <input
+                          type="text"
+                          className="input text-sm mt-2"
+                          placeholder="Enter custom brand name"
+                          value={panel.custom_brand}
+                          onChange={e => updatePanel(idx, 'custom_brand', e.target.value)}
+                        />
+                      )}
                     </div>
-                    {panels.length > 1 && (
-                      <button type="button" onClick={() => setPanels(p => p.filter((_, i) => i !== idx))} className="mb-0.5 p-2.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
-                        <RiDeleteBinLine />
-                      </button>
-                    )}
+                    <div>
+                      <label className="label text-xs">Watts (W) *</label>
+                      <input type="number" className="input text-sm" value={panel.size_watts} min="50" max="700" onChange={e => updatePanel(idx, 'size_watts', e.target.value)} />
+                    </div>
+                    <div>
+                      <label className="label text-xs">Quantity *</label>
+                      <input type="number" className="input text-sm" value={panel.quantity} min="1" onChange={e => updatePanel(idx, 'quantity', e.target.value)} />
+                    </div>
+                    <div className="flex items-end gap-2">
+                      <div className="flex-1">
+                        <label className="label text-xs">Condition</label>
+                        <select className="input text-sm" value={panel.condition} onChange={e => updatePanel(idx, 'condition', e.target.value)} title={CONDITION_HELP[panel.condition]}>
+                          {CONDITIONS.map(c => <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>)}
+                        </select>
+                      </div>
+                      {panels.length > 1 && (
+                        <button type="button" onClick={() => setPanels(p => p.filter((_, i) => i !== idx))} className="mb-0.5 p-2.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                          <RiDeleteBinLine />
+                        </button>
+                      )}
+                    </div>
                   </div>
+                  <EquipmentSourceSection
+                    sourcing_type={panel.sourcing_type}
+                    sourcing_info={panel.sourcing_info}
+                    onTypeChange={v => updatePanel(idx, 'sourcing_type', v)}
+                    onInfoChange={(field, val) => updatePanelSourcing(idx, field, val)}
+                  />
                 </div>
               ))}
             </div>
@@ -460,34 +767,53 @@ export default function AddProject() {
             </div>
             <div className="space-y-4">
               {batteries.map((battery, idx) => (
-                <div key={idx} className="grid sm:grid-cols-5 gap-3 p-4 bg-slate-50 rounded-xl">
-                  <div className="sm:col-span-2">
-                    <label className="label text-xs">Brand *</label>
-                    <select className="input text-sm" value={battery.brand} onChange={e => updateBattery(idx, 'brand', e.target.value)}>
-                      {(batteryBrands.length > 0 ? batteryBrands : DEFAULT_BATTERY_BRANDS).map(brand => <option key={brand} value={brand}>{brand}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="label text-xs">Capacity (kWh)</label>
-                    <input type="number" className="input text-sm" value={battery.capacity_kwh} min="0.5" step="0.1" onChange={e => updateBattery(idx, 'capacity_kwh', e.target.value)} />
-                  </div>
-                  <div>
-                    <label className="label text-xs">Quantity *</label>
-                    <input type="number" className="input text-sm" value={battery.quantity} min="1" onChange={e => updateBattery(idx, 'quantity', e.target.value)} />
-                  </div>
-                  <div className="flex items-end gap-2">
-                    <div className="flex-1">
-                      <label className="label text-xs">Condition</label>
-                      <select className="input text-sm" value={battery.condition} onChange={e => updateBattery(idx, 'condition', e.target.value)} title={CONDITION_HELP[battery.condition]}>
-                        {CONDITIONS.map(c => <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>)}
-                      </select>
+                <div key={idx} className="p-4 bg-slate-50 rounded-xl border border-slate-100">
+                  <div className="grid sm:grid-cols-5 gap-3">
+                    <div className="sm:col-span-2">
+                      <label className="label text-xs">Brand *</label>
+                      <BrandSearchSelect
+                        brands={batteryBrands.length > 0 ? batteryBrands : DEFAULT_BATTERY_BRANDS}
+                        value={battery.brand}
+                        onChange={v => updateBattery(idx, 'brand', v)}
+                      />
+                      {battery.brand === 'Other' && (
+                        <input
+                          type="text"
+                          className="input text-sm mt-2"
+                          placeholder="Enter custom brand name"
+                          value={battery.custom_brand}
+                          onChange={e => updateBattery(idx, 'custom_brand', e.target.value)}
+                        />
+                      )}
                     </div>
-                    {batteries.length > 1 && (
-                      <button type="button" onClick={() => setBatteries(b => b.filter((_, i) => i !== idx))} className="mb-0.5 p-2.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
-                        <RiDeleteBinLine />
-                      </button>
-                    )}
+                    <div>
+                      <label className="label text-xs">Capacity (kWh)</label>
+                      <input type="number" className="input text-sm" value={battery.capacity_kwh} min="0.5" step="0.1" onChange={e => updateBattery(idx, 'capacity_kwh', e.target.value)} />
+                    </div>
+                    <div>
+                      <label className="label text-xs">Quantity *</label>
+                      <input type="number" className="input text-sm" value={battery.quantity} min="1" onChange={e => updateBattery(idx, 'quantity', e.target.value)} />
+                    </div>
+                    <div className="flex items-end gap-2">
+                      <div className="flex-1">
+                        <label className="label text-xs">Condition</label>
+                        <select className="input text-sm" value={battery.condition} onChange={e => updateBattery(idx, 'condition', e.target.value)} title={CONDITION_HELP[battery.condition]}>
+                          {CONDITIONS.map(c => <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>)}
+                        </select>
+                      </div>
+                      {batteries.length > 1 && (
+                        <button type="button" onClick={() => setBatteries(b => b.filter((_, i) => i !== idx))} className="mb-0.5 p-2.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                          <RiDeleteBinLine />
+                        </button>
+                      )}
+                    </div>
                   </div>
+                  <EquipmentSourceSection
+                    sourcing_type={battery.sourcing_type}
+                    sourcing_info={battery.sourcing_info}
+                    onTypeChange={v => updateBattery(idx, 'sourcing_type', v)}
+                    onInfoChange={(field, val) => updateBatterySourcing(idx, field, val)}
+                  />
                 </div>
               ))}
             </div>
@@ -504,34 +830,53 @@ export default function AddProject() {
             {inverters.length > 0 ? (
               <div className="space-y-4">
                 {inverters.map((inverter, idx) => (
-                  <div key={idx} className="grid sm:grid-cols-5 gap-3 p-4 bg-slate-50 rounded-xl">
-                    <div className="sm:col-span-2">
-                      <label className="label text-xs">Brand *</label>
-                      <select className="input text-sm" value={inverter.brand} onChange={e => updateInverter(idx, 'brand', e.target.value)}>
-                        {(inverterBrands.length > 0 ? inverterBrands : DEFAULT_INVERTER_BRANDS).map(brand => <option key={brand} value={brand}>{brand}</option>)}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="label text-xs">Power (kW)</label>
-                      <input type="number" className="input text-sm" value={inverter.power_kw} min="0.5" step="0.5" onChange={e => updateInverter(idx, 'power_kw', e.target.value)} />
-                    </div>
-                    <div>
-                      <label className="label text-xs">Quantity *</label>
-                      <input type="number" className="input text-sm" value={inverter.quantity} min="1" onChange={e => updateInverter(idx, 'quantity', e.target.value)} />
-                    </div>
-                    <div className="flex items-end gap-2">
-                      <div className="flex-1">
-                        <label className="label text-xs">Condition</label>
-                        <select className="input text-sm" value={inverter.condition} onChange={e => updateInverter(idx, 'condition', e.target.value)} title={CONDITION_HELP[inverter.condition]}>
-                          {CONDITIONS.map(c => <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>)}
-                        </select>
+                  <div key={idx} className="p-4 bg-slate-50 rounded-xl border border-slate-100">
+                    <div className="grid sm:grid-cols-5 gap-3">
+                      <div className="sm:col-span-2">
+                        <label className="label text-xs">Brand *</label>
+                        <BrandSearchSelect
+                          brands={inverterBrands.length > 0 ? inverterBrands : DEFAULT_INVERTER_BRANDS}
+                          value={inverter.brand}
+                          onChange={v => updateInverter(idx, 'brand', v)}
+                        />
+                        {inverter.brand === 'Other' && (
+                          <input
+                            type="text"
+                            className="input text-sm mt-2"
+                            placeholder="Enter custom brand name"
+                            value={inverter.custom_brand}
+                            onChange={e => updateInverter(idx, 'custom_brand', e.target.value)}
+                          />
+                        )}
                       </div>
-                      {inverters.length > 0 && (
-                        <button type="button" onClick={() => setInverters(i => i.filter((_, ii) => ii !== idx))} className="mb-0.5 p-2.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
-                          <RiDeleteBinLine />
-                        </button>
-                      )}
+                      <div>
+                        <label className="label text-xs">Power (kW)</label>
+                        <input type="number" className="input text-sm" value={inverter.power_kw} min="0.5" step="0.5" onChange={e => updateInverter(idx, 'power_kw', e.target.value)} />
+                      </div>
+                      <div>
+                        <label className="label text-xs">Quantity *</label>
+                        <input type="number" className="input text-sm" value={inverter.quantity} min="1" onChange={e => updateInverter(idx, 'quantity', e.target.value)} />
+                      </div>
+                      <div className="flex items-end gap-2">
+                        <div className="flex-1">
+                          <label className="label text-xs">Condition</label>
+                          <select className="input text-sm" value={inverter.condition} onChange={e => updateInverter(idx, 'condition', e.target.value)} title={CONDITION_HELP[inverter.condition]}>
+                            {CONDITIONS.map(c => <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>)}
+                          </select>
+                        </div>
+                        {inverters.length > 0 && (
+                          <button type="button" onClick={() => setInverters(i => i.filter((_, ii) => ii !== idx))} className="mb-0.5 p-2.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                            <RiDeleteBinLine />
+                          </button>
+                        )}
+                      </div>
                     </div>
+                    <EquipmentSourceSection
+                      sourcing_type={inverter.sourcing_type}
+                      sourcing_info={inverter.sourcing_info}
+                      onTypeChange={v => updateInverter(idx, 'sourcing_type', v)}
+                      onInfoChange={(field, val) => updateInverterSourcing(idx, field, val)}
+                    />
                   </div>
                 ))}
               </div>
