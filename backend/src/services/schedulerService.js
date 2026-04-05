@@ -5,6 +5,7 @@ const axios    = require('axios');
 const supabase = require('../config/database');
 const logger   = require('../utils/logger');
 const { sendDecommissionAlert } = require('./emailService');
+const { runInternalAgent, checkExpiredSubscriptions, seedAgentDefinitions } = require('./aiAgentService');
 
 // ─── KEEP-ALIVE ──────────────────────────────────────────────────────────────
 // Render free-tier web services sleep after 15 minutes of inactivity.
@@ -260,11 +261,47 @@ async function sendDecommissionAlerts() {
 //   • Daily 8AM WAT (07:00 UTC) — leaderboard refresh + decommission alerts
 //   • Every 10 min              — keep-alive self-ping (Render free-tier)
 function startScheduler() {
+  // Seed AI agent definitions on startup (idempotent)
+  seedAgentDefinitions().catch(e => logger.warn('Agent seeding on startup failed', { message: e.message }));
+
   // 8AM WAT = 07:00 UTC
   cron.schedule('0 7 * * *', async () => {
     logger.info('Daily cron fired — refreshing leaderboard and checking decommissions');
     await refreshLeaderboard();
     await sendDecommissionAlerts();
+    // Check for expired subscriptions & revoke agents
+    await checkExpiredSubscriptions();
+  }, { timezone: 'UTC' });
+
+  // AI Internal Agents — staggered schedules to stay within rate limits
+  // SEO Blog Writer: 9AM WAT (08:00 UTC), Mon/Wed/Fri
+  cron.schedule('0 8 * * 1,3,5', () => {
+    logger.info('Cron: SEO Blog Writer');
+    runInternalAgent('seo-blog-writer').catch(e => logger.error('SEO agent cron error', { message: e.message }));
+  }, { timezone: 'UTC' });
+
+  // Holiday Notifier: 7AM WAT (06:00 UTC), daily
+  cron.schedule('0 6 * * *', () => {
+    logger.info('Cron: Holiday Notifier');
+    runInternalAgent('holiday-notifier').catch(e => logger.error('Holiday agent cron error', { message: e.message }));
+  }, { timezone: 'UTC' });
+
+  // Security Specialist: every 6 hours
+  cron.schedule('0 */6 * * *', () => {
+    logger.info('Cron: Security Specialist');
+    runInternalAgent('security-specialist').catch(e => logger.error('Security agent cron error', { message: e.message }));
+  }, { timezone: 'UTC' });
+
+  // User Behaviour Analyst: 10AM WAT (09:00 UTC), weekly Monday
+  cron.schedule('0 9 * * 1', () => {
+    logger.info('Cron: User Behaviour Analyst');
+    runInternalAgent('user-behaviour-analyst').catch(e => logger.error('Behaviour agent cron error', { message: e.message }));
+  }, { timezone: 'UTC' });
+
+  // Market Analyst: 11AM WAT (10:00 UTC), Tue/Thu
+  cron.schedule('0 10 * * 2,4', () => {
+    logger.info('Cron: Market Analyst');
+    runInternalAgent('market-analyst').catch(e => logger.error('Market agent cron error', { message: e.message }));
   }, { timezone: 'UTC' });
 
   logger.info('⏰ Daily scheduler registered (08:00 WAT / 07:00 UTC)');

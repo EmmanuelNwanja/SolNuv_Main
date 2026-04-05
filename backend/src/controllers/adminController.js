@@ -2,6 +2,7 @@ const supabase = require('../config/database');
 const { sendSuccess, sendError } = require('../utils/responseHelper');
 const { logPlatformActivity } = require('../services/auditService');
 const { invalidateEnvironmentCache } = require('../middlewares/environmentMiddleware');
+const { assignAgentsOnSubscription, revokeAgentsOnDowngrade } = require('../services/aiAgentService');
 const logger = require('../utils/logger');
 
 exports.getOverview = async (req, res) => {
@@ -218,6 +219,19 @@ exports.updateUserVerification = async (req, res) => {
         amount_received, upgrade_reason,
       },
     });
+
+    // Auto-assign or revoke AI agents when plan changes
+    if (isPlanChange && targetUser.company_id) {
+      if (company_plan === 'free') {
+        revokeAgentsOnDowngrade(targetUser.company_id, 'free').catch(err =>
+          logger.warn('Agent revocation after admin downgrade failed', { companyId: targetUser.company_id, message: err.message })
+        );
+      } else {
+        assignAgentsOnSubscription(targetUser.company_id, company_plan).catch(err =>
+          logger.warn('Agent assignment after admin upgrade failed', { companyId: targetUser.company_id, message: err.message })
+        );
+      }
+    }
 
     return sendSuccess(res, { user_id }, isPlanChange ? 'Plan upgraded & transaction recorded' : 'User updated');
   } catch (error) {

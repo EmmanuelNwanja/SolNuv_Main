@@ -6,6 +6,7 @@ import ProtectedRoute from './ProtectedRoute';
 import AdminLayout from './AdminLayout';
 import { ThemeToggle } from './ThemeToggle';
 import { PageMotion } from './PageMotion';
+import AIChatPanel from './AIChatPanel';
 import { authAPI } from '../services/api';
 import {
   RiDashboardLine, RiSunLine, RiBarChartLine, RiFileTextLine,
@@ -156,6 +157,9 @@ export default function Layout({ children }) {
           <PageMotion>{children}</PageMotion>
         </main>
       </div>
+
+      {/* AI Chat panel — available on all dashboard pages */}
+      <AIChatPanel />
     </div>
   );
 }

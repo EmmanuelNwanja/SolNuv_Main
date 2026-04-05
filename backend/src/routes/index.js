@@ -13,6 +13,7 @@ router.use('/blog', require('./blogRoutes'));
 router.use('/contact', require('./contactRoutes'));
 router.use('/faq', require('./faqRoutes'));
 router.use('/analytics', require('./analyticsRoutes'));
+router.use('/agent', require('./agentRoutes'));
 
 router.get('/health', (req, res) => res.json({
   status: 'ok',

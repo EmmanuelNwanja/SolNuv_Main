@@ -54,3 +54,9 @@ services:
         value: 0.96
       - key: USD_TO_NGN_RATE
         value: 1620
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: AI_DAILY_TOKEN_BUDGET
+        value: 1000000

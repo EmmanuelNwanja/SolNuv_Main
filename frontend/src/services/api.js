@@ -308,6 +308,33 @@ export const analyticsAPI = {
 };
 
 // ==============================
+// AI AGENTS
+// ==============================
+export const agentAPI = {
+  // User endpoints
+  getInstances: () => api.get('/agent/instances'),
+  chat: (data) => api.post('/agent/chat', data),
+  getConversations: (params) => api.get('/agent/conversations', { params }),
+  getMessages: (conversationId, params) => api.get(`/agent/conversations/${conversationId}/messages`, { params }),
+  closeConversation: (conversationId) => api.patch(`/agent/conversations/${conversationId}/close`),
+  createTask: (data) => api.post('/agent/tasks', data),
+  getTasks: (params) => api.get('/agent/tasks', { params }),
+  getTaskDetail: (taskId) => api.get(`/agent/tasks/${taskId}`),
+  // Admin endpoints
+  adminGetDefinitions: () => api.get('/agent/admin/definitions'),
+  adminUpdateDefinition: (id, data) => api.patch(`/agent/admin/definitions/${id}`, data),
+  adminAssignAgents: (data) => api.post('/agent/admin/assign', data),
+  adminRevokeAgents: (data) => api.post('/agent/admin/revoke', data),
+  adminGetInstances: (params) => api.get('/agent/admin/instances', { params }),
+  adminGetTasks: (params) => api.get('/agent/admin/tasks', { params }),
+  adminGetEscalations: (params) => api.get('/agent/admin/escalations', { params }),
+  adminResolveEscalation: (id, data) => api.patch(`/agent/admin/escalations/${id}`, data),
+  adminGetUsage: (params) => api.get('/agent/admin/usage', { params }),
+  adminExportTraining: (params) => api.get('/agent/admin/training-export', { params, responseType: 'blob' }),
+  adminSeed: () => api.post('/agent/admin/seed'),
+};
+
+// ==============================
 // HELPERS
 // ==============================
 export function downloadBlob(blob, filename) {

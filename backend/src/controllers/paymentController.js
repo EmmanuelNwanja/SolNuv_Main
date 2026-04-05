@@ -17,6 +17,7 @@ const {
   getPlanDurationMonths,
   getPlanCatalogForClient,
 } = require('../services/billingService');
+const { assignAgentsOnSubscription } = require('../services/aiAgentService');
 
 const PAYSTACK_SECRET = process.env.PAYSTACK_SECRET_KEY;
 const PAYSTACK_BASE = 'https://api.paystack.co';
@@ -286,6 +287,11 @@ async function activateSubscription({
       promo_code: promo?.code || null,
     },
   });
+
+  // Auto-assign AI agents based on new plan
+  assignAgentsOnSubscription(company.id, plan).catch(err =>
+    logger.warn('Agent assignment after subscription failed', { companyId: company.id, message: err.message })
+  );
 
   return expiresAt;
 }
