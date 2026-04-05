@@ -164,6 +164,37 @@ function getClimateMult(climateZone) {
   return multipliers[climateZone] || 1.50;
 }
 
+// Age-based market discount for second-life panels.
+// Even a "healthy" old panel sells for much less because buyers factor in:
+// - shorter remaining useful life in harsh climate
+// - higher probability of imminent failure (encapsulant yellowing, junction-box corrosion)
+// - no remaining warranty
+// Linear decay: ~8% per year of age, floor at 15% to reflect scrap-with-working-output value.
+function ageMarketDiscount(yearsOld) {
+  return Math.max(0.15, 1.0 - 0.08 * yearsOld);
+}
+
+// Technology generation factor for second-hand market desirability.
+// Current-gen tech (TOPCon, HJT, HPBC) commands higher resale prices
+// because buyers value efficiency, lower degradation, and future-proofing.
+// Legacy tech has lower demand even when functionally identical.
+function techGenerationFactor(panelTechnology) {
+  const factors = {
+    poly_bsf:       0.55, // Legacy, very low demand — buyers strongly prefer newer tech
+    mono_perc:      0.75, // Mainstream but aging, p-type being phased out
+    mono_perc_bi:   0.80, // Slightly better demand due to bifacial
+    topcon_mono:    0.92, // Current generation — good demand
+    topcon_bi:      0.95, // Current gen bifacial — strong demand
+    hpbc_mono:      0.92, // Premium current
+    hpbc_bi:        0.95, // Premium current
+    hjt:            0.95, // Premium — best temp performance for Africa
+    ibc:            0.90, // Premium niche, smaller market
+    thin_film_cdte: 0.60, // Niche, limited second-hand demand
+    thin_film_cigs: 0.55, // Niche, very limited demand
+  };
+  return factors[panelTechnology] || 0.75;
+}
+
 // ─── MAIN: PANEL VALUATION ────────────────────────────────────────────────────
 async function calculatePanelValue(wattsPerPanel, quantity, installationDate, climateZone = 'mixed', condition = 'good', panelTechnology = null) {
   const sp  = await getSilverPrice();
@@ -181,8 +212,15 @@ async function calculatePanelValue(wattsPerPanel, quantity, installationDate, cl
   const { soh, remaining_watts: rW } = health;
   const viable = soh >= MIN_PANEL_SOH_FOR_SECONDLIFE;
 
+  // Market-realistic second-life pricing:
+  // Base: new-equivalent cost × second-life ratio (32%)
+  // Then discount for age (shorter remaining life, no warranty, failure risk)
+  // and technology generation (buyers prefer current-gen tech).
+  const ageFactor  = ageMarketDiscount(health.years_old);
+  const techFactor = panelTechnology ? techGenerationFactor(panelTechnology) : 0.75;
+
   const newEquivNgn    = rW * NEW_PANEL_USD_PER_W * sp.usd_to_ngn_rate;
-  const secondLifeNgn  = newEquivNgn * SECOND_LIFE_PRICE_RATIO;
+  const secondLifeNgn  = newEquivNgn * SECOND_LIFE_PRICE_RATIO * ageFactor * techFactor;
   const installerRefurb = viable ? Math.round(secondLifeNgn * INSTALLER_PANEL_SHARE * qty) : 0;
 
   // 3 ── RECOMMENDATION ─────────────────────────────────────────────────
@@ -218,12 +256,14 @@ async function calculatePanelValue(wattsPerPanel, quantity, installationDate, cl
       soh_pct:                        Math.round(soh * 100),
       new_equiv_cost_ngn_per_panel:   Math.round(newEquivNgn),
       second_life_price_ngn_per_panel: Math.round(secondLifeNgn),
+      age_discount_factor:            parseFloat(ageFactor.toFixed(2)),
+      tech_generation_factor:         parseFloat(techFactor.toFixed(2)),
       installer_receives_ngn:         installerRefurb,
       installer_receives_min:         Math.round(installerRefurb * 0.75),
       installer_receives_max:         Math.round(installerRefurb * 1.25),
       is_viable: viable,
       note: viable
-        ? `Each panel operates at ~${rW}W. Test, clean, repackage and sell at that measured rating.`
+        ? `Each panel operates at ~${rW}W (${Math.round(ageFactor * 100)}% age factor, ${Math.round(techFactor * 100)}% tech demand). Test, clean, repackage and sell at measured rating.`
         : `Health too low for reliable resale. Silver recovery is the right route.`,
     },
 
