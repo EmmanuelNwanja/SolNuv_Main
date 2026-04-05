@@ -84,7 +84,7 @@ export default function Home() {
     <>
       <Head>
         <title>SolNuv — Nigeria&apos;s Solar Lifecycle &amp; E-Waste Compliance Platform</title>
-        <meta name="description" content="Nigeria's first solar lifecycle intelligence platform. Track installations, predict decommissioning using West African climate data, recover silver and battery value, and auto-generate NESREA EPR compliance reports — all in one platform." />
+        <meta name="description" content="Nigeria's Solar lifecycle intelligence platform. Track installations, predict decommissioning using West African climate data, recover silver and battery value, and auto-generate NESREA EPR compliance reports — all in one platform." />
         <meta name="keywords" content="solar e-waste Nigeria, NESREA EPR compliance, solar panel recycling, silver recovery, solar lifecycle tracking, West African solar" />
         <meta property="og:title" content="SolNuv — Turn Solar E-Waste Into Business Value" />
         <meta property="og:description" content="Solar installers and EPCs across Nigeria use SolNuv to track panel lifecycles, recover material value, and comply with NESREA EPR mandates — automatically." />
