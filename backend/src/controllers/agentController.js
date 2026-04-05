@@ -292,16 +292,37 @@ exports.adminGetDefinitions = async (req, res) => {
 };
 
 /**
+ * GET /api/agent/admin/definitions/:id
+ * Get a single agent definition with full details (super_admin only).
+ */
+exports.adminGetDefinition = async (req, res) => {
+  try {
+    const defId = req.params.id;
+    const { data, error } = await supabase
+      .from('ai_agent_definitions')
+      .select('*')
+      .eq('id', defId)
+      .single();
+
+    if (error || !data) return sendError(res, 'Definition not found', 404);
+    return sendSuccess(res, data);
+  } catch (err) {
+    logger.error('Admin get definition error', { message: err.message });
+    return sendError(res, 'Failed to fetch agent definition');
+  }
+};
+
+/**
  * PATCH /api/agent/admin/definitions/:id
  * Update an agent definition (super_admin only).
- * Body: { name?, description?, system_prompt?, capabilities?, temperature?, is_active?, ... }
+ * Body: { name?, description?, system_prompt?, custom_instructions?, capabilities?, temperature?, is_active?, ... }
  */
 exports.adminUpdateDefinition = async (req, res) => {
   try {
     const defId = req.params.id;
     const allowed = [
-      'name', 'description', 'system_prompt', 'capabilities',
-      'provider_slug', 'fallback_provider_slug', 'plan_minimum',
+      'name', 'description', 'system_prompt', 'custom_instructions',
+      'capabilities', 'provider_slug', 'fallback_provider_slug', 'plan_minimum',
       'max_instances_per_company', 'max_tokens_per_task', 'temperature',
       'response_format', 'is_active',
     ];
@@ -311,18 +332,185 @@ exports.adminUpdateDefinition = async (req, res) => {
     }
     if (Object.keys(updates).length === 0) return sendError(res, 'No valid fields to update', 400);
 
+    // Bump version on prompt/instruction/knowledge changes
+    const versionBumpFields = ['system_prompt', 'custom_instructions', 'capabilities'];
+    const needsBump = versionBumpFields.some(f => updates[f] !== undefined);
+
+    if (needsBump) {
+      const { data: current } = await supabase.from('ai_agent_definitions').select('version').eq('id', defId).single();
+      updates.version = (current?.version || 0) + 1;
+    }
+    updates.updated_by = req.user?.id || null;
+
     const { data, error } = await supabase
       .from('ai_agent_definitions')
       .update(updates)
       .eq('id', defId)
-      .select('id, slug, name, tier, is_active')
+      .select('id, slug, name, tier, is_active, version')
       .single();
 
     if (error || !data) return sendError(res, 'Definition not found', 404);
+
+    // Invalidate agent definition cache
+    agentService.invalidateDefinitionCache(defId);
+
     return sendSuccess(res, data, 'Definition updated');
   } catch (err) {
     logger.error('Admin update definition error', { message: err.message });
     return sendError(res, 'Failed to update definition');
+  }
+};
+
+/**
+ * POST /api/agent/admin/definitions/:id/knowledge
+ * Add a knowledge document to an agent definition.
+ * Body: { title, content }
+ */
+exports.adminAddKnowledge = async (req, res) => {
+  try {
+    const defId = req.params.id;
+    const { title, content } = req.body;
+
+    if (!title || !content) return sendError(res, 'title and content are required', 400);
+    if (content.length > 50000) return sendError(res, 'Knowledge document too large (max 50,000 chars)', 400);
+
+    // Load current definition
+    const { data: def, error: defErr } = await supabase
+      .from('ai_agent_definitions')
+      .select('knowledge_base, version')
+      .eq('id', defId)
+      .single();
+
+    if (defErr || !def) return sendError(res, 'Definition not found', 404);
+
+    const knowledge = Array.isArray(def.knowledge_base) ? [...def.knowledge_base] : [];
+
+    // Check for duplicates by title
+    if (knowledge.some(k => k.title === title)) {
+      return sendError(res, 'A knowledge document with this title already exists', 409);
+    }
+
+    const doc = {
+      id: require('crypto').randomUUID(),
+      title: title.slice(0, 200),
+      content: content,
+      added_at: new Date().toISOString(),
+      added_by: req.user?.email || 'admin',
+    };
+
+    knowledge.push(doc);
+
+    const { error } = await supabase
+      .from('ai_agent_definitions')
+      .update({
+        knowledge_base: knowledge,
+        version: (def.version || 0) + 1,
+        updated_by: req.user?.id || null,
+      })
+      .eq('id', defId);
+
+    if (error) throw error;
+
+    agentService.invalidateDefinitionCache(defId);
+
+    return sendSuccess(res, doc, 'Knowledge document added', 201);
+  } catch (err) {
+    logger.error('Admin add knowledge error', { message: err.message });
+    return sendError(res, 'Failed to add knowledge');
+  }
+};
+
+/**
+ * DELETE /api/agent/admin/definitions/:id/knowledge/:docId
+ * Remove a knowledge document from an agent definition.
+ */
+exports.adminRemoveKnowledge = async (req, res) => {
+  try {
+    const defId = req.params.id;
+    const docId = req.params.docId;
+
+    const { data: def, error: defErr } = await supabase
+      .from('ai_agent_definitions')
+      .select('knowledge_base, version')
+      .eq('id', defId)
+      .single();
+
+    if (defErr || !def) return sendError(res, 'Definition not found', 404);
+
+    const knowledge = Array.isArray(def.knowledge_base) ? def.knowledge_base : [];
+    const filtered = knowledge.filter(k => k.id !== docId);
+
+    if (filtered.length === knowledge.length) {
+      return sendError(res, 'Knowledge document not found', 404);
+    }
+
+    const { error } = await supabase
+      .from('ai_agent_definitions')
+      .update({
+        knowledge_base: filtered,
+        version: (def.version || 0) + 1,
+        updated_by: req.user?.id || null,
+      })
+      .eq('id', defId);
+
+    if (error) throw error;
+
+    agentService.invalidateDefinitionCache(defId);
+
+    return sendSuccess(res, null, 'Knowledge document removed');
+  } catch (err) {
+    logger.error('Admin remove knowledge error', { message: err.message });
+    return sendError(res, 'Failed to remove knowledge');
+  }
+};
+
+/**
+ * PUT /api/agent/admin/definitions/:id/knowledge/:docId
+ * Update a knowledge document.
+ * Body: { title?, content? }
+ */
+exports.adminUpdateKnowledge = async (req, res) => {
+  try {
+    const defId = req.params.id;
+    const docId = req.params.docId;
+    const { title, content } = req.body;
+
+    if (!title && !content) return sendError(res, 'title or content required', 400);
+    if (content && content.length > 50000) return sendError(res, 'Knowledge document too large (max 50,000 chars)', 400);
+
+    const { data: def, error: defErr } = await supabase
+      .from('ai_agent_definitions')
+      .select('knowledge_base, version')
+      .eq('id', defId)
+      .single();
+
+    if (defErr || !def) return sendError(res, 'Definition not found', 404);
+
+    const knowledge = Array.isArray(def.knowledge_base) ? [...def.knowledge_base] : [];
+    const idx = knowledge.findIndex(k => k.id === docId);
+    if (idx === -1) return sendError(res, 'Knowledge document not found', 404);
+
+    if (title) knowledge[idx].title = title.slice(0, 200);
+    if (content) knowledge[idx].content = content;
+    knowledge[idx].updated_at = new Date().toISOString();
+
+    const { error } = await supabase
+      .from('ai_agent_definitions')
+      .update({
+        knowledge_base: knowledge,
+        version: (def.version || 0) + 1,
+        updated_by: req.user?.id || null,
+      })
+      .eq('id', defId);
+
+    if (error) throw error;
+
+    agentService.invalidateDefinitionCache(defId);
+
+    return sendSuccess(res, knowledge[idx], 'Knowledge document updated');
+  } catch (err) {
+    logger.error('Admin update knowledge error', { message: err.message });
+    return sendError(res, 'Failed to update knowledge');
   }
 };
 

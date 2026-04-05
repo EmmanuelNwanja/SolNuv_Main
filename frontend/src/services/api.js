@@ -322,7 +322,11 @@ export const agentAPI = {
   getTaskDetail: (taskId) => api.get(`/agent/tasks/${taskId}`),
   // Admin endpoints
   adminGetDefinitions: () => api.get('/agent/admin/definitions'),
+  adminGetDefinition: (id) => api.get(`/agent/admin/definitions/${id}`),
   adminUpdateDefinition: (id, data) => api.patch(`/agent/admin/definitions/${id}`, data),
+  adminAddKnowledge: (id, data) => api.post(`/agent/admin/definitions/${id}/knowledge`, data),
+  adminUpdateKnowledge: (id, docId, data) => api.put(`/agent/admin/definitions/${id}/knowledge/${docId}`, data),
+  adminRemoveKnowledge: (id, docId) => api.delete(`/agent/admin/definitions/${id}/knowledge/${docId}`),
   adminAssignAgents: (data) => api.post('/agent/admin/assign', data),
   adminRevokeAgents: (data) => api.post('/agent/admin/revoke', data),
   adminGetInstances: (params) => api.get('/agent/admin/instances', { params }),

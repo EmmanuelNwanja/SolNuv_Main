@@ -22,7 +22,11 @@ router.get('/tasks/:id',       requireAuth, attachEnvironment,                  
 // ── Admin endpoints ──────────────────────────────────────────────────────────
 
 router.get('/admin/definitions',      requireAuth, requireAdmin, requireAdminRole('super_admin'),               agentController.adminGetDefinitions);
+router.get('/admin/definitions/:id',  requireAuth, requireAdmin, requireAdminRole('super_admin'),               agentController.adminGetDefinition);
 router.patch('/admin/definitions/:id', requireAuth, requireAdmin, requireAdminRole('super_admin'),              agentController.adminUpdateDefinition);
+router.post('/admin/definitions/:id/knowledge',           requireAuth, requireAdmin, requireAdminRole('super_admin'), agentController.adminAddKnowledge);
+router.put('/admin/definitions/:id/knowledge/:docId',     requireAuth, requireAdmin, requireAdminRole('super_admin'), agentController.adminUpdateKnowledge);
+router.delete('/admin/definitions/:id/knowledge/:docId',  requireAuth, requireAdmin, requireAdminRole('super_admin'), agentController.adminRemoveKnowledge);
 router.post('/admin/assign',          requireAuth, requireAdmin, requireAdminRole('super_admin'),               agentController.adminAssignAgents);
 router.post('/admin/revoke',          requireAuth, requireAdmin, requireAdminRole('super_admin'),               agentController.adminRevokeAgents);
 router.get('/admin/instances',        requireAuth, requireAdmin, requireAdminRole('super_admin'),               agentController.adminGetInstances);

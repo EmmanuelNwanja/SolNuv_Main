@@ -29,6 +29,21 @@ function sanitiseUserInput(text) {
 
 function buildSystemPrompt(definition, company) {
   let prompt = `${SECURITY_PREAMBLE}\n\n${definition.system_prompt}`;
+
+  // Append admin-authored custom instructions (non-core, editable via dashboard)
+  if (definition.custom_instructions && definition.custom_instructions.trim()) {
+    prompt += `\n\nADDITIONAL INSTRUCTIONS:\n${definition.custom_instructions.trim()}`;
+  }
+
+  // Append knowledge base documents as context
+  const knowledge = Array.isArray(definition.knowledge_base) ? definition.knowledge_base : [];
+  if (knowledge.length > 0) {
+    prompt += '\n\nKNOWLEDGE BASE (reference these when relevant):';
+    for (const doc of knowledge) {
+      prompt += `\n\n--- ${doc.title} ---\n${doc.content}`;
+    }
+  }
+
   if (company?.name) {
     prompt = prompt.replace(/\{company_name\}/g, company.name);
   }
@@ -67,6 +82,15 @@ function extractToolCalls(content) {
 let _defCache = {};
 let _defCacheTs = 0;
 const DEF_CACHE_TTL = 2 * 60 * 1000;
+
+function invalidateDefinitionCache(definitionId) {
+  if (definitionId) {
+    delete _defCache[definitionId];
+  } else {
+    _defCache = {};
+    _defCacheTs = 0;
+  }
+}
 
 async function getAgentDefinition(definitionId) {
   if (_defCache[definitionId] && Date.now() - _defCacheTs < DEF_CACHE_TTL) {
@@ -815,4 +839,5 @@ module.exports = {
   checkExpiredSubscriptions,
   seedAgentDefinitions,
   exportTrainingData,
+  invalidateDefinitionCache,
 };

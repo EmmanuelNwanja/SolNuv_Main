@@ -176,6 +176,20 @@ export default function PrivacyPolicy() {
             If you sign in using Google OAuth, we receive your email address and profile photo URL from Google. We do not receive your Google password, contacts, or any other Google account data.
           </p>
 
+          <SubHeading>3.8 AI Interaction Data</SubHeading>
+          <p>
+            When you use SolNuv&apos;s AI-powered agents (available on all subscription tiers), we collect:
+          </p>
+          <ul>
+            <li>Conversation messages you send to AI agents and the responses generated;</li>
+            <li>Agent type, session identifiers, and timestamps;</li>
+            <li>Project and company context provided to the AI to personalise responses;</li>
+            <li>Task descriptions, results, and status for asynchronous AI tasks (Elite and Enterprise plans).</li>
+          </ul>
+          <p>
+            AI conversations are processed in real time by our LLM providers (currently Google Gemini and Groq). These providers act as data processors and do not retain your data for their own training purposes under our agreements with them.
+          </p>
+
           {/* ──────────────────────────────── 4 ──────────────────────────────── */}
           <SectionHeading id="how-we-use">4. How We Use Your Data</SectionHeading>
           <p>We process your personal data for the following purposes:</p>
@@ -197,6 +211,7 @@ export default function PrivacyPolicy() {
               <tr><td className="py-2 pr-4">Platform improvement & analytics</td><td>Usage data, session data (anonymised)</td></tr>
               <tr><td className="py-2 pr-4">Sending transactional emails (welcome, decommission alerts, team invitations)</td><td>Email, name, project details</td></tr>
               <tr><td className="py-2 pr-4">Fraud prevention & platform security</td><td>IP address, usage patterns, rate-limiting data</td></tr>
+              <tr><td className="py-2 pr-4">AI agent services (conversational guidance, project analysis, compliance reviews)</td><td>Conversation messages, project context, company data</td></tr>
               <tr><td className="py-2 pr-4">Legal compliance & regulatory obligations</td><td>As required by applicable law</td></tr>
             </tbody>
           </table>
@@ -236,6 +251,8 @@ export default function PrivacyPolicy() {
               <tr><td className="py-2 pr-4">Brevo (Sendinblue)</td><td className="pr-4">Transactional email delivery</td><td>Email, name, company name</td></tr>
               <tr><td className="py-2 pr-4">Termii</td><td className="pr-4">SMS OTP verification</td><td>Phone number</td></tr>
               <tr><td className="py-2 pr-4">Google OAuth</td><td className="pr-4">Social sign-in (optional)</td><td>Email, avatar URL</td></tr>
+              <tr><td className="py-2 pr-4">Google Gemini</td><td className="pr-4">AI language model processing</td><td>Conversation messages, project context</td></tr>
+              <tr><td className="py-2 pr-4">Groq</td><td className="pr-4">AI language model processing (fallback)</td><td>Conversation messages, project context</td></tr>
             </tbody>
           </table>
           <p className="mt-3">
@@ -295,6 +312,7 @@ export default function PrivacyPolicy() {
               <tr><td className="py-2 pr-4">Contact form submissions</td><td>24 months</td></tr>
               <tr><td className="py-2 pr-4">Analytics & usage data</td><td>24 months (anonymised after 30 days)</td></tr>
               <tr><td className="py-2 pr-4">Audit logs</td><td>5 years</td></tr>
+              <tr><td className="py-2 pr-4">AI conversation logs & task records</td><td>Duration of account + 12 months (or until deletion request)</td></tr>
             </tbody>
           </table>
 

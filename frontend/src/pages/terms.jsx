@@ -29,16 +29,17 @@ const TOC = [
   { id: 'user-content',         label: '9. User Content & Data' },
   { id: 'calculators',          label: '10. Calculator & Engineering Tools' },
   { id: 'compliance-reports',   label: '11. NESREA Compliance Reports' },
-  { id: 'third-party',          label: '12. Third-Party Services' },
-  { id: 'disclaimers',          label: '13. Disclaimers & No Warranties' },
-  { id: 'limitation',           label: '14. Limitation of Liability' },
-  { id: 'indemnification',      label: '15. Indemnification' },
-  { id: 'termination',          label: '16. Termination' },
-  { id: 'dispute',              label: '17. Dispute Resolution & Governing Law' },
-  { id: 'force-majeure',        label: '18. Force Majeure' },
-  { id: 'general',              label: '19. General Provisions' },
-  { id: 'changes',              label: '20. Changes to These Terms' },
-  { id: 'contact',              label: '21. Contact Information' },
+  { id: 'ai-services',           label: '12. AI-Powered Services' },
+  { id: 'third-party',          label: '13. Third-Party Services' },
+  { id: 'disclaimers',          label: '14. Disclaimers & No Warranties' },
+  { id: 'limitation',           label: '15. Limitation of Liability' },
+  { id: 'indemnification',      label: '16. Indemnification' },
+  { id: 'termination',          label: '17. Termination' },
+  { id: 'dispute',              label: '18. Dispute Resolution & Governing Law' },
+  { id: 'force-majeure',        label: '19. Force Majeure' },
+  { id: 'general',              label: '20. General Provisions' },
+  { id: 'changes',              label: '21. Changes to These Terms' },
+  { id: 'contact',              label: '22. Contact Information' },
 ];
 
 export default function TermsOfService() {
@@ -164,6 +165,7 @@ export default function TermsOfService() {
             <li><strong>Engineering Tools:</strong> Battery State-of-Health estimation, DC cable sizing and compliance, hybrid ROI proposal generation.</li>
             <li><strong>Project Management:</strong> Track installations, equipment, and decommission timelines.</li>
             <li><strong>NESREA EPR Compliance:</strong> Auto-generated compliance reports, cradle-to-grave tracking, and audit evidence.</li>
+            <li><strong>AI-Powered Agents:</strong> Conversational AI assistants for solar guidance, project management, financial analysis, compliance reviews, and report generation — availability determined by your subscription tier.</li>
             <li><strong>Leaderboard & Analytics:</strong> Industry benchmarking and portfolio analytics.</li>
           </ul>
 
@@ -236,6 +238,9 @@ export default function TermsOfService() {
             <li>Resell, redistribute, or sublicense access to the Platform or its outputs without authorisation;</li>
             <li>Use the Platform in a manner that degrades performance or adversely affects other users;</li>
             <li>Use SolNuv data, algorithms, or outputs to compete directly with SolNuv without written consent.</li>
+            <li>Attempt to manipulate, exploit, or circumvent AI agent safeguards, prompt boundaries, or tier-based access restrictions;</li>
+            <li>Use AI agents to generate content intended to deceive, impersonate, or mislead others;</li>
+            <li>Systematically extract, scrape, or bulk-export AI agent responses for use outside the Platform.</li>
           </ul>
           <p>
             We reserve the right to investigate violations and take appropriate action, including suspending or terminating your account, removing content, and reporting illegal activity to relevant authorities.
@@ -332,13 +337,59 @@ export default function TermsOfService() {
           </ul>
 
           {/* ──────────────────────────────── 12 ──────────────────────────────── */}
-          <SectionHeading id="third-party">12. Third-Party Services</SectionHeading>
+          <SectionHeading id="ai-services">12. AI-Powered Services</SectionHeading>
+
+          <SubHeading>12.1 Overview</SubHeading>
           <p>
-            The Platform integrates with third-party services (Paystack, Supabase, Brevo, Termii, Google OAuth) and may contain links to third-party websites. These services are governed by their own terms of service and privacy policies. We do not control, endorse, or assume responsibility for third-party services. Your interactions with third parties are solely between you and them.
+            SolNuv integrates artificial intelligence (&quot;AI&quot;) agents into the Platform to provide conversational solar guidance, automated project management assistance, financial analysis, compliance reviews, and report generation. AI agents are powered by third-party large language model (LLM) providers and supplemented by SolNuv&apos;s proprietary solar domain knowledge.
           </p>
 
+          <SubHeading>12.2 Availability by Subscription Tier</SubHeading>
+          <ul>
+            <li><strong>Basic & Pro plans:</strong> Access to the SolNuv AI Assistant (General Agent) for solar industry guidance, platform help, and informational queries.</li>
+            <li><strong>Elite & Enterprise plans:</strong> Access to specialised Customer Agents — AI Project Manager, Financial Advisor, Compliance Officer, and Report Specialist — each scoped to your company data and projects.</li>
+            <li><strong>Enterprise plans:</strong> Additional capabilities including priority processing, asynchronous task scheduling, and bulk AI task execution.</li>
+          </ul>
+          <p>
+            Agent availability, capabilities, and quotas may be adjusted as we develop the AI features. We will provide reasonable notice of material changes.
+          </p>
+
+          <SubHeading>12.3 AI Output Disclaimer</SubHeading>
+          <p>
+            All AI agent responses are generated by machine learning models and are <strong>provided for informational and planning purposes only</strong>. AI outputs:
+          </p>
+          <ul>
+            <li>Do <strong>not</strong> constitute professional engineering advice, financial recommendations, legal counsel, or certified compliance assessments;</li>
+            <li>May contain inaccuracies, outdated information, or incomplete analysis;</li>
+            <li>Must be independently verified before making business, financial, safety-critical, or regulatory decisions;</li>
+            <li>Are not guaranteed to be consistent, reproducible, or free from bias.</li>
+          </ul>
+          <p>
+            You acknowledge that AI technology is inherently probabilistic and that SolNuv bears no liability for decisions made based on AI agent output.
+          </p>
+
+          <SubHeading>12.4 AI Data Processing</SubHeading>
+          <p>
+            To provide AI services, conversation messages and relevant project context are transmitted to our LLM providers (currently Google Gemini and Groq). These providers process your queries in real time and do not retain your data for their own training purposes under our data processing agreements. AI conversation logs are stored on our systems for service improvement, audit, and support purposes — see our <Link href="/privacy" className="text-forest-600 dark:text-emerald-400 underline">Privacy Policy</Link> for retention details.
+          </p>
+
+          <SubHeading>12.5 Prohibited AI Usage</SubHeading>
+          <p>In addition to the restrictions in Section 7, you agree not to:</p>
+          <ul>
+            <li>Attempt to extract, reconstruct, or reverse-engineer the system prompts, configuration, or internal instructions of any AI agent;</li>
+            <li>Use AI agents to generate harmful, illegal, defamatory, or misleading content;</li>
+            <li>Present AI-generated outputs as certified professional work product without independent professional review;</li>
+            <li>Use the AI features to build, train, or improve competing AI products or services.</li>
+          </ul>
+
           {/* ──────────────────────────────── 13 ──────────────────────────────── */}
-          <SectionHeading id="disclaimers">13. Disclaimers & No Warranties</SectionHeading>
+          <SectionHeading id="third-party">13. Third-Party Services</SectionHeading>
+          <p>
+            The Platform integrates with third-party services (Paystack, Supabase, Brevo, Termii, Google OAuth, Google Gemini AI, Groq AI) and may contain links to third-party websites. These services are governed by their own terms of service and privacy policies. We do not control, endorse, or assume responsibility for third-party services. Your interactions with third parties are solely between you and them.
+          </p>
+
+          {/* ──────────────────────────────── 14 ──────────────────────────────── */}
+          <SectionHeading id="disclaimers">14. Disclaimers & No Warranties</SectionHeading>
           <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-5 my-4">
             <p className="text-sm font-semibold text-amber-800 dark:text-amber-300 mb-2">IMPORTANT — PLEASE READ CAREFULLY</p>
             <p className="text-sm text-amber-700 dark:text-amber-400">
@@ -350,21 +401,22 @@ export default function TermsOfService() {
             <li>Implied warranties of merchantability, fitness for a particular purpose, and non-infringement;</li>
             <li>Any warranty that the Platform will meet your specific requirements, be uninterrupted, timely, secure, or error-free;</li>
             <li>Any warranty regarding the accuracy, reliability, or completeness of any calculations, estimates, predictions, or recommendations;</li>
+            <li>Any warranty regarding the accuracy, completeness, or reliability of AI agent outputs, including but not limited to project analyses, financial estimates, compliance assessments, and generated reports;</li>
             <li>Any warranty arising from course of dealing, usage, or trade practice.</li>
           </ul>
           <p>
             No advice or information, whether oral or written, obtained from SolNuv or through the Platform creates any warranty not expressly stated in these Terms.
           </p>
 
-          {/* ──────────────────────────────── 14 ──────────────────────────────── */}
-          <SectionHeading id="limitation">14. Limitation of Liability</SectionHeading>
+          {/* ──────────────────────────────── 15 ──────────────────────────────── */}
+          <SectionHeading id="limitation">15. Limitation of Liability</SectionHeading>
           <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-5 my-4">
             <p className="text-sm text-amber-700 dark:text-amber-400">
               TO THE MAXIMUM EXTENT PERMITTED BY NIGERIAN LAW AND OTHER APPLICABLE LAW:
             </p>
           </div>
 
-          <SubHeading>14.1 Exclusion of Consequential Damages</SubHeading>
+          <SubHeading>15.1 Exclusion of Consequential Damages</SubHeading>
           <p>
             IN NO EVENT SHALL THE SOLNUV GROUP BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, EXEMPLARY, OR PUNITIVE DAMAGES, INCLUDING BUT NOT LIMITED TO:
           </p>
@@ -380,7 +432,7 @@ export default function TermsOfService() {
             — whether arising from contract, tort (including negligence), strict liability, or any other legal theory, even if SolNuv has been advised of the possibility of such damages.
           </p>
 
-          <SubHeading>14.2 Aggregate Cap</SubHeading>
+          <SubHeading>15.2 Aggregate Cap</SubHeading>
           <p>
             THE TOTAL AGGREGATE LIABILITY OF THE SOLNUV GROUP FOR ALL CLAIMS ARISING OUT OF OR RELATING TO THESE TERMS OR YOUR USE OF THE PLATFORM SHALL NOT EXCEED THE GREATER OF:
           </p>
@@ -389,18 +441,18 @@ export default function TermsOfService() {
             <li>Fifty thousand Nigerian Naira (₦50,000).</li>
           </ul>
 
-          <SubHeading>14.3 Essential Basis</SubHeading>
+          <SubHeading>15.3 Essential Basis</SubHeading>
           <p>
-            You acknowledge that the limitations and disclaimers in Sections 13 and 14 are an essential basis of the bargain between you and SolNuv, that they allocate risk in a manner that both parties consider fair and reasonable, and that SolNuv would not enter into these Terms without such limitations.
+            You acknowledge that the limitations and disclaimers in Sections 14 and 15 are an essential basis of the bargain between you and SolNuv, that they allocate risk in a manner that both parties consider fair and reasonable, and that SolNuv would not enter into these Terms without such limitations.
           </p>
 
-          <SubHeading>14.4 Statutory Rights</SubHeading>
+          <SubHeading>15.4 Statutory Rights</SubHeading>
           <p>
             Nothing in these Terms shall exclude or limit liability that cannot be lawfully excluded or limited under Nigerian law, including liability for death or personal injury caused by negligence, fraud, or fraudulent misrepresentation.
           </p>
 
-          {/* ──────────────────────────────── 15 ──────────────────────────────── */}
-          <SectionHeading id="indemnification">15. Indemnification</SectionHeading>
+          {/* ──────────────────────────────── 16 ──────────────────────────────── */}
+          <SectionHeading id="indemnification">16. Indemnification</SectionHeading>
           <p>
             You agree to indemnify, defend, and hold harmless the SolNuv Group from and against any and all claims, damages, losses, liabilities, costs, and expenses (including reasonable legal fees) arising out of or related to:
           </p>
@@ -416,15 +468,15 @@ export default function TermsOfService() {
             We will notify you of any such claim and reasonably cooperate in the defence. You shall not settle any claim without our prior written consent.
           </p>
 
-          {/* ──────────────────────────────── 16 ──────────────────────────────── */}
-          <SectionHeading id="termination">16. Termination</SectionHeading>
+          {/* ──────────────────────────────── 17 ──────────────────────────────── */}
+          <SectionHeading id="termination">17. Termination</SectionHeading>
 
-          <SubHeading>16.1 Termination by You</SubHeading>
+          <SubHeading>17.1 Termination by You</SubHeading>
           <p>
             You may terminate your account at any time through your account Settings or by emailing <a href="mailto:support@solnuv.com" className="text-forest-600 dark:text-emerald-400 underline">support@solnuv.com</a>. If you have an active paid subscription, cancellation takes effect at the end of the current billing period.
           </p>
 
-          <SubHeading>16.2 Termination by SolNuv</SubHeading>
+          <SubHeading>17.2 Termination by SolNuv</SubHeading>
           <p>We may suspend or terminate your account immediately if:</p>
           <ul>
             <li>You breach any provision of these Terms;</li>
@@ -437,34 +489,34 @@ export default function TermsOfService() {
             Where practicable, we will provide notice and an opportunity to cure the breach before termination, except where immediate suspension is necessary to protect the Platform or comply with law.
           </p>
 
-          <SubHeading>16.3 Effect of Termination</SubHeading>
+          <SubHeading>17.3 Effect of Termination</SubHeading>
           <p>Upon termination:</p>
           <ul>
             <li>Your right to access the Platform and Services immediately ceases (or at end of billing period for voluntary cancellation);</li>
             <li>You have 30 days from the date of termination to request an export of your data;</li>
             <li>We will retain your data in accordance with the retention periods in our <Link href="/privacy" className="text-forest-600 dark:text-emerald-400 underline">Privacy Policy</Link>;</li>
-            <li>Sections 8, 9.4, 13, 14, 15, 17, and 19 survive termination.</li>
+            <li>Sections 8, 9.4, 12, 14, 15, 16, 18, and 20 survive termination.</li>
           </ul>
 
-          {/* ──────────────────────────────── 17 ──────────────────────────────── */}
-          <SectionHeading id="dispute">17. Dispute Resolution & Governing Law</SectionHeading>
+          {/* ──────────────────────────────── 18 ──────────────────────────────── */}
+          <SectionHeading id="dispute">18. Dispute Resolution & Governing Law</SectionHeading>
 
-          <SubHeading>17.1 Governing Law</SubHeading>
+          <SubHeading>18.1 Governing Law</SubHeading>
           <p>
             These Terms shall be governed by and construed in accordance with the laws of the <strong>Federal Republic of Nigeria</strong>, without regard to its conflict of laws provisions.
           </p>
 
-          <SubHeading>17.2 Informal Resolution</SubHeading>
+          <SubHeading>18.2 Informal Resolution</SubHeading>
           <p>
             Before initiating formal proceedings, you agree to first attempt to resolve any dispute informally by contacting us at <a href="mailto:legal@solnuv.com" className="text-forest-600 dark:text-emerald-400 underline">legal@solnuv.com</a>. We will endeavour to resolve disputes within 30 days of receiving your written notice.
           </p>
 
-          <SubHeading>17.3 Mediation</SubHeading>
+          <SubHeading>18.3 Mediation</SubHeading>
           <p>
             If informal resolution fails, the parties agree to attempt mediation administered by the Lagos Multi-Door Courthouse (LMDC) or another mutually agreed mediation centre. Mediation costs shall be shared equally unless otherwise agreed.
           </p>
 
-          <SubHeading>17.4 Arbitration</SubHeading>
+          <SubHeading>18.4 Arbitration</SubHeading>
           <p>
             If mediation is unsuccessful within 60 days, either party may refer the dispute to binding arbitration under the <strong>Arbitration and Mediation Act 2023</strong> of Nigeria. The arbitration shall be:
           </p>
@@ -475,62 +527,62 @@ export default function TermsOfService() {
             <li>The arbitral award shall be final, binding, and enforceable in any court of competent jurisdiction.</li>
           </ul>
 
-          <SubHeading>17.5 Class Action Waiver</SubHeading>
+          <SubHeading>18.5 Class Action Waiver</SubHeading>
           <p>
             To the maximum extent permitted by law, you agree that any dispute resolution proceedings will be conducted on an individual basis and not as part of a class, consolidated, or representative action.
           </p>
 
-          <SubHeading>17.6 Jurisdiction</SubHeading>
+          <SubHeading>18.6 Jurisdiction</SubHeading>
           <p>
             For any matters not subject to arbitration, the courts of Lagos State, Nigeria, shall have exclusive jurisdiction.
           </p>
 
-          {/* ──────────────────────────────── 18 ──────────────────────────────── */}
-          <SectionHeading id="force-majeure">18. Force Majeure</SectionHeading>
+          {/* ──────────────────────────────── 19 ──────────────────────────────── */}
+          <SectionHeading id="force-majeure">19. Force Majeure</SectionHeading>
           <p>
             SolNuv shall not be liable for any failure or delay in performing its obligations under these Terms where such failure or delay results from circumstances beyond our reasonable control, including but not limited to: natural disasters, pandemic, war, terrorism, civil unrest, power outages, telecommunications failures, internet disruptions, government actions, strikes, fire, flood, or acts of God. In such events, our obligations are suspended for the duration of the force majeure event.
           </p>
 
-          {/* ──────────────────────────────── 19 ──────────────────────────────── */}
-          <SectionHeading id="general">19. General Provisions</SectionHeading>
+          {/* ──────────────────────────────── 20 ──────────────────────────────── */}
+          <SectionHeading id="general">20. General Provisions</SectionHeading>
 
-          <SubHeading>19.1 Entire Agreement</SubHeading>
+          <SubHeading>20.1 Entire Agreement</SubHeading>
           <p>
             These Terms, together with the <Link href="/privacy" className="text-forest-600 dark:text-emerald-400 underline">Privacy Policy</Link>, constitute the entire agreement between you and SolNuv regarding the subject matter hereof and supersede all prior or contemporaneous understandings, proposals, or agreements, whether oral or written.
           </p>
 
-          <SubHeading>19.2 Severability</SubHeading>
+          <SubHeading>20.2 Severability</SubHeading>
           <p>
             If any provision of these Terms is held to be invalid, illegal, or unenforceable by a court of competent jurisdiction, the remaining provisions shall continue in full force and effect. The invalid provision shall be modified to the minimum extent necessary to make it valid and enforceable while preserving the original intent.
           </p>
 
-          <SubHeading>19.3 Waiver</SubHeading>
+          <SubHeading>20.3 Waiver</SubHeading>
           <p>
             Our failure to enforce any right or provision of these Terms does not constitute a waiver of that right or provision. A waiver of any term shall be effective only if in writing and signed by an authorised representative of SolNuv.
           </p>
 
-          <SubHeading>19.4 Assignment</SubHeading>
+          <SubHeading>20.4 Assignment</SubHeading>
           <p>
             You may not assign or transfer your rights or obligations under these Terms without our prior written consent. We may assign our rights and obligations without restriction, including in connection with a merger, acquisition, or sale of assets.
           </p>
 
-          <SubHeading>19.5 Notices</SubHeading>
+          <SubHeading>20.5 Notices</SubHeading>
           <p>
             Notices to SolNuv must be sent to <a href="mailto:legal@solnuv.com" className="text-forest-600 dark:text-emerald-400 underline">legal@solnuv.com</a>. Notices to you may be sent to the email address associated with your account. Email notices are deemed received 24 hours after sending.
           </p>
 
-          <SubHeading>19.6 No Third-Party Beneficiaries</SubHeading>
+          <SubHeading>20.6 No Third-Party Beneficiaries</SubHeading>
           <p>
             These Terms do not create any third-party beneficiary rights, except that members of the SolNuv Group (Fudo Greentech, affiliates, subsidiaries, and their respective officers, directors, employees, and agents) are intended third-party beneficiaries of the disclaimers, limitations, and indemnification provisions herein and may enforce such provisions directly.
           </p>
 
-          <SubHeading>19.7 Headings</SubHeading>
+          <SubHeading>20.7 Headings</SubHeading>
           <p>
             Section headings are for convenience only and do not affect the interpretation of these Terms.
           </p>
 
-          {/* ──────────────────────────────── 20 ──────────────────────────────── */}
-          <SectionHeading id="changes">20. Changes to These Terms</SectionHeading>
+          {/* ──────────────────────────────── 21 ──────────────────────────────── */}
+          <SectionHeading id="changes">21. Changes to These Terms</SectionHeading>
           <p>
             We may revise these Terms from time to time. When we make material changes:
           </p>
@@ -544,8 +596,8 @@ export default function TermsOfService() {
             If you do not agree to the updated Terms, you must stop using the Platform and may cancel your subscription without penalty during the notice period.
           </p>
 
-          {/* ──────────────────────────────── 21 ──────────────────────────────── */}
-          <SectionHeading id="contact">21. Contact Information</SectionHeading>
+          {/* ──────────────────────────────── 22 ──────────────────────────────── */}
+          <SectionHeading id="contact">22. Contact Information</SectionHeading>
           <p>For questions about these Terms, contact us:</p>
           <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-5 mt-3 space-y-2">
             <p><strong>Fudo Greentech Limited</strong> (trading as SolNuv)</p>

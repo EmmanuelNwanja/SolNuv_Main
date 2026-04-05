@@ -5,7 +5,7 @@ import {
   RiSunLine, RiLeafLine, RiFileTextLine, RiTrophyLine, RiArrowRightLine,
   RiCheckLine, RiShieldCheckLine, RiMapPinLine, RiFlashlightLine,
   RiBarChartLine, RiCalculatorLine, RiRecycleLine, RiGlobalLine,
-  RiTeamLine, RiBriefcaseLine, RiArrowDownLine,
+  RiTeamLine, RiBriefcaseLine, RiArrowDownLine, RiRobotLine,
 } from 'react-icons/ri';
 import { calculatorAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -130,14 +130,14 @@ export default function Home() {
             <div className="max-w-3xl">
               <div className="inline-flex items-center gap-2 bg-white/10 border border-white/20 rounded-full px-4 py-1.5 mb-6">
                 <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
-                <span className="text-sm font-medium text-white/90">Nigeria&apos;s First · Solar Lifecycle Intelligence Platform</span>
+                <span className="text-sm font-medium text-white/90">Nigeria&apos;s First · AI-Powered Solar Lifecycle Platform</span>
               </div>
               <h1 className="font-display text-4xl md:text-6xl font-bold leading-tight mb-6">
                 Turn Solar E-Waste<br />
                 <span className="text-amber-400">Into Business Value</span>
               </h1>
               <p className="text-lg text-white/75 mb-8 leading-relaxed max-w-2xl">
-                Get the intelligence to track every panel from day one to end-of-life — predict failure using West African climate data, recover silver and battery material value, and generate EPR compliance reports with ease.
+                Track every panel from day one to end-of-life — predict failure using West African climate data, recover silver and battery material value, generate EPR compliance reports, and let AI agents handle your project management, financial analysis, and compliance reviews.
               </p>
               <div className="flex flex-wrap gap-4">
                 <Link href="/register" className="btn-amber inline-flex items-center gap-2">
@@ -151,7 +151,7 @@ export default function Home() {
                 <span className="flex items-center gap-2"><RiCheckLine className="text-emerald-400" /> NESREA EPR Compliant</span>
                 <span className="flex items-center gap-2"><RiCheckLine className="text-emerald-400" /> All 36 Nigerian States</span>
                 <span className="flex items-center gap-2"><RiCheckLine className="text-emerald-400" /> Free to Start</span>
-                <span className="flex items-center gap-2"><RiCheckLine className="text-emerald-400" /> Paystack Payments</span>
+                <span className="flex items-center gap-2"><RiCheckLine className="text-emerald-400" /> AI-Powered Agents</span>
               </div>
             </div>
           </div>
@@ -445,7 +445,7 @@ export default function Home() {
             <div className="text-center mb-14">
               <span className="text-xs font-semibold uppercase tracking-widest text-emerald-600">Platform Capabilities</span>
               <h2 className="section-title mb-4 mt-2">Built for Nigeria&apos;s Solar Sector</h2>
-              <p className="text-slate-500 max-w-xl mx-auto">Every tool your team needs — from field logging to boardroom compliance — in one integrated platform.</p>
+              <p className="text-slate-500 max-w-xl mx-auto">Every tool your team needs — from field logging to AI-driven compliance and project intelligence — in one platform.</p>
             </div>
             <div className="grid md:grid-cols-3 gap-6">
               {[
@@ -457,6 +457,7 @@ export default function Home() {
                 { icon: RiRecycleLine, color: 'bg-emerald-500', title: 'Battery SoH Warranty Ledger', desc: 'Track battery health heuristics, detect deep-cycle abuse, and maintain defendable warranty and maintenance records — per unit, per site.' },
                 { icon: RiCalculatorLine, color: 'bg-amber-500', title: 'Offline-Ready DC Cable Compliance', desc: 'Calculate voltage drop and cable sizing with African temperature assumptions. Queue offline and auto-sync compliance evidence when back online.' },
                 { icon: RiTeamLine, color: 'bg-forest-900', title: 'Team & Organisation Management', desc: 'Invite Admins and Managers. Track projects per team member. Scale from a one-man-band to a national EPC firm — one dashboard.' },
+                { icon: RiRobotLine, color: 'bg-amber-500', title: 'AI-Powered Agents', desc: 'Get instant solar guidance from your AI Assistant on any plan. Elite and Enterprise unlock dedicated AI Project Managers, Financial Advisors, Compliance Officers, and Report Specialists.' },
               ].map((f, i) => (
                 <div key={i} className="card-hover">
                   <div className={`w-11 h-11 ${f.color} rounded-xl flex items-center justify-center mb-4`}>
@@ -522,10 +523,10 @@ export default function Home() {
             </div>
             <div className="grid md:grid-cols-4 gap-6 items-start">
               {[
-                { name: 'Basic', price: '₦5,000', period: '/mo', cta: 'Get Basic', href: '/register', features: ['Unlimited project logging', 'West African decommission predictions', '42 calculator uses/month (7 per tool)', 'Decommission alerts', 'Basic silver estimator', '1 user / 1 device', '₦54,000 yearly (save 10%)'] },
-                { name: 'Pro', price: '₦15,000', period: '/mo', cta: 'Start Pro', href: '/register?plan=pro', popular: true, features: ['Everything in Basic', 'NESREA EPR PDF Reports (coming soon)', 'Cradle-to-Grave Certificates', 'CSV & Excel export', 'QR code traceability', 'Custom public portfolio', 'Team access (5 users)', '₦162,000 yearly (save 10%)'] },
-                { name: 'Elite', price: '₦40,000', period: '/mo', cta: 'Go Elite', href: '/register?plan=elite', features: ['Everything in Pro', 'Auto-send to NESREA', 'ROI + Cable Compliance PDFs', 'Team access (15 users)', 'Priority support + onboarding', 'Featured installer badge', 'AI Portfolio Analysis (coming soon)', '₦432,000 yearly (save 10%)'] },
-                { name: 'Enterprise', price: '₦100,000+', period: '/mo', cta: 'Contact Us', href: '/contact', features: ['Everything in Elite', 'Custom API integrations', 'Team access (50 users)', 'Dedicated account manager', 'Quarterly EPR advisory', 'White-label PDF reports', '₦1,080,000 yearly (save 10%)'] },
+                { name: 'Basic', price: '₦5,000', period: '/mo', cta: 'Get Basic', href: '/register', features: ['Unlimited project logging', 'West African decommission predictions', '42 calculator uses/month (7 per tool)', 'Decommission alerts', 'Basic silver estimator', 'SolNuv AI Assistant (solar guidance)', '1 user / 1 device', '₦54,000 yearly (save 10%)'] },
+                { name: 'Pro', price: '₦15,000', period: '/mo', cta: 'Start Pro', href: '/register?plan=pro', popular: true, features: ['Everything in Basic', 'NESREA EPR PDF Reports (coming soon)', 'Cradle-to-Grave Certificates', 'CSV & Excel export', 'QR code traceability', 'Custom public portfolio', 'SolNuv AI Assistant (enhanced)', 'Team access (5 users)', '₦162,000 yearly (save 10%)'] },
+                { name: 'Elite', price: '₦40,000', period: '/mo', cta: 'Go Elite', href: '/register?plan=elite', features: ['Everything in Pro', 'Auto-send to NESREA', 'ROI + Cable Compliance PDFs', '4 AI Agents (Project Manager, Advisor, Compliance, Reports)', 'Team access (15 users)', 'Priority support + onboarding', 'Featured installer badge', '₦432,000 yearly (save 10%)'] },
+                { name: 'Enterprise', price: '₦100,000+', period: '/mo', cta: 'Contact Us', href: '/contact', features: ['Everything in Elite', 'All AI Agents + priority & async tasks', 'Custom API integrations', 'Team access (50 users)', 'Dedicated account manager', 'Quarterly EPR advisory', 'White-label PDF reports', '₦1,080,000 yearly (save 10%)'] },
               ].map((plan, i) => (
                 <div key={i} className={`rounded-2xl overflow-hidden ${plan.popular ? 'ring-2 ring-forest-900 shadow-xl' : 'border border-slate-200'}`}>
                   {plan.popular && <div className="bg-forest-900 text-center py-1.5 text-xs font-bold text-amber-400">MOST POPULAR</div>}
