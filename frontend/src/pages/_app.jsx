@@ -55,10 +55,10 @@ function AppShell({ Component, pageProps }) {
     // Handle unauthorized events dispatched by the api.js response interceptor.
     // We only redirect to login on truly protected routes, not on public pages.
     const unprotectedPaths = ['/', '/login', '/register', '/reset-password', '/verify-phone',
-      '/onboarding', '/auth/callback', '/payment/verify'];
+      '/onboarding', '/auth/callback', '/payment/verify', '/contact', '/blog'];
     function handleUnauthorized() {
       const pathname = window.location.pathname;
-      const isProtected = !unprotectedPaths.some((p) => pathname === p || pathname.startsWith('/field/') || pathname.startsWith('/profile/'));
+      const isProtected = !unprotectedPaths.some((p) => pathname === p || pathname.startsWith('/field/') || pathname.startsWith('/profile/') || pathname.startsWith('/blog/') || pathname.startsWith('/contact'));
       if (isProtected) {
         router.push('/login');
       }

@@ -28,20 +28,21 @@ const navItems = [
 ];
 
 export default function Layout({ children }) {
-  const { profile, plan, isPro, company, signOut, isPlatformAdmin } = useAuth();
+  const { profile, plan, isPro, company, signOut, isPlatformAdmin, session } = useAuth();
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
 
-  // Poll for unread notifications count (on mount only — no polling to avoid noise)
+  // Poll for unread notifications count (only when logged in)
   useEffect(() => {
+    if (!session) return;
     authAPI.getNotifications()
       .then((r) => {
         const items = r.data.data || [];
         setUnreadCount(items.filter((n) => !n.is_read).length);
       })
       .catch(() => {});
-  }, []);
+  }, [session]);
 
   // Reset bell badge when user navigates to the notifications page
   useEffect(() => {
