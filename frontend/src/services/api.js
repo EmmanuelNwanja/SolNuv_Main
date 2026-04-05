@@ -238,6 +238,9 @@ export const adminAPI = {
   listAllProjects: (params) => api.get('/admin/projects', { params }),
   adminBulkUpdateProjects: (projectIds, update) => api.patch('/admin/projects/bulk', { project_ids: projectIds, update }),
   adminUpdateProject: (id, data) => api.patch(`/admin/projects/${id}`, data),
+  updateUserManagement: (data) => api.patch('/admin/users/verification', data),
+  suspendUser: (id, data) => api.patch(`/admin/users/${id}/suspend`, data),
+  deleteUser: (id, data) => api.delete(`/admin/users/${id}`, { data }),
   listRecoveryRequests: (params) => api.get('/admin/recovery-requests', { params }),
   approveDecommission: (id, data) => api.patch(`/admin/recovery-requests/${id}/approve`, data || {}),
 };

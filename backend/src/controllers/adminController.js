@@ -146,6 +146,104 @@ exports.updateUserVerification = async (req, res) => {
   }
 };
 
+/**
+ * PATCH /api/admin/users/:id/suspend
+ * Suspend (or unsuspend) a user with a required reason
+ */
+exports.suspendUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { reason, suspend = true } = req.body;
+
+    if (suspend && !reason?.trim()) {
+      return sendError(res, 'A reason is required to suspend a user', 400);
+    }
+
+    const { data: target } = await supabase
+      .from('users')
+      .select('id, email, first_name, last_name')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (!target) return sendError(res, 'User not found', 404);
+
+    await supabase
+      .from('users')
+      .update({ is_active: !suspend, updated_at: new Date().toISOString() })
+      .eq('id', id);
+
+    await logPlatformActivity({
+      actorUserId: req.user.id,
+      actorEmail: req.user.email,
+      action: suspend ? 'admin.user.suspended' : 'admin.user.unsuspended',
+      resourceType: 'user',
+      resourceId: id,
+      details: { reason: reason || null, target_email: target.email },
+    });
+
+    return sendSuccess(res, { user_id: id, suspended: suspend }, suspend ? 'User suspended' : 'User unsuspended');
+  } catch (error) {
+    logger.error('Admin: Failed to suspend user', { id: req.params?.id, message: error.message });
+    return sendError(res, 'Failed to update user status', 500);
+  }
+};
+
+/**
+ * DELETE /api/admin/users/:id
+ * Soft-delete a user account (deactivates + anonymises PII on request).
+ * Requires reason. Does NOT delete projects/data — preserves audit trail.
+ */
+exports.adminDeleteUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { reason, hard_delete = false } = req.body;
+
+    if (!reason?.trim()) {
+      return sendError(res, 'A reason is required to delete a user account', 400);
+    }
+
+    const { data: target } = await supabase
+      .from('users')
+      .select('id, email, first_name, last_name, company_id, supabase_uid')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (!target) return sendError(res, 'User not found', 404);
+
+    // Soft delete: deactivate and anonymise PII
+    await supabase
+      .from('users')
+      .update({
+        is_active: false,
+        first_name: '[Deleted]',
+        last_name: '',
+        phone: null,
+        brand_name: null,
+        avatar_url: null,
+        signature_url: null,
+        public_slug: null,
+        public_bio: null,
+        is_public_profile: false,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id);
+
+    await logPlatformActivity({
+      actorUserId: req.user.id,
+      actorEmail: req.user.email,
+      action: 'admin.user.deleted',
+      resourceType: 'user',
+      resourceId: id,
+      details: { reason, original_email: target.email, hard_delete },
+    });
+
+    return sendSuccess(res, { user_id: id }, 'User account deleted');
+  } catch (error) {
+    logger.error('Admin: Failed to delete user', { id: req.params?.id, message: error.message });
+    return sendError(res, 'Failed to delete user account', 500);
+  }
+};
+
 exports.listPaystackPlans = async (req, res) => {
   try {
     const { data, error } = await supabase

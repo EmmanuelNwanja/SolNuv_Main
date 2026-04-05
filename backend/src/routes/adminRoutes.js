@@ -9,6 +9,8 @@ router.use(requireAuth, requireProfile, requireAdmin);
 router.get('/overview', adminController.getOverview);
 router.get('/users', adminController.listUsers);
 router.patch('/users/verification', adminController.updateUserVerification);
+router.patch('/users/:id/suspend', requireAdminRole('super_admin', 'operations'), adminController.suspendUser);
+router.delete('/users/:id', requireAdminRole('super_admin'), adminController.adminDeleteUser);
 
 router.get('/paystack-plans', requireAdminRole('super_admin', 'finance'), adminController.listPaystackPlans);
 router.post('/paystack-plans', requireAdminRole('super_admin', 'finance'), adminController.upsertPaystackPlan);

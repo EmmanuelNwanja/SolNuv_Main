@@ -55,6 +55,17 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
   const [admins, setAdmins] = useState([]);
   const [recoveryRequests, setRecoveryRequests] = useState([]);
   const [pickupApprovingId, setPickupApprovingId] = useState(null);
+
+  // User management panel state
+  const [managingUser, setManagingUser] = useState(null);
+  const [mgmtPlan, setMgmtPlan] = useState('');
+  const [mgmtInterval, setMgmtInterval] = useState('monthly');
+  const [mgmtMaxTeam, setMgmtMaxTeam] = useState(1);
+  const [mgmtSuspendReason, setMgmtSuspendReason] = useState('');
+  const [mgmtDeleteReason, setMgmtDeleteReason] = useState('');
+  const [mgmtDeleteConfirm, setMgmtDeleteConfirm] = useState('');
+  const [mgmtBusy, setMgmtBusy] = useState(false);
+  const [mgmtAction, setMgmtAction] = useState(null); // 'suspend' | 'delete' | null
   const [adminUserSearch, setAdminUserSearch] = useState('');
   const [adminUserSearchResults, setAdminUserSearchResults] = useState([]);
   const [adminRoleForm, setAdminRoleForm] = useState({
@@ -375,39 +386,253 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
       )}
 
       {activeTab === 'users' && (
-        <div className="card">
-          <div className="flex items-center justify-between gap-3 mb-4">
+        <div className="space-y-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-2">
             <input
               className="input max-w-sm"
-              placeholder="Search users"
+              placeholder="Search by name or email"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
             <span className="text-xs text-slate-400">{filteredUsers.length} users</span>
           </div>
+
           <div className="space-y-2">
-            {filteredUsers.map((u) => (
-              <div key={u.id} className="p-3 rounded-xl border border-slate-100 flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-                <div>
-                  <p className="font-medium text-slate-800">{u.first_name} {u.last_name}</p>
-                  <p className="text-xs text-slate-500">{u.email}</p>
-                  <p className="text-xs text-slate-400">Plan: {u.companies?.subscription_plan === 'free' ? 'basic' : (u.companies?.subscription_plan || 'basic')} ({u.companies?.subscription_interval || 'monthly'})</p>
+            {filteredUsers.map((u) => {
+              const isManaging = managingUser?.id === u.id;
+              const plan = u.companies?.subscription_plan || 'free';
+              const isVerified = !!u.companies?.verified_at;
+              return (
+                <div key={u.id} className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
+                  {/* User row */}
+                  <div className="p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-semibold text-slate-800">{u.first_name} {u.last_name}</p>
+                        <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${
+                          !u.is_active ? 'bg-red-100 text-red-700'
+                          : plan === 'enterprise' ? 'bg-purple-100 text-purple-800'
+                          : plan === 'elite' ? 'bg-amber-100 text-amber-800'
+                          : plan === 'pro' ? 'bg-emerald-100 text-emerald-800'
+                          : 'bg-slate-100 text-slate-600'
+                        }`}>
+                          {!u.is_active ? 'Suspended' : plan === 'free' ? 'Basic' : plan.toUpperCase()}
+                        </span>
+                        {isVerified && <span className="text-[11px] px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium">✓ Verified</span>}
+                      </div>
+                      <p className="text-xs text-slate-500 mt-0.5">{u.email}</p>
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        {u.companies?.name || 'Solo user'}
+                        {u.companies?.subscription_expires_at ? ` • Renews ${new Date(u.companies.subscription_expires_at).toLocaleDateString('en-NG')}` : ''}
+                        {' • '}{u.companies?.max_team_members || 1} seat{(u.companies?.max_team_members || 1) !== 1 ? 's' : ''}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        if (isManaging) {
+                          setManagingUser(null);
+                          setMgmtAction(null);
+                        } else {
+                          setManagingUser(u);
+                          setMgmtPlan(u.companies?.subscription_plan || 'free');
+                          setMgmtInterval(u.companies?.subscription_interval || 'monthly');
+                          setMgmtMaxTeam(u.companies?.max_team_members || 1);
+                          setMgmtSuspendReason('');
+                          setMgmtDeleteReason('');
+                          setMgmtDeleteConfirm('');
+                          setMgmtAction(null);
+                        }
+                      }}
+                      className={`text-sm px-4 py-2 rounded-xl font-semibold border transition-all whitespace-nowrap ${
+                        isManaging ? 'border-forest-900 bg-forest-900 text-white' : 'border-slate-300 text-slate-700 hover:border-forest-700 hover:text-forest-900'
+                      }`}
+                    >
+                      {isManaging ? 'Close' : 'Manage'}
+                    </button>
+                  </div>
+
+                  {/* Inline management panel */}
+                  {isManaging && (
+                    <div className="border-t border-slate-100 bg-slate-50 p-4 space-y-5">
+
+                      {/* Plan & billing */}
+                      <div>
+                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Subscription Plan</p>
+                        <div className="flex flex-wrap gap-3 items-end">
+                          <div>
+                            <label className="label text-xs">Plan</label>
+                            <select className="input text-sm" value={mgmtPlan} onChange={e => setMgmtPlan(e.target.value)}>
+                              <option value="free">Basic (Free)</option>
+                              <option value="pro">Pro</option>
+                              <option value="elite">Elite</option>
+                              <option value="enterprise">Enterprise</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="label text-xs">Interval</label>
+                            <select className="input text-sm" value={mgmtInterval} onChange={e => setMgmtInterval(e.target.value)}>
+                              <option value="monthly">Monthly</option>
+                              <option value="annual">Annual</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="label text-xs">Max Team Members</label>
+                            <input className="input text-sm w-24" type="number" min={1} max={100} value={mgmtMaxTeam} onChange={e => setMgmtMaxTeam(Number(e.target.value))} />
+                          </div>
+                          <button
+                            disabled={mgmtBusy}
+                            onClick={async () => {
+                              setMgmtBusy(true);
+                              try {
+                                await adminAPI.updateUserManagement({ user_id: u.id, company_plan: mgmtPlan, subscription_interval: mgmtInterval, max_team_members: mgmtMaxTeam });
+                                setUsers(prev => prev.map(x => x.id === u.id ? { ...x, companies: { ...x.companies, subscription_plan: mgmtPlan, subscription_interval: mgmtInterval, max_team_members: mgmtMaxTeam } } : x));
+                                toast.success('Plan updated');
+                              } catch (err) { toast.error(err.response?.data?.message || 'Failed to update plan'); }
+                              finally { setMgmtBusy(false); }
+                            }}
+                            className="btn-primary text-sm px-4 py-2"
+                          >
+                            {mgmtBusy ? 'Saving...' : 'Save Plan'}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Verification */}
+                      {u.companies && (
+                        <div>
+                          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Company Verification</p>
+                          <div className="flex items-center gap-3">
+                            <span className="text-sm text-slate-700">
+                              {isVerified ? `✓ Verified on ${new Date(u.companies.verified_at).toLocaleDateString('en-NG')}` : 'Not verified'}
+                            </span>
+                            <button
+                              disabled={mgmtBusy}
+                              onClick={async () => {
+                                setMgmtBusy(true);
+                                try {
+                                  await adminAPI.updateUserManagement({ user_id: u.id, company_verified: !isVerified });
+                                  setUsers(prev => prev.map(x => x.id === u.id ? { ...x, companies: { ...x.companies, verified_at: !isVerified ? new Date().toISOString() : null } } : x));
+                                  toast.success(isVerified ? 'Verification removed' : 'Company verified');
+                                } catch (err) { toast.error(err.response?.data?.message || 'Failed'); }
+                                finally { setMgmtBusy(false); }
+                              }}
+                              className={`text-sm px-4 py-2 rounded-xl font-semibold border transition-all ${
+                                isVerified ? 'border-slate-300 text-slate-600 hover:border-red-400 hover:text-red-600' : 'border-blue-400 text-blue-700 hover:bg-blue-50'
+                              }`}
+                            >
+                              {isVerified ? 'Unverify' : 'Mark Verified'}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Suspend / Unsuspend */}
+                      <div>
+                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
+                          {u.is_active ? 'Suspend Account' : 'Unsuspend Account'}
+                        </p>
+                        {u.is_active ? (
+                          mgmtAction === 'suspend' ? (
+                            <div className="space-y-2">
+                              <textarea
+                                className="input text-sm min-h-[72px]"
+                                placeholder="Reason for suspension (required — user will be notified)"
+                                value={mgmtSuspendReason}
+                                onChange={e => setMgmtSuspendReason(e.target.value)}
+                              />
+                              <div className="flex gap-2">
+                                <button onClick={() => setMgmtAction(null)} className="btn-ghost text-sm">Cancel</button>
+                                <button
+                                  disabled={mgmtBusy || !mgmtSuspendReason.trim()}
+                                  onClick={async () => {
+                                    setMgmtBusy(true);
+                                    try {
+                                      await adminAPI.suspendUser(u.id, { reason: mgmtSuspendReason, suspend: true });
+                                      setUsers(prev => prev.map(x => x.id === u.id ? { ...x, is_active: false } : x));
+                                      toast.success('User suspended');
+                                      setMgmtAction(null);
+                                    } catch (err) { toast.error(err.response?.data?.message || 'Failed to suspend'); }
+                                    finally { setMgmtBusy(false); }
+                                  }}
+                                  className="bg-amber-500 hover:bg-amber-600 text-white text-sm px-4 py-2 rounded-xl font-semibold"
+                                >
+                                  {mgmtBusy ? 'Suspending...' : 'Confirm Suspend'}
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <button onClick={() => setMgmtAction('suspend')} className="text-sm px-4 py-2 rounded-xl border border-amber-400 text-amber-700 hover:bg-amber-50 font-semibold">
+                              Suspend User
+                            </button>
+                          )
+                        ) : (
+                          <button
+                            disabled={mgmtBusy}
+                            onClick={async () => {
+                              setMgmtBusy(true);
+                              try {
+                                await adminAPI.suspendUser(u.id, { reason: 'Admin unsuspend', suspend: false });
+                                setUsers(prev => prev.map(x => x.id === u.id ? { ...x, is_active: true } : x));
+                                toast.success('User unsuspended');
+                              } catch (err) { toast.error(err.response?.data?.message || 'Failed to unsuspend'); }
+                              finally { setMgmtBusy(false); }
+                            }}
+                            className="text-sm px-4 py-2 rounded-xl border border-emerald-500 text-emerald-700 hover:bg-emerald-50 font-semibold"
+                          >
+                            {mgmtBusy ? 'Updating...' : 'Unsuspend User'}
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Delete account */}
+                      <div className="border-t border-red-100 pt-4">
+                        <p className="text-xs font-semibold text-red-500 uppercase tracking-wide mb-3">Delete Account</p>
+                        {mgmtAction === 'delete' ? (
+                          <div className="space-y-2">
+                            <textarea
+                              className="input text-sm min-h-[72px]"
+                              placeholder="Reason for deletion (required — recorded in audit log)"
+                              value={mgmtDeleteReason}
+                              onChange={e => setMgmtDeleteReason(e.target.value)}
+                            />
+                            <input
+                              className="input text-sm"
+                              placeholder={`Type DELETE to confirm`}
+                              value={mgmtDeleteConfirm}
+                              onChange={e => setMgmtDeleteConfirm(e.target.value)}
+                            />
+                            <div className="flex gap-2">
+                              <button onClick={() => setMgmtAction(null)} className="btn-ghost text-sm">Cancel</button>
+                              <button
+                                disabled={mgmtBusy || !mgmtDeleteReason.trim() || mgmtDeleteConfirm !== 'DELETE'}
+                                onClick={async () => {
+                                  setMgmtBusy(true);
+                                  try {
+                                    await adminAPI.deleteUser(u.id, { reason: mgmtDeleteReason });
+                                    setUsers(prev => prev.filter(x => x.id !== u.id));
+                                    setManagingUser(null);
+                                    toast.success('User account deleted');
+                                  } catch (err) { toast.error(err.response?.data?.message || 'Failed to delete'); }
+                                  finally { setMgmtBusy(false); }
+                                }}
+                                className="bg-red-600 hover:bg-red-700 text-white text-sm px-4 py-2 rounded-xl font-semibold disabled:opacity-50"
+                              >
+                                {mgmtBusy ? 'Deleting...' : 'Permanently Delete'}
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <button onClick={() => setMgmtAction('delete')} className="text-sm px-4 py-2 rounded-xl border border-red-300 text-red-600 hover:bg-red-50 font-semibold">
+                            Delete User Account
+                          </button>
+                        )}
+                      </div>
+
+                    </div>
+                  )}
                 </div>
-                <button
-                  className={`btn-outline text-xs px-3 py-1 ${u.is_active ? 'border-emerald-500 text-emerald-700' : 'border-red-500 text-red-700'}`}
-                  onClick={async () => {
-                    try {
-                      await adminAPI.updateUserVerification({ user_id: u.id, is_active: !u.is_active });
-                      setUsers((prev) => prev.map((x) => x.id === u.id ? { ...x, is_active: !x.is_active } : x));
-                    } catch {
-                      toast.error('Failed to update user status');
-                    }
-                  }}
-                >
-                  {u.is_active ? 'Deactivate' : 'Activate'}
-                </button>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}

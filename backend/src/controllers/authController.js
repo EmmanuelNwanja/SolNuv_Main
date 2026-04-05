@@ -75,40 +75,55 @@ exports.createOrUpdateProfile = async (req, res) => {
     if (!first_name) return sendError(res, 'First name is required', 400);
     if (!user_type) return sendError(res, 'User type is required', 400);
 
+    // Pre-fetch existing user row so we can reuse their company_id and avoid
+    // accidentally creating a duplicate company (which would revert a paid plan to free).
+    const { data: preCheckUser } = await supabase
+      .from('users')
+      .select('id, company_id')
+      .eq('supabase_uid', supabaseUser.id)
+      .maybeSingle();
+
     let companyId = null;
 
     // Create company if registered business
     if (business_type === 'registered') {
       if (!company_name) return sendError(res, 'Company name is required for registered businesses', 400);
 
-      // Check if company already exists
-      const { data: existingCompany } = await supabase
-        .from('companies')
-        .select('id')
-        .eq('email', company_email || supabaseUser.email)
-        .single();
-
-      if (existingCompany) {
-        companyId = existingCompany.id;
+      if (preCheckUser?.company_id) {
+        // Existing user — always use their current company to preserve subscription plan.
+        // Never do an email-based lookup/create path here; that path can create a brand-new
+        // free company and overwrite the user's paid plan.
+        companyId = preCheckUser.company_id;
       } else {
-        const { data: newCompany, error: companyError } = await supabase
+        // New registration — find or create company by email
+        const { data: existingCompany } = await supabase
           .from('companies')
-          .insert({
-            name: company_name,
-            email: company_email || supabaseUser.email,
-            address: company_address,
-            state: company_state,
-            city: company_city,
-            user_type,
-            business_type: 'registered',
-            subscription_plan: 'free',
-            max_team_members: 1,
-          })
-          .select()
-          .single();
+          .select('id')
+          .eq('email', company_email || supabaseUser.email)
+          .maybeSingle();
 
-        if (companyError) throw companyError;
-        companyId = newCompany.id;
+        if (existingCompany) {
+          companyId = existingCompany.id;
+        } else {
+          const { data: newCompany, error: companyError } = await supabase
+            .from('companies')
+            .insert({
+              name: company_name,
+              email: company_email || supabaseUser.email,
+              address: company_address,
+              state: company_state,
+              city: company_city,
+              user_type,
+              business_type: 'registered',
+              subscription_plan: 'free',
+              max_team_members: 1,
+            })
+            .select()
+            .single();
+
+          if (companyError) throw companyError;
+          companyId = newCompany.id;
+        }
       }
 
       // Keep company profile details in sync from settings edits
@@ -132,12 +147,8 @@ exports.createOrUpdateProfile = async (req, res) => {
       }
     }
 
-    // Check if user profile exists
-    const { data: existingUser } = await supabase
-      .from('users')
-      .select('id')
-      .eq('supabase_uid', supabaseUser.id)
-      .single();
+    // Check if user profile exists (reuse pre-check result to avoid a duplicate query)
+    const existingUser = preCheckUser;
 
     let user;
 
@@ -157,7 +168,8 @@ exports.createOrUpdateProfile = async (req, res) => {
           user_type,
           business_type,
           brand_name,
-          company_id: companyId,
+          // Only update company_id when we actually resolved one; never null it out
+          ...(companyId !== null ? { company_id: companyId } : {}),
           signature_url: signature_url || undefined,
           notification_preferences: notification_preferences || undefined,
           public_slug: resolvedSlug,
