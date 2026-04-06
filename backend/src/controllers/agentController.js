@@ -51,38 +51,66 @@ exports.chat = async (req, res) => {
 /**
  * GET /api/agent/instances
  * List all agent instances available to the current user's company.
+ * Only returns company-specific instances (not shared null-company ones).
+ * Filters by the user's subscription plan as a defense-in-depth layer.
+ * Auto-provisions the free-tier agent for the company if no instances exist yet.
  */
 exports.getInstances = async (req, res) => {
   try {
     const companyId = req.user.company_id;
+    const userPlan = req.user.subscription_plan || 'free';
+    const PLAN_HIERARCHY = { free: 0, pro: 1, elite: 2, enterprise: 3 };
+    const userPlanLevel = PLAN_HIERARCHY[userPlan] ?? 0;
 
-    // Company-specific agents + shared general agents (company_id IS NULL)
-    let query = supabase
-      .from('ai_agent_instances')
-      .select('id, is_active, created_at, ai_agent_definitions(id, slug, name, description, tier, plan_minimum)')
-      .eq('is_active', true);
-
-    if (companyId) {
-      query = query.or(`company_id.eq.${companyId},company_id.is.null`);
-    } else {
-      query = query.is('company_id', null);
+    if (!companyId) {
+      return sendSuccess(res, []);
     }
 
-    // Exclude internal agents from user-facing list
-    const { data, error } = await query;
+    // Fetch only company-specific instances (never shared null-company instances)
+    const { data, error } = await supabase
+      .from('ai_agent_instances')
+      .select('id, is_active, created_at, config_overrides, ai_agent_definitions(id, slug, name, description, tier, plan_minimum)')
+      .eq('company_id', companyId)
+      .eq('is_active', true);
+
     if (error) throw error;
 
-    const userFacing = (data || []).filter(i => {
-      const tier = i.ai_agent_definitions?.tier;
-      return tier !== 'internal';
-    });
+    // If no instances found, auto-provision the free agent for this company
+    if (!data || data.length === 0) {
+      await agentService.assignAgentsOnSubscription(companyId, userPlan);
+      const { data: provisioned } = await supabase
+        .from('ai_agent_instances')
+        .select('id, is_active, created_at, config_overrides, ai_agent_definitions(id, slug, name, description, tier, plan_minimum)')
+        .eq('company_id', companyId)
+        .eq('is_active', true);
 
-    return sendSuccess(res, userFacing);
+      return sendSuccess(res, filterUserFacingAgents(provisioned || [], userPlanLevel));
+    }
+
+    return sendSuccess(res, filterUserFacingAgents(data, userPlanLevel));
   } catch (err) {
     logger.error('Get agent instances error', { message: err.message });
     return sendError(res, 'Failed to fetch agents');
   }
 };
+
+function filterUserFacingAgents(instances, userPlanLevel) {
+  const PLAN_HIERARCHY = { free: 0, pro: 1, elite: 2, enterprise: 3 };
+  const seen = new Set();
+  return instances.filter(i => {
+    const def = i.ai_agent_definitions;
+    if (!def) return false;
+    // Exclude internal agents
+    if (def.tier === 'internal') return false;
+    // Exclude agents above the user's plan
+    const required = PLAN_HIERARCHY[def.plan_minimum || 'free'] ?? 0;
+    if (userPlanLevel < required) return false;
+    // Deduplicate by definition_id (keep first occurrence)
+    if (seen.has(def.id)) return false;
+    seen.add(def.id);
+    return true;
+  });
+}
 
 /**
  * GET /api/agent/conversations

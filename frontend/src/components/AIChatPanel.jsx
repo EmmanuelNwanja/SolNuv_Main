@@ -121,7 +121,10 @@ export default function AIChatPanel() {
     inputRef.current?.focus();
   };
 
-  const agentName = selectedAgent?.ai_agent_definitions?.name || 'AI Assistant';
+  const agentName = selectedAgent?.config_overrides?.display_name
+    || selectedAgent?.ai_agent_definitions?.name
+    || 'AI Assistant';
+  const agentDescription = selectedAgent?.ai_agent_definitions?.description || '';
   const agentTier = selectedAgent?.ai_agent_definitions?.tier || 'general';
   const agentsLoading = open && agents.length === 0;
 
@@ -157,7 +160,7 @@ export default function AIChatPanel() {
                 <div className="min-w-0">
                   <p className="text-sm font-semibold truncate">{agentName}</p>
                   <p className="text-[10px] opacity-70 uppercase tracking-wider">
-                    {agentTier === 'customer' ? `${plan?.toUpperCase()} Agent` : 'SolNuv Assistant'}
+                    {agentTier === 'customer' ? `${agentDescription || 'Specialist Agent'}` : 'SolNuv AI Assistant'}
                   </p>
                 </div>
               </div>
@@ -186,7 +189,7 @@ export default function AIChatPanel() {
                 >
                   {agents.map(a => (
                     <option key={a.id} value={a.id}>
-                      {a.ai_agent_definitions?.name || 'Agent'}
+                      {a.config_overrides?.display_name || a.ai_agent_definitions?.name || 'Agent'}
                     </option>
                   ))}
                 </select>

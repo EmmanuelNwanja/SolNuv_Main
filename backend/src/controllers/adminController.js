@@ -1721,3 +1721,114 @@ exports.getDesignAdoption = async (req, res) => {
     return sendError(res, 'Failed to load adoption data', 500);
   }
 };
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  SEO & PLATFORM SETTINGS
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+/**
+ * GET /api/admin/seo
+ * Returns the current platform SEO settings (admin-facing, includes all fields)
+ */
+exports.getSeoSettings = async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('platform_seo_settings')
+      .select('*')
+      .eq('row_key', 'global')
+      .single();
+
+    if (error) throw error;
+    return sendSuccess(res, data || {});
+  } catch (error) {
+    logger.error('Admin: getSeoSettings failed', { message: error.message });
+    return sendError(res, 'Failed to load SEO settings', 500);
+  }
+};
+
+/**
+ * PUT /api/admin/seo
+ * Update platform SEO settings. Only super_admin can call this.
+ * Accepts a partial payload — strips undefined/null keys before update.
+ */
+exports.updateSeoSettings = async (req, res) => {
+  try {
+    const ALLOWED = [
+      'site_name', 'default_title', 'default_description', 'default_keywords',
+      'og_image_url', 'twitter_handle', 'canonical_base',
+      'google_site_verification', 'google_analytics_id',
+      'structured_data', 'extra_head_tags',
+    ];
+
+    // Only accept known fields; reject empties for critical fields
+    const update = {};
+    for (const key of ALLOWED) {
+      if (req.body[key] !== undefined) {
+        update[key] = req.body[key];
+      }
+    }
+
+    if (Object.keys(update).length === 0) {
+      return sendError(res, 'No valid SEO fields provided', 400);
+    }
+
+    // Guard required non-empty strings
+    for (const required of ['site_name', 'default_title', 'default_description', 'canonical_base']) {
+      if (update[required] !== undefined && !String(update[required] || '').trim()) {
+        return sendError(res, `${required} cannot be empty`, 400);
+      }
+    }
+
+    update.updated_at = new Date().toISOString();
+    update.updated_by = req.user.id;
+
+    const { data, error } = await supabase
+      .from('platform_seo_settings')
+      .update(update)
+      .eq('row_key', 'global')
+      .select('*')
+      .single();
+
+    if (error) throw error;
+
+    await logPlatformActivity({
+      actorUserId: req.user.id,
+      actorEmail: req.user.email,
+      action: 'admin.seo_settings.updated',
+      resourceType: 'platform_seo_settings',
+      resourceId: 'global',
+      details: { updated_fields: Object.keys(update).filter(k => k !== 'updated_at' && k !== 'updated_by') },
+    });
+
+    return sendSuccess(res, data, 'SEO settings updated');
+  } catch (error) {
+    logger.error('Admin: updateSeoSettings failed', { message: error.message });
+    return sendError(res, 'Failed to update SEO settings', 500);
+  }
+};
+
+/**
+ * GET /api/public/seo  (no auth — called by SSR/SSG for meta tags)
+ * Returns only the public-safe subset of SEO settings.
+ */
+exports.getPublicSeoSettings = async (req, res) => {
+  try {
+    res.set('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=60');
+
+    const { data, error } = await supabase
+      .from('platform_seo_settings')
+      .select(
+        'site_name, default_title, default_description, default_keywords, ' +
+        'og_image_url, twitter_handle, canonical_base, ' +
+        'google_site_verification, google_analytics_id, structured_data'
+      )
+      .eq('row_key', 'global')
+      .single();
+
+    if (error) throw error;
+    return sendSuccess(res, data || {});
+  } catch (error) {
+    logger.error('getPublicSeoSettings failed', { message: error.message });
+    return sendError(res, 'Failed to load SEO settings', 500);
+  }
+};

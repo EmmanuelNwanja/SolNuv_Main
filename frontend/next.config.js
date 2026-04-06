@@ -1,7 +1,12 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  compress: true,                    // gzip/brotli at the Next.js layer
+  poweredByHeader: false,            // hide X-Powered-By
+  productionBrowserSourceMaps: false, // smaller JS bundles in prod
+
   images: {
+    formats: ['image/avif', 'image/webp'], // serve AVIF first, WebP fallback
     remotePatterns: [
       {
         protocol: 'https',
@@ -9,14 +14,31 @@ const nextConfig = {
       },
     ],
   },
+
   async rewrites() {
     return [
       // Browsers always probe /favicon.ico regardless of <link> tags — serve the SVG
       { source: '/favicon.ico', destination: '/favicon.svg' },
     ];
   },
+
   async headers() {
     return [
+      // ── Static assets (JS/CSS chunks hashed by Next.js — safe to cache forever) ──
+      {
+        source: '/_next/static/(.*)',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
+        ],
+      },
+      // ── Public font files ──
+      {
+        source: '/fonts/(.*)',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
+        ],
+      },
+      // ── All pages — security headers ──
       {
         source: '/(.*)',
         headers: [

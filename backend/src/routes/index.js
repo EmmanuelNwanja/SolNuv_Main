@@ -19,6 +19,10 @@ router.use('/load-profiles', require('./loadProfileRoutes'));
 router.use('/simulation', require('./simulationRoutes'));
 router.use('/design-reports', require('./designReportRoutes'));
 
+// Public (unauthenticated) endpoints
+const adminController = require('../controllers/adminController');
+router.get('/public/seo', adminController.getPublicSeoSettings);
+
 router.get('/health', (req, res) => res.json({
   status: 'ok',
   platform: 'SolNuv',

@@ -49,6 +49,11 @@ export default function Document() {
           rel="stylesheet"
           href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,400;0,600;0,700;0,900;1,400&family=DM+Sans:wght@300;400;500;600;700&display=swap"
         />
+        {/* Warm up the TCP+TLS connection to the backend API before any fetch() fires */}
+        <link rel="dns-prefetch" href="//solnuv-backend.onrender.com" />
+        <link rel="preconnect" href="https://solnuv-backend.onrender.com" crossOrigin="anonymous" />
+        <link rel="dns-prefetch" href="//api.solnuv.com" />
+        <link rel="preconnect" href="https://api.solnuv.com" crossOrigin="anonymous" />
         <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
         <link rel="shortcut icon" href="/favicon.svg" />
         <meta name="theme-color" content="#F59E0B" />

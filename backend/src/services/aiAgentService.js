@@ -567,6 +567,14 @@ async function assignAgentsOnSubscription(companyId, plan) {
   const planLevel = PLAN_HIERARCHY[plan] ?? 0;
 
   try {
+    // Look up company name for branded agent display name
+    const { data: company } = await supabase
+      .from('companies')
+      .select('name')
+      .eq('id', companyId)
+      .single();
+    const companyName = company?.name?.trim() || null;
+
     // Get all active definitions that this plan can access
     const { data: definitions } = await supabase
       .from('ai_agent_definitions')
@@ -582,6 +590,11 @@ async function assignAgentsOnSubscription(companyId, plan) {
       if (planLevel < requiredLevel) continue;
       if (def.max_instances_per_company <= 0) continue; // internal agents
 
+      // Brand the general assistant with the company name
+      const configOverrides = (def.slug === 'solnuv-assistant' && companyName)
+        ? { display_name: `${companyName} Assistant` }
+        : {};
+
       // Upsert instance (skip if already exists)
       const { error } = await supabase
         .from('ai_agent_instances')
@@ -589,6 +602,7 @@ async function assignAgentsOnSubscription(companyId, plan) {
           definition_id: def.id,
           company_id: companyId,
           is_active: true,
+          config_overrides: Object.keys(configOverrides).length > 0 ? configOverrides : null,
         }, { onConflict: 'definition_id,company_id' });
 
       if (!error) assigned++;

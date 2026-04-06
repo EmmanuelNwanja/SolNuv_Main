@@ -41,6 +41,10 @@ router.patch('/recovery-requests/:id/approve', requireAdminRole('super_admin', '
 router.get('/settings/environment', requireAdminRole('super_admin'), adminController.getEnvironmentMode);
 router.patch('/settings/environment', requireAdminRole('super_admin'), adminController.toggleEnvironmentMode);
 
+// SEO & Platform Branding
+router.get('/seo', requireAdminRole('super_admin', 'operations'), adminController.getSeoSettings);
+router.put('/seo', requireAdminRole('super_admin'), adminController.updateSeoSettings);
+
 // Design & Modelling admin
 router.get('/design/overview', requireAdminRole('super_admin', 'analytics', 'operations'), adminController.getDesignOverview);
 router.get('/design/simulations', requireAdminRole('super_admin', 'analytics', 'operations'), adminController.listSimulations);
