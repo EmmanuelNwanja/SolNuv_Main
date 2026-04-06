@@ -388,6 +388,8 @@ export const simulationAPI = {
   getHourlyFlows: (projectId, params) => api.get(`/simulation/${projectId}/results/hourly`, { params }),
   getSolarResource: (lat, lon) => api.get('/simulation/solar-resource', { params: { lat, lon } }),
   autoSize: (data) => api.post('/simulation/auto-size', data),
+  generateAIFeedback: (projectId) => api.post(`/simulation/${projectId}/ai-feedback`),
+  saveAIFeedback: (projectId, editedText) => api.put(`/simulation/${projectId}/ai-feedback`, { edited_text: editedText }),
 };
 
 // ==============================

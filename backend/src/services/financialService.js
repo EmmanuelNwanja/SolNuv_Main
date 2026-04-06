@@ -101,8 +101,10 @@ function calculate25YearCashflow(config) {
     // Battery replacement
     let battReplacement = 0;
     if (year === battReplacementYear && bessCapexShare > 0) {
-      // Battery replacement cost (assume 70% of original BESS cost due to price decline)
-      battReplacement = bessCapexShare * 0.7;
+      // Battery replacement cost with learning-curve price decline (~8%/yr real decline)
+      // After N years: cost = original × (1 - 0.08)^N
+      const priceFactor = Math.pow(1 - 0.08, year);
+      battReplacement = bessCapexShare * Math.max(0.3, priceFactor); // Floor at 30% of original
     }
 
     const netCashflow = yearSavings - yearOm - yearLoanPayment - battReplacement;

@@ -6,10 +6,14 @@ import { useAuth } from '../../../context/AuthContext';
 import { getDashboardLayout } from '../../../components/Layout';
 import { LoadingSpinner } from '../../../components/ui/index';
 import { MotionSection } from '../../../components/PageMotion';
+import SystemVisualPreview from '../../../components/SystemVisualPreview';
 import {
   RiArrowLeftLine, RiArrowRightLine, RiCheckLine,
   RiMapPinLine, RiMoneyDollarCircleLine, RiFlashlightLine,
   RiSunLine, RiBatteryLine, RiLineChartLine, RiPlayLine,
+  RiPlugLine, RiSignalWifiOffLine, RiExchangeLine, RiGlobalLine,
+  RiHome4Line, RiBuilding2Line, RiPlantLine, RiDropLine,
+  RiParkingBoxLine, RiGridLine,
 } from 'react-icons/ri';
 import toast from 'react-hot-toast';
 
@@ -51,6 +55,23 @@ const DISPATCH_STRATEGIES = [
   { value: 'backup', label: 'Backup (load-shedding / outage support)' },
 ];
 
+const GRID_TOPOLOGIES = [
+  { value: 'grid_tied', label: 'Grid-Tied (PV Only)', icon: RiPlugLine, desc: 'PV system connected to the grid with no battery storage. Excess solar is exported.' },
+  { value: 'grid_tied_bess', label: 'Grid-Tied + Battery', icon: RiGlobalLine, desc: 'PV + battery connected to the grid. Maximise self-consumption or arbitrage.' },
+  { value: 'off_grid', label: 'Off-Grid', icon: RiSignalWifiOffLine, desc: 'Fully independent system with PV + battery. No grid connection. Battery is mandatory.' },
+  { value: 'hybrid', label: 'Hybrid (Grid + Islanding)', icon: RiExchangeLine, desc: 'Grid-connected with battery backup. Can island during outages for critical loads.' },
+];
+
+const INSTALLATION_TYPES = [
+  { value: 'rooftop_flat', label: 'Rooftop (Flat)', icon: RiHome4Line, desc: 'Panels flush-mounted on flat concrete or metal roof surface.' },
+  { value: 'rooftop_tilted', label: 'Rooftop (Tilted Rack)', icon: RiHome4Line, desc: 'Panels on tilted racks above the roof. Better airflow and optimal angle.' },
+  { value: 'ground_fixed', label: 'Ground Mount (Fixed)', icon: RiPlantLine, desc: 'Fixed-tilt ground racking system in open field or compound.' },
+  { value: 'ground_tracker', label: 'Ground (Single-Axis Tracker)', icon: RiGridLine, desc: 'Motorised single-axis tracker following the sun. +15-25% yield.' },
+  { value: 'carport', label: 'Carport / Canopy', icon: RiParkingBoxLine, desc: 'Elevated canopy over parking or walkway. High albedo from concrete.' },
+  { value: 'bipv', label: 'BIPV (Building-Integrated)', icon: RiBuilding2Line, desc: 'Panels integrated into building facade or roof material.' },
+  { value: 'floating', label: 'Floating Solar', icon: RiDropLine, desc: 'Panels on floating platforms over water bodies. Cooler temps boost yield.' },
+];
+
 export default function DesignWizard() {
   const router = useRouter();
   const { id: projectId } = router.query;
@@ -72,6 +93,9 @@ export default function DesignWizard() {
 
   // Design form state
   const [form, setForm] = useState({
+    // System type
+    grid_topology: 'grid_tied_bess',
+    installation_type: 'rooftop_tilted',
     // Location
     location_lat: '',
     location_lon: '',
@@ -97,6 +121,13 @@ export default function DesignWizard() {
     bess_dispatch_strategy: 'self_consumption',
     bess_min_soc: 10,
     bess_round_trip_efficiency: 92,
+    // Off-grid / Hybrid
+    autonomy_days: 2,
+    backup_generator_kw: '',
+    diesel_cost_per_litre: '',
+    grid_availability_pct: 100,
+    grid_outage_hours_day: '',
+    feed_in_tariff_per_kwh: '',
     // Financial
     total_cost: '',
     financing_type: 'cash',
@@ -257,7 +288,7 @@ export default function DesignWizard() {
       // First create/update project design
       const designPayload = {
         project_id: projectId,
-        tariff_id: selectedTariffId || undefined,
+        tariff_id: form.grid_topology === 'off_grid' ? undefined : (selectedTariffId || undefined),
         location_lat: parseFloat(form.location_lat),
         location_lon: parseFloat(form.location_lon),
         pv_capacity_kwp: parseFloat(form.pv_capacity_kwp),
@@ -280,6 +311,15 @@ export default function DesignWizard() {
         om_cost_annual: parseFloat(form.om_cost_annual) || 0,
         loan_interest_rate_pct: parseFloat(form.loan_interest_rate) || 0,
         loan_term_years: parseInt(form.loan_term_years) || 0,
+        // Grid topology fields
+        grid_topology: form.grid_topology,
+        installation_type: form.installation_type,
+        autonomy_days: parseFloat(form.autonomy_days) || 2,
+        backup_generator_kw: parseFloat(form.backup_generator_kw) || undefined,
+        diesel_cost_per_litre: parseFloat(form.diesel_cost_per_litre) || undefined,
+        grid_availability_pct: parseFloat(form.grid_availability_pct) || 100,
+        grid_outage_hours_day: parseFloat(form.grid_outage_hours_day) || undefined,
+        feed_in_tariff_per_kwh: parseFloat(form.feed_in_tariff_per_kwh) || undefined,
       };
 
       await simulationAPI.run(designPayload);
@@ -297,11 +337,17 @@ export default function DesignWizard() {
 
   const canProceed = () => {
     switch (step) {
-      case 0: return form.location_lat && form.location_lon;
+      case 0: return form.location_lat && form.location_lon && form.grid_topology && form.installation_type;
       case 1: return true; // Tariff is optional for flat-rate
       case 2: return form.annual_kwh;
       case 3: return form.pv_capacity_kwp;
-      case 4: return !form.include_bess || (form.bess_capacity_kwh && form.bess_power_kw);
+      case 4: {
+        if (form.grid_topology === 'grid_tied') return true; // No battery needed
+        if (form.grid_topology === 'off_grid' || form.grid_topology === 'hybrid') {
+          return form.bess_capacity_kwh && form.bess_power_kw; // Battery mandatory
+        }
+        return !form.include_bess || (form.bess_capacity_kwh && form.bess_power_kw);
+      }
       case 5: return form.total_cost;
       default: return true;
     }
@@ -351,10 +397,105 @@ export default function DesignWizard() {
 
           {/* STEP 0: Location */}
           {step === 0 && (
-            <div className="space-y-4">
-              <h2 className="text-lg font-semibold text-forest-900 dark:text-white">Project Location</h2>
-              <p className="text-sm text-gray-500">Enter coordinates for solar resource assessment (NASA POWER data).</p>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-6">
+              {/* Grid Topology Selection */}
+              <div>
+                <h2 className="text-lg font-semibold text-forest-900 dark:text-white mb-1">System Type</h2>
+                <p className="text-sm text-gray-500 mb-3">Choose the grid connection topology for this project.</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {GRID_TOPOLOGIES.map(t => {
+                    const Icon = t.icon;
+                    const selected = form.grid_topology === t.value;
+                    return (
+                      <button key={t.value}
+                        onClick={() => {
+                          updateForm('grid_topology', t.value);
+                          // Auto-enable battery for topologies that require it
+                          if (t.value === 'off_grid' || t.value === 'grid_tied_bess' || t.value === 'hybrid') {
+                            updateForm('include_bess', true);
+                          }
+                          if (t.value === 'grid_tied') {
+                            updateForm('include_bess', false);
+                          }
+                        }}
+                        className={`flex items-start gap-3 p-4 rounded-xl border-2 text-left transition-all ${
+                          selected
+                            ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20 ring-1 ring-emerald-500'
+                            : 'border-slate-200 dark:border-gray-700 bg-white dark:bg-gray-800/60 hover:border-slate-300'
+                        }`}>
+                        <Icon className={`text-xl mt-0.5 flex-shrink-0 ${selected ? 'text-emerald-600' : 'text-gray-400'}`} />
+                        <div>
+                          <div className={`text-sm font-semibold ${selected ? 'text-emerald-700 dark:text-emerald-300' : 'text-forest-900 dark:text-white'}`}>
+                            {t.label}
+                          </div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{t.desc}</div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Hybrid: Grid outage fields */}
+              {form.grid_topology === 'hybrid' && (
+                <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl space-y-3">
+                  <h3 className="text-sm font-semibold text-blue-800 dark:text-blue-300">Grid Reliability</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="label">Avg. Grid Outage (hours/day)</label>
+                      <input type="number" step="0.5" min="0" max="24" className="input" value={form.grid_outage_hours_day}
+                        onChange={e => updateForm('grid_outage_hours_day', e.target.value)} placeholder="e.g. 6" />
+                    </div>
+                    <div>
+                      <label className="label">Grid Availability (%)</label>
+                      <input type="number" step="1" min="0" max="100" className="input" value={form.grid_availability_pct}
+                        onChange={e => updateForm('grid_availability_pct', e.target.value)} />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Installation Type Selection */}
+              <div>
+                <h2 className="text-lg font-semibold text-forest-900 dark:text-white mb-1">Installation Type</h2>
+                <p className="text-sm text-gray-500 mb-3">Select how the panels will be mounted. This affects simulation accuracy (albedo, cell temperature).</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {INSTALLATION_TYPES.map(t => {
+                    const Icon = t.icon;
+                    const selected = form.installation_type === t.value;
+                    return (
+                      <button key={t.value}
+                        onClick={() => updateForm('installation_type', t.value)}
+                        className={`flex items-start gap-3 p-3 rounded-xl border-2 text-left transition-all ${
+                          selected
+                            ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20 ring-1 ring-emerald-500'
+                            : 'border-slate-200 dark:border-gray-700 bg-white dark:bg-gray-800/60 hover:border-slate-300'
+                        }`}>
+                        <Icon className={`text-lg mt-0.5 flex-shrink-0 ${selected ? 'text-emerald-600' : 'text-gray-400'}`} />
+                        <div>
+                          <div className={`text-sm font-semibold ${selected ? 'text-emerald-700 dark:text-emerald-300' : 'text-forest-900 dark:text-white'}`}>
+                            {t.label}
+                          </div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{t.desc}</div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* System Visual Preview */}
+              <SystemVisualPreview
+                installationType={form.installation_type}
+                capacityKwp={form.pv_capacity_kwp || null}
+                className="max-w-md mx-auto"
+              />
+
+              {/* Location */}
+              <div>
+                <h2 className="text-lg font-semibold text-forest-900 dark:text-white">Project Location</h2>
+                <p className="text-sm text-gray-500 mb-3">Enter coordinates for solar resource assessment (NASA POWER data).</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="label">Latitude *</label>
                   <input type="number" step="any" className="input" value={form.location_lat}
@@ -409,6 +550,7 @@ export default function DesignWizard() {
                   </div>
                 </div>
               )}
+              </div>
             </div>
           )}
 
@@ -416,25 +558,59 @@ export default function DesignWizard() {
           {step === 1 && (
             <div className="space-y-4">
               <h2 className="text-lg font-semibold text-forest-900 dark:text-white">Grid Tariff Structure</h2>
-              <p className="text-sm text-gray-500">Select a tariff template or skip for a flat-rate estimate.</p>
-              
-              {tariffTemplates.length > 0 && (
-                <div className="space-y-2">
-                  <label className="label">Tariff Template</label>
-                  <select className="input" value={selectedTariffId}
-                    onChange={e => setSelectedTariffId(e.target.value)}>
-                    <option value="">— No tariff (use average rate) —</option>
-                    {tariffTemplates.map(t => (
-                      <option key={t.id} value={t.id}>{t.tariff_name} ({t.utility_name})</option>
-                    ))}
-                  </select>
+
+              {form.grid_topology === 'off_grid' ? (
+                <div className="p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl">
+                  <p className="text-sm text-amber-800 dark:text-amber-300 font-medium">Off-Grid System</p>
+                  <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                    No grid tariff applies to off-grid systems. Savings are calculated based on avoided diesel/generator costs.
+                  </p>
+                  {/* Diesel cost for off-grid comparison */}
+                  <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="label">Backup Generator Size (kW)</label>
+                      <input type="number" className="input" value={form.backup_generator_kw}
+                        onChange={e => updateForm('backup_generator_kw', e.target.value)} placeholder="e.g. 50" />
+                    </div>
+                    <div>
+                      <label className="label">Diesel Cost (per litre)</label>
+                      <input type="number" step="0.01" className="input" value={form.diesel_cost_per_litre}
+                        onChange={e => updateForm('diesel_cost_per_litre', e.target.value)} placeholder="e.g. 800" />
+                    </div>
+                  </div>
                 </div>
-              )}
+              ) : (
+                <>
+                  <p className="text-sm text-gray-500">Select a tariff template or skip for a flat-rate estimate.</p>
               
-              {tariffTemplates.length === 0 && (
-                <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-xl text-sm text-gray-500">
-                  No tariff templates found for {form.country}. The simulation will use an estimated flat rate.
-                </div>
+                  {tariffTemplates.length > 0 && (
+                    <div className="space-y-2">
+                      <label className="label">Tariff Template</label>
+                      <select className="input" value={selectedTariffId}
+                        onChange={e => setSelectedTariffId(e.target.value)}>
+                        <option value="">— No tariff (use average rate) —</option>
+                        {tariffTemplates.map(t => (
+                          <option key={t.id} value={t.id}>{t.tariff_name} ({t.utility_name})</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+              
+                  {tariffTemplates.length === 0 && (
+                    <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-xl text-sm text-gray-500">
+                      No tariff templates found for {form.country}. The simulation will use an estimated flat rate.
+                    </div>
+                  )}
+
+                  {/* Feed-in tariff for grid-connected systems */}
+                  <div>
+                    <label className="label">Feed-in Tariff Rate (per kWh exported)</label>
+                    <input type="number" step="0.01" className="input" value={form.feed_in_tariff_per_kwh}
+                      onChange={e => updateForm('feed_in_tariff_per_kwh', e.target.value)}
+                      placeholder="Optional — revenue for exported solar" />
+                    <p className="text-xs text-gray-400 mt-1">Leave empty if net metering or no export compensation.</p>
+                  </div>
+                </>
               )}
             </div>
           )}
@@ -586,47 +762,75 @@ export default function DesignWizard() {
             <div className="space-y-4">
               <h2 className="text-lg font-semibold text-forest-900 dark:text-white">Battery Energy Storage</h2>
 
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" checked={form.include_bess}
-                  onChange={e => updateForm('include_bess', e.target.checked)} className="accent-forest-900 w-4 h-4" />
-                <span className="text-sm">Include battery storage</span>
-              </label>
-
-              {form.include_bess && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="label">Capacity (kWh) *</label>
-                    <input type="number" className="input" value={form.bess_capacity_kwh}
-                      onChange={e => updateForm('bess_capacity_kwh', e.target.value)} placeholder="e.g. 200" />
-                  </div>
-                  <div>
-                    <label className="label">Power Rating (kW) *</label>
-                    <input type="number" className="input" value={form.bess_power_kw}
-                      onChange={e => updateForm('bess_power_kw', e.target.value)} placeholder="e.g. 100" />
-                  </div>
-                  <div>
-                    <label className="label">Chemistry</label>
-                    <select className="input" value={form.battery_chemistry} onChange={e => updateForm('battery_chemistry', e.target.value)}>
-                      {BATTERY_CHEMISTRIES.map(c => <option key={c} value={c}>{c}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="label">Dispatch Strategy</label>
-                    <select className="input" value={form.bess_dispatch_strategy} onChange={e => updateForm('bess_dispatch_strategy', e.target.value)}>
-                      {DISPATCH_STRATEGIES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="label">Min SOC (%)</label>
-                    <input type="number" min="0" max="50" className="input" value={form.bess_min_soc}
-                      onChange={e => updateForm('bess_min_soc', e.target.value)} />
-                  </div>
-                  <div>
-                    <label className="label">Round-Trip Efficiency (%)</label>
-                    <input type="number" min="50" max="100" className="input" value={form.bess_round_trip_efficiency}
-                      onChange={e => updateForm('bess_round_trip_efficiency', e.target.value)} />
-                  </div>
+              {form.grid_topology === 'grid_tied' ? (
+                <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-xl">
+                  <p className="text-sm text-gray-500 italic">Grid-tied (PV only) systems do not include battery storage. You can change the system type in the Location step.</p>
                 </div>
+              ) : (
+                <>
+                  {(form.grid_topology === 'off_grid' || form.grid_topology === 'hybrid') && (
+                    <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl text-sm text-amber-700 dark:text-amber-300">
+                      Battery storage is <strong>required</strong> for {form.grid_topology === 'off_grid' ? 'off-grid' : 'hybrid'} systems.
+                    </div>
+                  )}
+
+                  {form.grid_topology !== 'off_grid' && form.grid_topology !== 'hybrid' && (
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input type="checkbox" checked={form.include_bess}
+                        onChange={e => updateForm('include_bess', e.target.checked)} className="accent-forest-900 w-4 h-4" />
+                      <span className="text-sm">Include battery storage</span>
+                    </label>
+                  )}
+
+                  {form.include_bess && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="label">Capacity (kWh) *</label>
+                        <input type="number" className="input" value={form.bess_capacity_kwh}
+                          onChange={e => updateForm('bess_capacity_kwh', e.target.value)} placeholder="e.g. 200" />
+                      </div>
+                      <div>
+                        <label className="label">Power Rating (kW) *</label>
+                        <input type="number" className="input" value={form.bess_power_kw}
+                          onChange={e => updateForm('bess_power_kw', e.target.value)} placeholder="e.g. 100" />
+                      </div>
+                      <div>
+                        <label className="label">Chemistry</label>
+                        <select className="input" value={form.battery_chemistry} onChange={e => updateForm('battery_chemistry', e.target.value)}>
+                          {BATTERY_CHEMISTRIES.map(c => <option key={c} value={c}>{c}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="label">Dispatch Strategy</label>
+                        <select className="input" value={form.bess_dispatch_strategy} onChange={e => updateForm('bess_dispatch_strategy', e.target.value)}>
+                          {DISPATCH_STRATEGIES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="label">Min SOC (%)</label>
+                        <input type="number" min="0" max="50" className="input" value={form.bess_min_soc}
+                          onChange={e => updateForm('bess_min_soc', e.target.value)} />
+                      </div>
+                      <div>
+                        <label className="label">Round-Trip Efficiency (%)</label>
+                        <input type="number" min="50" max="100" className="input" value={form.bess_round_trip_efficiency}
+                          onChange={e => updateForm('bess_round_trip_efficiency', e.target.value)} />
+                      </div>
+
+                      {/* Off-grid / Hybrid: Autonomy days */}
+                      {(form.grid_topology === 'off_grid' || form.grid_topology === 'hybrid') && (
+                        <>
+                          <div>
+                            <label className="label">Target Autonomy (days)</label>
+                            <input type="number" step="0.5" min="0.5" max="7" className="input" value={form.autonomy_days}
+                              onChange={e => updateForm('autonomy_days', e.target.value)} placeholder="e.g. 2" />
+                            <p className="text-xs text-gray-400 mt-1">Days of battery backup without solar generation.</p>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </>
               )}
             </div>
           )}
@@ -690,6 +894,20 @@ export default function DesignWizard() {
               <p className="text-sm text-gray-500 dark:text-gray-400">Review your design parameters before running the simulation.</p>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {/* System Type */}
+                <div className="p-4 rounded-xl border border-slate-200 dark:border-gray-700 bg-white dark:bg-gray-800/60">
+                  <div className="flex items-center gap-2 mb-2">
+                    {(() => { const topo = GRID_TOPOLOGIES.find(t => t.value === form.grid_topology); const Icon = topo?.icon || RiPlugLine; return <Icon className="text-teal-500" />; })()}
+                    <h3 className="text-sm font-semibold text-forest-900 dark:text-white">System Type</h3>
+                  </div>
+                  <p className="text-sm text-slate-600 dark:text-gray-300">
+                    {GRID_TOPOLOGIES.find(t => t.value === form.grid_topology)?.label || form.grid_topology}
+                  </p>
+                  {form.grid_topology === 'hybrid' && form.grid_outage_hours_day && (
+                    <p className="text-xs text-slate-400 dark:text-gray-500 mt-1">Outages: {form.grid_outage_hours_day} hrs/day</p>
+                  )}
+                </div>
+
                 {/* Location */}
                 <div className="p-4 rounded-xl border border-slate-200 dark:border-gray-700 bg-white dark:bg-gray-800/60">
                   <div className="flex items-center gap-2 mb-2">

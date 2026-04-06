@@ -1215,6 +1215,35 @@ exports.getDesignOverview = async (req, res) => {
         .gt('expires_at', new Date().toISOString()),
     ]);
 
+    // Topology & installation type distributions + environmental totals
+    const { data: topoData } = await supabase
+      .from('project_designs')
+      .select('grid_topology')
+      .not('grid_topology', 'is', null);
+
+    const topologyDist = {};
+    for (const d of (topoData || [])) {
+      const t = d.grid_topology || 'grid_tied_bess';
+      topologyDist[t] = (topologyDist[t] || 0) + 1;
+    }
+
+    const { data: installData } = await supabase
+      .from('project_designs')
+      .select('installation_type')
+      .not('installation_type', 'is', null);
+
+    const installTypeDist = {};
+    for (const d of (installData || [])) {
+      const t = d.installation_type || 'rooftop_tilted';
+      installTypeDist[t] = (installTypeDist[t] || 0) + 1;
+    }
+
+    const { data: envData } = await supabase
+      .from('simulation_results')
+      .select('co2_avoided_tonnes');
+
+    const totalCo2Avoided = (envData || []).reduce((sum, r) => sum + (Number(r.co2_avoided_tonnes) || 0), 0);
+
     return sendSuccess(res, {
       designs: {
         total: totalDesigns.count || 0,
@@ -1235,6 +1264,9 @@ exports.getDesignOverview = async (req, res) => {
         total: totalReportShares.count || 0,
         active_links: activeShareLinks.count || 0,
       },
+      topology_distribution: topologyDist,
+      installation_type_distribution: installTypeDist,
+      total_co2_avoided_tonnes: Math.round(totalCo2Avoided * 100) / 100,
     });
   } catch (error) {
     logger.error('Admin: getDesignOverview failed', { message: error.message });
@@ -1255,8 +1287,9 @@ exports.listSimulations = async (req, res) => {
     let query = supabase
       .from('simulation_results')
       .select(`
-        id, pv_capacity_kwp, annual_generation_kwh, solar_fraction,
-        annual_savings, simple_payback_years, npv_25yr, irr, lcoe,
+        id, annual_solar_gen_kwh, self_consumption_pct,
+        year1_savings, simple_payback_months, npv_25yr, irr_pct, lcoe_normal,
+        grid_topology, installation_type, co2_avoided_tonnes,
         created_at,
         project_designs!inner(
           id, project_id, pv_capacity_kwp, bess_capacity_kwh,
@@ -1274,14 +1307,17 @@ exports.listSimulations = async (req, res) => {
 
     const rows = (data || []).map(r => ({
       id: r.id,
-      pv_kwp: r.pv_capacity_kwp,
-      annual_gen_kwh: r.annual_generation_kwh,
-      solar_fraction: r.solar_fraction,
-      annual_savings: r.annual_savings,
-      payback_yrs: r.simple_payback_years,
+      pv_kwp: r.project_designs?.pv_capacity_kwp,
+      annual_gen_kwh: r.annual_solar_gen_kwh,
+      self_consumption_pct: r.self_consumption_pct,
+      year1_savings: r.year1_savings,
+      payback_months: r.simple_payback_months,
       npv: r.npv_25yr,
-      irr: r.irr,
-      lcoe: r.lcoe,
+      irr_pct: r.irr_pct,
+      lcoe: r.lcoe_normal,
+      grid_topology: r.grid_topology,
+      installation_type: r.installation_type,
+      co2_avoided_tonnes: r.co2_avoided_tonnes,
       created_at: r.created_at,
       bess_kwh: r.project_designs?.bess_capacity_kwh || 0,
       dispatch: r.project_designs?.bess_dispatch_strategy || null,
@@ -1630,12 +1666,55 @@ exports.getDesignAdoption = async (req, res) => {
       loadProfileSources[src] = (loadProfileSources[src] || 0) + 1;
     }
 
+    // Grid topology breakdown
+    const { data: topoData } = await supabase
+      .from('project_designs')
+      .select('grid_topology')
+      .not('grid_topology', 'is', null);
+
+    const topologyBreakdown = {};
+    for (const d of (topoData || [])) {
+      const t = d.grid_topology || 'grid_tied_bess';
+      topologyBreakdown[t] = (topologyBreakdown[t] || 0) + 1;
+    }
+
+    // Installation type breakdown
+    const { data: installData } = await supabase
+      .from('project_designs')
+      .select('installation_type')
+      .not('installation_type', 'is', null);
+
+    const installTypeBreakdown = {};
+    for (const d of (installData || [])) {
+      const t = d.installation_type || 'rooftop_tilted';
+      installTypeBreakdown[t] = (installTypeBreakdown[t] || 0) + 1;
+    }
+
+    // Environmental impact totals
+    const { data: envData } = await supabase
+      .from('simulation_results')
+      .select('co2_avoided_tonnes, diesel_annual_cost, petrol_annual_cost');
+
+    let totalCo2 = 0, totalDieselAvoided = 0, totalPetrolAvoided = 0;
+    for (const r of (envData || [])) {
+      totalCo2 += Number(r.co2_avoided_tonnes) || 0;
+      totalDieselAvoided += Number(r.diesel_annual_cost) || 0;
+      totalPetrolAvoided += Number(r.petrol_annual_cost) || 0;
+    }
+
     return sendSuccess(res, {
       designs_by_plan: designsByPlan,
       simulations_by_plan: simsByPlan,
       companies_using_design: companiesWithDesigns.size,
       dispatch_strategy_breakdown: dispatchBreakdown,
       load_profile_sources: loadProfileSources,
+      topology_breakdown: topologyBreakdown,
+      installation_type_breakdown: installTypeBreakdown,
+      environmental_impact: {
+        total_co2_avoided_tonnes: Math.round(totalCo2 * 100) / 100,
+        total_diesel_cost_avoided: Math.round(totalDieselAvoided),
+        total_petrol_cost_avoided: Math.round(totalPetrolAvoided),
+      },
     });
   } catch (error) {
     logger.error('Admin: getDesignAdoption failed', { message: error.message });

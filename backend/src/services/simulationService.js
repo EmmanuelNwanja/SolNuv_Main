@@ -10,6 +10,7 @@ const { simulatePVGeneration, distributeHelioscapeToHourly } = require('./pvSimu
 const { simulateBESS } = require('./bessSimulationService');
 const { buildHourlyTOUMap, calculateAnnualBill } = require('./tariffService');
 const { calculate25YearCashflow, calculateLCOE } = require('./financialService');
+const { calculateEnergyComparison } = require('./energyComparisonService');
 const { calculateProfileStats } = require('./loadProfileService');
 const { PANEL_TECHNOLOGIES, DEFAULT_PANEL_TECHNOLOGY, BATTERY_CHEMISTRIES, resolveChemistry } = require('../constants/technologyConstants');
 
@@ -83,8 +84,10 @@ async function runSimulation(projectDesignId) {
       technology: pvTech,
       systemLossesPct: Number(design.pv_system_losses_pct) || 14,
       inverterEffPct: Number(design.pv_inverter_eff_pct) || 96,
+      dcAcRatio: Number(design.dc_ac_ratio) || 1.2,
       hourlyGhi: solarResource.hourlyGhi,
       hourlyTemp: solarResource.hourlyTemp,
+      installationType: design.installation_type || 'rooftop_tilted',
       degradationYear: 1,
     });
     hourlyPvKw = pvResult.hourlyAcKw;
@@ -99,10 +102,28 @@ async function runSimulation(projectDesignId) {
   }
 
   // 7. Run BESS simulation
+  const gridTopology = design.grid_topology || 'grid_tied_bess';
   const bessCapacity = Number(design.bess_capacity_kwh) || 0;
   let bessResults;
 
-  if (bessCapacity > 0) {
+  // Build grid availability array for hybrid topology
+  let gridAvailability = null;
+  if (gridTopology === 'hybrid' && design.grid_outage_hours_day) {
+    const outageHours = Number(design.grid_outage_hours_day) || 0;
+    if (outageHours > 0) {
+      // Model outages: grid is down for the first N hours of each day
+      gridAvailability = new Array(HOURS_PER_YEAR);
+      for (let h = 0; h < HOURS_PER_YEAR; h++) {
+        const hourOfDay = h % 24;
+        gridAvailability[h] = hourOfDay >= outageHours ? 1 : 0;
+      }
+    }
+  }
+
+  if (gridTopology === 'grid_tied' || (gridTopology !== 'off_grid' && bessCapacity <= 0)) {
+    // Pure grid-tied (no battery) — PV-only self-consumption
+    bessResults = calculatePVOnlyFlows(hourlyPvKw, hourlyLoadKw);
+  } else if (bessCapacity > 0) {
     bessResults = simulateBESS({
       capacityKwh: bessCapacity,
       chemistry: design.bess_chemistry || 'lfp',
@@ -114,17 +135,32 @@ async function runSimulation(projectDesignId) {
       hourlyPvKw,
       hourlyLoadKw,
       touMap,
+      gridTopology,
+      gridAvailability,
     });
   } else {
-    // PV-only: calculate direct self-consumption
-    bessResults = calculatePVOnlyFlows(hourlyPvKw, hourlyLoadKw);
+    // Off-grid with no battery specified — still run BESS engine with 0 capacity to get unmet load
+    bessResults = simulateBESS({
+      capacityKwh: 0,
+      chemistry: 'lfp',
+      dodPct: 80,
+      strategy: 'self_consumption',
+      hourlyPvKw,
+      hourlyLoadKw,
+      gridTopology,
+      gridAvailability,
+    });
   }
 
   // 8. Calculate tariff costs — baseline and with-solar
   const loadStats = calculateProfileStats(hourlyLoadKw);
   let baselineBill = null, withSolarBill = null;
 
-  if (tariffStructure && tariffRates.length > 0) {
+  if (gridTopology === 'off_grid') {
+    // Off-grid: no grid tariff applies
+    baselineBill = null;
+    withSolarBill = null;
+  } else if (tariffStructure && tariffRates.length > 0) {
     baselineBill = calculateAnnualBill(hourlyLoadKw, tariffStructure, tariffRates, ancillaryCharges, {
       peakDemandKva: loadStats.peakKw,
     });
@@ -186,10 +222,36 @@ async function runSimulation(projectDesignId) {
   // 12. Performance ratio
   const performanceRatio = pvCapacity > 0 ? Math.round(annualPvKwh / pvCapacity) : 0;
 
+  // 12b. Energy source comparison (solar vs grid vs diesel vs petrol)
+  const energyComparison = calculateEnergyComparison({
+    annualLoadKwh: bessResults.annual.load_kwh,
+    annualSolarGenKwh: annualPvKwh,
+    solarUtilisedKwh: bessResults.annual.solar_utilised_kwh,
+    gridImportKwh: bessResults.annual.grid_import_kwh,
+    unmetLoadKwh: bessResults.annual.unmet_load_kwh || 0,
+    gridTopology,
+    baselineAnnualCost,
+    withSolarAnnualCost,
+    capexTotal,
+    analysisPeriodYears: Number(design.analysis_period_years) || 25,
+    tariffEscalationPct: Number(design.tariff_escalation_pct) || 8,
+    dieselPricePerLitre: Number(design.diesel_price_per_litre) || 1100,
+    petrolPricePerLitre: Number(design.petrol_price_per_litre) || 700,
+    fuelEscalationPct: Number(design.fuel_escalation_pct) || 10,
+    country: design.country_code || 'NG',
+    gridAvailabilityPct: Number(design.grid_availability_pct) || 100,
+    batteryDischargedKwh: bessResults.annual.battery_discharged_kwh,
+    feedInRevenue: 0, // calculated below
+  });
+
   // 13. Assemble results
+  const feedInTariff = Number(design.feed_in_tariff_per_kwh) || 0;
+  const feedInRevenue = feedInTariff > 0 ? Math.round(bessResults.annual.grid_export_kwh * feedInTariff * 100) / 100 : 0;
+
   const results = {
     project_design_id: projectDesignId,
     run_at: new Date().toISOString(),
+    grid_topology: gridTopology,
 
     annual_solar_gen_kwh: bessResults.annual.solar_gen_kwh,
     solar_utilised_kwh: bessResults.annual.solar_utilised_kwh,
@@ -220,10 +282,26 @@ async function runSimulation(projectDesignId) {
     roi_pct: financials.roi,
     simple_payback_months: financials.paybackMonths,
 
+    // Topology-specific metrics
+    unmet_load_kwh: bessResults.annual.unmet_load_kwh || 0,
+    unmet_load_hours: bessResults.annual.unmet_load_hours || 0,
+    loss_of_load_pct: bessResults.annual.loss_of_load_pct || 0,
+    autonomy_achieved_days: bessCapacity > 0 && loadStats.avgKw > 0
+      ? Math.round((bessCapacity * (Number(design.bess_dod_pct) || 80) / 100) / (loadStats.avgKw * 24) * 10) / 10
+      : 0,
+    islanded_hours: bessResults.annual.islanded_hours || 0,
+    feed_in_revenue: feedInRevenue,
+
     hourly_flows: bessResults.hourlyFlows,
     monthly_summary: monthlySummary,
     yearly_cashflow: financials.yearlyCashflow,
     tou_breakdown: baselineBill?.touBreakdown || null,
+    energy_comparison: energyComparison,
+    installation_type: design.installation_type || 'rooftop_tilted',
+    co2_avoided_tonnes: energyComparison.environmental.co2_avoided_lifetime_tonnes,
+    diesel_annual_cost: energyComparison.annual_costs.diesel,
+    petrol_annual_cost: energyComparison.annual_costs.petrol,
+    grid_only_annual_cost: energyComparison.annual_costs.grid_only,
     executive_summary_text: null, // Will be filled by AI narration
   };
 

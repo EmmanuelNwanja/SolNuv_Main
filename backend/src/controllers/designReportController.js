@@ -134,6 +134,11 @@ exports.getHtmlData = async (req, res) => {
       'lcoe_normal', 'lcoe_ls',
       'npv_25yr', 'irr_pct', 'roi_pct', 'simple_payback_months',
       'monthly_summary', 'yearly_cashflow', 'tou_breakdown', 'executive_summary_text',
+      'grid_topology', 'unmet_load_kwh', 'unmet_load_hours', 'loss_of_load_pct',
+      'autonomy_achieved_days', 'diesel_avoided_litres', 'islanded_hours', 'feed_in_revenue',
+      'ai_expert_feedback', 'ai_feedback_edited', 'ai_feedback_generated_at',
+      'installation_type', 'energy_comparison', 'co2_avoided_tonnes',
+      'diesel_annual_cost', 'petrol_annual_cost', 'grid_only_annual_cost',
       'project_designs(*)',
     ].join(', ');
 

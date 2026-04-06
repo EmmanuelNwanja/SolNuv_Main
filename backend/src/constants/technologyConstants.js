@@ -186,6 +186,59 @@ const PANEL_TECHNOLOGIES = {
 // Default for unknown / unspecified technology
 const DEFAULT_PANEL_TECHNOLOGY = 'mono_perc';
 
+// ─── INSTALLATION TYPES ──────────────────────────────────────────────────────
+// Defines ground albedo and NOCT adjustments per installation configuration.
+// albedo      — ground reflectance (0–1) affecting POA ground component
+// noct        — Nominal Operating Cell Temperature (°C) varies by airflow/mount
+// label       — human-readable name for UI
+// description — brief explanation for tooltip
+const INSTALLATION_TYPES = {
+  rooftop_flat: {
+    label: 'Rooftop (Flat)',
+    description: 'Panels flush-mounted on flat concrete or metal roof',
+    albedo: 0.25,  // Concrete/light roof surface
+    noct: 47,      // Restricted airflow under panels
+  },
+  rooftop_tilted: {
+    label: 'Rooftop (Tilted Rack)',
+    description: 'Panels on tilted racks above the roof surface',
+    albedo: 0.25,
+    noct: 45,      // Better airflow than flush-mount
+  },
+  ground_fixed: {
+    label: 'Ground Mount (Fixed)',
+    description: 'Fixed-tilt ground-mounted racking system',
+    albedo: 0.20,  // Natural ground / grass
+    noct: 44,      // Good airflow, open field
+  },
+  ground_tracker: {
+    label: 'Ground Mount (Single-Axis Tracker)',
+    description: 'Single-axis tracker following the sun east-west',
+    albedo: 0.20,
+    noct: 44,
+  },
+  carport: {
+    label: 'Carport / Canopy',
+    description: 'Elevated canopy structure over parking or walkway',
+    albedo: 0.30,  // Concrete/asphalt parking surface
+    noct: 43,      // Excellent airflow, elevated
+  },
+  bipv: {
+    label: 'BIPV (Building-Integrated)',
+    description: 'Panels integrated into building facade or roof material',
+    albedo: 0.15,  // Low — building facade
+    noct: 50,      // Poor airflow, insulated behind
+  },
+  floating: {
+    label: 'Floating Solar',
+    description: 'Panels on floating platforms over water bodies',
+    albedo: 0.06,  // Water surface
+    noct: 40,      // Water cooling effect
+  },
+};
+
+const DEFAULT_INSTALLATION_TYPE = 'rooftop_tilted';
+
 // ─── BATTERY CHEMISTRIES ─────────────────────────────────────────────────────
 // annual_soh_loss_pct  — fraction of SoH lost per year under normal conditions
 // cycle_life_ref       — reference cycle count at reference_dod_pct DoD
@@ -352,6 +405,8 @@ function cyclesAtDoD(chemistryKey, dodPct) {
 module.exports = {
   PANEL_TECHNOLOGIES,
   DEFAULT_PANEL_TECHNOLOGY,
+  INSTALLATION_TYPES,
+  DEFAULT_INSTALLATION_TYPE,
   BATTERY_CHEMISTRIES,
   DEFAULT_BATTERY_CHEMISTRY,
   CHEMISTRY_ALIASES,

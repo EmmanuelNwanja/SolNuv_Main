@@ -1,13 +1,30 @@
 /**
  * SolNuv PV Simulation Service
- * PVWatts-equivalent hourly solar PV generation model.
+ * PVWatts-equivalent hourly solar PV generation model with Erbs beam/diffuse
+ * decomposition, IEC 61215 cell temperature, and inverter clipping.
  * Calculates AC output for each hour of a TMY year based on location,
  * system configuration, and panel technology characteristics.
  */
 
-const { PANEL_TECHNOLOGIES, DEFAULT_PANEL_TECHNOLOGY } = require('../constants/technologyConstants');
+const { PANEL_TECHNOLOGIES, DEFAULT_PANEL_TECHNOLOGY, INSTALLATION_TYPES } = require('../constants/technologyConstants');
 
 const HOURS_PER_YEAR = 8760;
+const DEG2RAD = Math.PI / 180;
+const STC_IRRADIANCE = 1000; // W/m²
+const SOLAR_CONSTANT = 1361; // W/m² — extraterrestrial irradiance
+
+/**
+ * Erbs correlation: decompose GHI into diffuse fraction based on clearness index kt.
+ * Reference: Erbs, Klein & Duffie (1982), Solar Energy 28(4).
+ * @param {number} kt - Clearness index (GHI / extraterrestrial horizontal irradiance)
+ * @returns {number} kd - Diffuse fraction (DHI / GHI)
+ */
+function erbsDiffuseFraction(kt) {
+  if (kt <= 0) return 1.0;
+  if (kt <= 0.22) return 1.0 - 0.09 * kt;
+  if (kt <= 0.80) return 0.9511 - 0.1604 * kt + 4.388 * kt * kt - 16.638 * kt * kt * kt + 12.336 * kt * kt * kt * kt;
+  return 0.165;
+}
 
 /**
  * Simulate annual PV generation at hourly resolution.
@@ -20,8 +37,10 @@ const HOURS_PER_YEAR = 8760;
  * @param {string} config.technology - Key in PANEL_TECHNOLOGIES
  * @param {number} config.systemLossesPct - Total system losses (%, default 14)
  * @param {number} config.inverterEffPct - Inverter efficiency (%, default 96)
+ * @param {number} config.dcAcRatio - DC/AC ratio for inverter clipping (default 1.2)
  * @param {number[]} config.hourlyGhi - 8760 GHI values (W/m²)
  * @param {number[]} config.hourlyTemp - 8760 ambient temperature values (°C)
+ * @param {string} [config.installationType] - Installation type key for albedo/NOCT (default 'rooftop_flat')
  * @param {number} [config.degradationYear] - Year number for degradation (1-based, default 1)
  * @returns {{ hourlyAcKw: number[], annualKwh: number, monthlyKwh: number[], performanceRatio: number }}
  */
@@ -34,23 +53,33 @@ function simulatePVGeneration(config) {
     technology = DEFAULT_PANEL_TECHNOLOGY,
     systemLossesPct = 14,
     inverterEffPct = 96,
+    dcAcRatio = 1.2,
     hourlyGhi,
     hourlyTemp,
+    installationType = 'rooftop_flat',
     degradationYear = 1,
   } = config;
 
   const tech = PANEL_TECHNOLOGIES[technology] || PANEL_TECHNOLOGIES[DEFAULT_PANEL_TECHNOLOGY];
+  const install = INSTALLATION_TYPES[installationType] || INSTALLATION_TYPES.rooftop_flat;
   const tempCoeff = tech.temp_coeff_pct_c / 100; // Convert %/°C to fraction/°C
   const systemLosses = systemLossesPct / 100;
   const inverterEff = inverterEffPct / 100;
 
-  // NOCT for cell temperature calculation
-  const NOCT = 45; // °C, typical
-  const STC_IRRADIANCE = 1000; // W/m²
+  // Installation-dependent NOCT: glass-glass bifacial runs hotter, ground-mount has more airflow
+  const NOCT = install.noct || 45;
+  // Installation-dependent ground albedo
+  const albedo = install.albedo || 0.20;
+  // Module reference efficiency and tau-alpha product for IEC cell temp
+  const etaRef = 0.20;
+  const tauAlpha = 0.9;
 
-  const latRad = (lat * Math.PI) / 180;
-  const tiltRad = (tiltDeg * Math.PI) / 180;
-  const azimuthRad = (azimuthDeg * Math.PI) / 180;
+  // Inverter AC capacity (for clipping)
+  const inverterAcCapKw = capacityKwp / dcAcRatio;
+
+  const latRad = lat * DEG2RAD;
+  const tiltRad = tiltDeg * DEG2RAD;
+  const azimuthRad = azimuthDeg * DEG2RAD;
 
   const hourlyAcKw = new Array(HOURS_PER_YEAR);
   let dayOfYear = 0;
@@ -62,8 +91,15 @@ function simulatePVGeneration(config) {
       dayOfYear++;
       const doy = dayOfYear;
 
-      // Solar declination (Spencer approximation)
+      // Solar declination (Spencer, 1971)
       const declRad = 0.4093 * Math.sin((2 * Math.PI * (284 + doy)) / 365);
+
+      // Eccentricity correction factor for earth-sun distance
+      const B = (2 * Math.PI * (doy - 1)) / 365;
+      const Eo = 1.00011 + 0.034221 * Math.cos(B) + 0.001280 * Math.sin(B)
+        + 0.000719 * Math.cos(2 * B) + 0.000077 * Math.sin(2 * B);
+      // Extraterrestrial horizontal irradiance at this time of year
+      const I0 = SOLAR_CONSTANT * Eo;
 
       for (let hour = 0; hour < 24; hour++) {
         const idx = hourIndex++;
@@ -77,14 +113,14 @@ function simulatePVGeneration(config) {
 
         // Solar hour angle
         const solarHour = hour + 0.5; // mid-hour
-        const hourAngleRad = ((solarHour - 12) * 15 * Math.PI) / 180;
+        const hourAngleRad = ((solarHour - 12) * 15) * DEG2RAD;
 
         // Solar altitude angle
         const sinAlt = Math.sin(latRad) * Math.sin(declRad) +
           Math.cos(latRad) * Math.cos(declRad) * Math.cos(hourAngleRad);
         const solarAltRad = Math.asin(Math.max(-1, Math.min(1, sinAlt)));
 
-        if (solarAltRad <= 0) {
+        if (solarAltRad <= 0.01) { // ~0.6° minimum altitude to avoid extreme airmass
           hourlyAcKw[idx] = 0;
           continue;
         }
@@ -95,24 +131,37 @@ function simulatePVGeneration(config) {
         const solarAzRad = Math.acos(Math.max(-1, Math.min(1, cosAz)));
         const solarAzFinal = solarHour >= 12 ? (2 * Math.PI - solarAzRad) : solarAzRad;
 
+        // ── Erbs GHI → Beam/Diffuse Decomposition ──
+        // Extraterrestrial horizontal irradiance for this instant
+        const I0h = I0 * sinAlt;
+        // Clearness index
+        const kt = I0h > 0 ? Math.min(ghi / I0h, 1.0) : 0;
+        // Diffuse fraction via Erbs correlation
+        const kd = erbsDiffuseFraction(kt);
+        const DHI = ghi * kd;
+        const BHI = ghi - DHI; // Beam horizontal irradiance
+
         // Angle of incidence on tilted surface
         const cosIncidence = sinAlt * Math.cos(tiltRad) +
           Math.cos(solarAltRad) * Math.sin(tiltRad) *
           Math.cos(solarAzFinal - azimuthRad);
 
-        // Plane of Array irradiance using isotropic sky model
-        // POA = beam × cos(incidence)/sin(altitude) + diffuse × (1+cos(tilt))/2 + ground_reflected
-        const beamComponent = ghi > 0 && sinAlt > 0.05
-          ? ghi * 0.75 * Math.max(0, cosIncidence) / sinAlt
+        // ── Plane of Array Irradiance (isotropic sky model) ──
+        // Beam component on tilted surface
+        const beamTilted = BHI > 0 && sinAlt > 0.05
+          ? BHI * Math.max(0, cosIncidence) / sinAlt
           : 0;
-        const diffuseComponent = ghi * 0.25 * (1 + Math.cos(tiltRad)) / 2;
-        const groundReflected = ghi * 0.2 * (1 - Math.cos(tiltRad)) / 2; // albedo 0.2
+        // Isotropic diffuse component
+        const diffuseTilted = DHI * (1 + Math.cos(tiltRad)) / 2;
+        // Ground-reflected component (location/installation-dependent albedo)
+        const groundReflected = ghi * albedo * (1 - Math.cos(tiltRad)) / 2;
 
-        let poaIrradiance = beamComponent + diffuseComponent + groundReflected;
-        poaIrradiance = Math.max(0, Math.min(poaIrradiance, 1400)); // Physical limit
+        let poaIrradiance = beamTilted + diffuseTilted + groundReflected;
+        poaIrradiance = Math.max(0, poaIrradiance);
 
-        // Cell temperature (Sandia model simplified)
-        const cellTemp = ambTemp + (NOCT - 20) / 800 * poaIrradiance;
+        // ── IEC 61215 Cell Temperature Model ──
+        // T_cell = T_amb + (NOCT - 20) × (POA / 800) × (1 - η_ref / τα)
+        const cellTemp = ambTemp + (NOCT - 20) * (poaIrradiance / 800) * (1 - etaRef / tauAlpha);
 
         // Temperature derating
         const tempDerate = 1 + tempCoeff * (cellTemp - 25);
@@ -120,8 +169,8 @@ function simulatePVGeneration(config) {
         // DC power output
         const dcPower = capacityKwp * (poaIrradiance / STC_IRRADIANCE) * tempDerate * (1 - systemLosses);
 
-        // AC power output
-        const acPower = Math.max(0, dcPower * inverterEff);
+        // AC power output with inverter clipping
+        const acPower = Math.max(0, Math.min(dcPower * inverterEff, inverterAcCapKw));
 
         hourlyAcKw[idx] = acPower;
       }

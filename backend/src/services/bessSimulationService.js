@@ -25,6 +25,8 @@ const HOURS_PER_YEAR = 8760;
  * @param {number[]} config.hourlyPvKw - 8760 PV generation array (kW)
  * @param {number[]} config.hourlyLoadKw - 8760 load array (kW)
  * @param {Array} [config.touMap] - 8760 TOU period info from tariffService
+ * @param {string} [config.gridTopology] - 'grid_tied_bess'|'off_grid'|'hybrid'
+ * @param {number[]} [config.gridAvailability] - 8760 booleans (1=grid available, 0=outage)
  * @returns {object} Dispatch results with hourly flows and annual metrics
  */
 function simulateBESS(config) {
@@ -39,12 +41,25 @@ function simulateBESS(config) {
     hourlyPvKw,
     hourlyLoadKw,
     touMap = null,
+    gridTopology = 'grid_tied_bess',
+    gridAvailability = null,
   } = config;
+
+  const isOffGrid = gridTopology === 'off_grid';
+  const isHybrid = gridTopology === 'hybrid';
 
   const chem = BATTERY_CHEMISTRIES[resolveChemistry(chemistry)];
   const roundTripEff = chem ? chem.round_trip_eff : 0.95;
-  const chargeEff = Math.sqrt(roundTripEff);
-  const dischargeEff = Math.sqrt(roundTripEff);
+  // Asymmetric efficiency: charging has more loss than discharging
+  // Typical LFP: charge ~97%, discharge ~99.5% → RTE ~96.5%
+  // For other chemistries, weight 60% loss on charge, 40% on discharge
+  const chargeEff = Math.pow(roundTripEff, 0.6);
+  const dischargeEff = Math.pow(roundTripEff, 0.4);
+
+  // Self-discharge rate per hour (calendar loss)
+  // LFP: ~0.5%/month at 25°C, scales with temperature sensitivity
+  const monthlySelfdischargePct = chem ? (chem.annual_soh_loss_pct * 100 / 12) : 0.04;
+  const selfDischargePerHour = monthlySelfdischargePct / (30 * 24) / 100;
 
   const minSoc = capacityKwh * (1 - dodPct / 100);
   const maxSoc = capacityKwh;
@@ -62,6 +77,9 @@ function simulateBESS(config) {
   let totalCurtailed = 0;
   let totalSolarUtilised = 0;
   let peakGridDemand = 0;
+  let totalUnmetLoad = 0;
+  let unmetLoadHours = 0;
+  let islandedHours = 0;
 
   for (let h = 0; h < HOURS_PER_YEAR; h++) {
     const pvKw = hourlyPvKw[h] || 0;
@@ -78,7 +96,25 @@ function simulateBESS(config) {
     // Net power: positive = surplus PV, negative = deficit
     const net = pvKw - loadKw;
 
-    switch (strategy) {
+    // Determine if grid is available this hour
+    const gridAvail = isOffGrid ? false : (gridAvailability ? !!gridAvailability[h] : true);
+
+    if (!gridAvail && isHybrid) islandedHours++;
+
+    if (isOffGrid || !gridAvail) {
+      // Off-grid or islanded: NO grid import/export allowed
+      ({ battCharge, battDischarge, gridImport, gridExport, curtailed, solarToLoad } =
+        dispatchOffGrid(net, pvKw, loadKw, soc, minSoc, maxSoc, maxChargeKw, maxDischargeKw,
+          chargeEff, dischargeEff));
+      // Track unmet load
+      const unmet = loadKw - solarToLoad - battDischarge;
+      if (unmet > 0.01) {
+        totalUnmetLoad += unmet;
+        unmetLoadHours++;
+      }
+    } else {
+      // Grid-connected dispatch
+      switch (strategy) {
       case 'tou_arbitrage':
         ({ battCharge, battDischarge, gridImport, gridExport, curtailed, solarToLoad } =
           dispatchTOUArbitrage(net, pvKw, loadKw, soc, minSoc, maxSoc, maxChargeKw, maxDischargeKw,
@@ -104,9 +140,12 @@ function simulateBESS(config) {
             chargeEff, dischargeEff));
         break;
     }
+    } // end grid-connected else
 
-    // Update SOC
+    // Update SOC (with self-discharge)
     soc = soc + (battCharge * chargeEff) - (battDischarge / dischargeEff);
+    // Apply hourly self-discharge (calendar aging)
+    soc *= (1 - selfDischargePerHour);
     soc = Math.max(minSoc, Math.min(maxSoc, soc));
 
     // Track grid peak
@@ -154,6 +193,10 @@ function simulateBESS(config) {
       utilisation_pct: annualPvKwh > 0 ? round2((totalSolarUtilised / annualPvKwh) * 100) : 0,
       self_consumption_pct: annualLoadKwh > 0
         ? round2(((totalSolarUtilised + totalDischarged) / annualLoadKwh) * 100) : 0,
+      unmet_load_kwh: round2(totalUnmetLoad),
+      unmet_load_hours: unmetLoadHours,
+      loss_of_load_pct: annualLoadKwh > 0 ? round2((totalUnmetLoad / annualLoadKwh) * 100) : 0,
+      islanded_hours: islandedHours,
     },
   };
 }
@@ -273,6 +316,32 @@ function dispatchPeakShave(net, pvKw, loadKw, soc, minSoc, maxSoc, maxChargeKw, 
         gridImport += battCharge; // Grid also feeds battery
       }
     }
+  }
+
+  return { battCharge, battDischarge, gridImport, gridExport, curtailed, solarToLoad };
+}
+
+function dispatchOffGrid(net, pvKw, loadKw, soc, minSoc, maxSoc, maxChargeKw, maxDischargeKw, chargeEff, dischargeEff) {
+  let battCharge = 0, battDischarge = 0, gridImport = 0, gridExport = 0, curtailed = 0;
+  let solarToLoad = 0;
+
+  // No grid — only PV + battery can serve load
+  if (net >= 0) {
+    // PV surplus
+    solarToLoad = loadKw;
+    const surplus = net;
+    const canCharge = Math.min(surplus, maxChargeKw, (maxSoc - soc) / chargeEff);
+    battCharge = Math.max(0, canCharge);
+    // Cannot export — curtail the rest
+    curtailed = surplus - battCharge;
+  } else {
+    // PV deficit — battery must cover
+    solarToLoad = pvKw;
+    const deficit = -net;
+    const canDischarge = Math.min(deficit, maxDischargeKw, (soc - minSoc) * dischargeEff);
+    battDischarge = Math.max(0, canDischarge);
+    // Remaining deficit is unmet load (no grid to import from)
+    // gridImport stays 0 — caller tracks unmet separately
   }
 
   return { battCharge, battDischarge, gridImport, gridExport, curtailed, solarToLoad };

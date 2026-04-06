@@ -112,7 +112,7 @@ async function fetchNASAPowerData(lat, lon) {
     const monthlyWind = extractMonthlyValues(params.WS2M);
 
     const hourlyGhi = buildHourlyFromMonthlyGhi(monthlyGhi, lat);
-    const hourlyTemp = buildHourlyFromMonthlyTemp(monthlyTemp);
+    const hourlyTemp = buildHourlyFromMonthlyTemp(monthlyTemp, lat);
     const hourlyWind = buildHourlyFromMonthly(monthlyWind, 2);
 
     const annualGhiKwhM2 = monthlyGhi.reduce((sum, daily, i) => {
@@ -137,12 +137,22 @@ function extractMonthlyValues(paramObj) {
 
 /**
  * Build 8760 hourly GHI values (W/m²) from monthly daily averages (kWh/m²/day).
- * Uses a simplified solar position model to distribute daily radiation across daylight hours.
+ * Uses solar position model for diurnal shape plus day-to-day clearness index
+ * variability using a seeded pseudo-random generator for reproducibility.
  */
 function buildHourlyFromMonthlyGhi(monthlyDailyGhi, lat) {
   const DAYS_PER_MONTH = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
   const hourly = [];
   const latRad = (lat * Math.PI) / 180;
+
+  // Simple seeded PRNG for reproducible day-to-day variability (mulberry32)
+  let seed = Math.round(Math.abs(lat) * 1000 + 137);
+  function rand() {
+    seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  }
 
   for (let month = 0; month < 12; month++) {
     const days = DAYS_PER_MONTH[month];
@@ -164,15 +174,26 @@ function buildHourlyFromMonthlyGhi(monthlyDailyGhi, lat) {
     const sunrise = solarNoon - daylightHours / 2;
     const sunset = solarNoon + daylightHours / 2;
 
+    // Day-to-day clearness index variability: σ depends on monthly mean kt
+    // Higher mean kt (clear skies) → lower variability; lower kt → higher variability
+    const absLat = Math.abs(lat);
+    const ktVariability = absLat < 15 ? 0.12 : absLat < 23 ? 0.15 : 0.10;
+
     for (let d = 0; d < days; d++) {
-      // Distribute daily GHI across daylight hours using a sinusoidal shape
-      // Total under sine curve over daylight hours = dailyGhiKwh (in kWh/m²)
+      // Generate daily clearness scaling (Gaussian-ish from uniform, Box-Muller lite)
+      const u1 = Math.max(0.001, rand());
+      const u2 = rand();
+      const gaussApprox = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+      // Scale daily GHI by clearness perturbation, clamped to [0.4, 1.6] of monthly mean
+      const dailyScale = Math.max(0.4, Math.min(1.6, 1 + ktVariability * gaussApprox));
+      const dayGhiKwh = dailyGhiKwh * dailyScale;
+
+      // Distribute daily GHI across daylight hours using sinusoidal shape
       const integratedSine = [];
       let sineSum = 0;
       for (let h = 0; h < 24; h++) {
         const solarHour = h + 0.5; // mid-hour
         if (solarHour >= sunrise && solarHour <= sunset) {
-          // Sine of solar elevation proxy
           const frac = (solarHour - sunrise) / (sunset - sunrise);
           const sineVal = Math.sin(frac * Math.PI);
           integratedSine.push(sineVal);
@@ -183,9 +204,8 @@ function buildHourlyFromMonthlyGhi(monthlyDailyGhi, lat) {
       }
 
       for (let h = 0; h < 24; h++) {
-        // GHI in W/m²: dailyGhiKwh * 1000 (to Wh/m²) * fraction / 1 hour
         const ghiWm2 = sineSum > 0
-          ? (dailyGhiKwh * 1000 * integratedSine[h]) / sineSum
+          ? (dayGhiKwh * 1000 * integratedSine[h]) / sineSum
           : 0;
         hourly.push(Math.max(0, ghiWm2));
       }
@@ -197,11 +217,26 @@ function buildHourlyFromMonthlyGhi(monthlyDailyGhi, lat) {
 
 /**
  * Build 8760 hourly temperature from monthly averages.
- * Applies a simple diurnal variation of ±5°C.
+ * Applies latitude-dependent diurnal amplitude: arid/inland regions swing more,
+ * coastal/tropical regions swing less.
+ * @param {number[]} monthlyTemp - 12 monthly average temperatures
+ * @param {number} [lat] - Latitude for diurnal amplitude estimation
  */
-function buildHourlyFromMonthlyTemp(monthlyTemp) {
+function buildHourlyFromMonthlyTemp(monthlyTemp, lat = 6.5) {
   const DAYS_PER_MONTH = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
   const hourly = [];
+
+  // Diurnal temperature amplitude by latitude band (°C):
+  // Coastal tropics (|lat| < 8°): ±4°C  — high humidity damps swing
+  // Inland tropics (8-15°): ±7°C        — moderate continentality
+  // Sahel/semi-arid (15-23°): ±10°C     — dry air, large day/night delta
+  // Subtropics (23+°): ±8°C             — moderate swing
+  const absLat = Math.abs(lat);
+  let amplitude;
+  if (absLat < 8) amplitude = 4;
+  else if (absLat < 15) amplitude = 7;
+  else if (absLat < 23) amplitude = 10;
+  else amplitude = 8;
 
   for (let month = 0; month < 12; month++) {
     const days = DAYS_PER_MONTH[month];
@@ -209,8 +244,8 @@ function buildHourlyFromMonthlyTemp(monthlyTemp) {
 
     for (let d = 0; d < days; d++) {
       for (let h = 0; h < 24; h++) {
-        // Diurnal cycle: coldest at 5am, warmest at 14:00
-        const diurnalOffset = 5 * Math.sin(((h - 5) * Math.PI) / 12);
+        // Diurnal cycle: coldest at ~5am, warmest at ~14:00 (2pm)
+        const diurnalOffset = amplitude * Math.sin(((h - 5) * Math.PI) / 12);
         hourly.push(avgTemp + diurnalOffset);
       }
     }
@@ -260,7 +295,7 @@ function generateFallbackSolarData(lat) {
   }
 
   const hourlyGhi = buildHourlyFromMonthlyGhi(monthlyGhi, lat);
-  const hourlyTemp = buildHourlyFromMonthlyTemp(monthlyTemp);
+  const hourlyTemp = buildHourlyFromMonthlyTemp(monthlyTemp, lat);
   const hourlyWind = new Array(HOURS_PER_YEAR).fill(2.5);
   const annualGhiKwhM2 = monthlyGhi.reduce((sum, daily, i) =>
     sum + daily * [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][i], 0);

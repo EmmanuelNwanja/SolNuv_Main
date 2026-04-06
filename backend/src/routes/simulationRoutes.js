@@ -20,4 +20,8 @@ router.get('/solar-resource', simulationController.getSolarResource);
 // Auto-size PV + BESS recommendation — Basic: 3/month, Pro+: unlimited
 router.post('/auto-size', trackSimulationUsage('auto_size'), simulationController.autoSizeSystem);
 
+// AI expert feedback
+router.post('/:projectId/ai-feedback', simulationController.generateAIFeedback);
+router.put('/:projectId/ai-feedback', simulationController.saveAIFeedback);
+
 module.exports = router;

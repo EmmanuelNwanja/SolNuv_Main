@@ -6,6 +6,7 @@
 const supabase = require('../config/database');
 const { sendSuccess, sendError } = require('../utils/responseHelper');
 const { runSimulation } = require('../services/simulationService');
+const { generateFeedback, saveEditedFeedback } = require('../services/aiDesignFeedbackService');
 const { getHourlySolarResource, estimateOptimalTilt, estimateOptimalAzimuth } = require('../services/solarResourceService');
 const logger = require('../utils/logger');
 
@@ -60,6 +61,17 @@ exports.runProjectSimulation = async (req, res) => {
       om_cost_annual,
       loan_interest_rate_pct,
       loan_term_years,
+      // Grid topology fields
+      grid_topology,
+      installation_type,
+      autonomy_days,
+      backup_generator_kw,
+      diesel_cost_per_litre,
+      petrol_price_per_litre,
+      fuel_escalation_pct,
+      grid_availability_pct,
+      grid_outage_hours_day,
+      feed_in_tariff_per_kwh,
     } = req.body;
 
     if (!project_id) return sendError(res, 'project_id is required', 400);
@@ -107,7 +119,7 @@ exports.runProjectSimulation = async (req, res) => {
       pv_generation_source: pv_generation_source === 'modelled' ? 'calculated' : pv_generation_source || 'calculated',
       pv_system_losses_pct: parseFloat(system_losses_pct) || 14,
       pv_degradation_annual_pct: parseFloat(annual_degradation_pct) || 0.5,
-      bess_capacity_kwh: parseFloat(bess_capacity_kwh) || 0,
+      bess_capacity_kwh: grid_topology === 'grid_tied' ? 0 : (parseFloat(bess_capacity_kwh) || 0),
       bess_chemistry: chemMap[battery_chemistry] || 'lfp',
       bess_dod_pct: bess_min_soc != null ? (100 - parseFloat(bess_min_soc) * 100) : 80,
       bess_round_trip_eff_pct: bess_round_trip_efficiency != null ? parseFloat(bess_round_trip_efficiency) * 100 : 92,
@@ -119,6 +131,18 @@ exports.runProjectSimulation = async (req, res) => {
       financing_type: financing_type || 'cash',
       loan_interest_rate_pct: parseFloat(loan_interest_rate_pct) || 0,
       loan_term_years: parseInt(loan_term_years) || 0,
+      // Grid topology
+      grid_topology: grid_topology || 'grid_tied_bess',
+      installation_type: installation_type || 'rooftop_tilted',
+      autonomy_days: parseFloat(autonomy_days) || 2.0,
+      backup_generator_kw: parseFloat(backup_generator_kw) || null,
+      diesel_cost_per_litre: parseFloat(diesel_cost_per_litre) || null,
+      diesel_price_per_litre: parseFloat(diesel_cost_per_litre) || 1100,
+      petrol_price_per_litre: parseFloat(petrol_price_per_litre) || 700,
+      fuel_escalation_pct: parseFloat(fuel_escalation_pct) || 10,
+      grid_availability_pct: parseFloat(grid_availability_pct) || 100,
+      grid_outage_hours_day: parseFloat(grid_outage_hours_day) || null,
+      feed_in_tariff_per_kwh: parseFloat(feed_in_tariff_per_kwh) || null,
     };
 
     // Upsert: insert or update the design for this project (unique: project_id)
@@ -374,5 +398,89 @@ exports.autoSizeSystem = async (req, res) => {
   } catch (err) {
     logger.error('autoSizeSystem error', { message: err.message });
     return sendError(res, 'Auto-sizing failed');
+  }
+};
+
+/**
+ * POST /api/simulation/:projectId/ai-feedback
+ * Generate AI expert feedback for the latest simulation results.
+ */
+exports.generateAIFeedback = async (req, res) => {
+  try {
+    const { projectId } = req.params;
+
+    const project = await verifyProjectOwnership(projectId, req.user);
+    if (!project) return sendError(res, 'Project not found or access denied', 404);
+
+    // Get design
+    const { data: design } = await supabase
+      .from('project_designs')
+      .select('id')
+      .eq('project_id', projectId)
+      .single();
+
+    if (!design) return sendError(res, 'No design found', 404);
+
+    // Get latest results
+    const { data: result } = await supabase
+      .from('simulation_results')
+      .select('id, ai_expert_feedback, ai_feedback_generated_at')
+      .eq('project_design_id', design.id)
+      .order('run_at', { ascending: false })
+      .limit(1)
+      .single();
+
+    if (!result) return sendError(res, 'No simulation results found. Run simulation first.', 404);
+
+    const feedback = await generateFeedback(result.id);
+
+    return sendSuccess(res, {
+      feedback,
+      generated_at: new Date().toISOString(),
+    }, 'AI expert feedback generated');
+  } catch (err) {
+    logger.error('generateAIFeedback error', { message: err.message });
+    return sendError(res, 'Failed to generate AI feedback: ' + err.message);
+  }
+};
+
+/**
+ * PUT /api/simulation/:projectId/ai-feedback
+ * Save user-edited AI feedback text.
+ */
+exports.saveAIFeedback = async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const { edited_text } = req.body;
+
+    if (typeof edited_text !== 'string') return sendError(res, 'edited_text is required', 400);
+
+    const project = await verifyProjectOwnership(projectId, req.user);
+    if (!project) return sendError(res, 'Project not found or access denied', 404);
+
+    const { data: design } = await supabase
+      .from('project_designs')
+      .select('id')
+      .eq('project_id', projectId)
+      .single();
+
+    if (!design) return sendError(res, 'No design found', 404);
+
+    const { data: result } = await supabase
+      .from('simulation_results')
+      .select('id')
+      .eq('project_design_id', design.id)
+      .order('run_at', { ascending: false })
+      .limit(1)
+      .single();
+
+    if (!result) return sendError(res, 'No simulation results found', 404);
+
+    await saveEditedFeedback(result.id, edited_text);
+
+    return sendSuccess(res, null, 'Feedback saved');
+  } catch (err) {
+    logger.error('saveAIFeedback error', { message: err.message });
+    return sendError(res, 'Failed to save feedback');
   }
 };

@@ -10,7 +10,8 @@ import {
   RiRefreshLine, RiDeleteBinLine, RiEyeLine, RiCloseLine,
   RiFlashlightLine, RiBatteryChargeLine, RiPieChartLine,
   RiAddLine, RiEditLine, RiCheckLine, RiArrowLeftLine,
-  RiExternalLinkLine, RiShieldCheckLine,
+  RiExternalLinkLine, RiShieldCheckLine, RiLeafLine,
+  RiGridLine, RiHome4Line,
 } from 'react-icons/ri';
 
 const TABS = ['overview', 'simulations', 'tariffs', 'shares', 'adoption'];
@@ -53,19 +54,54 @@ function KpiCard({ icon: Icon, label, value, sub, color = 'emerald' }) {
 function fmt(n) { return n != null ? Number(n).toLocaleString() : '—'; }
 function fmtMoney(n, c = 'ZAR') { return n != null ? `${c} ${Number(n).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : '—'; }
 function fmtDate(d) { return d ? new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'; }
-function fmtPct(n) { return n != null ? (Number(n) * 100).toFixed(1) + '%' : '—'; }
+function fmtPct(n) { return n != null ? Number(n).toFixed(1) + '%' : '—'; }
+function fmtTopology(t) { return t ? t.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) : '—'; }
+function fmtInstall(t) { return t ? t.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) : '—'; }
 
 /* ═══════════════════════════ OVERVIEW TAB ═══════════════════════════ */
 function OverviewTab({ data }) {
   if (!data) return <p className="text-sm text-slate-400 py-8">Loading...</p>;
   const d = data;
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-      <KpiCard icon={RiSunLine} label="Total Designs" value={fmt(d.designs?.total)} sub={`+${d.designs?.last_30d || 0} last 30d`} color="emerald" />
-      <KpiCard icon={RiFlashlightLine} label="Simulations Run" value={fmt(d.simulations?.total)} sub={`+${d.simulations?.last_30d || 0} last 30d`} color="blue" />
-      <KpiCard icon={RiFileTextLine} label="Tariff Templates" value={fmt(d.tariffs?.templates)} sub={`${d.tariffs?.company_custom || 0} company-custom`} color="violet" />
-      <KpiCard icon={RiBatteryChargeLine} label="Load Profiles" value={fmt(d.load_profiles?.total)} color="amber" />
-      <KpiCard icon={RiShareLine} label="Report Shares" value={fmt(d.report_shares?.total)} sub={`${d.report_shares?.active_links || 0} active links`} color="rose" />
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <KpiCard icon={RiSunLine} label="Total Designs" value={fmt(d.designs?.total)} sub={`+${d.designs?.last_30d || 0} last 30d`} color="emerald" />
+        <KpiCard icon={RiFlashlightLine} label="Simulations Run" value={fmt(d.simulations?.total)} sub={`+${d.simulations?.last_30d || 0} last 30d`} color="blue" />
+        <KpiCard icon={RiFileTextLine} label="Tariff Templates" value={fmt(d.tariffs?.templates)} sub={`${d.tariffs?.company_custom || 0} company-custom`} color="violet" />
+        <KpiCard icon={RiBatteryChargeLine} label="Load Profiles" value={fmt(d.load_profiles?.total)} color="amber" />
+        <KpiCard icon={RiShareLine} label="Report Shares" value={fmt(d.report_shares?.total)} sub={`${d.report_shares?.active_links || 0} active links`} color="rose" />
+        <KpiCard icon={RiLeafLine} label="Total CO₂ Avoided" value={`${fmt(d.total_co2_avoided_tonnes)} t`} sub="lifetime tonnes" color="emerald" />
+      </div>
+
+      {/* Grid Topology Distribution */}
+      {Object.keys(d.topology_distribution || {}).length > 0 && (
+        <div>
+          <h3 className="text-xs font-semibold uppercase text-slate-500 mb-3">Grid Topology Distribution</h3>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {Object.entries(d.topology_distribution).sort((a,b) => b[1] - a[1]).map(([topo, count]) => (
+              <div key={topo} className="rounded-xl bg-blue-50 text-blue-700 px-4 py-3">
+                <p className="text-[11px] font-bold uppercase tracking-wide opacity-70">{topo.replace(/_/g, ' ')}</p>
+                <p className="text-xl font-bold mt-0.5">{fmt(count)}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Installation Type Distribution */}
+      {Object.keys(d.installation_type_distribution || {}).length > 0 && (
+        <div>
+          <h3 className="text-xs font-semibold uppercase text-slate-500 mb-3">Installation Type Distribution</h3>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {Object.entries(d.installation_type_distribution).sort((a,b) => b[1] - a[1]).map(([type, count]) => (
+              <div key={type} className="rounded-xl bg-violet-50 text-violet-700 px-4 py-3">
+                <p className="text-[11px] font-bold uppercase tracking-wide opacity-70">{type.replace(/_/g, ' ')}</p>
+                <p className="text-xl font-bold mt-0.5">{fmt(count)}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -103,12 +139,15 @@ function SimulationsTab() {
             <tr className="border-b border-slate-100 bg-slate-50">
               <th className="px-3 py-2.5 text-left text-xs font-semibold uppercase text-slate-500">Project</th>
               <th className="px-3 py-2.5 text-left text-xs font-semibold uppercase text-slate-500">Company</th>
+              <th className="px-3 py-2.5 text-left text-xs font-semibold uppercase text-slate-500">Topology</th>
+              <th className="px-3 py-2.5 text-left text-xs font-semibold uppercase text-slate-500">Install</th>
               <th className="px-3 py-2.5 text-right text-xs font-semibold uppercase text-slate-500">PV (kWp)</th>
               <th className="px-3 py-2.5 text-right text-xs font-semibold uppercase text-slate-500">BESS (kWh)</th>
               <th className="px-3 py-2.5 text-right text-xs font-semibold uppercase text-slate-500">Generation</th>
-              <th className="px-3 py-2.5 text-right text-xs font-semibold uppercase text-slate-500">Solar %</th>
+              <th className="px-3 py-2.5 text-right text-xs font-semibold uppercase text-slate-500">Self-Use %</th>
               <th className="px-3 py-2.5 text-right text-xs font-semibold uppercase text-slate-500">Savings</th>
               <th className="px-3 py-2.5 text-right text-xs font-semibold uppercase text-slate-500">Payback</th>
+              <th className="px-3 py-2.5 text-right text-xs font-semibold uppercase text-slate-500">CO₂ (t)</th>
               <th className="px-3 py-2.5 text-left text-xs font-semibold uppercase text-slate-500">Date</th>
             </tr>
           </thead>
@@ -117,17 +156,20 @@ function SimulationsTab() {
               <tr key={r.id} className="border-b border-slate-50 last:border-none hover:bg-slate-50">
                 <td className="px-3 py-2.5 text-slate-700 font-medium truncate max-w-[160px]">{r.project_name}</td>
                 <td className="px-3 py-2.5 text-slate-500 truncate max-w-[140px]">{r.company_name}</td>
+                <td className="px-3 py-2.5 text-xs text-slate-600">{fmtTopology(r.grid_topology)}</td>
+                <td className="px-3 py-2.5 text-xs text-slate-600">{fmtInstall(r.installation_type)}</td>
                 <td className="px-3 py-2.5 text-right font-mono text-slate-700">{fmt(r.pv_kwp)}</td>
                 <td className="px-3 py-2.5 text-right font-mono text-slate-600">{r.bess_kwh > 0 ? fmt(r.bess_kwh) : '—'}</td>
                 <td className="px-3 py-2.5 text-right font-mono text-slate-700">{fmt(r.annual_gen_kwh)} kWh</td>
-                <td className="px-3 py-2.5 text-right font-mono text-emerald-600">{fmtPct(r.solar_fraction)}</td>
-                <td className="px-3 py-2.5 text-right font-mono text-amber-600">{fmt(r.annual_savings)}</td>
-                <td className="px-3 py-2.5 text-right font-mono text-slate-600">{r.payback_yrs ? `${Number(r.payback_yrs).toFixed(1)}y` : '—'}</td>
+                <td className="px-3 py-2.5 text-right font-mono text-emerald-600">{fmtPct(r.self_consumption_pct)}</td>
+                <td className="px-3 py-2.5 text-right font-mono text-amber-600">{fmt(r.year1_savings)}</td>
+                <td className="px-3 py-2.5 text-right font-mono text-slate-600">{r.payback_months ? `${(Number(r.payback_months) / 12).toFixed(1)}y` : '—'}</td>
+                <td className="px-3 py-2.5 text-right font-mono text-teal-600">{r.co2_avoided_tonnes > 0 ? Number(r.co2_avoided_tonnes).toFixed(1) : '—'}</td>
                 <td className="px-3 py-2.5 text-slate-400 text-xs">{fmtDate(r.created_at)}</td>
               </tr>
             ))}
             {rows.length === 0 && (
-              <tr><td colSpan={9} className="px-3 py-8 text-center text-sm text-slate-400">No simulations yet.</td></tr>
+              <tr><td colSpan={12} className="px-3 py-8 text-center text-sm text-slate-400">No simulations yet.</td></tr>
             )}
           </tbody>
         </table>
@@ -499,6 +541,46 @@ function AdoptionTab() {
           {Object.keys(data.load_profile_sources || {}).length === 0 && <p className="text-sm text-slate-400 col-span-4">No load profiles yet.</p>}
         </div>
       </div>
+
+      {/* Grid topology breakdown */}
+      <div>
+        <h3 className="text-xs font-semibold uppercase text-slate-500 mb-3">Grid Topology Adoption</h3>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {Object.entries(data.topology_breakdown || {}).sort((a,b) => b[1] - a[1]).map(([topo, count]) => (
+            <div key={topo} className="rounded-xl bg-cyan-50 text-cyan-700 px-4 py-3">
+              <p className="text-[11px] font-bold uppercase tracking-wide opacity-70">{topo.replace(/_/g, ' ')}</p>
+              <p className="text-xl font-bold mt-0.5">{fmt(count)}</p>
+            </div>
+          ))}
+          {Object.keys(data.topology_breakdown || {}).length === 0 && <p className="text-sm text-slate-400 col-span-4">No topology data yet.</p>}
+        </div>
+      </div>
+
+      {/* Installation type breakdown */}
+      <div>
+        <h3 className="text-xs font-semibold uppercase text-slate-500 mb-3">Installation Type Adoption</h3>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {Object.entries(data.installation_type_breakdown || {}).sort((a,b) => b[1] - a[1]).map(([type, count]) => (
+            <div key={type} className="rounded-xl bg-violet-50 text-violet-700 px-4 py-3">
+              <p className="text-[11px] font-bold uppercase tracking-wide opacity-70">{type.replace(/_/g, ' ')}</p>
+              <p className="text-xl font-bold mt-0.5">{fmt(count)}</p>
+            </div>
+          ))}
+          {Object.keys(data.installation_type_breakdown || {}).length === 0 && <p className="text-sm text-slate-400 col-span-4">No installation type data yet.</p>}
+        </div>
+      </div>
+
+      {/* Environmental impact */}
+      {data.environmental_impact && (
+        <div>
+          <h3 className="text-xs font-semibold uppercase text-slate-500 mb-3">Environmental & Fuel Impact (Platform Total)</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <KpiCard icon={RiLeafLine} label="CO₂ Avoided (Lifetime)" value={`${fmt(data.environmental_impact.total_co2_avoided_tonnes)} t`} color="emerald" />
+            <KpiCard icon={RiFlashlightLine} label="Diesel Cost Avoided (Annual)" value={fmtMoney(data.environmental_impact.total_diesel_cost_avoided)} color="amber" />
+            <KpiCard icon={RiFlashlightLine} label="Petrol Cost Avoided (Annual)" value={fmtMoney(data.environmental_impact.total_petrol_cost_avoided)} color="rose" />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

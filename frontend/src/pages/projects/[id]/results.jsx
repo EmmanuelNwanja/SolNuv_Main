@@ -10,6 +10,7 @@ import {
   RiArrowLeftLine, RiDownloadLine, RiShareLine, RiSunLine,
   RiBatteryLine, RiMoneyDollarCircleLine, RiFlashlightLine,
   RiFileExcel2Line, RiFilePdf2Line, RiLinkM,
+  RiRobot2Line, RiEditLine, RiCheckLine, RiPlugLine,
 } from 'react-icons/ri';
 import toast from 'react-hot-toast';
 import dynamic from 'next/dynamic';
@@ -27,6 +28,20 @@ const PV_TECH_LABELS = {
   cigs: 'Thin-Film CIGS', topcon: 'TOPCon', hjt: 'HJT',
   bifacial_perc: 'Bifacial Mono PERC', topcon_bi: 'Bifacial TOPCon', hjt_bi: 'Bifacial HJT',
   a_si: 'Amorphous Silicon', organic: 'Organic PV',
+};
+
+const TOPOLOGY_LABELS = {
+  grid_tied: 'Grid-Tied',
+  grid_tied_bess: 'Grid-Tied + Battery',
+  off_grid: 'Off-Grid',
+  hybrid: 'Hybrid',
+};
+
+const TOPOLOGY_COLORS = {
+  grid_tied: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
+  grid_tied_bess: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
+  off_grid: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300',
+  hybrid: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300',
 };
 
 function fmt(n, d = 0) {
@@ -58,6 +73,10 @@ export default function ResultsDashboard() {
   const [tab, setTab] = useState('overview');
   const [shareUrl, setShareUrl] = useState('');
   const [exporting, setExporting] = useState('');
+  const [aiFeedback, setAiFeedback] = useState(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [editingFeedback, setEditingFeedback] = useState(false);
+  const [editedFeedbackText, setEditedFeedbackText] = useState('');
 
   useEffect(() => {
     if (!projectId) return;
@@ -137,7 +156,9 @@ export default function ResultsDashboard() {
     { key: 'energy', label: 'Energy' },
     { key: 'battery', label: 'Battery', hide: !design?.bess_capacity_kwh },
     { key: 'financial', label: 'Financial' },
-    { key: 'tariff', label: 'Tariff' },
+    { key: 'comparison', label: 'vs Grid/Diesel/Petrol' },
+    { key: 'tariff', label: 'Tariff', hide: result?.grid_topology === 'off_grid' },
+    { key: 'ai_feedback', label: 'AI Expert Analysis' },
   ].filter(t => !t.hide);
 
   // Chart data
@@ -209,6 +230,16 @@ export default function ResultsDashboard() {
           </div>
         )}
 
+        {/* Topology badge */}
+        {result?.grid_topology && (
+          <div className="mb-4 flex items-center gap-2">
+            <RiPlugLine className="text-gray-400" />
+            <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${TOPOLOGY_COLORS[result.grid_topology] || 'bg-gray-100 text-gray-700'}`}>
+              {TOPOLOGY_LABELS[result.grid_topology] || result.grid_topology}
+            </span>
+          </div>
+        )}
+
         {/* Key metrics grid */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
           <MetricCard icon={RiSunLine} label="PV Capacity" value={fmt(design?.pv_capacity_kwp, 1)} unit="kWp" />
@@ -224,6 +255,30 @@ export default function ResultsDashboard() {
           <MetricCard label="IRR" value={result?.irr_pct != null ? fmt(result.irr_pct, 1) : '—'} unit="%" />
           <MetricCard label="LCOE" value={result?.lcoe_normal != null ? `${currSym}${fmt(result.lcoe_normal, 2)}` : '—'} unit="/kWh" />
         </div>
+
+        {/* Topology-specific metrics */}
+        {(result?.grid_topology === 'off_grid' || result?.grid_topology === 'hybrid') && (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+            {result.unmet_load_kwh > 0 && (
+              <MetricCard label="Unmet Load" value={fmt(result.unmet_load_kwh)} unit="kWh" color="red" />
+            )}
+            {result.unmet_load_hours > 0 && (
+              <MetricCard label="Unmet Hours" value={fmt(result.unmet_load_hours)} unit="hrs/yr" color="red" />
+            )}
+            {result.loss_of_load_pct > 0 && (
+              <MetricCard label="Loss of Load" value={fmt(result.loss_of_load_pct, 1)} unit="%" color="red" />
+            )}
+            {result.autonomy_achieved_days > 0 && (
+              <MetricCard label="Autonomy" value={fmt(result.autonomy_achieved_days, 1)} unit="days" color="amber" />
+            )}
+            {result.islanded_hours > 0 && (
+              <MetricCard label="Islanded" value={fmt(result.islanded_hours)} unit="hrs/yr" color="purple" />
+            )}
+            {result.feed_in_revenue > 0 && (
+              <MetricCard label="Feed-in Revenue" value={`${currSym}${fmt(result.feed_in_revenue)}`} unit="" color="green" />
+            )}
+          </div>
+        )}
 
         {/* Tab navigation */}
         <div className="flex gap-1 mb-6 border-b border-gray-200 dark:border-gray-700 overflow-x-auto">
@@ -428,6 +483,171 @@ export default function ResultsDashboard() {
             </>
           )}
 
+          {/* COMPARISON TAB — Solar vs Grid vs Diesel vs Petrol */}
+          {tab === 'comparison' && (
+            <div className="space-y-6">
+              {/* Annual Cost Comparison */}
+              {result?.energy_comparison?.annual_costs && (
+                <div className="card p-5">
+                  <h3 className="text-sm font-semibold text-forest-900 dark:text-white mb-4">Annual Cost Comparison (Year 1)</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="text-center p-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl border-2 border-emerald-500">
+                      <div className="text-xs text-emerald-600 font-medium mb-1">Solar System</div>
+                      <div className="text-lg font-bold text-emerald-700 dark:text-emerald-300">{currSym}{fmt(result.energy_comparison.annual_costs.solar)}</div>
+                      <div className="text-xs text-emerald-500 mt-1">Your choice</div>
+                    </div>
+                    <div className="text-center p-3 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
+                      <div className="text-xs text-gray-500 font-medium mb-1">Grid Only</div>
+                      <div className="text-lg font-bold text-gray-900 dark:text-white">{currSym}{fmt(result.energy_comparison.annual_costs.grid_only)}</div>
+                      <div className={`text-xs mt-1 ${result.energy_comparison.annual_savings.vs_grid > 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                        {result.energy_comparison.annual_savings.vs_grid > 0 ? 'Save ' : ''}
+                        {currSym}{fmt(Math.abs(result.energy_comparison.annual_savings.vs_grid))}/yr
+                      </div>
+                    </div>
+                    <div className="text-center p-3 bg-orange-50 dark:bg-orange-900/10 rounded-xl border border-orange-200 dark:border-orange-800">
+                      <div className="text-xs text-orange-600 font-medium mb-1">Diesel Generator</div>
+                      <div className="text-lg font-bold text-orange-700 dark:text-orange-300">{currSym}{fmt(result.energy_comparison.annual_costs.diesel)}</div>
+                      <div className="text-xs text-emerald-600 mt-1">Save {currSym}{fmt(result.energy_comparison.annual_savings.vs_diesel)}/yr</div>
+                    </div>
+                    <div className="text-center p-3 bg-red-50 dark:bg-red-900/10 rounded-xl border border-red-200 dark:border-red-800">
+                      <div className="text-xs text-red-500 font-medium mb-1">Petrol Generator</div>
+                      <div className="text-lg font-bold text-red-600 dark:text-red-400">{currSym}{fmt(result.energy_comparison.annual_costs.petrol)}</div>
+                      <div className="text-xs text-emerald-600 mt-1">Save {currSym}{fmt(result.energy_comparison.annual_savings.vs_petrol)}/yr</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Lifetime Cost Comparison */}
+              {result?.energy_comparison?.lifetime_costs && (
+                <div className="card p-5">
+                  <h3 className="text-sm font-semibold text-forest-900 dark:text-white mb-4">
+                    Lifetime Cost ({result?.analysis_period_years || 25} Years)
+                  </h3>
+                  <div className="space-y-3">
+                    {[
+                      { label: 'Solar System', value: result.energy_comparison.lifetime_costs.solar, color: 'bg-emerald-500' },
+                      { label: 'Grid Only', value: result.energy_comparison.lifetime_costs.grid_only, color: 'bg-gray-500' },
+                      { label: 'Diesel Gen.', value: result.energy_comparison.lifetime_costs.diesel, color: 'bg-orange-500' },
+                      { label: 'Petrol Gen.', value: result.energy_comparison.lifetime_costs.petrol, color: 'bg-red-500' },
+                    ].sort((a, b) => a.value - b.value).map((item, idx) => {
+                      const maxVal = Math.max(
+                        result.energy_comparison.lifetime_costs.solar,
+                        result.energy_comparison.lifetime_costs.grid_only,
+                        result.energy_comparison.lifetime_costs.diesel,
+                        result.energy_comparison.lifetime_costs.petrol,
+                      );
+                      const pct = maxVal > 0 ? (item.value / maxVal) * 100 : 0;
+                      return (
+                        <div key={idx}>
+                          <div className="flex justify-between text-sm mb-1">
+                            <span className="text-gray-600 dark:text-gray-400">
+                              {idx === 0 && <span className="text-emerald-600 font-semibold mr-1">Best</span>}
+                              {item.label}
+                            </span>
+                            <span className="font-semibold text-gray-900 dark:text-white">{currSym}{fmt(item.value)}</span>
+                          </div>
+                          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3">
+                            <div className={`${item.color} h-3 rounded-full`} style={{ width: `${Math.max(pct, 2)}%` }} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Environmental Impact */}
+              {result?.energy_comparison?.environmental && (
+                <div className="card p-5">
+                  <h3 className="text-sm font-semibold text-forest-900 dark:text-white mb-4">Environmental Impact (Annual)</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="text-center p-3 bg-green-50 dark:bg-green-900/20 rounded-xl">
+                      <div className="text-2xl font-bold text-green-700 dark:text-green-400">{fmt(result.energy_comparison.environmental.co2_avoided_vs_grid_kg)}</div>
+                      <div className="text-xs text-gray-500 mt-1">kg CO₂ avoided vs grid</div>
+                    </div>
+                    <div className="text-center p-3 bg-green-50 dark:bg-green-900/20 rounded-xl">
+                      <div className="text-2xl font-bold text-green-700 dark:text-green-400">{fmt(result.energy_comparison.environmental.co2_avoided_lifetime_tonnes, 1)}</div>
+                      <div className="text-xs text-gray-500 mt-1">tonnes CO₂ avoided (lifetime)</div>
+                    </div>
+                    <div className="text-center p-3 bg-green-50 dark:bg-green-900/20 rounded-xl">
+                      <div className="text-2xl font-bold text-green-700 dark:text-green-400">{fmt(result.energy_comparison.environmental.trees_equivalent)}</div>
+                      <div className="text-xs text-gray-500 mt-1">trees equivalent per year</div>
+                    </div>
+                    <div className="text-center p-3 bg-amber-50 dark:bg-amber-900/20 rounded-xl">
+                      <div className="text-2xl font-bold text-amber-700 dark:text-amber-400">{fmt(result.energy_comparison.environmental.diesel_avoided_litres)}</div>
+                      <div className="text-xs text-gray-500 mt-1">litres diesel avoided/yr</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Fuel Consumption Comparison */}
+              {result?.energy_comparison?.fuel_consumption && (
+                <div className="card p-5">
+                  <h3 className="text-sm font-semibold text-forest-900 dark:text-white mb-4">Fuel Consumption Comparison (Annual)</h3>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="bg-forest-900 text-white">
+                          <th className="px-3 py-2 text-left">Energy Source</th>
+                          <th className="px-3 py-2 text-right">Fuel/yr</th>
+                          <th className="px-3 py-2 text-right">CO₂/yr (kg)</th>
+                          <th className="px-3 py-2 text-right">Cost/kWh</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr className="border-b border-gray-100 dark:border-gray-700 bg-emerald-50/50 dark:bg-emerald-900/10">
+                          <td className="px-3 py-2 font-semibold text-emerald-700 dark:text-emerald-400">Solar</td>
+                          <td className="px-3 py-2 text-right">—</td>
+                          <td className="px-3 py-2 text-right">{fmt(result.energy_comparison.environmental.co2_solar_kg)}</td>
+                          <td className="px-3 py-2 text-right">{currSym}{result.lcoe_normal?.toFixed(2) || '—'}</td>
+                        </tr>
+                        <tr className="border-b border-gray-100 dark:border-gray-700">
+                          <td className="px-3 py-2">Grid Only</td>
+                          <td className="px-3 py-2 text-right">—</td>
+                          <td className="px-3 py-2 text-right">{fmt(result.energy_comparison.environmental.co2_grid_only_kg)}</td>
+                          <td className="px-3 py-2 text-right">—</td>
+                        </tr>
+                        <tr className="border-b border-gray-100 dark:border-gray-700">
+                          <td className="px-3 py-2">Diesel Gen.</td>
+                          <td className="px-3 py-2 text-right">{fmt(result.energy_comparison.fuel_consumption.diesel_litres_annual)} L</td>
+                          <td className="px-3 py-2 text-right">{fmt(result.energy_comparison.environmental.co2_diesel_kg)}</td>
+                          <td className="px-3 py-2 text-right">{currSym}{result.energy_comparison.fuel_consumption.diesel_cost_per_kwh?.toFixed(2)}</td>
+                        </tr>
+                        <tr>
+                          <td className="px-3 py-2">Petrol Gen.</td>
+                          <td className="px-3 py-2 text-right">{fmt(result.energy_comparison.fuel_consumption.petrol_litres_annual)} L</td>
+                          <td className="px-3 py-2 text-right">{fmt(result.energy_comparison.environmental.co2_petrol_kg)}</td>
+                          <td className="px-3 py-2 text-right">{currSym}{result.energy_comparison.fuel_consumption.petrol_cost_per_kwh?.toFixed(2)}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Yearly Cost Projection Chart */}
+              {result?.energy_comparison?.yearly_comparison?.length > 0 && (
+                <div className="card p-5">
+                  <h3 className="text-sm font-semibold text-forest-900 dark:text-white mb-4">Yearly Cost Projection</h3>
+                  <div className="h-72">
+                    <Line data={{
+                      labels: result.energy_comparison.yearly_comparison.map(y => `Yr ${y.year}`),
+                      datasets: [
+                        { label: 'Solar', data: result.energy_comparison.yearly_comparison.map(y => y.solar_cost), borderColor: BRAND.accent, backgroundColor: BRAND.accent + '22', fill: false, tension: 0.3, pointRadius: 0 },
+                        { label: 'Grid Only', data: result.energy_comparison.yearly_comparison.map(y => y.grid_cost), borderColor: BRAND.primary, borderDash: [5, 3], fill: false, tension: 0.3, pointRadius: 0 },
+                        { label: 'Diesel', data: result.energy_comparison.yearly_comparison.map(y => y.diesel_cost), borderColor: BRAND.amber, borderDash: [3, 3], fill: false, tension: 0.3, pointRadius: 0 },
+                        { label: 'Petrol', data: result.energy_comparison.yearly_comparison.map(y => y.petrol_cost), borderColor: BRAND.red, borderDash: [2, 2], fill: false, tension: 0.3, pointRadius: 0 },
+                      ],
+                    }} options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top' } }, scales: { y: { beginAtZero: true, ticks: { callback: v => `${currSym}${(v / 1000000).toFixed(1)}M` } } } }} />
+                  </div>
+                  <p className="text-xs text-gray-400 mt-2 text-center">Annual cost comparison over project lifetime with escalation rates applied</p>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* TARIFF TAB */}
           {tab === 'tariff' && tariff && (
             <div className="card p-5">
@@ -454,6 +674,225 @@ export default function ResultsDashboard() {
                     </tbody>
                   </table>
                 </div>
+              )}
+            </div>
+          )}
+
+          {/* AI EXPERT ANALYSIS TAB */}
+          {tab === 'ai_feedback' && (
+            <div className="space-y-6">
+              {/* Generate button or existing feedback */}
+              {!aiFeedback && !result?.ai_expert_feedback ? (
+                <div className="card p-8 text-center">
+                  <RiRobot2Line className="text-4xl text-emerald-500 mx-auto mb-3" />
+                  <h3 className="text-lg font-semibold text-forest-900 dark:text-white mb-2">AI Expert Analysis</h3>
+                  <p className="text-sm text-gray-500 mb-4 max-w-md mx-auto">
+                    Get an AI-powered expert review of your solar system design — covering sizing, performance, financial outlook, and specific recommendations for your project.
+                  </p>
+                  <button
+                    onClick={async () => {
+                      setAiLoading(true);
+                      try {
+                        const { data: res } = await simulationAPI.generateAIFeedback(projectId);
+                        const fb = res?.data?.feedback || res?.feedback;
+                        setAiFeedback(fb);
+                        toast.success('AI analysis generated');
+                      } catch (e) {
+                        toast.error(e?.response?.data?.message || 'Failed to generate AI analysis');
+                      } finally {
+                        setAiLoading(false);
+                      }
+                    }}
+                    disabled={aiLoading}
+                    className="btn-primary inline-flex items-center gap-2">
+                    {aiLoading ? <LoadingSpinner className="w-4 h-4" /> : <RiRobot2Line />}
+                    {aiLoading ? 'Analysing...' : 'Generate Expert Analysis'}
+                  </button>
+                </div>
+              ) : (
+                (() => {
+                  const fb = aiFeedback || result?.ai_expert_feedback;
+                  if (!fb) return null;
+
+                  const ratingColors = {
+                    excellent: 'bg-green-100 text-green-700',
+                    good: 'bg-emerald-100 text-emerald-700',
+                    fair: 'bg-amber-100 text-amber-700',
+                    needs_improvement: 'bg-red-100 text-red-700',
+                  };
+
+                  return (
+                    <>
+                      {/* Rating + Summary */}
+                      <div className="card p-5">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-3">
+                            <RiRobot2Line className="text-xl text-emerald-500" />
+                            <h3 className="text-sm font-semibold">AI Expert Assessment</h3>
+                            {fb.overall_rating && (
+                              <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${ratingColors[fb.overall_rating] || 'bg-gray-100 text-gray-700'}`}>
+                                {fb.overall_rating.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                              </span>
+                            )}
+                          </div>
+                          {result?.ai_feedback_generated_at && (
+                            <span className="text-xs text-gray-400">
+                              {new Date(result.ai_feedback_generated_at).toLocaleDateString()}
+                            </span>
+                          )}
+                        </div>
+                        {fb.summary && <p className="text-sm text-gray-600 dark:text-gray-300">{fb.summary}</p>}
+                      </div>
+
+                      {/* Sizing Assessment */}
+                      {fb.sizing_assessment && (
+                        <div className="card p-5">
+                          <h3 className="text-sm font-semibold mb-3">Sizing Assessment</h3>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                            <div>
+                              <span className="text-gray-500">PV Sizing:</span>{' '}
+                              <span className={`font-medium ${fb.sizing_assessment.pv_sizing === 'appropriate' ? 'text-green-600' : 'text-amber-600'}`}>
+                                {fb.sizing_assessment.pv_sizing?.replace('_', ' ')}
+                              </span>
+                              {fb.sizing_assessment.pv_comment && (
+                                <p className="text-xs text-gray-400 mt-0.5">{fb.sizing_assessment.pv_comment}</p>
+                              )}
+                            </div>
+                            <div>
+                              <span className="text-gray-500">Battery Sizing:</span>{' '}
+                              <span className={`font-medium ${fb.sizing_assessment.battery_sizing === 'appropriate' ? 'text-green-600' : fb.sizing_assessment.battery_sizing === 'not_applicable' ? 'text-gray-400' : 'text-amber-600'}`}>
+                                {fb.sizing_assessment.battery_sizing?.replace('_', ' ')}
+                              </span>
+                              {fb.sizing_assessment.battery_comment && (
+                                <p className="text-xs text-gray-400 mt-0.5">{fb.sizing_assessment.battery_comment}</p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Strengths & Concerns */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {fb.strengths?.length > 0 && (
+                          <div className="card p-5">
+                            <h3 className="text-sm font-semibold text-green-700 mb-2">Strengths</h3>
+                            <ul className="space-y-1.5">
+                              {fb.strengths.map((s, i) => (
+                                <li key={i} className="text-sm text-gray-600 dark:text-gray-300 flex items-start gap-2">
+                                  <span className="text-green-500 mt-0.5">✓</span>
+                                  <span>{s}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        {fb.concerns?.length > 0 && (
+                          <div className="card p-5">
+                            <h3 className="text-sm font-semibold text-amber-700 mb-2">Concerns</h3>
+                            <ul className="space-y-1.5">
+                              {fb.concerns.map((c, i) => (
+                                <li key={i} className="text-sm text-gray-600 dark:text-gray-300 flex items-start gap-2">
+                                  <span className="text-amber-500 mt-0.5">⚠</span>
+                                  <span>{c}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Recommendations */}
+                      {fb.recommendations?.length > 0 && (
+                        <div className="card p-5">
+                          <h3 className="text-sm font-semibold mb-3">Recommendations</h3>
+                          <ol className="space-y-2">
+                            {fb.recommendations.map((r, i) => (
+                              <li key={i} className="text-sm text-gray-600 dark:text-gray-300 flex items-start gap-2">
+                                <span className="bg-forest-900 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">{i + 1}</span>
+                                <span>{r}</span>
+                              </li>
+                            ))}
+                          </ol>
+                        </div>
+                      )}
+
+                      {/* Financial Assessment */}
+                      {fb.financial_assessment && (
+                        <div className="card p-5">
+                          <h3 className="text-sm font-semibold mb-2">Financial Outlook</h3>
+                          <p className="text-sm text-gray-600 dark:text-gray-300">{fb.financial_assessment}</p>
+                        </div>
+                      )}
+
+                      {/* Editable feedback */}
+                      <div className="card p-5">
+                        <div className="flex items-center justify-between mb-3">
+                          <h3 className="text-sm font-semibold">Your Notes / Edits</h3>
+                          {!editingFeedback ? (
+                            <button
+                              onClick={() => {
+                                setEditingFeedback(true);
+                                setEditedFeedbackText(result?.ai_feedback_edited || '');
+                              }}
+                              className="btn-secondary text-xs flex items-center gap-1">
+                              <RiEditLine /> Edit
+                            </button>
+                          ) : (
+                            <button
+                              onClick={async () => {
+                                try {
+                                  await simulationAPI.saveAIFeedback(projectId, editedFeedbackText);
+                                  setEditingFeedback(false);
+                                  toast.success('Feedback saved');
+                                } catch {
+                                  toast.error('Failed to save');
+                                }
+                              }}
+                              className="btn-primary text-xs flex items-center gap-1">
+                              <RiCheckLine /> Save
+                            </button>
+                          )}
+                        </div>
+                        {editingFeedback ? (
+                          <textarea
+                            value={editedFeedbackText}
+                            onChange={e => setEditedFeedbackText(e.target.value)}
+                            rows={6}
+                            className="input w-full text-sm"
+                            placeholder="Add your own notes, corrections, or additional commentary here. This editable version can be included in shared reports."
+                          />
+                        ) : (
+                          <p className="text-sm text-gray-500 italic">
+                            {result?.ai_feedback_edited || 'Click Edit to add your own commentary to this analysis before sharing.'}
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Regenerate button */}
+                      <div className="text-center">
+                        <button
+                          onClick={async () => {
+                            setAiLoading(true);
+                            try {
+                              const { data: res } = await simulationAPI.generateAIFeedback(projectId);
+                              const fb = res?.data?.feedback || res?.feedback;
+                              setAiFeedback(fb);
+                              toast.success('AI analysis regenerated');
+                            } catch (e) {
+                              toast.error(e?.response?.data?.message || 'Failed to regenerate');
+                            } finally {
+                              setAiLoading(false);
+                            }
+                          }}
+                          disabled={aiLoading}
+                          className="btn-secondary text-sm inline-flex items-center gap-1">
+                          {aiLoading ? <LoadingSpinner className="w-4 h-4" /> : <RiRobot2Line />}
+                          Regenerate Analysis
+                        </button>
+                      </div>
+                    </>
+                  );
+                })()
               )}
             </div>
           )}
