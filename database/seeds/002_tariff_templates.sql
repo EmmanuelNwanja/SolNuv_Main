@@ -15,7 +15,7 @@
 INSERT INTO tariff_structures (tariff_name, country, utility_name, tariff_type, currency, is_template, seasons)
 VALUES (
   'Nigeria MYTO Band A (Premium)',
-  'NG', 'Generic DisCo', 'flat', 'NGN', true,
+  'NG', 'Ikeja Electric / Eko / Abuja DisCo', 'flat', 'NGN', true,
   '[{"key":"year_round","label":"Year-round","months":[1,2,3,4,5,6,7,8,9,10,11,12]}]'
 );
 INSERT INTO tariff_rates (tariff_structure_id, season_key, period_name, rate_per_kwh, weekday_hours, saturday_hours, sunday_hours)
@@ -29,7 +29,7 @@ FROM tariff_structures WHERE tariff_name = 'Nigeria MYTO Band A (Premium)' AND i
 INSERT INTO tariff_structures (tariff_name, country, utility_name, tariff_type, currency, is_template, seasons)
 VALUES (
   'Nigeria MYTO Band B',
-  'NG', 'Generic DisCo', 'flat', 'NGN', true,
+  'NG', 'All DisCos (16-20hr supply)', 'flat', 'NGN', true,
   '[{"key":"year_round","label":"Year-round","months":[1,2,3,4,5,6,7,8,9,10,11,12]}]'
 );
 INSERT INTO tariff_rates (tariff_structure_id, season_key, period_name, rate_per_kwh, weekday_hours, saturday_hours, sunday_hours)
@@ -43,7 +43,7 @@ FROM tariff_structures WHERE tariff_name = 'Nigeria MYTO Band B' AND is_template
 INSERT INTO tariff_structures (tariff_name, country, utility_name, tariff_type, currency, is_template, seasons)
 VALUES (
   'Nigeria MYTO Band C',
-  'NG', 'Generic DisCo', 'flat', 'NGN', true,
+  'NG', 'All DisCos (12-16hr supply)', 'flat', 'NGN', true,
   '[{"key":"year_round","label":"Year-round","months":[1,2,3,4,5,6,7,8,9,10,11,12]}]'
 );
 INSERT INTO tariff_rates (tariff_structure_id, season_key, period_name, rate_per_kwh, weekday_hours, saturday_hours, sunday_hours)
@@ -57,7 +57,7 @@ FROM tariff_structures WHERE tariff_name = 'Nigeria MYTO Band C' AND is_template
 INSERT INTO tariff_structures (tariff_name, country, utility_name, tariff_type, currency, is_template, seasons)
 VALUES (
   'Nigeria MYTO Band D',
-  'NG', 'Generic DisCo', 'flat', 'NGN', true,
+  'NG', 'All DisCos (8-12hr supply)', 'flat', 'NGN', true,
   '[{"key":"year_round","label":"Year-round","months":[1,2,3,4,5,6,7,8,9,10,11,12]}]'
 );
 INSERT INTO tariff_rates (tariff_structure_id, season_key, period_name, rate_per_kwh, weekday_hours, saturday_hours, sunday_hours)
@@ -68,7 +68,7 @@ FROM tariff_structures WHERE tariff_name = 'Nigeria MYTO Band D' AND is_template
 INSERT INTO tariff_structures (tariff_name, country, utility_name, tariff_type, currency, is_template, seasons)
 VALUES (
   'Nigeria MYTO Band E',
-  'NG', 'Generic DisCo', 'flat', 'NGN', true,
+  'NG', 'All DisCos (<8hr supply)', 'flat', 'NGN', true,
   '[{"key":"year_round","label":"Year-round","months":[1,2,3,4,5,6,7,8,9,10,11,12]}]'
 );
 INSERT INTO tariff_rates (tariff_structure_id, season_key, period_name, rate_per_kwh, weekday_hours, saturday_hours, sunday_hours)

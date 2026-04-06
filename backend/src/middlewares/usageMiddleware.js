@@ -144,4 +144,86 @@ async function getCalculatorUsage(req, res) {
   }
 }
 
-module.exports = { trackCalculatorUsage, getCalculatorUsage };
+/**
+ * Middleware: track + limit simulation/load-profile usage for Basic (free) plan.
+ * Basic: 3 design runs per month (shared across simulation + load-profile actions).
+ * Pro+: Unlimited.
+ * @param {string} actionType  'simulation' | 'load_profile' | 'auto_size'
+ */
+const SIMULATION_LIMIT_PER_MONTH = 3;
+
+function trackSimulationUsage(actionType = 'simulation') {
+  return async (req, res, next) => {
+    if (!req.user) return sendError(res, 'Authentication required', 401);
+
+    const user = req.user;
+    const companyId = req.company?.id || user.company_id || null;
+    const userPlan = req.company?.subscription_plan || user.subscription_plan || 'free';
+    const planLevel = PLAN_HIERARCHY[userPlan] ?? 0;
+
+    // Pro+ plans are unrestricted
+    if (planLevel >= 1) return next();
+
+    // Basic plan — check + increment monthly usage
+    const { year, month } = currentPeriod();
+    const calcType = `design_${actionType}`; // e.g. design_simulation, design_load_profile
+
+    try {
+      const { data: existing } = await supabase
+        .from('calculator_usage')
+        .select('use_count')
+        .eq('user_id', user.supabase_uid || user.id)
+        .eq('calc_type', calcType)
+        .eq('period_year', year)
+        .eq('period_month', month)
+        .maybeSingle();
+
+      const currentCount = existing?.use_count ?? 0;
+
+      if (currentCount >= SIMULATION_LIMIT_PER_MONTH) {
+        return sendError(
+          res,
+          `You've used your ${SIMULATION_LIMIT_PER_MONTH} free ${actionType.replace('_', ' ')} runs for this month. Upgrade to Pro for unlimited access.`,
+          429,
+          {
+            code: 'SIMULATION_LIMIT_EXCEEDED',
+            action_type: actionType,
+            limit: SIMULATION_LIMIT_PER_MONTH,
+            used: currentCount,
+            period: `${year}-${String(month).padStart(2, '0')}`,
+            upgrade_url: 'https://solnuv.com/plans',
+          }
+        );
+      }
+
+      if (existing) {
+        await supabase
+          .from('calculator_usage')
+          .update({ use_count: currentCount + 1, last_used_at: new Date().toISOString() })
+          .eq('user_id', user.supabase_uid || user.id)
+          .eq('calc_type', calcType)
+          .eq('period_year', year)
+          .eq('period_month', month);
+      } else {
+        await supabase
+          .from('calculator_usage')
+          .insert({
+            user_id: user.supabase_uid || user.id,
+            company_id: companyId,
+            calc_type: calcType,
+            period_year: year,
+            period_month: month,
+            use_count: 1,
+          });
+      }
+
+      req.simulationUsage = { used: currentCount + 1, limit: SIMULATION_LIMIT_PER_MONTH, remaining: SIMULATION_LIMIT_PER_MONTH - (currentCount + 1) };
+    } catch (err) {
+      // On DB error, allow the action to proceed
+    }
+
+    next();
+  };
+}
+
+module.exports = { trackCalculatorUsage, getCalculatorUsage, trackSimulationUsage };

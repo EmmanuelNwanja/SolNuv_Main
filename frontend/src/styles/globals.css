@@ -413,6 +413,19 @@ body {
   border: 1px solid var(--surface-border) !important;
 }
 
+/* Gray palette dark overrides (used in design wizard and cards) */
+:root[data-theme='dark'] .bg-gray-50,
+:root[data-theme='dark'] .bg-gray-100 { background-color: var(--bg-soft) !important; }
+:root[data-theme='dark'] .bg-gray-800 { background-color: var(--bg-elevated) !important; }
+:root[data-theme='dark'] .bg-gray-800\/60 { background-color: color-mix(in srgb, var(--bg-elevated) 60%, transparent) !important; }
+:root[data-theme='dark'] .text-gray-400 { color: var(--text-muted) !important; }
+:root[data-theme='dark'] .text-gray-500 { color: var(--text-muted) !important; }
+:root[data-theme='dark'] .text-gray-600 { color: var(--text-secondary) !important; }
+:root[data-theme='dark'] .border-gray-700 { border-color: var(--surface-border) !important; }
+:root[data-theme='dark'] .bg-green-100 { background-color: color-mix(in srgb, #064e3b 35%, var(--bg-soft) 65%) !important; }
+:root[data-theme='dark'] .text-green-700,
+:root[data-theme='dark'] .text-green-600 { color: #86efac !important; }
+
 /* TOAST CUSTOM STYLE */
 .toast-custom {
   font-family: var(--font-body) !important;

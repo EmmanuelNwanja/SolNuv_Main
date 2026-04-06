@@ -15,12 +15,13 @@ const PLAN_DEFINITIONS = {
   free: {
     id: 'free',
     name: 'Basic',
-    monthly_price_ngn: 5000,
-    annual_price_ngn: 54000,
+    monthly_price_ngn: 10000,
+    annual_price_ngn: 108000,
     features: [
       'Unlimited project logging',
       'West African decommission predictions',
       '42 calculator uses/month (7 per tool)',
+      '3 design simulations/month',
       'Email decommission alerts',
       'SolNuv AI Assistant — general solar guidance',
       '1 user / 1 device',
@@ -30,11 +31,12 @@ const PLAN_DEFINITIONS = {
   pro: {
     id: 'pro',
     name: 'Pro',
-    monthly_price_ngn: 15000,
-    annual_price_ngn: 162000,
+    monthly_price_ngn: 25000,
+    annual_price_ngn: 270000,
     popular: true,
     features: [
       'Everything in Basic',
+      'Unlimited design simulations & load profiles',
       'NESREA EPR Compliance PDF Reports (coming soon)',
       'Cradle-to-Grave Certificates',
       'CSV & Excel export',
@@ -49,8 +51,8 @@ const PLAN_DEFINITIONS = {
   elite: {
     id: 'elite',
     name: 'Elite',
-    monthly_price_ngn: 40000,
-    annual_price_ngn: 432000,
+    monthly_price_ngn: 60000,
+    annual_price_ngn: 648000,
     features: [
       'Everything in Pro',
       'Auto-send reports to NESREA',
@@ -66,8 +68,8 @@ const PLAN_DEFINITIONS = {
   enterprise: {
     id: 'enterprise',
     name: 'Enterprise',
-    monthly_price_ngn: 100000,
-    annual_price_ngn: 1080000,
+    monthly_price_ngn: 150000,
+    annual_price_ngn: 1620000,
     features: [
       'Everything in Elite',
       'Custom API integrations',

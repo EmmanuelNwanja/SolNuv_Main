@@ -4,7 +4,7 @@ const router = express.Router();
 const multer = require('multer');
 const loadProfileController = require('../controllers/loadProfileController');
 const { requireAuth } = require('../middlewares/authMiddleware');
-const { requirePlan } = require('../middlewares/subscriptionMiddleware');
+const { trackSimulationUsage } = require('../middlewares/usageMiddleware');
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -18,15 +18,15 @@ const upload = multer({
 
 router.use(requireAuth);
 
-// Upload CSV/Excel
-router.post('/upload', requirePlan('pro'), upload.single('file'), loadProfileController.uploadProfile);
+// Upload CSV/Excel — Basic: 3/month, Pro+: unlimited
+router.post('/upload', trackSimulationUsage('load_profile'), upload.single('file'), loadProfileController.uploadProfile);
 
-// Manual monthly entry
-router.post('/manual', requirePlan('pro'), loadProfileController.manualEntry);
+// Manual monthly entry — Basic: 3/month, Pro+: unlimited
+router.post('/manual', trackSimulationUsage('load_profile'), loadProfileController.manualEntry);
 
-// AI synthetic generation + confirm
-router.post('/synthetic', requirePlan('pro'), loadProfileController.generateSynthetic);
-router.post('/synthetic/confirm', requirePlan('pro'), loadProfileController.confirmSynthetic);
+// AI synthetic generation + confirm — Basic: 3/month, Pro+: unlimited
+router.post('/synthetic', trackSimulationUsage('load_profile'), loadProfileController.generateSynthetic);
+router.post('/synthetic/confirm', loadProfileController.confirmSynthetic);
 
 // Get profile & hourly data
 router.get('/:projectId', loadProfileController.getProfile);

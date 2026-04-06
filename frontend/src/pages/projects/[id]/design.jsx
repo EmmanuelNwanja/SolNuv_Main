@@ -152,8 +152,8 @@ export default function DesignWizard() {
         .then(r => {
           const d = r.data?.data;
           setSolarPreview(d);
-          if (d?.optimal_tilt && !form.tilt_angle) updateForm('tilt_angle', Math.round(d.optimal_tilt));
-          if (d?.optimal_azimuth !== undefined && !form.azimuth_angle) updateForm('azimuth_angle', Math.round(d.optimal_azimuth));
+          if (d?.optimal_tilt_deg && !form.tilt_angle) updateForm('tilt_angle', Math.round(d.optimal_tilt_deg));
+          if (d?.optimal_azimuth_deg !== undefined && !form.azimuth_angle) updateForm('azimuth_angle', Math.round(d.optimal_azimuth_deg));
         })
         .catch(() => {});
     }, 800);
@@ -400,12 +400,12 @@ export default function DesignWizard() {
                 <div className="mt-4 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl">
                   <h3 className="text-sm font-semibold text-amber-800 dark:text-amber-300 mb-2">Solar Resource Preview</h3>
                   <div className="grid grid-cols-2 gap-2 text-sm">
-                    <span className="text-gray-500">Avg GHI:</span>
-                    <span>{solarPreview.annual_avg_ghi?.toFixed(1)} kWh/m²/day</span>
-                    <span className="text-gray-500">Optimal Tilt:</span>
-                    <span>{solarPreview.optimal_tilt?.toFixed(0)}°</span>
-                    <span className="text-gray-500">Avg Temp:</span>
-                    <span>{solarPreview.annual_avg_temp?.toFixed(1)}°C</span>
+                    <span className="text-gray-500 dark:text-gray-400">Avg GHI:</span>
+                    <span className="dark:text-gray-200">{solarPreview.annual_ghi_kwh_m2 ? (solarPreview.annual_ghi_kwh_m2 / 365).toFixed(2) : '—'} kWh/m²/day</span>
+                    <span className="text-gray-500 dark:text-gray-400">Optimal Tilt:</span>
+                    <span className="dark:text-gray-200">{solarPreview.optimal_tilt_deg?.toFixed(0) ?? '—'}°</span>
+                    <span className="text-gray-500 dark:text-gray-400">Avg Temp:</span>
+                    <span className="dark:text-gray-200">{solarPreview.monthly_avg_temp_c?.length ? (solarPreview.monthly_avg_temp_c.reduce((a, b) => a + b, 0) / solarPreview.monthly_avg_temp_c.length).toFixed(1) : '—'}°C</span>
                   </div>
                 </div>
               )}
@@ -425,7 +425,7 @@ export default function DesignWizard() {
                     onChange={e => setSelectedTariffId(e.target.value)}>
                     <option value="">— No tariff (use average rate) —</option>
                     {tariffTemplates.map(t => (
-                      <option key={t.id} value={t.id}>{t.name} ({t.utility_name})</option>
+                      <option key={t.id} value={t.id}>{t.tariff_name} ({t.utility_name})</option>
                     ))}
                   </select>
                 </div>
@@ -685,35 +685,89 @@ export default function DesignWizard() {
 
           {/* STEP 6: Simulate */}
           {step === 6 && (
-            <div className="space-y-4">
+            <div className="space-y-5">
               <h2 className="text-lg font-semibold text-forest-900 dark:text-white">Review & Simulate</h2>
-              <p className="text-sm text-gray-500">Review your design parameters and run the simulation.</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Review your design parameters before running the simulation.</p>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-xl">
-                  <h3 className="text-sm font-semibold mb-2">Location</h3>
-                  <p className="text-sm text-gray-600">{form.location_lat}, {form.location_lon} ({form.country})</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {/* Location */}
+                <div className="p-4 rounded-xl border border-slate-200 dark:border-gray-700 bg-white dark:bg-gray-800/60">
+                  <div className="flex items-center gap-2 mb-2">
+                    <RiMapPinLine className="text-emerald-500" />
+                    <h3 className="text-sm font-semibold text-forest-900 dark:text-white">Location</h3>
+                  </div>
+                  <p className="text-sm text-slate-600 dark:text-gray-300">{form.location_lat}, {form.location_lon}</p>
+                  <p className="text-xs text-slate-400 dark:text-gray-500 mt-1">Country: {form.country}</p>
+                  {solarPreview && (
+                    <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                      GHI: {solarPreview.annual_ghi_kwh_m2 ? (solarPreview.annual_ghi_kwh_m2 / 365).toFixed(2) : '—'} kWh/m²/day
+                    </p>
+                  )}
                 </div>
-                <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-xl">
-                  <h3 className="text-sm font-semibold mb-2">Load</h3>
-                  <p className="text-sm text-gray-600">{parseFloat(form.annual_kwh)?.toLocaleString()} kWh/yr</p>
+
+                {/* Tariff */}
+                <div className="p-4 rounded-xl border border-slate-200 dark:border-gray-700 bg-white dark:bg-gray-800/60">
+                  <div className="flex items-center gap-2 mb-2">
+                    <RiMoneyDollarCircleLine className="text-amber-500" />
+                    <h3 className="text-sm font-semibold text-forest-900 dark:text-white">Tariff</h3>
+                  </div>
+                  <p className="text-sm text-slate-600 dark:text-gray-300">
+                    {selectedTariffId ? tariffTemplates.find(t => String(t.id) === String(selectedTariffId))?.tariff_name || 'Selected' : 'Flat rate estimate'}
+                  </p>
                 </div>
-                <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-xl">
-                  <h3 className="text-sm font-semibold mb-2">PV System</h3>
-                  <p className="text-sm text-gray-600">{form.pv_capacity_kwp} kWp {form.panel_technology}</p>
+
+                {/* Load */}
+                <div className="p-4 rounded-xl border border-slate-200 dark:border-gray-700 bg-white dark:bg-gray-800/60">
+                  <div className="flex items-center gap-2 mb-2">
+                    <RiFlashlightLine className="text-blue-500" />
+                    <h3 className="text-sm font-semibold text-forest-900 dark:text-white">Load Profile</h3>
+                  </div>
+                  <p className="text-sm text-slate-600 dark:text-gray-300">{parseFloat(form.annual_kwh)?.toLocaleString() || '—'} kWh/yr</p>
+                  {form.peak_kw && <p className="text-xs text-slate-400 dark:text-gray-500 mt-1">Peak: {form.peak_kw} kW</p>}
                 </div>
-                <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-xl">
-                  <h3 className="text-sm font-semibold mb-2">Battery</h3>
-                  <p className="text-sm text-gray-600">{form.include_bess ? `${form.bess_capacity_kwh} kWh / ${form.bess_power_kw} kW` : 'None'}</p>
+
+                {/* PV System */}
+                <div className="p-4 rounded-xl border border-slate-200 dark:border-gray-700 bg-white dark:bg-gray-800/60">
+                  <div className="flex items-center gap-2 mb-2">
+                    <RiSunLine className="text-yellow-500" />
+                    <h3 className="text-sm font-semibold text-forest-900 dark:text-white">PV System</h3>
+                  </div>
+                  <p className="text-sm text-slate-600 dark:text-gray-300">{form.pv_capacity_kwp} kWp — {form.panel_technology}</p>
+                  <p className="text-xs text-slate-400 dark:text-gray-500 mt-1">Tilt: {form.tilt_angle || 'auto'}° · Azimuth: {form.azimuth_angle || 'auto'}°</p>
+                  <p className="text-xs text-slate-400 dark:text-gray-500">Losses: {form.system_losses_pct}% · Degradation: {form.annual_degradation_pct}%/yr</p>
                 </div>
-                <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-xl col-span-2">
-                  <h3 className="text-sm font-semibold mb-2">Financial</h3>
-                  <p className="text-sm text-gray-600">Cost: {parseFloat(form.total_cost)?.toLocaleString()} | {form.financing_type} | {form.discount_rate_pct}% discount</p>
+
+                {/* Battery */}
+                <div className="p-4 rounded-xl border border-slate-200 dark:border-gray-700 bg-white dark:bg-gray-800/60">
+                  <div className="flex items-center gap-2 mb-2">
+                    <RiBatteryLine className="text-green-500" />
+                    <h3 className="text-sm font-semibold text-forest-900 dark:text-white">Battery</h3>
+                  </div>
+                  {form.include_bess ? (
+                    <>
+                      <p className="text-sm text-slate-600 dark:text-gray-300">{form.bess_capacity_kwh} kWh / {form.bess_power_kw} kW</p>
+                      <p className="text-xs text-slate-400 dark:text-gray-500 mt-1">{form.battery_chemistry} · {DISPATCH_STRATEGIES.find(s => s.value === form.bess_dispatch_strategy)?.label || form.bess_dispatch_strategy}</p>
+                      <p className="text-xs text-slate-400 dark:text-gray-500">Min SOC: {form.bess_min_soc}% · RTE: {form.bess_round_trip_efficiency}%</p>
+                    </>
+                  ) : (
+                    <p className="text-sm text-slate-400 dark:text-gray-500 italic">No battery included</p>
+                  )}
+                </div>
+
+                {/* Financial */}
+                <div className="p-4 rounded-xl border border-slate-200 dark:border-gray-700 bg-white dark:bg-gray-800/60">
+                  <div className="flex items-center gap-2 mb-2">
+                    <RiLineChartLine className="text-purple-500" />
+                    <h3 className="text-sm font-semibold text-forest-900 dark:text-white">Financial</h3>
+                  </div>
+                  <p className="text-sm text-slate-600 dark:text-gray-300">Cost: ₦{parseFloat(form.total_cost)?.toLocaleString() || '—'}</p>
+                  <p className="text-xs text-slate-400 dark:text-gray-500 mt-1">{form.financing_type} · Discount: {form.discount_rate_pct}%</p>
+                  <p className="text-xs text-slate-400 dark:text-gray-500">Tariff escalation: {form.tariff_escalation_pct}%/yr</p>
                 </div>
               </div>
 
               <button onClick={handleSimulate} disabled={simulating}
-                className="btn-primary w-full py-3 text-base flex items-center justify-center gap-2">
+                className="btn-primary w-full py-3 text-base flex items-center justify-center gap-2 mt-2">
                 {simulating ? (
                   <><LoadingSpinner className="w-5 h-5" /> Running Simulation...</>
                 ) : (
