@@ -9,6 +9,26 @@ const { parseCSV, parseExcel, distributeMonthlyToHourly, generateSyntheticProfil
 const logger = require('../utils/logger');
 
 /**
+ * Verify that the authenticated user owns the project.
+ * Supports both company-scoped and solo-engineer (user_id) scoped access.
+ */
+async function verifyProjectOwnership(projectId, user) {
+  let query = supabase
+    .from('projects')
+    .select('id, company_id, user_id')
+    .eq('id', projectId);
+
+  if (user.company_id) {
+    query = query.eq('company_id', user.company_id);
+  } else {
+    query = query.eq('user_id', user.id);
+  }
+
+  const { data } = await query.single();
+  return data;
+}
+
+/**
  * POST /api/load-profiles/upload
  * Upload CSV/Excel load profile data.
  */
@@ -19,12 +39,7 @@ exports.uploadProfile = async (req, res) => {
     if (!req.file) return sendError(res, 'File is required', 400);
 
     // Verify project ownership
-    const { data: project } = await supabase
-      .from('projects')
-      .select('id, company_id')
-      .eq('id', project_id)
-      .eq('company_id', req.user.company_id)
-      .single();
+    const project = await verifyProjectOwnership(project_id, req.user);
     if (!project) return sendError(res, 'Project not found or access denied', 404);
 
     // Parse file
@@ -107,12 +122,7 @@ exports.manualEntry = async (req, res) => {
       return sendError(res, 'monthly_kwh must be an array of 12 values', 400);
     }
 
-    const { data: project } = await supabase
-      .from('projects')
-      .select('id, company_id')
-      .eq('id', project_id)
-      .eq('company_id', req.user.company_id)
-      .single();
+    const project = await verifyProjectOwnership(project_id, req.user);
     if (!project) return sendError(res, 'Project not found or access denied', 404);
 
     const hourlyKw = distributeMonthlyToHourly(
@@ -170,12 +180,7 @@ exports.generateSynthetic = async (req, res) => {
     if (!project_id) return sendError(res, 'project_id is required', 400);
     if (!annual_kwh) return sendError(res, 'annual_kwh is required', 400);
 
-    const { data: project } = await supabase
-      .from('projects')
-      .select('id, company_id')
-      .eq('id', project_id)
-      .eq('company_id', req.user.company_id)
-      .single();
+    const project = await verifyProjectOwnership(project_id, req.user);
     if (!project) return sendError(res, 'Project not found or access denied', 404);
 
     const hourlyKw = generateSyntheticProfile({
@@ -210,12 +215,7 @@ exports.confirmSynthetic = async (req, res) => {
     const { project_id, business_type, annual_kwh, peak_kw, country } = req.body;
     if (!project_id) return sendError(res, 'project_id is required', 400);
 
-    const { data: project } = await supabase
-      .from('projects')
-      .select('id, company_id')
-      .eq('id', project_id)
-      .eq('company_id', req.user.company_id)
-      .single();
+    const project = await verifyProjectOwnership(project_id, req.user);
     if (!project) return sendError(res, 'Project not found or access denied', 404);
 
     const hourlyKw = generateSyntheticProfile({
@@ -271,12 +271,7 @@ exports.getProfile = async (req, res) => {
   try {
     const { projectId } = req.params;
 
-    const { data: project } = await supabase
-      .from('projects')
-      .select('id, company_id')
-      .eq('id', projectId)
-      .eq('company_id', req.user.company_id)
-      .single();
+    const project = await verifyProjectOwnership(projectId, req.user);
     if (!project) return sendError(res, 'Project not found', 404);
 
     const { data: profile } = await supabase
@@ -304,12 +299,7 @@ exports.getHourlyData = async (req, res) => {
   try {
     const { projectId } = req.params;
 
-    const { data: project } = await supabase
-      .from('projects')
-      .select('id, company_id')
-      .eq('id', projectId)
-      .eq('company_id', req.user.company_id)
-      .single();
+    const project = await verifyProjectOwnership(projectId, req.user);
     if (!project) return sendError(res, 'Project not found', 404);
 
     const { data: profile } = await supabase

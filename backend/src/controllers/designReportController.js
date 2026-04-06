@@ -23,20 +23,34 @@ async function verifyProjectOwnership(projectId, user) {
 
 /** Get latest simulation result for a project via project_designs FK */
 async function getLatestSimulationResult(projectId, selectCols = 'id') {
-  const { data: design } = await supabase
+  const { data: design, error: designErr } = await supabase
     .from('project_designs')
     .select('id')
     .eq('project_id', projectId)
-    .single();
-  if (!design) return null;
+    .maybeSingle();
+  if (designErr || !design) {
+    logger.error('getLatestSimulationResult: design lookup failed', {
+      projectId,
+      error: designErr?.message,
+    });
+    return null;
+  }
 
-  const { data: result } = await supabase
+  const { data: result, error: resultErr } = await supabase
     .from('simulation_results')
     .select(selectCols)
     .eq('project_design_id', design.id)
     .order('run_at', { ascending: false })
     .limit(1)
-    .single();
+    .maybeSingle();
+
+  if (resultErr) {
+    logger.error('getLatestSimulationResult: result lookup failed', {
+      designId: design.id,
+      error: resultErr.message,
+    });
+  }
+
   return result;
 }
 
@@ -105,7 +119,22 @@ exports.getHtmlData = async (req, res) => {
     const project = await verifyProjectOwnership(projectId, req.user);
     if (!project) return sendError(res, 'Project not found', 404);
 
-    const result = await getLatestSimulationResult(projectId, '*, project_designs(*)');
+    // Exclude hourly_flows (8760 objects) — too large for HTML report; fetched separately if needed
+    const htmlCols = [
+      'id', 'project_design_id', 'run_at',
+      'annual_solar_gen_kwh', 'solar_utilised_kwh', 'solar_exported_kwh', 'curtailed_kwh',
+      'battery_discharged_kwh', 'battery_charged_kwh', 'battery_cycles_annual',
+      'grid_import_kwh', 'grid_export_kwh',
+      'peak_demand_before_kw', 'peak_demand_after_kw',
+      'performance_ratio', 'utilisation_pct', 'self_consumption_pct',
+      'baseline_annual_cost', 'year1_annual_cost', 'year1_savings',
+      'lcoe_normal', 'lcoe_ls',
+      'npv_25yr', 'irr_pct', 'roi_pct', 'simple_payback_months',
+      'monthly_summary', 'yearly_cashflow', 'tou_breakdown', 'executive_summary_text',
+      'project_designs(*)',
+    ].join(', ');
+
+    const result = await getLatestSimulationResult(projectId, htmlCols);
     if (!result) return sendError(res, 'No simulation results found', 404);
 
     // Fetch tariff info if available
