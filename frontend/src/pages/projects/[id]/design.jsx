@@ -119,7 +119,7 @@ export default function DesignWizard() {
     if (!projectId) return;
     (async () => {
       try {
-        const { data } = await projectsAPI.getDetail(projectId);
+        const { data } = await projectsAPI.get(projectId);
         const p = data?.data || data;
         setProject(p);
         if (p.location_lat) updateForm('location_lat', p.location_lat);
@@ -374,6 +374,26 @@ export default function DesignWizard() {
                     <option value="GH">Ghana</option>
                     <option value="OTHER">Other</option>
                   </select>
+                </div>
+                <div className="flex items-end">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!navigator.geolocation) { toast.error('Geolocation not supported by your browser'); return; }
+                      navigator.geolocation.getCurrentPosition(
+                        (pos) => {
+                          updateForm('location_lat', pos.coords.latitude.toFixed(6));
+                          updateForm('location_lon', pos.coords.longitude.toFixed(6));
+                          toast.success('Device location captured!');
+                        },
+                        () => toast.error('Failed to get device location. Enable location permissions.'),
+                        { enableHighAccuracy: true, timeout: 15000 }
+                      );
+                    }}
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-emerald-300 text-sm font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 transition-colors w-full justify-center"
+                  >
+                    <RiMapPinLine /> Use My Location
+                  </button>
                 </div>
               </div>
               {solarPreview && (

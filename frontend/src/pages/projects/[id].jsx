@@ -695,6 +695,7 @@ export default function ProjectDetail() {
                   <select className="input" value={editForm.geo_source} onChange={(e) => setEditForm((prev) => ({ ...prev, geo_source: e.target.value }))}>
                     <option value="none">none</option>
                     <option value="manual">manual</option>
+                    <option value="device_gps">device_gps</option>
                     <option value="image_exif">image_exif</option>
                   </select>
                 </div>
@@ -705,6 +706,50 @@ export default function ProjectDetail() {
                 <div>
                   <label className="label">Longitude</label>
                   <input type="number" step="0.000001" className="input" value={editForm.longitude} onChange={(e) => setEditForm((prev) => ({ ...prev, longitude: e.target.value, geo_source: prev.geo_source === 'none' ? 'manual' : prev.geo_source }))} />
+                </div>
+                <div className="sm:col-span-2 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!navigator.geolocation) { toast.error('Geolocation not supported'); return; }
+                      navigator.geolocation.getCurrentPosition(
+                        (pos) => {
+                          setEditForm((prev) => ({ ...prev, latitude: pos.coords.latitude.toFixed(6), longitude: pos.coords.longitude.toFixed(6), geo_source: 'device_gps' }));
+                          toast.success('Device location captured!');
+                        },
+                        () => toast.error('Failed to get device location'),
+                        { enableHighAccuracy: true, timeout: 15000 }
+                      );
+                    }}
+                    className="text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-lg hover:bg-emerald-100 transition-colors"
+                  >
+                    📍 Use My Location
+                  </button>
+                  {editForm.latitude && editForm.longitude && (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          const { data } = await projectsAPI.geoVerify(id, {
+                            latitude: editForm.latitude,
+                            longitude: editForm.longitude,
+                            source: editForm.geo_source,
+                          });
+                          const v = data.data;
+                          if (v.verified) {
+                            toast.success(`Location verified! ${v.confidence_pct}% confidence`);
+                          } else {
+                            toast(`Verification: ${v.confidence_pct}% confidence — ${v.distance_m}m from address`, { icon: '⚠️' });
+                          }
+                        } catch (err) {
+                          toast.error(err.response?.data?.message || 'Verification failed');
+                        }
+                      }}
+                      className="text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-200 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition-colors"
+                    >
+                      🤖 Verify with AI
+                    </button>
+                  )}
                 </div>
                 <div className="sm:col-span-2">
                   <label className="label">Address</label>

@@ -15,6 +15,7 @@ router.get('/export/csv', projectController.exportCSV);
 router.get('/:id', projectController.getProject);
 router.put('/:id', projectController.updateProject);
 router.delete('/:id', projectController.deleteProject);
+router.post('/:id/geo-verify', projectController.geoVerify);
 router.post('/:id/recovery', projectController.requestRecovery);
 router.post('/:id/proposal-scenario', projectController.saveProposalScenario);
 router.get('/:id/battery-assets', projectController.getBatteryAssets);

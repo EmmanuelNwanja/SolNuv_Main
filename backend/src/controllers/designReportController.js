@@ -9,6 +9,37 @@ const { sendSuccess, sendError } = require('../utils/responseHelper');
 const { generateDesignReportPdf, generateDesignReportExcel } = require('../services/designReportService');
 const logger = require('../utils/logger');
 
+/** Verify ownership supporting solo engineers (no company_id) */
+async function verifyProjectOwnership(projectId, user) {
+  let query = supabase.from('projects').select('id, name, location, company_id').eq('id', projectId);
+  if (user.company_id) {
+    query = query.eq('company_id', user.company_id);
+  } else {
+    query = query.eq('user_id', user.id);
+  }
+  const { data } = await query.single();
+  return data;
+}
+
+/** Get latest simulation result for a project via project_designs FK */
+async function getLatestSimulationResult(projectId, selectCols = 'id') {
+  const { data: design } = await supabase
+    .from('project_designs')
+    .select('id')
+    .eq('project_id', projectId)
+    .single();
+  if (!design) return null;
+
+  const { data: result } = await supabase
+    .from('simulation_results')
+    .select(selectCols)
+    .eq('project_design_id', design.id)
+    .order('run_at', { ascending: false })
+    .limit(1)
+    .single();
+  return result;
+}
+
 /**
  * GET /api/design-reports/:projectId/pdf
  * Download professional PDF design report. Pro+ plan.
@@ -17,21 +48,10 @@ exports.downloadPdf = async (req, res) => {
   try {
     const { projectId } = req.params;
 
-    const { data: project } = await supabase
-      .from('projects')
-      .select('id, name, company_id')
-      .eq('id', projectId)
-      .eq('company_id', req.user.company_id)
-      .single();
+    const project = await verifyProjectOwnership(projectId, req.user);
     if (!project) return sendError(res, 'Project not found', 404);
 
-    const { data: result } = await supabase
-      .from('simulation_results')
-      .select('id')
-      .eq('project_id', projectId)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single();
+    const result = await getLatestSimulationResult(projectId);
     if (!result) return sendError(res, 'No simulation results found. Run a simulation first.', 404);
 
     const pdfBuffer = await generateDesignReportPdf(result.id);
@@ -55,21 +75,10 @@ exports.downloadExcel = async (req, res) => {
   try {
     const { projectId } = req.params;
 
-    const { data: project } = await supabase
-      .from('projects')
-      .select('id, name, company_id')
-      .eq('id', projectId)
-      .eq('company_id', req.user.company_id)
-      .single();
+    const project = await verifyProjectOwnership(projectId, req.user);
     if (!project) return sendError(res, 'Project not found', 404);
 
-    const { data: result } = await supabase
-      .from('simulation_results')
-      .select('id')
-      .eq('project_id', projectId)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single();
+    const result = await getLatestSimulationResult(projectId);
     if (!result) return sendError(res, 'No simulation results found', 404);
 
     const buffer = await generateDesignReportExcel(result.id);
@@ -93,22 +102,10 @@ exports.getHtmlData = async (req, res) => {
   try {
     const { projectId } = req.params;
 
-    const { data: project } = await supabase
-      .from('projects')
-      .select('id, name, location, company_id')
-      .eq('id', projectId)
-      .eq('company_id', req.user.company_id)
-      .single();
+    const project = await verifyProjectOwnership(projectId, req.user);
     if (!project) return sendError(res, 'Project not found', 404);
 
-    const { data: result } = await supabase
-      .from('simulation_results')
-      .select('*, project_designs(*)')
-      .eq('project_id', projectId)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single();
-
+    const result = await getLatestSimulationResult(projectId, '*, project_designs(*)');
     if (!result) return sendError(res, 'No simulation results found', 404);
 
     // Fetch tariff info if available
@@ -146,22 +143,10 @@ exports.createShareLink = async (req, res) => {
     const { projectId } = req.params;
     const { expires_hours = 24 } = req.body;
 
-    const { data: project } = await supabase
-      .from('projects')
-      .select('id, company_id')
-      .eq('id', projectId)
-      .eq('company_id', req.user.company_id)
-      .single();
+    const project = await verifyProjectOwnership(projectId, req.user);
     if (!project) return sendError(res, 'Project not found', 404);
 
-    // Get latest simulation result
-    const { data: result } = await supabase
-      .from('simulation_results')
-      .select('id')
-      .eq('project_id', projectId)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single();
+    const result = await getLatestSimulationResult(projectId);
     if (!result) return sendError(res, 'No simulation results to share', 404);
 
     const token = crypto.randomUUID();
@@ -227,14 +212,21 @@ exports.getSharedReport = async (req, res) => {
     // Load design and project (limited fields for public view)
     const { data: design } = await supabase
       .from('project_designs')
-      .select('panel_technology, pv_capacity_kwp, tilt_angle, azimuth_angle, bess_capacity_kwh, bess_power_kw, battery_chemistry, bess_dispatch_strategy')
+      .select('pv_technology, pv_capacity_kwp, pv_tilt_deg, pv_azimuth_deg, bess_capacity_kwh, bess_power_kw, bess_chemistry, bess_dispatch_strategy')
+      .eq('id', result.project_design_id)
+      .single();
+
+    // Get project_id from the design row
+    const { data: designForProject } = await supabase
+      .from('project_designs')
+      .select('project_id')
       .eq('id', result.project_design_id)
       .single();
 
     const { data: project } = await supabase
       .from('projects')
       .select('name, location, companies(name)')
-      .eq('id', design ? result.project_id : null)
+      .eq('id', designForProject?.project_id)
       .single();
 
     return sendSuccess(res, {

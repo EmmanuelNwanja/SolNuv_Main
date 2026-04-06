@@ -9,6 +9,7 @@ const { calculateDecommissionDate } = require('../services/degradationService');
 const { calculatePanelSilver, calculateProjectRecycleIncome } = require('../services/silverService');
 const { PANEL_TECHNOLOGIES } = require('../constants/technologyConstants');
 const { refreshLeaderboard } = require('../services/schedulerService');
+const { verifyCoordinatesAgainstAddress, verifyDeviceGPS } = require('../services/geoVerificationService');
 const logger = require('../utils/logger');
 const QRCode = require('qrcode');
 const { v4: uuidv4 } = require('uuid');
@@ -219,7 +220,7 @@ exports.createProject = async (req, res) => {
 
     // Determine geo verification source
     const { geo_source = 'none', project_photo_url = null } = req.body;
-    const validGeoSources = ['image_exif', 'manual', 'none'];
+    const validGeoSources = ['image_exif', 'manual', 'device_gps', 'none'];
     const safeGeoSource = validGeoSources.includes(geo_source) ? geo_source : 'none';
 
     // Create project
@@ -521,6 +522,93 @@ exports.deleteProject = async (req, res) => {
     return sendSuccess(res, null, 'Project deleted');
   } catch (_error) {
     return sendError(res, 'Failed to delete project', 500);
+  }
+};
+
+/**
+ * POST /api/projects/:id/geo-verify
+ * AI-assisted geolocation verification.
+ * Accepts device GPS or manual coordinates, verifies against project address.
+ */
+exports.geoVerify = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { latitude, longitude, source } = req.body;
+
+    if (!latitude || !longitude) return sendError(res, 'latitude and longitude are required', 400);
+    const lat = parseFloat(latitude);
+    const lon = parseFloat(longitude);
+    if (isNaN(lat) || isNaN(lon)) return sendError(res, 'Invalid coordinates', 400);
+    if (lat < -90 || lat > 90 || lon < -180 || lon > 180) return sendError(res, 'Coordinates out of range', 400);
+
+    // Verify ownership
+    let query = supabase.from('projects').select('id, state, city, address, latitude, longitude, geo_source, geo_verified').eq('id', id);
+    if (req.user.company_id) {
+      query = query.eq('company_id', req.user.company_id);
+    } else {
+      query = query.eq('user_id', req.user.id);
+    }
+    const { data: project } = await query.single();
+    if (!project) return sendError(res, 'Project not found', 404);
+
+    const projectAddress = {
+      state: project.state,
+      city: project.city,
+      address: project.address,
+    };
+
+    // Choose verification method based on source
+    const isDeviceGPS = source === 'device_gps';
+    const result = isDeviceGPS
+      ? await verifyDeviceGPS(lat, lon, projectAddress)
+      : await verifyCoordinatesAgainstAddress(lat, lon, projectAddress);
+
+    const geoSource = isDeviceGPS ? 'device_gps' : (project.geo_source === 'image_exif' ? 'image_exif' : 'manual');
+
+    // Update project with verification results
+    const updateData = {
+      latitude: lat,
+      longitude: lon,
+      geo_source: geoSource,
+      geo_confidence_pct: result.confidence_pct,
+      geo_verification_method: result.method,
+      geo_verification_details: result.details,
+    };
+
+    // Auto-verify if confidence >= 85%
+    if (result.verified) {
+      updateData.geo_verified = true;
+      updateData.geo_verified_at = new Date().toISOString();
+      updateData.geo_verified_by = req.user.id;
+    }
+
+    const { error: updateError } = await supabase
+      .from('projects')
+      .update(updateData)
+      .eq('id', id);
+
+    if (updateError) throw updateError;
+
+    return sendSuccess(res, {
+      verified: result.verified,
+      confidence_pct: result.confidence_pct,
+      distance_m: result.distance_m,
+      method: result.method,
+      geo_source: geoSource,
+      details: {
+        geocoded_address: result.details.geocoded_address,
+        geocoded_display: result.details.geocoded_display,
+        reverse_display: result.details.reverse_display,
+        state_match: result.details.state_match,
+        city_match: result.details.city_match,
+      },
+    }, result.verified
+      ? `Location verified with ${result.confidence_pct}% confidence`
+      : `Verification incomplete — ${result.confidence_pct}% confidence (${result.distance_m}m from address)`
+    );
+  } catch (err) {
+    logger.error('geoVerify error', { message: err.message });
+    return sendError(res, 'Geolocation verification failed');
   }
 };
 

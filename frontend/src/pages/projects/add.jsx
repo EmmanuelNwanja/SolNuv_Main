@@ -8,7 +8,7 @@ import {
   RiAddLine, RiDeleteBinLine, RiSunLine, RiBatteryLine, RiMapPinLine,
   RiInformationLine, RiPlugLine, RiCameraLine, RiShieldCheckLine,
   RiAlertLine, RiArrowDownSLine, RiSearchLine, RiShipLine, RiStoreLine,
-  RiFlashlightLine,
+  RiFlashlightLine, RiFocus3Line, RiLoader4Line, RiCheckboxCircleLine,
 } from 'react-icons/ri';
 import toast from 'react-hot-toast';
 import { supabase } from '../../utils/supabase';
@@ -349,6 +349,9 @@ export default function AddProject() {
   const [photoUploading, setPhotoUploading] = useState(false);
   const [geoSource, setGeoSource] = useState('none');
   const [geo, setGeo] = useState({ latitude: '', longitude: '' });
+  const [geoVerifying, setGeoVerifying] = useState(false);
+  const [geoVerification, setGeoVerification] = useState(null);
+  const [gpsLocating, setGpsLocating] = useState(false);
   const [panelBrands, setPanelBrands] = useState([]);
   const [batteryBrands, setBatteryBrands] = useState([]);
   const [inverterBrands, setInverterBrands] = useState([]);
@@ -675,12 +678,57 @@ export default function AddProject() {
                 <span><span className="font-semibold">Authenticated</span> - GPS coordinates sourced from photo EXIF data. Pending platform verification.</span>
               </div>
             )}
+            {geoSource === 'device_gps' && (
+              <div className="mb-4 flex items-center gap-2 rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-2.5 text-sm text-emerald-800">
+                <RiFocus3Line className="text-emerald-600 flex-shrink-0" />
+                <span><span className="font-semibold">Device GPS</span> - Coordinates captured from your device. {geoVerification ? `${geoVerification.confidence_pct}% confidence.` : 'Submit to verify with AI.'}</span>
+              </div>
+            )}
             {geoSource === 'manual' && (
               <div className="mb-4 flex items-center gap-2 rounded-xl bg-amber-50 border border-amber-200 px-4 py-2.5 text-sm text-amber-800">
                 <RiAlertLine className="text-amber-600 flex-shrink-0" />
-                <span><span className="font-semibold">Unverified</span> - Manually entered coordinates. An admin can verify these after reviewing on-site evidence.</span>
+                <span><span className="font-semibold">Unverified</span> - Manually entered coordinates. Click &quot;Verify with AI&quot; below to auto-validate.</span>
               </div>
             )}
+
+            {/* Use My Location button */}
+            <div className="mb-4">
+              <button
+                type="button"
+                disabled={gpsLocating}
+                onClick={() => {
+                  if (!navigator.geolocation) {
+                    toast.error('Geolocation is not supported by your browser');
+                    return;
+                  }
+                  setGpsLocating(true);
+                  navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                      const { latitude, longitude } = position.coords;
+                      setGeo({ latitude: latitude.toFixed(6), longitude: longitude.toFixed(6) });
+                      setGeoSource('device_gps');
+                      setGeoVerification(null);
+                      setGpsLocating(false);
+                      toast.success('Device location captured!');
+                    },
+                    (err) => {
+                      setGpsLocating(false);
+                      const messages = {
+                        1: 'Location access denied. Please enable location permissions.',
+                        2: 'Location unavailable. Try again or enter manually.',
+                        3: 'Location request timed out. Try again.',
+                      };
+                      toast.error(messages[err.code] || 'Failed to get location');
+                    },
+                    { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+                  );
+                }}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 border-dashed border-emerald-300 hover:border-emerald-600 text-sm font-semibold text-emerald-700 hover:text-emerald-900 transition-all bg-emerald-50 hover:bg-emerald-100"
+              >
+                {gpsLocating ? <RiLoader4Line className="animate-spin" /> : <RiFocus3Line />}
+                {gpsLocating ? 'Getting Location...' : 'Use My Device Location'}
+              </button>
+            </div>
 
             <div className="grid sm:grid-cols-2 gap-4">
               <div>
@@ -696,6 +744,7 @@ export default function AddProject() {
                   onChange={(e) => {
                     setGeo((g) => ({ ...g, latitude: e.target.value }));
                     if (geoSource !== 'image_exif') setGeoSource(e.target.value ? 'manual' : 'none');
+                    setGeoVerification(null);
                   }}
                 />
               </div>
@@ -712,10 +761,29 @@ export default function AddProject() {
                   onChange={(e) => {
                     setGeo((g) => ({ ...g, longitude: e.target.value }));
                     if (geoSource !== 'image_exif') setGeoSource(e.target.value ? 'manual' : 'none');
+                    setGeoVerification(null);
                   }}
                 />
               </div>
             </div>
+
+            {/* AI Verification result */}
+            {geoVerification && (
+              <div className={`mt-3 flex items-start gap-2 rounded-xl px-4 py-3 text-sm border ${
+                geoVerification.verified
+                  ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                  : geoVerification.confidence_pct >= 50
+                    ? 'bg-amber-50 border-amber-200 text-amber-800'
+                    : 'bg-red-50 border-red-200 text-red-800'
+              }`}>
+                {geoVerification.verified ? <RiCheckboxCircleLine className="text-emerald-600 mt-0.5 flex-shrink-0" /> : <RiAlertLine className="text-amber-600 mt-0.5 flex-shrink-0" />}
+                <div>
+                  <p className="font-semibold">{geoVerification.verified ? 'AI Verified' : 'Verification Incomplete'} — {geoVerification.confidence_pct}% Confidence</p>
+                  {geoVerification.distance_m != null && <p className="text-xs mt-0.5">{geoVerification.distance_m}m from geocoded address</p>}
+                  {geoVerification.details?.reverse_display && <p className="text-xs mt-0.5 opacity-75">Detected: {geoVerification.details.reverse_display}</p>}
+                </div>
+              </div>
+            )}
 
             {geoSource === 'none' && !photoFile && (
               <p className="mt-3 text-xs text-slate-400 flex items-center gap-1"><RiAlertLine /> No geolocation provided - project will be marked <span className="font-semibold">Unverified</span>.</p>

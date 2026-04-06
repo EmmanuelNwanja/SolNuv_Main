@@ -138,6 +138,7 @@ export const projectsAPI = {
   create: (data) => api.post('/projects', data),
   update: (id, data) => api.put(`/projects/${id}`, data),
   delete: (id) => api.delete(`/projects/${id}`),
+  geoVerify: (id, data) => api.post(`/projects/${id}/geo-verify`, data),
   requestRecovery: (id, data) => api.post(`/projects/${id}/recovery`, data),
   exportCSV: () => api.get('/projects/export/csv', { responseType: 'blob' }),
   verify: (qrCode) => api.get(`/projects/verify/${qrCode}`),
