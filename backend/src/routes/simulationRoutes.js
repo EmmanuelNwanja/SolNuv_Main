@@ -8,16 +8,16 @@ const { requirePlan } = require('../middlewares/subscriptionMiddleware');
 router.use(requireAuth);
 
 // Run full simulation — Pro+
-router.post('/run', requirePlan('pro'), simulationController.runSimulation);
+router.post('/run', requirePlan('pro'), simulationController.runProjectSimulation);
 
 // Get simulation results
-router.get('/:projectId/results', simulationController.getResults);
+router.get('/:projectId/results', simulationController.getSimulationResults);
 router.get('/:projectId/results/hourly', simulationController.getHourlyFlows);
 
 // Solar resource preview (no plan gate — useful for sales)
 router.get('/solar-resource', simulationController.getSolarResource);
 
 // Auto-size PV + BESS recommendation
-router.post('/auto-size', requirePlan('pro'), simulationController.autoSize);
+router.post('/auto-size', requirePlan('pro'), simulationController.autoSizeSystem);
 
 module.exports = router;
