@@ -10,13 +10,36 @@ const { generateProposalPdf, generateCableComplianceCertificate } = require('../
 const { PANEL_TECHNOLOGIES, BATTERY_CHEMISTRIES, resolveChemistry, cyclesAtDoD } = require('../constants/technologyConstants');
 const supabase = require('../config/database');
 
-const TARIFF_BANDS = {
+const DEFAULT_TARIFF_BANDS = {
   A: 225,
   B: 63,
   C: 50,
   D: 41,
   E: 32,
 };
+
+/**
+ * Get MYTO tariff bands — checks for AI-updated overrides in platform_config,
+ * falls back to hardcoded defaults.
+ */
+async function getTariffBands() {
+  try {
+    const { data } = await supabase
+      .from('platform_config')
+      .select('value')
+      .eq('key', 'myto_tariff_bands')
+      .single();
+    if (data?.value) {
+      const parsed = JSON.parse(data.value);
+      // Merge with defaults — override only valid bands
+      return { ...DEFAULT_TARIFF_BANDS, ...parsed };
+    }
+  } catch { /* use defaults */ }
+  return { ...DEFAULT_TARIFF_BANDS };
+}
+
+// Kept for sync contexts where the DB call isn't needed
+const TARIFF_BANDS = DEFAULT_TARIFF_BANDS;
 
 function toNum(value, fallback = 0) {
   const n = Number(value);
@@ -325,9 +348,8 @@ exports.calculateROI = async (req, res) => {
     } = req.body;
 
     const band = String(tariff_band || 'A').toUpperCase();
-    const effectiveTariff = toNum(tariff_rate_ngn_per_kwh, TARIFF_BANDS[band] || TARIFF_BANDS.A);
-    const fuel = toNum(generator_fuel_price_ngn_per_liter, 1000);
-    const gridOffset = Math.max(0, toNum(projected_grid_kwh_offset_per_day, 0));
+    const liveBands = await getTariffBands();
+    const effectiveTariff = toNum(tariff_rate_ngn_per_kwh, liveBands[band] || liveBands.A);
     const genOffset = Math.max(0, toNum(projected_generator_liters_offset_per_day, 0));
     const capex = Math.max(0, toNum(proposed_solar_capex_ngn, 0));
     const annualOM = Math.max(0, toNum(annual_om_cost_ngn, 0));
@@ -531,7 +553,8 @@ exports.exportRoiPdf = async (req, res) => {
     const payload = req.body || {};
 
     const band = String(payload.tariff_band || 'A').toUpperCase();
-    const effectiveTariff = toNum(payload.tariff_rate_ngn_per_kwh, TARIFF_BANDS[band] || TARIFF_BANDS.A);
+    const liveBands = await getTariffBands();
+    const effectiveTariff = toNum(payload.tariff_rate_ngn_per_kwh, liveBands[band] || liveBands.A);
     const fuel = toNum(payload.generator_fuel_price_ngn_per_liter, 1000);
     const gridOffset = Math.max(0, toNum(payload.projected_grid_kwh_offset_per_day, 0));
     const genOffset = Math.max(0, toNum(payload.projected_generator_liters_offset_per_day, 0));

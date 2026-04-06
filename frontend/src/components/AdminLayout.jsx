@@ -18,6 +18,7 @@ import {
   RiMailLine,
   RiQuestionLine,
   RiRobotLine,
+  RiSunLine,
 } from 'react-icons/ri';
 import { useAuth } from '../context/AuthContext';
 import { ThemeToggle } from './ThemeToggle';
@@ -37,6 +38,7 @@ const adminNavItems = [
   { href: '/admin/blog', label: 'Blog & Ads', icon: RiArticleLine },
   { href: '/admin/contact', label: 'Contact Inbox', icon: RiMailLine },
   { href: '/admin/faq', label: 'FAQ Management', icon: RiQuestionLine },
+  { href: '/admin/design', label: 'Design & Modelling', icon: RiSunLine },
   { href: '/admin/analytics', label: 'Analytics', icon: RiBarChartBoxLine },
   { href: '/admin/agents', label: 'AI Agents', icon: RiRobotLine },
   { href: '/settings', label: 'Platform Settings', icon: RiSettings3Line },

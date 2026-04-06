@@ -494,6 +494,125 @@ defineTool('read_technology_constants', 'data.read',
   }
 );
 
+// ─── TARIFF TOOLS (Internal — Tariff Rate Monitor agent) ─────────────────────
+
+defineTool('list_tariff_templates', 'tariff.read',
+  'List all tariff structures and their rates stored in the platform. Returns template tariffs and company tariffs.',
+  { required: [], optional: ['country', 'templates_only'] },
+  async (input) => {
+    let query = supabase
+      .from('tariff_structures')
+      .select('id, tariff_name, country, utility_name, tariff_type, currency, is_template, seasons, created_at, tariff_rates(id, season_key, period_name, rate_per_kwh, weekday_hours)')
+      .order('created_at', { ascending: false })
+      .limit(50);
+
+    if (input.country) query = query.eq('country', input.country);
+    if (input.templates_only) query = query.eq('is_template', true);
+
+    const { data, error } = await query;
+    if (error) throw error;
+    return { tariffs: data || [], count: (data || []).length };
+  }
+);
+
+defineTool('update_tariff_rates', 'tariff.write',
+  'Update tariff rates for a specific tariff structure. Provide the tariff_structure_id and an array of rate updates.',
+  { required: ['tariff_structure_id', 'rate_updates'] },
+  async (input) => {
+    const { tariff_structure_id, rate_updates } = input;
+
+    // Verify tariff exists
+    const { data: tariff } = await supabase
+      .from('tariff_structures')
+      .select('id, tariff_name')
+      .eq('id', tariff_structure_id)
+      .single();
+
+    if (!tariff) throw new Error('Tariff structure not found');
+
+    const results = [];
+    for (const update of rate_updates) {
+      if (!update.rate_id || update.new_rate_per_kwh === undefined) {
+        results.push({ rate_id: update.rate_id, success: false, error: 'Missing rate_id or new_rate_per_kwh' });
+        continue;
+      }
+      const { error } = await supabase
+        .from('tariff_rates')
+        .update({ rate_per_kwh: update.new_rate_per_kwh })
+        .eq('id', update.rate_id)
+        .eq('tariff_structure_id', tariff_structure_id);
+
+      results.push({
+        rate_id: update.rate_id,
+        success: !error,
+        new_rate: update.new_rate_per_kwh,
+        error: error?.message || null,
+      });
+    }
+
+    // Log the update in audit
+    await supabase.from('audit_logs').insert({
+      user_id: null,
+      action: 'ai_tariff_rate_update',
+      details: {
+        tariff_id: tariff_structure_id,
+        tariff_name: tariff.tariff_name,
+        updates: results.filter(r => r.success).length,
+        failures: results.filter(r => !r.success).length,
+      },
+    }).catch(() => {});
+
+    return {
+      tariff_name: tariff.tariff_name,
+      updates_applied: results.filter(r => r.success).length,
+      failures: results.filter(r => !r.success).length,
+      details: results,
+    };
+  }
+);
+
+defineTool('update_calculator_bands', 'tariff.write',
+  'Update the hardcoded MYTO tariff band rates (A-E) used in the ROI calculator. These are stored in the tariff_band_overrides config table.',
+  { required: ['bands'] },
+  async (input) => {
+    const { bands } = input;
+    // bands should be { A: number, B: number, C: number, D: number, E: number }
+    const validBands = ['A', 'B', 'C', 'D', 'E'];
+    const updates = [];
+
+    for (const [band, rate] of Object.entries(bands)) {
+      if (!validBands.includes(band)) continue;
+      if (typeof rate !== 'number' || rate <= 0 || rate > 1000) continue;
+      updates.push({ band, rate });
+    }
+
+    if (!updates.length) throw new Error('No valid band updates provided');
+
+    // Store in platform_config as tariff band overrides
+    const { error } = await supabase
+      .from('platform_config')
+      .upsert({
+        key: 'myto_tariff_bands',
+        value: JSON.stringify(bands),
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'key' });
+
+    if (error) throw error;
+
+    // Log the update
+    await supabase.from('audit_logs').insert({
+      user_id: null,
+      action: 'ai_calculator_band_update',
+      details: { bands, updated_count: updates.length },
+    }).catch(() => {});
+
+    return {
+      updated_bands: updates,
+      note: 'Calculator will pick up new rates on next request. Old hardcoded defaults are now overridden.',
+    };
+  }
+);
+
 // ─── TOOL EXECUTION ENGINE ───────────────────────────────────────────────────
 
 /**

@@ -304,6 +304,12 @@ function startScheduler() {
     runInternalAgent('market-analyst').catch(e => logger.error('Market agent cron error', { message: e.message }));
   }, { timezone: 'UTC' });
 
+  // Tariff Rate Monitor: 6AM WAT (05:00 UTC), weekly Sunday
+  cron.schedule('0 5 * * 0', () => {
+    logger.info('Cron: Tariff Rate Monitor');
+    runInternalAgent('tariff-rate-monitor').catch(e => logger.error('Tariff agent cron error', { message: e.message }));
+  }, { timezone: 'UTC' });
+
   logger.info('⏰ Daily scheduler registered (08:00 WAT / 07:00 UTC)');
 
   // Keep the Render free-tier process alive 24/7

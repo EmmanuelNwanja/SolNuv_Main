@@ -716,6 +716,9 @@ async function runInternalAgent(agentSlug) {
       case 'market-analyst':
         taskInput.instruction = `Review current silver prices and technology constants. Provide analysis of market trends relevant to solar waste management in Nigeria. Date: ${today}.`;
         break;
+      case 'tariff-rate-monitor':
+        taskInput.instruction = `Review all stored tariff templates and calculator MYTO band rates. Compare against current published electricity tariff rates for Nigeria (NERC MYTO), South Africa (Eskom), Kenya (KPLC), and Ghana (ECG). Update any stale or incorrect rates. Date: ${today}.`;
+        break;
       default:
         taskInput.instruction = `Perform your assigned task for ${today}.`;
     }

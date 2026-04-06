@@ -20,3 +20,10 @@ ALTER TABLE projects
 
 -- 3. Index for filtering by verification confidence
 CREATE INDEX IF NOT EXISTS idx_projects_geo_confidence ON projects(geo_confidence_pct);
+
+-- 4. Platform config key-value store (for AI-managed settings like tariff band overrides)
+CREATE TABLE IF NOT EXISTS platform_config (
+  key   TEXT PRIMARY KEY,
+  value TEXT NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
