@@ -36,5 +36,6 @@ router.patch('/admin/escalations/:id', requireAuth, requireAdmin, requireAdminRo
 router.get('/admin/usage',            requireAuth, requireAdmin, requireAdminRole('super_admin', 'finance'),    agentController.adminGetUsage);
 router.get('/admin/training-export',  requireAuth, requireAdmin, requireAdminRole('super_admin'),               agentController.adminExportTraining);
 router.post('/admin/seed',            requireAuth, requireAdmin, requireAdminRole('super_admin'),               agentController.adminSeedDefinitions);
+router.post('/admin/run-blog-writer', requireAuth, requireAdmin, requireAdminRole('super_admin', 'operations'), agentController.adminRunBlogWriter);
 
 module.exports = router;

@@ -71,7 +71,7 @@ export default function ClientFeedbackPage() {
     <>
       <Head><title>Client Feedback — SolNuv</title></Head>
 
-      <MotionSection className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 via-forest-900 to-emerald-900 text-white px-8 py-10 mb-8">
+      <MotionSection className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-forest-900 to-emerald-900 text-white p-6 sm:p-8 mb-8">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(245,158,11,0.15),transparent_60%)]" />
         <div className="relative">
           <span className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-emerald-300 mb-3">
@@ -95,7 +95,7 @@ export default function ClientFeedbackPage() {
       {loading ? (
         <div className="flex justify-center py-16"><LoadingSpinner size="lg" /></div>
       ) : (
-        <div className="max-w-4xl space-y-6">
+        <div className="space-y-8">
           <div className="grid sm:grid-cols-3 gap-4">
             <div className="card">
               <p className="text-xs text-slate-500">Total Reviews</p>

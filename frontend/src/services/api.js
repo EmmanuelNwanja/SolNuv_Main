@@ -348,6 +348,7 @@ export const agentAPI = {
   adminGetUsage: (params) => api.get('/agent/admin/usage', { params }),
   adminExportTraining: (params) => api.get('/agent/admin/training-export', { params, responseType: 'blob' }),
   adminSeed: () => api.post('/agent/admin/seed'),
+  adminRunBlogWriter: (data) => api.post('/agent/admin/run-blog-writer', data),
 };
 
 // ==============================

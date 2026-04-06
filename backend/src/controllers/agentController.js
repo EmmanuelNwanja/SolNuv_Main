@@ -760,3 +760,106 @@ exports.adminSeedDefinitions = async (req, res) => {
     return sendError(res, 'Failed to seed definitions');
   }
 };
+
+/**
+ * POST /api/agent/admin/run-blog-writer
+ * Run the SEO Blog Writer agent from the admin blog page.
+ * Body: { prompt, mode: 'create'|'edit', postId? }
+ * Returns the generated blog post payload from the agent.
+ */
+exports.adminRunBlogWriter = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { prompt, mode = 'create', postId } = req.body;
+
+    if (!prompt || typeof prompt !== 'string' || prompt.trim().length < 3) {
+      return sendError(res, 'A prompt is required (minimum 3 characters)', 400);
+    }
+
+    // Find the seo-blog-writer internal instance (company_id IS NULL)
+    const { data: instance } = await supabase
+      .from('ai_agent_instances')
+      .select('id, ai_agent_definitions(id, slug, system_prompt, capabilities, provider_slug, fallback_provider_slug, temperature, max_tokens_per_task, response_format)')
+      .eq('is_active', true)
+      .is('company_id', null)
+      .single();
+
+    // Fall back to definition lookup if no instance found
+    let agentInstanceId;
+    if (instance?.ai_agent_definitions?.slug === 'seo-blog-writer') {
+      agentInstanceId = instance.id;
+    } else {
+      // Search directly by slug
+      const { data: def } = await supabase
+        .from('ai_agent_definitions')
+        .select('id, slug')
+        .eq('slug', 'seo-blog-writer')
+        .eq('is_active', true)
+        .single();
+
+      if (!def) {
+        return sendError(res, 'SEO Blog Writer agent not found. Run agent seed first.', 404);
+      }
+
+      const { data: inst } = await supabase
+        .from('ai_agent_instances')
+        .select('id')
+        .eq('definition_id', def.id)
+        .eq('is_active', true)
+        .is('company_id', null)
+        .maybeSingle();
+
+      if (!inst) {
+        return sendError(res, 'SEO Blog Writer agent instance not found. Run agent seed first.', 404);
+      }
+      agentInstanceId = inst.id;
+    }
+
+    // Build user message based on mode
+    let message;
+    if (mode === 'edit' && postId) {
+      const { data: existingPost } = await supabase
+        .from('blog_posts')
+        .select('title, content, excerpt, category, tags')
+        .eq('id', postId)
+        .single();
+
+      message = existingPost
+        ? `Update this existing blog post based on the following instructions:\n\nEXISTING POST:\nTitle: ${existingPost.title}\nExcerpt: ${existingPost.excerpt}\nCategory: ${existingPost.category}\nTags: ${(existingPost.tags || []).join(', ')}\nContent (first 2000 chars): ${String(existingPost.content).slice(0, 2000)}\n\nINSTRUCTIONS: ${prompt.trim()}`
+        : `Create a new blog post about: ${prompt.trim()}`;
+    } else {
+      message = `Create a new blog post about: ${prompt.trim()}`;
+    }
+
+    // Execute via the chat system (synchronous — admin waits for result)
+    const result = await agentService.executeChat({
+      agentInstanceId,
+      userId,
+      conversationId: null,
+      message,
+      contextType: 'blog',
+      environment: req.environment || 'live',
+    });
+
+    // Try to parse the AI response as JSON
+    let parsed = null;
+    try {
+      // Strip markdown code fences if present
+      let raw = result.response || '';
+      raw = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+      parsed = JSON.parse(raw);
+    } catch {
+      // If not valid JSON, return raw text so admin can still use it
+      parsed = { content: result.response || '' };
+    }
+
+    return sendSuccess(res, {
+      generated: parsed,
+      tokensUsed: result.tokensUsed,
+      conversationId: result.conversationId,
+    }, 'Blog content generated');
+  } catch (err) {
+    logger.error('Admin run blog writer error', { message: err.message });
+    return sendError(res, err.message || 'Failed to generate blog content');
+  }
+};

@@ -257,6 +257,100 @@ body {
   @apply bg-slate-200 rounded animate-pulse;
 }
 
+/* ─── Admin content area ─────────────────────────────────────────────────────
+   Smooth dark-to-content transition that keeps text legible in both themes.
+   Pages that already use dark-mode admin classes (blog, index) work as-is.
+   Pages that use light-mode classes (agents, design) get auto-overridden below.
+   ─────────────────────────────────────────────────────────────────────────── */
+.admin-content {
+  background: #0f172a;
+  color: #e2e8f0;
+}
+.admin-content .bg-white { background-color: #1e293b !important; }
+.admin-content .bg-slate-50 { background-color: #111827 !important; }
+.admin-content .bg-slate-100 { background-color: #1e293b !important; }
+.admin-content .border-slate-100,
+.admin-content .border-slate-200 { border-color: #334155 !important; }
+.admin-content .text-slate-900,
+.admin-content .text-slate-800 { color: #f1f5f9 !important; }
+.admin-content .text-slate-700,
+.admin-content .text-slate-600 { color: #cbd5e1 !important; }
+.admin-content .text-slate-500 { color: #94a3b8 !important; }
+.admin-content .text-forest-900 { color: #86efac !important; }
+.admin-content .bg-forest-900 { background-color: #14532d !important; }
+.admin-content .bg-amber-50 { background-color: rgba(120, 53, 15, 0.2) !important; }
+.admin-content .bg-emerald-50 { background-color: rgba(6, 78, 59, 0.2) !important; }
+.admin-content .border-amber-200 { border-color: rgba(180, 83, 9, 0.3) !important; }
+.admin-content .border-emerald-200 { border-color: rgba(16, 185, 129, 0.2) !important; }
+.admin-content .text-amber-800,
+.admin-content .text-amber-700 { color: #fcd34d !important; }
+.admin-content .text-emerald-700,
+.admin-content .text-emerald-600 { color: #6ee7b7 !important; }
+.admin-content .skeleton { background-color: #334155 !important; }
+.admin-content .card,
+.admin-content .card-hover,
+.admin-content .stat-card {
+  background: linear-gradient(135deg, rgba(30,41,59,.9), rgba(15,23,42,.85)) !important;
+  border-color: #334155 !important;
+}
+.admin-content .label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #94a3b8;
+  margin-bottom: 0.25rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.admin-content .input {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  border: 1px solid #334155;
+  background: #1e293b;
+  color: #f1f5f9;
+  font-size: 0.875rem;
+  outline: none;
+}
+.admin-content .input:focus {
+  border-color: #10b981;
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+}
+.admin-content .hover\:bg-slate-50:hover { background-color: #1e293b !important; }
+.admin-content .hover\:bg-white:hover { background-color: #1e293b !important; }
+/* Colored tint backgrounds — darken for admin shell */
+.admin-content .bg-forest-50 { background-color: rgba(6, 78, 59, 0.15) !important; }
+.admin-content .bg-forest-100 { background-color: rgba(6, 78, 59, 0.25) !important; }
+.admin-content .bg-red-50 { background-color: rgba(127, 29, 29, 0.2) !important; }
+.admin-content .bg-red-100 { background-color: rgba(127, 29, 29, 0.3) !important; }
+.admin-content .bg-blue-50,
+.admin-content .bg-blue-100 { background-color: rgba(30, 58, 138, 0.2) !important; }
+.admin-content .bg-violet-50,
+.admin-content .bg-violet-100 { background-color: rgba(76, 29, 149, 0.2) !important; }
+.admin-content .bg-rose-50 { background-color: rgba(136, 19, 55, 0.2) !important; }
+.admin-content .bg-cyan-50 { background-color: rgba(21, 94, 117, 0.2) !important; }
+.admin-content .bg-emerald-100 { background-color: rgba(6, 78, 59, 0.3) !important; }
+/* Colored borders */
+.admin-content .border-forest-200 { border-color: rgba(34, 197, 94, 0.2) !important; }
+.admin-content .border-red-200 { border-color: rgba(239, 68, 68, 0.25) !important; }
+.admin-content .border-blue-200 { border-color: rgba(59, 130, 246, 0.25) !important; }
+/* Native form elements in agent/design pages */
+.admin-content input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+.admin-content textarea,
+.admin-content select {
+  background-color: #1e293b;
+  color: #f1f5f9;
+  border-color: #334155;
+}
+.admin-content input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):focus,
+.admin-content textarea:focus,
+.admin-content select:focus {
+  border-color: #10b981;
+}
+/* Shadow adjustments */
+.admin-content .shadow-sm { box-shadow: 0 1px 2px 0 rgba(0,0,0,0.3) !important; }
+.admin-content .shadow-xl { box-shadow: 0 20px 25px -5px rgba(0,0,0,0.4) !important; }
+
 /* Dark mode utility overrides for existing Tailwind-heavy screens */
 :root[data-theme='dark'] .bg-white { background-color: var(--bg-elevated) !important; }
 :root[data-theme='dark'] .bg-white\/80,

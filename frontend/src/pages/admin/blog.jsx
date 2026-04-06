@@ -3,12 +3,12 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   RiArticleLine, RiAdvertisementLine, RiAddLine, RiEditLine, RiDeleteBinLine,
   RiCheckLine, RiCloseLine, RiEyeLine, RiMouseLine, RiBarChartLine,
-  RiSaveLine, RiToggleLine, RiMegaphoneLine
+  RiSaveLine, RiToggleLine, RiMegaphoneLine, RiRobotLine, RiMagicLine, RiLoader4Line
 } from 'react-icons/ri';
 import { useAuth } from '../../context/AuthContext';
 import AdminRoute from '../../components/AdminRoute';
 import { getAdminLayout } from '../../components/Layout';
-import { blogAPI } from '../../services/api';
+import { blogAPI, agentAPI } from '../../services/api';
 import toast from 'react-hot-toast';
 
 const STATUS_COLORS = {
@@ -68,6 +68,9 @@ function Modal({ title, onClose, children }) {
 
 function PostForm({ initial, onSave, onCancel, saving }) {
   const [form, setForm] = useState(initial || emptyPost());
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [aiGenerating, setAiGenerating] = useState(false);
+  const [showAi, setShowAi] = useState(false);
 
   function set(key, value) { setForm((f) => ({ ...f, [key]: value })); }
 
@@ -77,8 +80,78 @@ function PostForm({ initial, onSave, onCancel, saving }) {
     onSave(payload);
   }
 
+  async function handleAiGenerate() {
+    if (!aiPrompt.trim()) {
+      toast.error('Please enter a topic or instruction for the AI');
+      return;
+    }
+    setAiGenerating(true);
+    try {
+      const { data } = await agentAPI.adminRunBlogWriter({
+        prompt: aiPrompt.trim(),
+        mode: initial ? 'edit' : 'create',
+        postId: initial?.id || undefined,
+      });
+      const gen = data?.data?.generated;
+      if (gen) {
+        if (gen.title) { set('title', gen.title); if (!initial) set('slug', gen.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')); }
+        if (gen.content) set('content', gen.content);
+        if (gen.excerpt) set('excerpt', gen.excerpt);
+        if (gen.category) set('category', gen.category);
+        if (gen.tags) set('tags', Array.isArray(gen.tags) ? gen.tags.join(', ') : gen.tags);
+        if (gen.read_time_mins) set('read_time_mins', gen.read_time_mins);
+        toast.success('AI content generated — review and save');
+      } else {
+        toast.error('AI returned an empty response');
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'AI generation failed');
+    } finally {
+      setAiGenerating(false);
+    }
+  }
+
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      {/* AI Writer Panel */}
+      <div className="border border-violet-700/40 rounded-xl overflow-hidden bg-violet-950/20">
+        <button
+          type="button"
+          onClick={() => setShowAi(!showAi)}
+          className="w-full flex items-center justify-between px-4 py-3 text-sm font-semibold text-violet-300 hover:bg-violet-900/20 transition-colors"
+        >
+          <span className="flex items-center gap-2"><RiRobotLine className="text-base" /> AI Blog Writer (SEO)</span>
+          <span className="text-xs text-violet-400">{showAi ? 'Collapse' : 'Expand'}</span>
+        </button>
+        {showAi && (
+          <div className="px-4 pb-4 space-y-3 border-t border-violet-700/30">
+            <p className="text-xs text-slate-400 mt-3">
+              {initial
+                ? 'Describe how you want to update this post. The AI will read the existing content and apply your instructions.'
+                : 'Describe the blog topic, target keywords, or specific angle. The AI will generate title, excerpt, content (HTML), category, and tags.'}
+            </p>
+            <textarea
+              className="input resize-none"
+              rows={3}
+              placeholder={initial
+                ? 'e.g. "Rewrite the introduction to focus more on NESREA compliance deadlines" or "Add a section about battery recycling in Lagos"'
+                : 'e.g. "Write about silver recovery from end-of-life solar panels in Nigeria — target keywords: NESREA compliance, solar panel recycling, silver value"'}
+              value={aiPrompt}
+              onChange={(e) => setAiPrompt(e.target.value)}
+              disabled={aiGenerating}
+            />
+            <button
+              type="button"
+              onClick={handleAiGenerate}
+              disabled={aiGenerating || !aiPrompt.trim()}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-white font-semibold text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {aiGenerating ? <><RiLoader4Line className="animate-spin" /> Generating...</> : <><RiMagicLine /> Generate with AI</>}
+            </button>
+          </div>
+        )}
+      </div>
+
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className="label">Title *</label>
@@ -471,13 +544,7 @@ function BlogAdminPage() {
     <>
       <Head><title>Blog & Ads Management - SolNuv Admin</title></Head>
 
-      <style jsx global>{`
-        .label { display: block; font-size: 0.75rem; font-weight: 600; color: #94a3b8; margin-bottom: 0.25rem; text-transform: uppercase; letter-spacing: 0.05em; }
-        .input { width: 100%; padding: 0.5rem 0.75rem; border-radius: 0.5rem; border: 1px solid #334155; background: #1e293b; color: #f1f5f9; font-size: 0.875rem; outline: none; }
-        .input:focus { ring: 2px solid #10b981; border-color: #10b981; }
-      `}</style>
-
-      <div className="p-6 max-w-screen-xl mx-auto">
+      <div className="max-w-screen-xl mx-auto">
         <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
           <div>
             <h1 className="text-2xl font-display font-bold text-white">Blog &amp; Ads</h1>

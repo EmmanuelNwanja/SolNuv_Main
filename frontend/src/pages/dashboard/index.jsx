@@ -345,12 +345,12 @@ export default function Dashboard() {
       </MotionSection>
 
       {/* ── Banner Ad ───────────────────────────────────────────────────── */}
-      <MotionSection className="mb-6">
+      <MotionSection className="mb-8">
         <DashboardAd placement="banner" />
       </MotionSection>
 
       {/* Income Forecast */}
-      <MotionSection className="grid sm:grid-cols-2 gap-4 mb-6">
+      <MotionSection className="grid sm:grid-cols-2 gap-4 mb-8">
         {/* Total Est. Income (Recycle + Silver) */}
         <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-700 to-forest-900 p-5 text-white">
           <div className="absolute -top-8 -right-8 h-28 w-28 rounded-full bg-white/10 blur-2xl pointer-events-none" />
@@ -381,20 +381,27 @@ export default function Dashboard() {
       </MotionSection>
 
       {loadError && (
-        <MotionSection className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <MotionSection className="mb-8 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <p className="text-sm text-amber-800">{loadError}</p>
           <button onClick={loadDashboard} className="btn-outline text-sm px-4 py-2">Retry</button>
         </MotionSection>
       )}
 
-      <MotionSection className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <StatCard label="Active Projects" value={stats.active_projects || 0} sub={`${stats.total_panels || 0} panels`} icon={RiSunLine} color="forest" />
-        <StatCard label="Total Panels" value={stats.total_panels || 0} sub={`${stats.total_batteries || 0} batteries`} icon={RiLeafLine} color="emerald" />
-        <StatCard label="Pending Recovery" value={stats.pending_recovery || 0} sub="awaiting pickup" icon={RiTimeLine} color="amber" />
-        <StatCard label="Recycled" value={stats.recycled || 0} sub="projects completed" icon={RiRecycleLine} color="slate" />
+      {/* Fleet Overview */}
+      <MotionSection className="mb-8">
+        <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-3">Fleet Overview</h2>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <StatCard label="Active Projects" value={stats.active_projects || 0} sub={`${stats.total_panels || 0} panels`} icon={RiSunLine} color="forest" />
+          <StatCard label="Total Panels" value={stats.total_panels || 0} sub={`${stats.total_batteries || 0} batteries`} icon={RiLeafLine} color="emerald" />
+          <StatCard label="Pending Recovery" value={stats.pending_recovery || 0} sub="awaiting pickup" icon={RiTimeLine} color="amber" />
+          <StatCard label="Recycled" value={stats.recycled || 0} sub="projects completed" icon={RiRecycleLine} color="slate" />
+        </div>
       </MotionSection>
 
-      <MotionSection className="grid sm:grid-cols-3 gap-3 mb-6">
+      {/* Quick Actions */}
+      <MotionSection className="mb-8">
+        <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-3">Quick Actions</h2>
+        <div className="grid sm:grid-cols-3 gap-4">
         <Link href="/dashboard/feedback" className="card-hover">
           <p className="text-xs text-slate-500">Client Reputation</p>
           <p className="text-sm font-semibold text-forest-900 mt-1">Generate feedback links</p>
@@ -417,9 +424,13 @@ export default function Dashboard() {
             <p className="text-xs text-slate-400 mt-1">Showcase projects, impact, and reviews</p>
           </a>
         )}
+        </div>
       </MotionSection>
 
-      <MotionSection className="grid md:grid-cols-3 gap-6 mb-6">
+      {/* Portfolio Insights */}
+      <MotionSection className="mb-8">
+        <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-3">Portfolio Insights</h2>
+        <div className="grid md:grid-cols-3 gap-6">
         {/* Silver portfolio card */}
         <div className="md:col-span-2 bg-forest-900 rounded-2xl p-6 text-white">
           <div className="flex items-start justify-between mb-4">
@@ -468,10 +479,11 @@ export default function Dashboard() {
             View Leaderboard <RiArrowRightLine />
           </Link>
         </div>
+        </div>
       </MotionSection>
 
       {/* Upcoming decommissions */}
-      <MotionSection className="card mb-6">
+      <MotionSection className="card mb-8">
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-semibold text-forest-900 flex items-center gap-2">
             <RiAlertLine className="text-amber-500" /> Upcoming Decommissions
@@ -503,7 +515,7 @@ export default function Dashboard() {
 
       {/* Pro upgrade prompt */}
       {!isPro && (
-        <MotionSection className="bg-gradient-to-r from-forest-900 to-emerald-800 rounded-2xl p-6 text-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <MotionSection className="mb-8 bg-gradient-to-r from-forest-900 to-emerald-800 rounded-2xl p-6 text-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
             <p className="font-semibold">Unlock the Full SolNuv Toolkit</p>
             <p className="text-sm text-white/70 mt-1">Unlimited calculator use · QR field traceability · CSV/Excel export · Custom portfolio page · NESREA EPR PDFs coming soon — all from &#x20A6;15,000/mo.</p>
@@ -513,7 +525,7 @@ export default function Dashboard() {
       )}
 
       {/* ── In-feed Ad ──────────────────────────────────────────────────── */}
-      <MotionSection className="mt-6">
+      <MotionSection className="mb-8">
         <DashboardAd placement="in-feed" />
       </MotionSection>
     </>

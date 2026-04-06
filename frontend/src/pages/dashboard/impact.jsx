@@ -44,7 +44,7 @@ export default function Impact() {
         </div>
       </MotionSection>
 
-      <div className="max-w-3xl space-y-6">
+      <div className="space-y-8">
         {/* ── Income Forecast ──────────────────────────────────────────── */}
         <MotionSection className="grid sm:grid-cols-2 gap-4">
           {/* Total Est. Income (Recycle + Silver) – expected fleet */}

@@ -26,24 +26,49 @@ import { ThemeToggle } from './ThemeToggle';
 import { PageMotion } from './PageMotion';
 import toast from 'react-hot-toast';
 
-const adminNavItems = [
-  { href: '/admin', label: 'Control Center', icon: RiDashboardLine },
-  { href: '/admin/users', label: 'Users', icon: RiFileList3Line },
-  { href: '/admin/admins', label: 'Admins', icon: RiAdminLine },
-  { href: '/admin/finance', label: 'Finance', icon: RiWallet3Line },
-  { href: '/admin/promo', label: 'Promotions', icon: RiPriceTag3Line },
-  { href: '/admin/push', label: 'Notifications', icon: RiNotification3Line },
-  { href: '/admin/paystack', label: 'Paystack Plans', icon: RiWallet3Line },
-  { href: '/admin/logs', label: 'Activity Log', icon: RiFileList3Line },
-  { href: '/admin/otp-management', label: 'OTP Operations', icon: RiKey2Line },
-  { href: '/admin/blog', label: 'Blog & Ads', icon: RiArticleLine },
-  { href: '/admin/contact', label: 'Contact Inbox', icon: RiMailLine },
-  { href: '/admin/faq', label: 'FAQ Management', icon: RiQuestionLine },
-  { href: '/admin/design', label: 'Design & Modelling', icon: RiSunLine },
-  { href: '/admin/analytics', label: 'Analytics', icon: RiBarChartBoxLine },
-  { href: '/admin/agents', label: 'AI Agents', icon: RiRobotLine },
-  { href: '/admin/seo', label: 'SEO & Search', icon: RiSearchEyeLine },
-  { href: '/settings', label: 'Platform Settings', icon: RiSettings3Line },
+const adminNavSections = [
+  {
+    label: null,
+    items: [
+      { href: '/admin', label: 'Control Center', icon: RiDashboardLine },
+    ],
+  },
+  {
+    label: 'Operations',
+    items: [
+      { href: '/admin/users', label: 'Users', icon: RiFileList3Line },
+      { href: '/admin/admins', label: 'Admins', icon: RiAdminLine },
+      { href: '/admin/finance', label: 'Finance', icon: RiWallet3Line },
+      { href: '/admin/promo', label: 'Promotions', icon: RiPriceTag3Line },
+      { href: '/admin/push', label: 'Notifications', icon: RiNotification3Line },
+      { href: '/admin/paystack', label: 'Paystack Plans', icon: RiWallet3Line },
+      { href: '/admin/logs', label: 'Activity Log', icon: RiFileList3Line },
+      { href: '/admin/otp-management', label: 'OTP Operations', icon: RiKey2Line },
+    ],
+  },
+  {
+    label: 'Content',
+    items: [
+      { href: '/admin/blog', label: 'Blog & Ads', icon: RiArticleLine },
+      { href: '/admin/contact', label: 'Contact Inbox', icon: RiMailLine },
+      { href: '/admin/faq', label: 'FAQ Management', icon: RiQuestionLine },
+    ],
+  },
+  {
+    label: 'Intelligence',
+    items: [
+      { href: '/admin/design', label: 'Design & Modelling', icon: RiSunLine },
+      { href: '/admin/analytics', label: 'Analytics', icon: RiBarChartBoxLine },
+      { href: '/admin/agents', label: 'AI Agents', icon: RiRobotLine },
+      { href: '/admin/seo', label: 'SEO & Search', icon: RiSearchEyeLine },
+    ],
+  },
+  {
+    label: null,
+    items: [
+      { href: '/settings', label: 'Platform Settings', icon: RiSettings3Line },
+    ],
+  },
 ];
 
 export default function AdminLayout({ children }) {
@@ -89,23 +114,32 @@ export default function AdminLayout({ children }) {
           </button>
         </div>
 
-        <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
-          {adminNavItems.map(({ href, label, icon: Icon }) => {
-            const active = href === '/admin'
-              ? router.pathname === '/admin'
-              : router.pathname === href || router.asPath.startsWith(href);
-            return (
-              <Link
-                key={href}
-                href={href}
-                onClick={() => setSidebarOpen(false)}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${active ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'text-slate-300 hover:bg-slate-800/80'}`}
-              >
-                <Icon className="text-base" />
-                <span>{label}</span>
-              </Link>
-            );
-          })}
+        <nav className="flex-1 p-3 space-y-3 overflow-y-auto">
+          {adminNavSections.map((section, si) => (
+            <div key={si}>
+              {section.label && (
+                <p className="px-3 pt-2 pb-1 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">{section.label}</p>
+              )}
+              <div className="space-y-0.5">
+                {section.items.map(({ href, label, icon: Icon }) => {
+                  const active = href === '/admin'
+                    ? router.pathname === '/admin'
+                    : router.pathname === href || router.asPath.startsWith(href);
+                  return (
+                    <Link
+                      key={href}
+                      href={href}
+                      onClick={() => setSidebarOpen(false)}
+                      className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${active ? 'bg-emerald-500/20 text-emerald-300 font-medium border border-emerald-500/30' : 'text-slate-300 hover:bg-slate-800/80'}`}
+                    >
+                      <Icon className="text-base flex-shrink-0" />
+                      <span>{label}</span>
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </nav>
 
         <div className="p-4 border-t border-slate-800">
@@ -121,18 +155,18 @@ export default function AdminLayout({ children }) {
       </aside>
 
       <div className="flex-1 min-w-0 flex flex-col">
-        <header className="h-16 border-b border-slate-800 bg-slate-950/95 backdrop-blur px-4 lg:px-8 flex items-center justify-between sticky top-0 z-20">
+        <header className="h-14 border-b border-slate-800 bg-slate-900/95 backdrop-blur px-4 lg:px-8 flex items-center justify-between sticky top-0 z-20">
           <button className="lg:hidden text-slate-300" onClick={() => setSidebarOpen(true)}>
             <RiMenuLine className="text-xl" />
           </button>
-          <div className="hidden lg:block text-sm text-slate-400">Central management for users, billing, and platform operations</div>
+          <div className="hidden lg:block text-sm text-slate-400">Platform Operations</div>
           <div className="flex items-center gap-3">
             <ThemeToggle compact />
             <div className="text-xs text-slate-500">{new Date().toLocaleDateString()}</div>
           </div>
         </header>
 
-        <main className="flex-1 p-4 lg:p-8 bg-slate-50 text-slate-900 overflow-auto">
+        <main className="flex-1 p-4 lg:p-8 admin-content overflow-auto">
           <PageMotion>{children}</PageMotion>
         </main>
       </div>

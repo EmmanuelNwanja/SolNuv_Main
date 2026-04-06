@@ -131,14 +131,14 @@ export default function Home() {
             <div className="max-w-3xl">
               <div className="inline-flex items-center gap-2 bg-white/10 border border-white/20 rounded-full px-4 py-1.5 mb-6">
                 <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
-                <span className="text-sm font-medium text-white/90">Africa&apos;s First · AI-Powered Solar Engineering Platform</span>
+                <span className="text-sm font-medium text-white/90">Africa&apos;s · AI-Powered Solar Engineering Platform</span>
               </div>
               <h1 className="font-display text-4xl md:text-6xl font-bold leading-tight mb-6">
                 Design. Model. Track.<br />
                 <span className="text-amber-400">Comply. All in One.</span>
               </h1>
               <p className="text-lg text-white/75 mb-8 leading-relaxed max-w-2xl">
-                Size solar + battery storage systems using NASA irradiance data. Model 25-year financials under real African tariffs. Track every installation from commissioning to end-of-life. Auto-generate NESREA compliance reports. Let AI agents handle the rest.
+                Size solar + battery storage systems using satellite irradiance data. Model 25-year financials under real African tariffs. Track every installation from commissioning to end-of-life. Auto-generate compliance reports. Let AI be your solar companion.
               </p>
               <div className="flex flex-wrap gap-4">
                 <Link href="/register" className="btn-amber inline-flex items-center gap-2">
@@ -150,19 +150,18 @@ export default function Home() {
               </div>
               <div className="mt-10 flex flex-wrap gap-6 text-sm text-white/60">
                 <span className="flex items-center gap-2"><RiCheckLine className="text-emerald-400" /> Solar + BESS Design Engine</span>
-                <span className="flex items-center gap-2"><RiCheckLine className="text-emerald-400" /> NASA Climate Data</span>
-                <span className="flex items-center gap-2"><RiCheckLine className="text-emerald-400" /> NESREA EPR Compliant</span>
-                <span className="flex items-center gap-2"><RiCheckLine className="text-emerald-400" /> 5 AI-Powered Agents</span>
-                <span className="flex items-center gap-2"><RiCheckLine className="text-emerald-400" /> Free to Start</span>
+                <span className="flex items-center gap-2"><RiCheckLine className="text-emerald-400" /> Satellite Climate Data</span>
+                <span className="flex items-center gap-2"><RiCheckLine className="text-emerald-400" /> EPR Compliant</span>
+                <span className="flex items-center gap-2"><RiCheckLine className="text-emerald-400" /> AI-Powered Helpers</span>
+                <span className="flex items-center gap-2"><RiCheckLine className="text-emerald-400" /> Easy to Start</span>
               </div>
             </div>
           </div>
           <div className="relative border-t border-white/10">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 grid grid-cols-2 md:grid-cols-4 gap-6">
               {[
-                { value: '54+', label: 'African Countries Supported' },
                 { value: '25 yrs', label: 'Financial Modelling Horizon' },
-                { value: '5', label: 'AI Agents Built In' },
+                { value: '5', label: 'AI-Powered Helpers' },
                 { value: '₦2.4T+', label: 'Nigerian Solar Market Value' },
               ].map(s => (
                 <div key={s.label}>
@@ -229,7 +228,7 @@ export default function Home() {
             <div className="grid md:grid-cols-3 gap-6">
               {[
                 { step: '01', icon: RiFlashlightLine, title: 'Design Solar + BESS Systems', desc: 'Size PV arrays and battery storage using NASA POWER irradiance data for your exact site. Auto-optimise or manually configure — from 1 kW rooftop to MW-scale C&I projects.' },
-                { step: '02', icon: RiLineChartLine, title: 'Model 25-Year Financials', desc: 'Run full techno-economic simulations under real African tariffs — TOU rates, demand charges, MYTO bands. See IRR, NPV, payback period, and LCOE instantly.' },
+                { step: '02', icon: RiLineChartLine, title: 'Model 12->25-Year Financials', desc: 'Run full techno-economic simulations under real African tariffs — TOU rates, demand charges, MYTO bands. See IRR, NPV, payback period, and LCOE instantly.' },
                 { step: '03', icon: RiSunLine, title: 'Log & Track Every Project', desc: 'Register installations with panels, batteries, inverters, brand, and GPS coordinates. Works offline for field teams. Track your fleet in one dashboard.' },
                 { step: '04', icon: RiMapPinLine, title: 'Predict Degradation by Location', desc: 'Our West African degradation engine calibrates for Lagos coastal humidity, Kano desert heat, SE humidity, and inverter surge damage across all 36 Nigerian states.' },
                 { step: '05', icon: RiFileTextLine, title: 'Auto-Generate Compliance Reports', desc: 'Express NESREA EPR reports, Cradle-to-Grave certificates, and professional design reports. PDF and Excel export. Auto-route on Elite and Enterprise plans.' },
