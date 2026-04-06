@@ -21,7 +21,7 @@ const CLIMATE_ZONES = [
 
 const PARTNERS_ROW1 = [
   { name: 'NESREA', tag: 'EPR Framework', color: 'text-forest-900 bg-emerald-50 border-emerald-200' },
-  { name: 'Paystack', tag: 'Payments', color: 'text-slate-800 bg-slate-50 border-slate-200' },
+  { name: 'Secure Gateway', tag: 'Payments', color: 'text-slate-800 bg-slate-50 border-slate-200' },
   { name: 'REA Nigeria', tag: 'Electrification', color: 'text-forest-900 bg-amber-50 border-amber-200' },
   { name: 'REAN', tag: 'Industry Body', color: 'text-emerald-800 bg-emerald-50 border-emerald-200' },
   { name: 'NERC', tag: 'Tariff Regulator', color: 'text-slate-800 bg-slate-50 border-slate-200' },
@@ -206,7 +206,7 @@ export default function Home() {
             {[
               { label: 'Avg Grid Savings With Solar+BESS', value: '40-70%' },
               { label: 'Design-to-Report Time', value: '<15 min' },
-              { label: 'NASA POWER Data Source', value: 'Open API' },
+              { label: 'Climate Data Source', value: 'Satellite' },
               { label: 'Panel Health Lost to Climate/yr', value: '0.85%' },
             ].map(s => (
               <div key={s.label} className="text-center">
@@ -227,8 +227,8 @@ export default function Home() {
             </div>
             <div className="grid md:grid-cols-3 gap-6">
               {[
-                { step: '01', icon: RiFlashlightLine, title: 'Design Solar + BESS Systems', desc: 'Size PV arrays and battery storage using NASA POWER irradiance data for your exact site. Auto-optimise or manually configure — from 1 kW rooftop to MW-scale C&I projects.' },
-                { step: '02', icon: RiLineChartLine, title: 'Model 12->25-Year Financials', desc: 'Run full techno-economic simulations under real African tariffs — TOU rates, demand charges, MYTO bands. See IRR, NPV, payback period, and LCOE instantly.' },
+                { step: '01', icon: RiFlashlightLine, title: 'Design Solar + BESS Systems', desc: 'Size PV arrays and battery storage using high-resolution satellite irradiance data for your exact site. Auto-optimise or manually configure — from 1 kW rooftop to MW-scale C&I projects.' },
+                { step: '02', icon: RiLineChartLine, title: 'Model 12->25-Year Financials', desc: 'Run full techno-economic simulations under real African tariffs — TOU rates, demand charges, multi-band utility structures. See IRR, NPV, payback period, and LCOE instantly.' },
                 { step: '03', icon: RiSunLine, title: 'Log & Track Every Project', desc: 'Register installations with panels, batteries, inverters, brand, and GPS coordinates. Works offline for field teams. Track your fleet in one dashboard.' },
                 { step: '04', icon: RiMapPinLine, title: 'Predict Degradation by Location', desc: 'Our West African degradation engine calibrates for Lagos coastal humidity, Kano desert heat, SE humidity, and inverter surge damage across all 36 Nigerian states.' },
                 { step: '05', icon: RiFileTextLine, title: 'Auto-Generate Compliance Reports', desc: 'Express NESREA EPR reports, Cradle-to-Grave certificates, and professional design reports. PDF and Excel export. Auto-route on Elite and Enterprise plans.' },
@@ -272,7 +272,7 @@ export default function Home() {
               <div className="grid grid-cols-2 gap-4">
                 {[
                   { icon: RiFlashlightLine, color: 'bg-emerald-500/20 border-emerald-500/30', title: 'Bankable System Design', desc: 'Size solar+BESS systems with real irradiance data and hourly simulations. Produce professional design reports that land financing and close commercial deals.' },
-                  { icon: RiGlobalLine, color: 'bg-amber-500/20 border-amber-500/30', title: 'African Market Intelligence', desc: 'Built-in MYTO tariff bands, Eskom rates, TOU structures, and climate-specific degradation models. No more adapting European tools for African conditions.' },
+                  { icon: RiGlobalLine, color: 'bg-amber-500/20 border-amber-500/30', title: 'African Market Intelligence', desc: 'Built-in multi-band tariff structures, regional utility rates, TOU profiles, and climate-specific degradation models. No more adapting European tools for African conditions.' },
                   { icon: RiShieldCheckLine, color: 'bg-emerald-500/20 border-emerald-500/30', title: 'Regulatory Compliance', desc: 'Meet NESREA EPR 2024 mandates with auto-generated Cradle-to-Grave certificates and audit-ready compliance records. One-click PDF reports.' },
                   { icon: RiBriefcaseLine, color: 'bg-amber-500/20 border-amber-500/30', title: 'Full Lifecycle Value', desc: 'Track every asset from commissioning to decommissioning. Recover silver, lead, and lithium value. Second-life refurbishment delivers up to 74× the value of dismantling.' },
                 ].map((card, i) => (
@@ -449,8 +449,8 @@ export default function Home() {
             </div>
             <div className="grid md:grid-cols-3 gap-6">
               {[
-                { icon: RiBatteryChargeLine, color: 'bg-forest-900', title: 'Solar + BESS Design Engine', desc: 'Size PV arrays and battery storage using hourly NASA POWER irradiance data. Auto-optimise or manually configure for any site in Africa. Supports TOU tariff-aware dispatch.' },
-                { icon: RiLineChartLine, color: 'bg-emerald-500', title: '25-Year Financial Modelling', desc: 'Full techno-economic simulation — IRR, NPV, payback period, LCOE, lifetime savings. Model under real African tariff structures including MYTO bands and Eskom rates.' },
+                { icon: RiBatteryChargeLine, color: 'bg-forest-900', title: 'Solar + BESS Design Engine', desc: 'Size PV arrays and battery storage using hourly satellite irradiance data. Auto-optimise or manually configure for any site in Africa. Supports TOU tariff-aware dispatch.' },
+                { icon: RiLineChartLine, color: 'bg-emerald-500', title: '25-Year Financial Modelling', desc: 'Full techno-economic simulation — IRR, NPV, payback period, LCOE, lifetime savings. Model under real African tariff structures including multi-band and regional utility rates.' },
                 { icon: RiDraftLine, color: 'bg-forest-900', title: 'Professional Design Reports', desc: 'Generate client-ready PDF and Excel reports with system specs, energy flows, financial projections, and load analysis. Shareable via public link.' },
                 { icon: RiMapPinLine, color: 'bg-amber-500', title: 'West African Degradation Engine', desc: 'Algorithms calibrated for all 36 Nigerian states. Lagos coastal humidity, Kano desert heat, and inverter surge damage — all factored into your decommission timeline.' },
                 { icon: RiLeafLine, color: 'bg-emerald-500', title: 'Silver & Material Recovery Calculator', desc: 'Translate every panel and battery into recoverable grams of silver, lead, or lithium — plus real naira estimates across recycling and second-life routes.' },
@@ -486,7 +486,7 @@ export default function Home() {
                 {
                   emoji: '🔧',
                   title: 'Solar Design Engineers',
-                  points: ['Size solar+BESS systems with NASA irradiance data', 'Model 25-year financials under real tariffs', 'Generate professional design reports in minutes', 'Let AI auto-optimise system configuration'],
+                  points: ['Size solar+BESS systems with satellite irradiance data', 'Model 25-year financials under real tariffs', 'Generate professional design reports in minutes', 'Let AI auto-optimise system configuration'],
                 },
                 {
                   emoji: '⚡',
@@ -531,9 +531,9 @@ export default function Home() {
             </div>
             <div className="grid md:grid-cols-4 gap-6 items-start">
               {[
-                { name: 'Basic', price: '₦5,000', period: '/mo', cta: 'Get Basic', href: '/register', features: ['Unlimited project logging', 'Solar+BESS system design', 'NASA irradiance data access', 'West African decommission predictions', '42 calculator uses/month', 'Basic financial modelling', 'SolNuv AI Assistant', '1 user / 1 device'] },
+                { name: 'Basic', price: '₦5,000', period: '/mo', cta: 'Get Basic', href: '/register', features: ['Unlimited project logging', 'Solar+BESS system design', 'Satellite irradiance data access', 'West African decommission predictions', '42 calculator uses/month', 'Basic financial modelling', 'SolNuv AI Assistant', '1 user / 1 device'] },
                 { name: 'Pro', price: '₦15,000', period: '/mo', cta: 'Start Pro', href: '/register?plan=pro', popular: true, features: ['Everything in Basic', 'Full 25-year financial simulations', 'Professional PDF & Excel reports', 'Public report sharing links', 'NESREA EPR Reports', 'Load profile analysis (CSV/manual/synthetic)', 'AI Design Engineer agent', 'Team access (5 users)'] },
-                { name: 'Elite', price: '₦40,000', period: '/mo', cta: 'Go Elite', href: '/register?plan=elite', features: ['Everything in Pro', 'Auto-send to NESREA', 'Advanced tariff modelling (TOU/MYTO/Eskom)', '4 AI Agents (Project Manager, Advisor, Compliance, Reports)', 'Auto-optimised system sizing', 'Team access (15 users)', 'Priority support + onboarding', 'Featured installer badge'] },
+                { name: 'Elite', price: '₦40,000', period: '/mo', cta: 'Go Elite', href: '/register?plan=elite', features: ['Everything in Pro', 'Auto-send to NESREA', 'Advanced tariff modelling (TOU, multi-band, regional)', '4 AI Agents (Project Manager, Advisor, Compliance, Reports)', 'Auto-optimised system sizing', 'Team access (15 users)', 'Priority support + onboarding', 'Featured installer badge'] },
                 { name: 'Enterprise', price: '₦100,000+', period: '/mo', cta: 'Contact Us', href: '/contact', features: ['Everything in Elite', 'All AI Agents + priority & async tasks', 'Custom API integrations', 'Bulk project design import', 'White-label design reports', 'Team access (50 users)', 'Dedicated account manager', 'Quarterly advisory sessions'] },
               ].map((plan, i) => (
                 <div key={i} className={`rounded-2xl overflow-hidden ${plan.popular ? 'ring-2 ring-forest-900 shadow-xl' : 'border border-slate-200'}`}>

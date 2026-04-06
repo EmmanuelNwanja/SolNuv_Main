@@ -199,7 +199,7 @@ export default function Plans() {
       )}
 
       <div className="text-center mt-10 text-sm text-slate-400">
-        <p>Payments are processed securely by Paystack. Monthly and annual subscriptions support auto-renewal.</p>
+        <p>Payments are processed securely. Monthly and annual subscriptions support auto-renewal.</p>
         <p className="mt-1">All plans include solar+BESS design and project tracking. Need help choosing? <a href="mailto:support@solnuv.com" className="text-forest-900 hover:underline">support@solnuv.com</a></p>
       </div>
     </>

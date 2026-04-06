@@ -494,7 +494,7 @@ export default function DesignWizard() {
               {/* Location */}
               <div>
                 <h2 className="text-lg font-semibold text-forest-900 dark:text-white">Project Location</h2>
-                <p className="text-sm text-gray-500 mb-3">Enter coordinates for solar resource assessment (NASA POWER data).</p>
+                <p className="text-sm text-gray-500 mb-3">Enter coordinates for satellite solar resource assessment.</p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="label">Latitude *</label>
