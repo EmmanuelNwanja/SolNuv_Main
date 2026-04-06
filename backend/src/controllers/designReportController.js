@@ -11,13 +11,16 @@ const logger = require('../utils/logger');
 
 /** Verify ownership supporting solo engineers (no company_id) */
 async function verifyProjectOwnership(projectId, user) {
-  let query = supabase.from('projects').select('id, name, location, company_id').eq('id', projectId);
+  let query = supabase.from('projects').select('id, name, state, city, company_id').eq('id', projectId);
   if (user.company_id) {
     query = query.eq('company_id', user.company_id);
   } else {
     query = query.eq('user_id', user.id);
   }
-  const { data } = await query.single();
+  const { data, error } = await query.maybeSingle();
+  if (error) {
+    logger.error('verifyProjectOwnership failed', { projectId, error: error.message });
+  }
   return data;
 }
 
