@@ -223,7 +223,7 @@ function FaqPage() {
                   { href: '/plans', label: 'View Plans & Pricing' },
                   { href: '/blog', label: 'Read the Blog' },
                   { href: '/contact', label: 'Contact Support' },
-                  { href: '/register', label: 'Create Free Account' },
+                  { href: '/register', label: 'Create Account' },
                 ].map(({ href, label }) => (
                   <li key={href}>
                     <Link

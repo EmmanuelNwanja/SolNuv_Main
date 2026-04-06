@@ -68,7 +68,7 @@ export default function Register() {
     <>
       <Head>
         <title>Create Account — SolNuv | Design Solar Systems for Africa</title>
-        <meta name="description" content="Create your free SolNuv account. Design solar+battery systems, model 25-year financials, track installations, and automate NESREA compliance — built for Africa's solar professionals." />
+        <meta name="description" content="Create your SolNuv account. Design solar+battery systems, model 25-year financials, track installations, and automate NESREA compliance — built for Africa's solar professionals." />
       </Head>
       <div className="auth-shell">
         <div className="auth-wrap">
@@ -145,7 +145,7 @@ export default function Register() {
                 </span>
               </label>
               <button type="submit" disabled={submitting || !agreed} className="btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed">
-                {submitting ? 'Creating account...' : 'Create Free Account'}
+                {submitting ? 'Creating account...' : 'Create Account'}
               </button>
             </form>
           </div>

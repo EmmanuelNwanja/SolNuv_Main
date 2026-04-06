@@ -136,7 +136,7 @@ export default function ContactPage() {
                 { label: 'View Plans & Pricing', href: '/plans' },
                 { label: 'Explore the Platform', href: '/#how-it-works' },
                 { label: 'Read our Blog', href: '/blog' },
-                { label: 'Get Started Free', href: '/register' },
+                { label: 'Get Started', href: '/register' },
               ].map(({ label, href }) => (
                 <Link
                   key={href}

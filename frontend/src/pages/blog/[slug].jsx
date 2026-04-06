@@ -142,7 +142,7 @@ export default function BlogPostPage() {
               <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">Join SolNuv — Africa's premier solar engineering platform.</p>
               <div className="mt-4 flex gap-3">
                 <Link href="/register" className="px-4 py-2 rounded-lg bg-forest-900 text-white text-sm font-semibold hover:bg-forest-800 transition-colors">
-                  Get Started Free
+                  Get Started
                 </Link>
                 <Link href="/blog" className="px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-sm hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
                   More Articles

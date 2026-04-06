@@ -200,9 +200,9 @@ export default function TermsOfService() {
             All fees are quoted and charged in <strong>Nigerian Naira (₦)</strong> and are <strong>inclusive of applicable taxes</strong>. We reserve the right to adjust pricing with at least 30 days&apos; prior notice. Price changes take effect at the start of your next billing cycle.
           </p>
 
-          <SubHeading>6.3 Free Plan (Basic) Limitations</SubHeading>
+          <SubHeading>6.3 Basic Plan Limitations</SubHeading>
           <p>
-            The free Basic plan provides limited access with per-tool monthly usage caps (currently 7 calculations per tool type, 42 total per month). These limits may be adjusted at our discretion with reasonable notice.
+            The Basic plan provides limited access with per-tool monthly usage caps (currently 7 calculations per tool type, 42 total per month). These limits may be adjusted at our discretion with reasonable notice.
           </p>
 
           <SubHeading>6.4 Cancellation & Refunds</SubHeading>
@@ -211,7 +211,7 @@ export default function TermsOfService() {
           </p>
           <ul>
             <li>Your access continues until the end of the current paid billing period;</li>
-            <li>Your account reverts to the free Basic plan;</li>
+            <li>Your account reverts to the Basic plan;</li>
             <li>Your data is retained in accordance with our <Link href="/privacy" className="text-forest-600 dark:text-emerald-400 underline">Privacy Policy</Link>.</li>
           </ul>
           <p>

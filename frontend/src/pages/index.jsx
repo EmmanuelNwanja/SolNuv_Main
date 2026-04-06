@@ -85,7 +85,7 @@ export default function Home() {
     <>
       <Head>
         <title>SolNuv — Africa&apos;s Solar Engineering &amp; Lifecycle Intelligence Platform</title>
-        <meta name="description" content="Design solar+battery systems, model 25-year financials, automate NESREA EPR compliance, and manage the full lifecycle of every installation — powered by NASA climate data, AI agents, and built for Africa's energy market." />
+        <meta name="description" content="Design solar+battery systems, model 25-year financials, automate NESREA EPR compliance, and manage the full lifecycle of every installation — powered by Satellite climate data, AI agents, and built for Africa's energy market." />
         <meta name="keywords" content="solar design software Africa, solar BESS sizing tool, solar engineering Nigeria, NESREA EPR compliance, solar battery storage design, solar financial modelling Africa, PV simulation, load profile analysis, tariff analysis Nigeria, solar project management, solar panel recycling, West African solar, solar lifecycle tracking" />
         <meta property="og:title" content="SolNuv — Design, Model, Track & Comply. Africa's Solar Engineering Platform." />
         <meta property="og:description" content="The only platform that takes you from solar+BESS system design to 25-year financial modelling to NESREA compliance — all in one place. Built for Africa's energy professionals." />
@@ -117,7 +117,7 @@ export default function Home() {
             </div>
             <div className="flex items-center gap-3">
               <Link href="/login" className="text-sm font-medium text-slate-600 hover:text-forest-900 transition-colors hidden sm:block">Sign In</Link>
-              <Link href="/register" className="btn-primary text-sm px-4 py-2 rounded-xl">Get Started Free</Link>
+              <Link href="/register" className="btn-primary text-sm px-4 py-2 rounded-xl">Get Started</Link>
             </div>
           </div>
         </nav>
@@ -142,7 +142,7 @@ export default function Home() {
               </p>
               <div className="flex flex-wrap gap-4">
                 <Link href="/register" className="btn-amber inline-flex items-center gap-2">
-                  Start Building Free <RiArrowRightLine />
+                  Start Building <RiArrowRightLine />
                 </Link>
                 <Link href="#how-it-works" className="inline-flex items-center gap-2 border border-white/30 text-white px-6 py-3 rounded-xl text-sm font-semibold hover:bg-white/10 transition-all">
                   See How It Works <RiArrowDownLine />
@@ -206,7 +206,7 @@ export default function Home() {
             {[
               { label: 'Avg Grid Savings With Solar+BESS', value: '40-70%' },
               { label: 'Design-to-Report Time', value: '<15 min' },
-              { label: 'NASA POWER Data Source', value: 'Free' },
+              { label: 'NASA POWER Data Source', value: 'Open API' },
               { label: 'Panel Health Lost to Climate/yr', value: '0.85%' },
             ].map(s => (
               <div key={s.label} className="text-center">
@@ -422,9 +422,9 @@ export default function Home() {
                         ? 'Calculate recycling value and second-life potential for lead-acid and lithium batteries — including chemistry-specific material recovery and State of Health analysis.'
                         : 'Get a climate-adjusted decommission date using our algorithm covering all 36 Nigerian states — accounting for coastal humidity, Sahel heat, and inverter surge damage.'}
                     </p>
-                    <p className="text-slate-400 text-xs mb-6">Free account required — takes 2 minutes to set up.</p>
+                    <p className="text-slate-400 text-xs mb-6">An account is required — takes 2 minutes to set up.</p>
                     <div className="flex gap-3">
-                      <Link href="/register" className="btn-primary flex items-center gap-2">Create Free Account →</Link>
+                      <Link href="/register" className="btn-primary flex items-center gap-2">Create Account →</Link>
                       <Link href="/login" className="btn-outline">Sign In</Link>
                     </div>
                   </div>
@@ -433,7 +433,7 @@ export default function Home() {
 
               <div className="bg-forest-900 px-8 py-4 flex items-center justify-between">
                 <p className="text-white/70 text-sm">Ready to track your full fleet automatically?</p>
-                <Link href="/register" className="btn-amber text-sm px-4 py-2 rounded-xl">Create Free Account →</Link>
+                <Link href="/register" className="btn-amber text-sm px-4 py-2 rounded-xl">Create Account →</Link>
               </div>
             </div>
           </div>
@@ -527,7 +527,7 @@ export default function Home() {
             <div className="text-center mb-14">
               <span className="text-xs font-semibold uppercase tracking-widest text-emerald-600">Pricing</span>
               <h2 className="section-title mb-4 mt-2">Simple, Naira-First Pricing</h2>
-              <p className="text-slate-500">No FX surprises. All prices in Naira. Start free with core design tools, then scale as you grow. Annual billing saves 10%.</p>
+              <p className="text-slate-500">No FX surprises. All prices in Naira. Start with our Basic plan and scale as you grow. Annual billing saves 10%.</p>
             </div>
             <div className="grid md:grid-cols-4 gap-6 items-start">
               {[
@@ -572,7 +572,7 @@ export default function Home() {
             <p className="text-white/70 mb-8 max-w-xl mx-auto">Join solar professionals across Africa using SolNuv to design better systems, close bigger deals, automate compliance, and capture the full value of every installation.</p>
             <div className="flex flex-wrap justify-center gap-4">
               <Link href="/register" className="btn-amber inline-flex items-center gap-2 text-base px-8 py-4 rounded-2xl">
-                Create Free Account <RiArrowRightLine />
+                Create Your Account <RiArrowRightLine />
               </Link>
               <Link href="/contact" className="inline-flex items-center gap-2 border border-white/30 text-white px-6 py-4 rounded-2xl text-sm font-semibold hover:bg-white/10 transition-all">
                 Partner With Us
@@ -598,7 +598,7 @@ export default function Home() {
               <div>
                 <p className="text-xs font-semibold uppercase tracking-widest text-white/40 mb-3">Platform</p>
                 <div className="space-y-2 text-xs">
-                  <Link href="/register" className="block hover:text-white transition-colors">Get Started Free</Link>
+                  <Link href="/register" className="block hover:text-white transition-colors">Get Started</Link>
                   <Link href="#calculator" className="block hover:text-white transition-colors">Calculator</Link>
                   <Link href="#plans" className="block hover:text-white transition-colors">Pricing</Link>
                   <Link href="#how-it-works" className="block hover:text-white transition-colors">How It Works</Link>
