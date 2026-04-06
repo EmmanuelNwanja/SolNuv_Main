@@ -9,12 +9,12 @@ const { requirePlan } = require('../middlewares/subscriptionMiddleware');
 router.use(requireAuth);
 
 // Templates are available to all authenticated users
-router.get('/templates', tariffController.getTemplates);
+router.get('/templates', tariffController.listTemplates);
 
 // User tariffs
-router.get('/', tariffController.getUserTariffs);
+router.get('/', tariffController.listTariffs);
 router.post('/', requirePlan('pro'), tariffController.createTariff);
-router.get('/:id', tariffController.getTariffDetail);
+router.get('/:id', tariffController.getTariff);
 router.put('/:id', requirePlan('pro'), tariffController.updateTariff);
 router.delete('/:id', requirePlan('pro'), tariffController.deleteTariff);
 
