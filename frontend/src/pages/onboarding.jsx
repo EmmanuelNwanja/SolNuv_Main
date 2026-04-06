@@ -1,5 +1,5 @@
 import Head from 'next/head';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '../context/AuthContext';
 import { authAPI } from '../services/api';
@@ -11,6 +11,7 @@ const NIGERIAN_STATES = ['Abia','Adamawa','Akwa Ibom','Anambra','Bauchi','Bayels
 export default function Onboarding() {
   const { session, loading, profileResolved, isOnboarded, isPlatformAdmin, refreshProfile } = useAuth();
   const router = useRouter();
+  const redirectedRef = useRef(false);
   const [step, setStep] = useState(1);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
@@ -43,7 +44,8 @@ export default function Onboarding() {
   // Already onboarded regular users should not be on this page
   useEffect(() => {
     if (!loading && profileResolved && session && isOnboarded && !isPlatformAdmin) {
-      router.replace('/dashboard');
+      // Don't redirect if handleSubmit already set the destination (avoids race)
+      if (!redirectedRef.current) router.replace('/dashboard');
     }
   }, [loading, profileResolved, session, isOnboarded, isPlatformAdmin, router]);
 
@@ -110,9 +112,10 @@ export default function Onboarding() {
     try {
       await authAPI.saveProfile(form);
       localStorage.removeItem('solnuv_pending_onboarding');
+      redirectedRef.current = true; // block the already-onboarded useEffect redirect
       await refreshProfile();
       toast.success('Profile saved! Welcome to SolNuv 🌞');
-      router.push('/dashboard');
+      router.push('/plans?welcome=1');
     } catch (err) {
       const msg = err.response?.data?.message || 'Failed to save profile. Please try again.';
       setSubmitError(msg);

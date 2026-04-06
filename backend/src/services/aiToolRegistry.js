@@ -378,6 +378,52 @@ defineTool('list_blog_posts', 'blog.read',
   }
 );
 
+defineTool('publish_blog_post', 'blog.write',
+  'Publish a blog post draft (sets status to published). Only call after confirming the draft is ready.',
+  { required: ['post_id'], optional: [] },
+  async (input) => {
+    const { data, error } = await supabase
+      .from('blog_posts')
+      .update({ status: 'published', published_at: new Date().toISOString() })
+      .eq('id', String(input.post_id))
+      .eq('status', 'draft') // safety: only allow publishing drafts
+      .select('id, slug, title, status, published_at')
+      .single();
+
+    if (error) throw error;
+    if (!data) return { published: false, reason: 'Post not found or not in draft status' };
+    return { published: true, post: data };
+  }
+);
+
+defineTool('update_blog_post', 'blog.write',
+  'Update the content or metadata of an existing blog post (draft or published).',
+  { required: ['post_id'], optional: ['title', 'content', 'excerpt', 'category', 'tags', 'read_time_mins'] },
+  async (input) => {
+    const updates = {};
+    if (input.title)         updates.title         = String(input.title).slice(0, 300);
+    if (input.content)       updates.content       = String(input.content).slice(0, 50000);
+    if (input.excerpt)       updates.excerpt       = String(input.excerpt).slice(0, 500);
+    if (input.category)      updates.category      = String(input.category);
+    if (Array.isArray(input.tags)) updates.tags    = input.tags.slice(0, 10);
+    if (input.read_time_mins) updates.read_time_mins = input.read_time_mins;
+
+    if (Object.keys(updates).length === 0) return { updated: false, reason: 'No fields provided to update' };
+    updates.updated_at = new Date().toISOString();
+
+    const { data, error } = await supabase
+      .from('blog_posts')
+      .update(updates)
+      .eq('id', String(input.post_id))
+      .select('id, slug, title, status')
+      .single();
+
+    if (error) throw error;
+    if (!data) return { updated: false, reason: 'Post not found' };
+    return { updated: true, post: data };
+  }
+);
+
 // ─── ANALYTICS TOOLS (Internal agents only) ──────────────────────────────────
 
 defineTool('query_user_behaviour', 'analytics.read',

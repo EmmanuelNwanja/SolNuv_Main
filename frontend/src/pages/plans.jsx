@@ -1,5 +1,6 @@
 import Head from 'next/head';
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/router';
 import { useAuth } from '../context/AuthContext';
 import { paymentsAPI } from '../services/api';
 import { getDashboardLayout } from '../components/Layout';
@@ -10,6 +11,8 @@ import toast from 'react-hot-toast';
 
 export default function Plans() {
   const { profile, plan: currentPlan, isPro } = useAuth();
+  const router = useRouter();
+  const isWelcome = router.query.welcome === '1';
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(true);
   const [upgrading, setUpgrading] = useState(null);
@@ -76,6 +79,15 @@ export default function Plans() {
       <Head><title>Plans & Pricing — SolNuv | Solar Design, Modelling & Compliance</title></Head>
 
       <MotionSection className="mb-6">
+        {isWelcome && (
+          <div className="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-4 flex items-start gap-3">
+            <span className="text-emerald-500 text-xl mt-0.5">🎉</span>
+            <div>
+              <p className="font-semibold text-emerald-900 text-sm">Account setup complete — choose a plan to get started</p>
+              <p className="text-emerald-700 text-xs mt-0.5">Pick the plan that fits your workflow. You can upgrade at any time.</p>
+            </div>
+          </div>
+        )}
         <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-forest-900 to-emerald-800 p-6 sm:p-8 text-white text-center">
           <div className="absolute -top-20 -right-16 h-56 w-56 rounded-full bg-emerald-300/20 blur-3xl" />
           <div className="absolute -bottom-20 -left-20 h-56 w-56 rounded-full bg-amber-300/20 blur-3xl" />

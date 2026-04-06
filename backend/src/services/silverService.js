@@ -458,146 +458,74 @@ async function calculatePanelSilver(wattsPerPanel, quantity, brand = 'Other', in
 }
 
 async function calculatePortfolioRecycleIncome(userId, companyId) {
-  const sp = await getSilverPrice();
-
-  // Fetch all equipment (panels + batteries) across all relevant statuses
+  // Query from projects (not equipment) to guarantee installation_date and status
+  // are always correctly resolved — then delegate per-project to calculateProjectRecycleIncome
+  // so portfolio totals are always 100% consistent with the project-detail page.
   let query = supabase
-    .from('equipment')
+    .from('projects')
     .select(`
-      equipment_type, brand, size_watts, capacity_kwh, quantity, condition,
-      panel_technology, battery_chemistry, climate_zone,
-      projects!inner(user_id, company_id, status, installation_date, state)
+      id, status, installation_date,
+      equipment(
+        equipment_type, brand, size_watts, capacity_kwh, quantity, condition,
+        panel_technology, battery_chemistry, climate_zone,
+        estimated_silver_value_ngn
+      )
     `)
-    .in('projects.status', ['active', 'decommissioned', 'pending_recovery', 'recycled']);
+    .in('status', ['active', 'decommissioned', 'pending_recovery', 'recycled']);
 
-  if (companyId) query = query.eq('projects.company_id', companyId);
-  else           query = query.eq('projects.user_id', userId);
+  if (companyId) query = query.eq('company_id', companyId);
+  else           query = query.eq('user_id', userId);
 
-  const { data: equipment } = await query;
-  if (!equipment?.length) {
-    const empty = { panel_recycle_ngn: 0, battery_recycle_ngn: 0, total_recycle_ngn: 0, silver_ngn: 0, total_with_silver_ngn: 0 };
-    return { expected: { ...empty }, actual: { ...empty } };
-  }
+  const { data: projects } = await query;
+  const empty = { panel_recycle_ngn: 0, battery_recycle_ngn: 0, total_recycle_ngn: 0, silver_ngn: 0, total_with_silver_ngn: 0 };
+  if (!projects?.length) return { expected: { ...empty }, actual: { ...empty } };
 
   const ACTIVE = new Set(['active', 'decommissioned', 'pending_recovery']);
 
-  function _panelIncome(eq) {
-    const w        = parseFloat(eq.size_watts || 400);
-    const qty      = parseInt(eq.quantity || 1);
-    const cond     = eq.condition || 'good';
-    const instDate = eq.projects?.installation_date;
-    const panelTech = eq.panel_technology || null;
-    const climZone  = eq.climate_zone || 'mixed';
+  let expPanel = 0, expBattery = 0, expSilver = 0;
+  let actPanel = 0, actBattery = 0, actSilver = 0;
 
-    const silverG   = getSilverGramsPerPanel(instDate, w, panelTech) * qty;
-    const silverNgn = Math.round(silverG * sp.price_per_gram_ngn * INSTALLER_SILVER_SHARE);
-    const health    = calcPanelSOH(w, instDate, climZone, cond, panelTech);
-
-    let recycleNgn;
-    if (health.soh >= MIN_PANEL_SOH_FOR_SECONDLIFE) {
-      const ageFactor  = ageMarketDiscount(health.years_old);
-      const techFactor = panelTech ? techGenerationFactor(panelTech) : 0.75;
-      const newEq  = health.remaining_watts * NEW_PANEL_USD_PER_W * sp.usd_to_ngn_rate;
-      recycleNgn   = Math.round(newEq * SECOND_LIFE_PRICE_RATIO * ageFactor * techFactor * INSTALLER_PANEL_SHARE * qty);
-    } else {
-      // Below second-life threshold — material recycling; use silver as conservative proxy
-      recycleNgn = silverNgn;
-    }
-    return { recycleNgn, silverNgn };
-  }
-
-  function _batteryIncome(eq) {
-    const kwh     = parseFloat(eq.capacity_kwh || 2.4);
-    const qty     = parseInt(eq.quantity || 1);
-    const cond    = eq.condition || 'good';
-    const instDate = eq.projects?.installation_date;
-    const totalKwh = kwh * qty;
-
-    // Prefer stored battery_chemistry; fall back to brand-name heuristic
-    let chemistry;
-    if (eq.battery_chemistry) {
-      chemistry = eq.battery_chemistry;
-    } else {
-      const brandLower = (eq.brand || '').toLowerCase();
-      chemistry = (brandLower.includes('lead') || brandLower.includes('trojan') || brandLower.includes('luminous'))
-        ? 'lead-acid' : 'lithium-iron-phosphate';
-    }
-    const isLead   = chemistry.includes('lead');
-    const chemKey  = resolveChemistry(chemistry);
-    const chemData = BATTERY_CHEMISTRIES[chemKey];
-
-    const yrs       = yearsOldFrom(instDate);
-    const annualLoss = chemData ? chemData.annual_soh_loss_pct : (BATTERY_ANNUAL_SOH_LOSS[chemistry] || BATTERY_ANNUAL_SOH_LOSS.default);
-    const rawSoh    = Math.max(0.10, 1 - annualLoss * yrs);
-    const soh       = Math.min(1.0, rawSoh * (CONDITION_MODIFIER[cond] ?? 1.00));
-    const viable    = soh >= MIN_BATTERY_SOH_FOR_SECONDLIFE;
-
-    // Material recycling income
-    let recyclingNgn;
-    if (isLead) {
-      recyclingNgn = Math.round(LEAD_KG_PER_KWH * totalKwh * 0.88 * LEAD_PRICE_USD_PER_KG * sp.usd_to_ngn_rate * LEAD_INSTALLER_SHARE);
-    } else {
-      const liKg   = (LITHIUM_KG_PER_KWH[chemistry] || 0.065) * totalKwh;
-      recyclingNgn = Math.round(liKg * LI_CONVERSION_FACTOR * LI_CARBONATE_PRICE_USD_PER_KG * sp.usd_to_ngn_rate * LITHIUM_INSTALLER_SHARE);
-    }
-
-    // Second-life income (preferred if viable)
-    let recycleNgn;
-    if (viable) {
-      const newCostNgn = (NEW_BATTERY_USD_PER_KWH[chemistry] || NEW_BATTERY_USD_PER_KWH.default) * totalKwh * sp.usd_to_ngn_rate;
-      recycleNgn = Math.round(newCostNgn * soh * BATTERY_SECONDLIFE_PRICE_RATIO * BATTERY_SECONDLIFE_INSTALLER_SHARE);
-    } else {
-      recycleNgn = recyclingNgn;
-    }
-    return { recycleNgn };
-  }
-
-  let expPanelRecycle = 0, expBatteryRecycle = 0, expSilver = 0;
-  let actPanelRecycle = 0, actBatteryRecycle = 0, actSilver = 0;
-
-  for (const eq of equipment) {
-    const status     = eq.projects?.status;
-    const isActive   = ACTIVE.has(status);
-    const isRecycled = status === 'recycled';
-
-    if (eq.equipment_type === 'panel') {
-      const { recycleNgn, silverNgn } = _panelIncome(eq);
-      if (isActive)   { expPanelRecycle += recycleNgn; expSilver += silverNgn; }
-      if (isRecycled) { actPanelRecycle += recycleNgn; actSilver += silverNgn; }
-    } else if (eq.equipment_type === 'battery') {
-      const { recycleNgn } = _batteryIncome(eq);
-      if (isActive)   expBatteryRecycle += recycleNgn;
-      if (isRecycled) actBatteryRecycle += recycleNgn;
+  for (const proj of projects) {
+    if (!proj.equipment?.length) continue;
+    const income = await calculateProjectRecycleIncome(proj.equipment, proj.installation_date);
+    if (ACTIVE.has(proj.status)) {
+      expPanel   += income.panel_recycle_ngn;
+      expBattery += income.battery_recycle_ngn;
+      expSilver  += income.silver_ngn;
+    } else if (proj.status === 'recycled') {
+      actPanel   += income.panel_recycle_ngn;
+      actBattery += income.battery_recycle_ngn;
+      actSilver  += income.silver_ngn;
     }
   }
 
   return {
     expected: {
-      panel_recycle_ngn:     expPanelRecycle,
-      battery_recycle_ngn:   expBatteryRecycle,
-      total_recycle_ngn:     expPanelRecycle + expBatteryRecycle,
+      panel_recycle_ngn:     expPanel,
+      battery_recycle_ngn:   expBattery,
+      total_recycle_ngn:     expPanel + expBattery,
       silver_ngn:            expSilver,
-      total_with_silver_ngn: expPanelRecycle + expBatteryRecycle + expSilver,
+      total_with_silver_ngn: expPanel + expBattery + expSilver,
     },
     actual: {
-      panel_recycle_ngn:     actPanelRecycle,
-      battery_recycle_ngn:   actBatteryRecycle,
-      total_recycle_ngn:     actPanelRecycle + actBatteryRecycle,
+      panel_recycle_ngn:     actPanel,
+      battery_recycle_ngn:   actBattery,
+      total_recycle_ngn:     actPanel + actBattery,
       silver_ngn:            actSilver,
-      total_with_silver_ngn: actPanelRecycle + actBatteryRecycle + actSilver,
+      total_with_silver_ngn: actPanel + actBattery + actSilver,
     },
   };
 }
 
 async function calculatePortfolioSilver(userId, companyId) {
-  const query = supabase
+  let query = supabase
     .from('equipment')
     .select('equipment_type, brand, size_watts, quantity, projects!inner(user_id, company_id, status, installation_date, state)')
     .eq('equipment_type', 'panel')
     .in('projects.status', ['active', 'decommissioned']);
 
-  if (companyId) query.eq('projects.company_id', companyId);
-  else           query.eq('projects.user_id', userId);
+  if (companyId) query = query.eq('projects.company_id', companyId);
+  else           query = query.eq('projects.user_id', userId);
   const { data: equipment } = await query;
   if (!equipment?.length) return { total_silver_grams: 0, expected_recovery_value_ngn: 0, total_second_life_value_ngn: 0, panels: [] };
 
