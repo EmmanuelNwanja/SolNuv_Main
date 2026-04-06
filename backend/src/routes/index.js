@@ -14,6 +14,10 @@ router.use('/contact', require('./contactRoutes'));
 router.use('/faq', require('./faqRoutes'));
 router.use('/analytics', require('./analyticsRoutes'));
 router.use('/agent', require('./agentRoutes'));
+router.use('/tariffs', require('./tariffRoutes'));
+router.use('/load-profiles', require('./loadProfileRoutes'));
+router.use('/simulation', require('./simulationRoutes'));
+router.use('/design-reports', require('./designReportRoutes'));
 
 router.get('/health', (req, res) => res.json({
   status: 'ok',

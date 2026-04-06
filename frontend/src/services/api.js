@@ -339,6 +339,57 @@ export const agentAPI = {
 };
 
 // ==============================
+// TARIFFS
+// ==============================
+export const tariffAPI = {
+  getTemplates: (country) => api.get('/tariffs/templates', { params: { country } }),
+  getUserTariffs: () => api.get('/tariffs'),
+  create: (data) => api.post('/tariffs', data),
+  getDetail: (id) => api.get(`/tariffs/${id}`),
+  update: (id, data) => api.put(`/tariffs/${id}`, data),
+  delete: (id) => api.delete(`/tariffs/${id}`),
+};
+
+// ==============================
+// LOAD PROFILES
+// ==============================
+export const loadProfileAPI = {
+  upload: (projectId, file) => {
+    const form = new FormData();
+    form.append('project_id', projectId);
+    form.append('file', file);
+    return api.post('/load-profiles/upload', form, { headers: { 'Content-Type': 'multipart/form-data' } });
+  },
+  manual: (data) => api.post('/load-profiles/manual', data),
+  generateSynthetic: (data) => api.post('/load-profiles/synthetic', data),
+  confirmSynthetic: (data) => api.post('/load-profiles/synthetic/confirm', data),
+  getProfile: (projectId) => api.get(`/load-profiles/${projectId}`),
+  getHourly: (projectId) => api.get(`/load-profiles/${projectId}/hourly`),
+};
+
+// ==============================
+// SIMULATION ENGINE
+// ==============================
+export const simulationAPI = {
+  run: (data) => api.post('/simulation/run', data, { timeout: 120000 }),
+  getResults: (projectId) => api.get(`/simulation/${projectId}/results`),
+  getHourlyFlows: (projectId, params) => api.get(`/simulation/${projectId}/results/hourly`, { params }),
+  getSolarResource: (lat, lon) => api.get('/simulation/solar-resource', { params: { lat, lon } }),
+  autoSize: (data) => api.post('/simulation/auto-size', data),
+};
+
+// ==============================
+// DESIGN REPORTS
+// ==============================
+export const designReportAPI = {
+  getHtmlData: (projectId) => api.get(`/design-reports/${projectId}/html`),
+  downloadPdf: (projectId) => api.get(`/design-reports/${projectId}/pdf`, { responseType: 'blob' }),
+  downloadExcel: (projectId) => api.get(`/design-reports/${projectId}/excel`, { responseType: 'blob' }),
+  createShareLink: (projectId, data) => api.post(`/design-reports/${projectId}/share`, data),
+  getSharedReport: (token) => api.get(`/design-reports/shared/${token}`),
+};
+
+// ==============================
 // HELPERS
 // ==============================
 export function downloadBlob(blob, filename) {

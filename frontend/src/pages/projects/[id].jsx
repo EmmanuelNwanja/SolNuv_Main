@@ -10,7 +10,7 @@ import { StatusBadge, UrgencyBadge, CapacityBadge, ConfirmModal, LoadingSpinner 
 import { MotionSection } from '../../components/PageMotion';
 import {
   RiArrowLeftLine, RiEditLine, RiDeleteBinLine, RiDownloadLine,
-  RiQrCodeLine, RiSunLine, RiBatteryLine, RiMapPinLine,
+  RiQrCodeLine, RiSunLine, RiBatteryLine, RiMapPinLine, RiBarChartLine,
   RiCalendarLine, RiRecycleLine, RiShieldCheckLine, RiTruckLine, RiCameraLine,
   RiAddLine, RiCloseLine,
 } from 'react-icons/ri';
@@ -1087,6 +1087,18 @@ export default function ProjectDetail() {
             {!isPro && (
               <Link href="/plans" className="block text-center text-xs text-forest-900 font-medium hover:underline">
                 Upgrade to Pro to unlock →
+              </Link>
+            )}
+
+            <Link href={`/projects/${project.id}/design`}
+              className="btn-primary flex items-center justify-center gap-2 w-full text-sm py-3 bg-gradient-to-r from-forest-900 to-green-700 hover:from-green-800 hover:to-green-600">
+              <RiSunLine /> Design Solar + BESS System
+            </Link>
+
+            {project.design_completed_at && (
+              <Link href={`/projects/${project.id}/results`}
+                className="btn-outline flex items-center justify-center gap-2 w-full text-sm py-3 border-green-600 text-green-700 hover:bg-green-50">
+                <RiBarChartLine /> View Design Results
               </Link>
             )}
 
