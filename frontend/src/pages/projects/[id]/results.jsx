@@ -22,6 +22,13 @@ const Doughnut = dynamic(() => import('react-chartjs-2').then(m => m.Doughnut), 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const BRAND = { primary: '#0D3B2E', accent: '#10B981', amber: '#F59E0B', red: '#EF4444', blue: '#3B82F6', purple: '#8B5CF6' };
 
+const PV_TECH_LABELS = {
+  mono_perc: 'Monocrystalline PERC', poly: 'Polycrystalline', cdte: 'Thin-Film CdTe',
+  cigs: 'Thin-Film CIGS', topcon: 'TOPCon', hjt: 'HJT',
+  bifacial_perc: 'Bifacial Mono PERC', topcon_bi: 'Bifacial TOPCon', hjt_bi: 'Bifacial HJT',
+  a_si: 'Amorphous Silicon', organic: 'Organic PV',
+};
+
 function fmt(n, d = 0) {
   if (n == null) return '—';
   return Number(n).toLocaleString('en', { minimumFractionDigits: d, maximumFractionDigits: d });
@@ -138,15 +145,15 @@ export default function ResultsDashboard() {
     labels: MONTHS,
     datasets: [
       { label: 'Load', data: monthly.map(m => m.load_kwh), backgroundColor: BRAND.primary + '99', borderColor: BRAND.primary, borderWidth: 1 },
-      { label: 'Solar', data: monthly.map(m => m.generation_kwh), backgroundColor: BRAND.amber + '99', borderColor: BRAND.amber, borderWidth: 1 },
-      { label: 'Self-Use', data: monthly.map(m => m.self_consumption_kwh), backgroundColor: BRAND.accent + '99', borderColor: BRAND.accent, borderWidth: 1 },
+      { label: 'Solar', data: monthly.map(m => m.pv_gen_kwh), backgroundColor: BRAND.amber + '99', borderColor: BRAND.amber, borderWidth: 1 },
+      { label: 'Self-Use', data: monthly.map(m => m.solar_utilised_kwh), backgroundColor: BRAND.accent + '99', borderColor: BRAND.accent, borderWidth: 1 },
     ],
   };
 
   const energySplitChart = {
     labels: ['Self-Consumed', 'Grid Import', 'Grid Export'],
     datasets: [{
-      data: [result?.self_consumption_kwh || 0, result?.grid_import_kwh || 0, result?.grid_export_kwh || 0],
+      data: [result?.solar_utilised_kwh || 0, result?.grid_import_kwh || 0, result?.grid_export_kwh || 0],
       backgroundColor: [BRAND.accent, BRAND.primary, BRAND.amber],
     }],
   };
@@ -171,7 +178,7 @@ export default function ResultsDashboard() {
             </button>
             <div>
               <h1 className="text-xl font-bold text-forest-900 dark:text-white">Design Results</h1>
-              <p className="text-sm text-gray-500">{project?.name} — {project?.location}</p>
+              <p className="text-sm text-gray-500">{project?.name} — {project?.state}{project?.city ? `, ${project.city}` : ''}</p>
             </div>
           </div>
           <div className="flex gap-2 flex-wrap">
@@ -204,18 +211,18 @@ export default function ResultsDashboard() {
 
         {/* Key metrics grid */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-          <MetricCard icon={RiSunLine} label="PV Capacity" value={fmt(result?.pv_capacity_kwp, 1)} unit="kWp" />
-          <MetricCard icon={RiFlashlightLine} label="Annual Gen" value={fmt(result?.annual_generation_kwh)} unit="kWh" />
-          <MetricCard icon={RiMoneyDollarCircleLine} label="Annual Savings" value={`${currSym}${fmt(result?.annual_savings)}`} unit="" />
-          <MetricCard icon={RiMoneyDollarCircleLine} label="Payback" value={result?.simple_payback_years ? fmt(result.simple_payback_years, 1) : '—'} unit="yrs" />
+          <MetricCard icon={RiSunLine} label="PV Capacity" value={fmt(design?.pv_capacity_kwp, 1)} unit="kWp" />
+          <MetricCard icon={RiFlashlightLine} label="Annual Gen" value={fmt(result?.annual_solar_gen_kwh)} unit="kWh" />
+          <MetricCard icon={RiMoneyDollarCircleLine} label="Annual Savings" value={`${currSym}${fmt(result?.year1_savings)}`} unit="" />
+          <MetricCard icon={RiMoneyDollarCircleLine} label="Payback" value={result?.simple_payback_months ? fmt(result.simple_payback_months / 12, 1) : '—'} unit="yrs" />
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
-          <MetricCard label="Solar Fraction" value={result?.solar_fraction ? (result.solar_fraction * 100).toFixed(1) : '—'} unit="%" />
-          <MetricCard label="Self-Consumption" value={result?.self_consumption_ratio ? (result.self_consumption_ratio * 100).toFixed(1) : '—'} unit="%" />
+          <MetricCard label="Solar Fraction" value={result?.utilisation_pct != null ? fmt(result.utilisation_pct, 1) : '—'} unit="%" />
+          <MetricCard label="Self-Consumption" value={result?.self_consumption_pct != null ? fmt(result.self_consumption_pct, 1) : '—'} unit="%" />
           <MetricCard label="NPV (25yr)" value={`${currSym}${fmt(result?.npv_25yr)}`} unit="" />
-          <MetricCard label="IRR" value={result?.irr ? (result.irr * 100).toFixed(1) : '—'} unit="%" />
-          <MetricCard label="LCOE" value={result?.lcoe ? `${currSym}${fmt(result.lcoe, 2)}` : '—'} unit="/kWh" />
+          <MetricCard label="IRR" value={result?.irr_pct != null ? fmt(result.irr_pct, 1) : '—'} unit="%" />
+          <MetricCard label="LCOE" value={result?.lcoe_normal != null ? `${currSym}${fmt(result.lcoe_normal, 2)}` : '—'} unit="/kWh" />
         </div>
 
         {/* Tab navigation */}
@@ -263,16 +270,16 @@ export default function ResultsDashboard() {
               <div className="card p-5">
                 <h3 className="text-sm font-semibold mb-4">System Specifications</h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                  <div><span className="text-gray-500">Technology:</span> <strong>{design?.panel_technology}</strong></div>
-                  <div><span className="text-gray-500">Tilt:</span> <strong>{design?.tilt_angle}°</strong></div>
-                  <div><span className="text-gray-500">Azimuth:</span> <strong>{design?.azimuth_angle}°</strong></div>
-                  <div><span className="text-gray-500">Losses:</span> <strong>{design?.system_losses_pct}%</strong></div>
+                  <div><span className="text-gray-500">Technology:</span> <strong>{PV_TECH_LABELS[design?.pv_technology] || design?.pv_technology}</strong></div>
+                  <div><span className="text-gray-500">Tilt:</span> <strong>{design?.pv_tilt_deg}°</strong></div>
+                  <div><span className="text-gray-500">Azimuth:</span> <strong>{design?.pv_azimuth_deg}°</strong></div>
+                  <div><span className="text-gray-500">Losses:</span> <strong>{design?.pv_system_losses_pct}%</strong></div>
                   {design?.bess_capacity_kwh > 0 && (
                     <>
                       <div><span className="text-gray-500">Battery:</span> <strong>{design.bess_capacity_kwh} kWh</strong></div>
-                      <div><span className="text-gray-500">Power:</span> <strong>{design.bess_power_kw} kW</strong></div>
-                      <div><span className="text-gray-500">Chemistry:</span> <strong>{design.battery_chemistry}</strong></div>
+                      <div><span className="text-gray-500">Chemistry:</span> <strong>{design.bess_chemistry?.toUpperCase()}</strong></div>
                       <div><span className="text-gray-500">Strategy:</span> <strong>{design.bess_dispatch_strategy?.replace(/_/g, ' ')}</strong></div>
+                      <div><span className="text-gray-500">DoD:</span> <strong>{design.bess_dod_pct}%</strong></div>
                     </>
                   )}
                 </div>
@@ -303,9 +310,9 @@ export default function ResultsDashboard() {
                         <tr key={i} className="border-b border-gray-100 dark:border-gray-700">
                           <td className="px-3 py-2 font-medium">{MONTHS[i]}</td>
                           <td className="px-3 py-2 text-right">{fmt(m.load_kwh)}</td>
-                          <td className="px-3 py-2 text-right">{fmt(m.generation_kwh)}</td>
-                          <td className="px-3 py-2 text-right text-green-600">{fmt(m.self_consumption_kwh)}</td>
-                          <td className="px-3 py-2 text-right text-amber-600">{fmt(m.export_kwh)}</td>
+                          <td className="px-3 py-2 text-right">{fmt(m.pv_gen_kwh)}</td>
+                          <td className="px-3 py-2 text-right text-green-600">{fmt(m.solar_utilised_kwh)}</td>
+                          <td className="px-3 py-2 text-right text-amber-600">{fmt(m.grid_export_kwh)}</td>
                           <td className="px-3 py-2 text-right">{fmt(m.grid_import_kwh)}</td>
                           <td className="px-3 py-2 text-right font-medium">{currSym}{fmt(m.savings)}</td>
                         </tr>
@@ -322,8 +329,8 @@ export default function ResultsDashboard() {
             <>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
                 <MetricCard icon={RiBatteryLine} label="Capacity" value={design.bess_capacity_kwh} unit="kWh" />
-                <MetricCard label="Annual Throughput" value={fmt(result?.bess_annual_throughput_kwh)} unit="kWh" />
-                <MetricCard label="Annual Cycles" value={fmt(result?.annual_bess_cycles, 0)} unit="" />
+                <MetricCard label="Annual Throughput" value={fmt(result?.battery_discharged_kwh)} unit="kWh" />
+                <MetricCard label="Annual Cycles" value={fmt(result?.battery_cycles_annual, 0)} unit="" />
                 <MetricCard label="Peak Shave" value={result?.peak_shave_kw ? fmt(result.peak_shave_kw, 1) : '—'} unit="kW" />
               </div>
               <div className="card p-5">
@@ -343,8 +350,8 @@ export default function ResultsDashboard() {
                       {monthly.map((m, i) => (
                         <tr key={i} className="border-b border-gray-100 dark:border-gray-700">
                           <td className="px-3 py-2 font-medium">{MONTHS[i]}</td>
-                          <td className="px-3 py-2 text-right">{fmt(m.bess_charge_kwh)}</td>
-                          <td className="px-3 py-2 text-right">{fmt(m.bess_discharge_kwh)}</td>
+                          <td className="px-3 py-2 text-right">{fmt(m.battery_charged_kwh)}</td>
+                          <td className="px-3 py-2 text-right">{fmt(m.battery_discharged_kwh)}</td>
                           <td className="px-3 py-2 text-right">{fmt(m.bess_cycles, 1)}</td>
                           <td className="px-3 py-2 text-right">{m.bess_avg_soc ? (m.bess_avg_soc * 100).toFixed(1) + '%' : '—'}</td>
                         </tr>
@@ -379,12 +386,12 @@ export default function ResultsDashboard() {
                   </div>
                   <div className="p-4 bg-green-50 dark:bg-green-900/10 rounded-xl text-center">
                     <p className="text-xs text-gray-500 mb-1">With-Solar Grid Cost</p>
-                    <p className="text-lg font-bold text-green-600">{currSym}{fmt(result?.with_solar_annual_cost)}</p>
+                    <p className="text-lg font-bold text-green-600">{currSym}{fmt(result?.year1_annual_cost)}</p>
                   </div>
                   <div className="p-4 bg-amber-50 dark:bg-amber-900/10 rounded-xl text-center">
                     <p className="text-xs text-gray-500 mb-1">Annual Savings</p>
-                    <p className="text-lg font-bold text-amber-600">{currSym}{fmt(result?.annual_savings)}</p>
-                    <p className="text-xs text-gray-500">{result?.baseline_annual_cost ? ((result.annual_savings / result.baseline_annual_cost) * 100).toFixed(0) + '% reduction' : ''}</p>
+                    <p className="text-lg font-bold text-amber-600">{currSym}{fmt(result?.year1_savings)}</p>
+                    <p className="text-xs text-gray-500">{result?.baseline_annual_cost && result?.year1_savings ? ((result.year1_savings / result.baseline_annual_cost) * 100).toFixed(0) + '% reduction' : ''}</p>
                   </div>
                 </div>
               </div>
@@ -424,7 +431,7 @@ export default function ResultsDashboard() {
           {/* TARIFF TAB */}
           {tab === 'tariff' && tariff && (
             <div className="card p-5">
-              <h3 className="text-sm font-semibold mb-2">{tariff.name}</h3>
+              <h3 className="text-sm font-semibold mb-2">{tariff.tariff_name}</h3>
               <p className="text-sm text-gray-500 mb-4">{tariff.utility_name} — {tariff.tariff_type?.toUpperCase()}</p>
               {tariff.tariff_rates?.length > 0 && (
                 <div className="overflow-x-auto">
@@ -439,7 +446,7 @@ export default function ResultsDashboard() {
                     <tbody>
                       {tariff.tariff_rates.map((r, i) => (
                         <tr key={i} className="border-b border-gray-100 dark:border-gray-700">
-                          <td className="px-3 py-2">{r.season_name}</td>
+                          <td className="px-3 py-2">{r.season_key}</td>
                           <td className="px-3 py-2">{r.period_name}</td>
                           <td className="px-3 py-2 text-right font-medium">{currSym}{r.rate_per_kwh?.toFixed(4)}</td>
                         </tr>
