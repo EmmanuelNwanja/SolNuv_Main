@@ -256,7 +256,7 @@ export default function SystemVisualPreview({ installationType = 'rooftop_tilted
       <Component />
       <div className="px-3 py-2 text-center">
         <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
-          {INSTALLATION_TYPES.find(t => t.value === installationType)?.label || 'System Layout'}
+          {INSTALLATION_TYPES_MAP.find(t => t.value === installationType)?.label || 'System Layout'}
           {capacityKwp ? ` — ${capacityKwp} kWp` : ''}
         </span>
       </div>

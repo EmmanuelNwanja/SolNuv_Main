@@ -74,6 +74,9 @@ async function getCachedResource(latR, lonR) {
     const ageMs = Date.now() - new Date(data.fetched_at).getTime();
     if (ageMs > CACHE_MAX_AGE_DAYS * 24 * 3600 * 1000) return null;
 
+    // Reject corrupted cache entries (all-zero GHI from previous parsing bug)
+    if (!data.annual_ghi_kwh_m2 || Number(data.annual_ghi_kwh_m2) <= 0) return null;
+
     return {
       hourlyGhi: data.hourly_ghi_wm2,
       hourlyTemp: data.hourly_temp_c,
@@ -128,9 +131,13 @@ async function fetchNASAPowerData(lat, lon) {
 
 function extractMonthlyValues(paramObj) {
   if (!paramObj) return new Array(12).fill(0);
+  // NASA POWER climatology returns keys as month abbreviations: JAN, FEB, MAR, etc.
+  const MONTH_KEYS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
   const months = [];
-  for (let m = 1; m <= 12; m++) {
-    months.push(Number(paramObj[m] || paramObj[String(m)] || 0));
+  for (let m = 0; m < 12; m++) {
+    const val = Number(paramObj[MONTH_KEYS[m]] || paramObj[m + 1] || paramObj[String(m + 1)] || 0);
+    // NASA POWER uses -999 as fill value for missing data
+    months.push(val > 0 ? val : 0);
   }
   return months;
 }
