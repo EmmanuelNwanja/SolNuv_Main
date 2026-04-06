@@ -12,7 +12,9 @@ const SUBJECTS = [
   'General Enquiry',
   'Technical Support',
   'Billing & Subscription',
-  'Partnership / Business',
+  'Partnership / Integration',
+  'Investment Enquiry',
+  'Enterprise / White-Label',
   'Report a Bug',
   'Sales',
   'Other',
@@ -55,17 +57,17 @@ export default function ContactPage() {
   return (
     <>
       <Head>
-        <title>Contact Us - SolNuv</title>
-        <meta name="description" content="Get in touch with the SolNuv team. We're here to help with technical support, billing, partnerships and more." />
+        <title>Contact Us — SolNuv | Partnerships, Support &amp; Enterprise Sales</title>
+        <meta name="description" content="Get in touch with the SolNuv team for technical support, partnership opportunities, enterprise licensing, investment enquiries, or product feedback. We respond within 24 hours." />
       </Head>
 
       {/* Hero */}
       <section className="bg-gradient-to-br from-forest-900 via-emerald-900 to-teal-900 text-white py-16 px-4">
         <div className="max-w-4xl mx-auto text-center">
           <span className="inline-block px-3 py-1 text-xs font-semibold uppercase tracking-widest bg-emerald-500/20 text-emerald-300 rounded-full mb-4">Get in Touch</span>
-          <h1 className="text-4xl md:text-5xl font-display font-bold mb-4">Contact Us</h1>
+          <h1 className="text-4xl md:text-5xl font-display font-bold mb-4">Let&apos;s Build Africa&apos;s Solar Future Together</h1>
           <p className="text-lg text-emerald-100 max-w-2xl mx-auto">
-            Have a question, a technical issue, or just want to say hello? We'd love to hear from you.
+            Whether you&apos;re looking for technical support, want to explore partnership opportunities, or are interested in white-label solutions — we&apos;d love to hear from you.
           </p>
         </div>
       </section>
@@ -132,6 +134,7 @@ export default function ContactPage() {
               <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">Quick Links</p>
               {[
                 { label: 'View Plans & Pricing', href: '/plans' },
+                { label: 'Explore the Platform', href: '/#how-it-works' },
                 { label: 'Read our Blog', href: '/blog' },
                 { label: 'Get Started Free', href: '/register' },
               ].map(({ label, href }) => (

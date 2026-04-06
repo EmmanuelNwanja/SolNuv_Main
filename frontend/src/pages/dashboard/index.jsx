@@ -309,7 +309,7 @@ export default function Dashboard() {
 
   return (
     <>
-      <Head><title>Dashboard — SolNuv</title></Head>
+      <Head><title>Dashboard — SolNuv | Solar Engineering Platform</title></Head>
 
       <PopupCampaign />
 

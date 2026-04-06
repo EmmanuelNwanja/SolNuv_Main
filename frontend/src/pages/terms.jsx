@@ -46,8 +46,8 @@ export default function TermsOfService() {
   return (
     <>
       <Head>
-        <title>Terms of Service — SolNuv</title>
-        <meta name="description" content="Terms and conditions governing your use of the SolNuv solar lifecycle intelligence platform. Please read carefully before creating an account or using our services." />
+        <title>Terms of Service — SolNuv | Africa&apos;s Solar Engineering Platform</title>
+        <meta name="description" content="Terms and conditions governing your use of the SolNuv solar engineering, design, modelling, and compliance platform. Please read carefully before creating an account." />
       </Head>
 
       {/* Hero */}

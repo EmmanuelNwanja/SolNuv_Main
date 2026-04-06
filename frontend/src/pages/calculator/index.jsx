@@ -287,7 +287,7 @@ export default function Calculator() {
 
   return (
     <>
-      <Head><title>Value Calculator — SolNuv</title></Head>
+      <Head><title>Solar Value Calculator — SolNuv</title></Head>
 
       <MotionSection className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-forest-900 via-emerald-900 to-slate-900 text-white px-8 py-10 mb-8">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(245,158,11,0.12),transparent_60%)]" />

@@ -66,7 +66,10 @@ export default function Register() {
 
   return (
     <>
-      <Head><title>Create Account — SolNuv</title></Head>
+      <Head>
+        <title>Create Account — SolNuv | Design Solar Systems for Africa</title>
+        <meta name="description" content="Create your free SolNuv account. Design solar+battery systems, model 25-year financials, track installations, and automate NESREA compliance — built for Africa's solar professionals." />
+      </Head>
       <div className="auth-shell">
         <div className="auth-wrap">
           <div className="text-center mb-8">
@@ -77,7 +80,7 @@ export default function Register() {
               <span className="font-display font-bold text-forest-900 text-2xl">SolNuv</span>
             </Link>
             <h1 className="font-display font-bold text-forest-900 text-2xl">Create your account</h1>
-            <p className="text-slate-500 text-sm mt-1">Start from ₦5,000/mo. No credit card required to sign up.</p>
+            <p className="text-slate-500 text-sm mt-1">Design your first solar+BESS system in under 15 minutes. No credit card required.</p>
           </div>
 
           <div className="auth-card">

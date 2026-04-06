@@ -55,7 +55,7 @@ export default function Leaderboard() {
 
   return (
     <>
-      <Head><title>Leaderboard — SolNuv</title></Head>
+      <Head><title>Installer Leaderboard — SolNuv</title></Head>
 
       <MotionSection className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-amber-700 via-amber-800 to-forest-900 text-white px-8 py-10 mb-8">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(255,255,255,0.08),transparent_60%)]" />

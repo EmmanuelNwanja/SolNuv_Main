@@ -47,7 +47,10 @@ export default function Login() {
 
   return (
     <>
-      <Head><title>Sign In — SolNuv</title></Head>
+      <Head>
+        <title>Sign In — SolNuv | Africa&apos;s Solar Engineering Platform</title>
+        <meta name="description" content="Sign in to SolNuv — design solar+BESS systems, model financials, track projects, and automate compliance across Africa." />
+      </Head>
       <div className="auth-shell">
         <div className="auth-wrap">
           {/* Logo */}
@@ -59,7 +62,7 @@ export default function Login() {
               <span className="font-display font-bold text-forest-900 text-2xl">SolNuv</span>
             </Link>
             <h1 className="font-display font-bold text-forest-900 text-2xl">Welcome back</h1>
-            <p className="text-slate-500 text-sm mt-1">Sign in to your account</p>
+            <p className="text-slate-500 text-sm mt-1">Sign in to design, model, track, and comply</p>
           </div>
 
           <div className="auth-card">

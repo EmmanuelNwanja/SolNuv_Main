@@ -73,7 +73,7 @@ export default function Plans() {
 
   return (
     <>
-      <Head><title>Plans & Pricing — SolNuv</title></Head>
+      <Head><title>Plans & Pricing — SolNuv | Solar Design, Modelling & Compliance</title></Head>
 
       <MotionSection className="mb-6">
         <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-forest-900 to-emerald-800 p-6 sm:p-8 text-white text-center">
@@ -81,8 +81,8 @@ export default function Plans() {
           <div className="absolute -bottom-20 -left-20 h-56 w-56 rounded-full bg-amber-300/20 blur-3xl" />
           <div className="relative">
             <h1 className="font-display font-bold text-3xl sm:text-4xl">Choose Your Plan</h1>
-            <p className="text-white/75 mt-2">Unlock NESREA compliance, QR field traceability, CSV/Excel export, and unlimited calculator uses</p>
-            <p className="text-xs text-white/60 mt-1">All prices in Nigerian Naira. Annual billing includes 10% discount on every paid plan.</p>
+            <p className="text-white/75 mt-2">Unlock solar+BESS design, 25-year financial modelling, professional reports, NESREA compliance, and AI agents</p>
+            <p className="text-xs text-white/60 mt-1">All prices in Nigerian Naira. No FX surprises. Annual billing includes 10% discount on every paid plan.</p>
 
         <div className="mt-6 inline-flex rounded-xl bg-slate-100 p-1">
           <button
@@ -188,7 +188,7 @@ export default function Plans() {
 
       <div className="text-center mt-10 text-sm text-slate-400">
         <p>Payments are processed securely by Paystack. Monthly and annual subscriptions support auto-renewal.</p>
-        <p className="mt-1">Questions? <a href="mailto:support@solnuv.com" className="text-forest-900 hover:underline">support@solnuv.com</a></p>
+        <p className="mt-1">All plans include solar+BESS design and project tracking. Need help choosing? <a href="mailto:support@solnuv.com" className="text-forest-900 hover:underline">support@solnuv.com</a></p>
       </div>
     </>
   );

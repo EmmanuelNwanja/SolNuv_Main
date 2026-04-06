@@ -90,7 +90,7 @@ export default function ProjectsList() {
 
   return (
     <>
-      <Head><title>My Projects — SolNuv</title></Head>
+      <Head><title>My Solar Projects — SolNuv</title></Head>
 
       <MotionSection className="mb-6">
         <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-forest-900 via-forest-800 to-emerald-700 px-6 py-7 text-white">

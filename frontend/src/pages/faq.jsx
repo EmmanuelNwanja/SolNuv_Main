@@ -85,8 +85,8 @@ function FaqPage() {
   return (
     <>
       <Head>
-        <title>FAQ — SolNuv</title>
-        <meta name="description" content="Frequently asked questions about SolNuv solar engineering tools, plans, and features." />
+        <title>FAQ — SolNuv | Solar Design, Financial Modelling &amp; Compliance</title>
+        <meta name="description" content="Frequently asked questions about SolNuv — solar+BESS system design, 25-year financial modelling, NESREA EPR compliance, AI agents, tariff analysis, and lifecycle tracking for Africa." />
       </Head>
 
       {/* Hero */}
@@ -99,7 +99,7 @@ function FaqPage() {
             Frequently Asked Questions
           </h1>
           <p className="text-forest-100 text-base mb-8">
-            Everything you need to know about SolNuv — plans, calculators, and solar engineering tools.
+            Everything you need to know about SolNuv — solar+BESS design, financial modelling, compliance automation, AI agents, and pricing.
           </p>
 
           {/* Search */}

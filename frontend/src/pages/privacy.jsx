@@ -38,8 +38,8 @@ export default function PrivacyPolicy() {
   return (
     <>
       <Head>
-        <title>Privacy Policy — SolNuv</title>
-        <meta name="description" content="How SolNuv collects, uses, stores, and protects your personal data. Compliant with the Nigeria Data Protection Act 2023 and international best practice." />
+        <title>Privacy Policy — SolNuv | Africa&apos;s Solar Engineering Platform</title>
+        <meta name="description" content="How SolNuv collects, uses, stores, and protects your personal data. Compliant with the Nigeria Data Protection Act 2023 (NDPA), NDPR, and international best practice." />
       </Head>
 
       {/* Hero */}

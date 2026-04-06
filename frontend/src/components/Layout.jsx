@@ -108,7 +108,7 @@ export default function Layout({ children }) {
             <Link href="/plans" className="block mb-3 bg-amber-50 border border-amber-200 rounded-xl p-3 text-center hover:bg-amber-100 transition-colors">
               <RiArrowUpLine className="text-amber-600 mx-auto mb-1" />
               <p className="text-xs font-semibold text-amber-800">Upgrade to Pro</p>
-              <p className="text-xs text-amber-600 mt-0.5">NESREA Reports + More</p>
+              <p className="text-xs text-amber-600 mt-0.5">Design Reports + AI Agents</p>
             </Link>
           )}
           <div className="flex items-center gap-3">
