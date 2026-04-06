@@ -41,4 +41,16 @@ router.patch('/recovery-requests/:id/approve', requireAdminRole('super_admin', '
 router.get('/settings/environment', requireAdminRole('super_admin'), adminController.getEnvironmentMode);
 router.patch('/settings/environment', requireAdminRole('super_admin'), adminController.toggleEnvironmentMode);
 
+// Design & Modelling admin
+router.get('/design/overview', requireAdminRole('super_admin', 'analytics', 'operations'), adminController.getDesignOverview);
+router.get('/design/simulations', requireAdminRole('super_admin', 'analytics', 'operations'), adminController.listSimulations);
+router.get('/design/tariffs', requireAdminRole('super_admin', 'analytics', 'operations'), adminController.listTariffStructures);
+router.get('/design/tariffs/:id', requireAdminRole('super_admin', 'analytics', 'operations'), adminController.getTariffDetail);
+router.post('/design/tariffs', requireAdminRole('super_admin', 'operations'), adminController.createTariffTemplate);
+router.patch('/design/tariffs/:id', requireAdminRole('super_admin', 'operations'), adminController.updateTariffTemplate);
+router.delete('/design/tariffs/:id', requireAdminRole('super_admin'), adminController.deleteTariffTemplate);
+router.get('/design/report-shares', requireAdminRole('super_admin', 'analytics', 'operations'), adminController.listReportShares);
+router.patch('/design/report-shares/:id/revoke', requireAdminRole('super_admin', 'operations'), adminController.revokeReportShare);
+router.get('/design/adoption', requireAdminRole('super_admin', 'analytics'), adminController.getDesignAdoption);
+
 module.exports = router;

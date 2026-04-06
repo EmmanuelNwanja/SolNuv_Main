@@ -46,6 +46,14 @@ exports.getFullAnalytics = async (req, res) => {
       totalProjects,
       projectsLast30,
 
+      // Design & Modelling
+      totalDesigns,
+      designsInRange,
+      totalSimulations,
+      simulationsInRange,
+      totalReportShares,
+      totalLoadProfiles,
+
     ] = await Promise.all([
       supabase.from('blog_post_reads').select('*', { count: 'exact', head: true }).gte('read_at', start).lte('read_at', end),
       supabase.from('blog_link_clicks').select('*', { count: 'exact', head: true }).gte('clicked_at', start).lte('clicked_at', end),
@@ -79,6 +87,14 @@ exports.getFullAnalytics = async (req, res) => {
 
       supabase.from('projects').select('*', { count: 'exact', head: true }),
       supabase.from('projects').select('*', { count: 'exact', head: true }).gte('created_at', start),
+
+      // Design & Modelling
+      supabase.from('project_designs').select('*', { count: 'exact', head: true }),
+      supabase.from('project_designs').select('*', { count: 'exact', head: true }).gte('created_at', start),
+      supabase.from('simulation_results').select('*', { count: 'exact', head: true }),
+      supabase.from('simulation_results').select('*', { count: 'exact', head: true }).gte('created_at', start),
+      supabase.from('report_shares').select('*', { count: 'exact', head: true }),
+      supabase.from('load_profiles').select('*', { count: 'exact', head: true }),
     ]);
 
     // ── Blog per-post reads aggregation ──────────────────────
@@ -181,6 +197,15 @@ exports.getFullAnalytics = async (req, res) => {
       projects: {
         total_projects: totalProjects.count || 0,
         new_in_range: projectsLast30.count || 0,
+      },
+
+      design: {
+        total_designs: totalDesigns.count || 0,
+        designs_in_range: designsInRange.count || 0,
+        total_simulations: totalSimulations.count || 0,
+        simulations_in_range: simulationsInRange.count || 0,
+        total_report_shares: totalReportShares.count || 0,
+        total_load_profiles: totalLoadProfiles.count || 0,
       },
     });
   } catch (error) {

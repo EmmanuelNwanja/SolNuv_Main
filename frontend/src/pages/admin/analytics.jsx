@@ -10,6 +10,7 @@ import {
   RiAdvertisementLine, RiGlobalLine, RiRefreshLine, RiCalendar2Line,
   RiArrowUpLine, RiArrowDownLine, RiCalculatorLine, RiChatSmileLine,
   RiProjectorLine, RiEyeLine, RiMouseLine, RiTimeLine,
+  RiSunLine, RiFlashlightLine, RiShareLine, RiBatteryChargeLine,
 } from 'react-icons/ri';
 
 function StatCard({ icon: Icon, label, value, sub, color = 'emerald' }) {
@@ -101,7 +102,7 @@ function AnalyticsPage() {
   const [preset, setPreset] = useState(30);
   const [activeSection, setActiveSection] = useState('overview');
 
-  const SECTIONS = ['overview', 'blog', 'pages', 'finance', 'users', 'ads', 'contact', 'projects'];
+  const SECTIONS = ['overview', 'blog', 'pages', 'finance', 'users', 'ads', 'contact', 'projects', 'design'];
 
   const load = useCallback(async (days) => {
     setLoading(true);
@@ -210,6 +211,8 @@ function AnalyticsPage() {
                   <StatCard icon={RiAdvertisementLine} label="Ad Impressions" value={d?.ads?.total_impressions?.toLocaleString()} sub={`CTR: ${d?.ads?.overall_ctr || '0.00'}%`} color="amber" />
                   <StatCard icon={RiChatSmileLine} label="Contact Submissions" value={d?.contact?.total_submissions?.toLocaleString()} sub={`${d?.contact?.new_in_range || 0} in range`} color="rose" />
                   <StatCard icon={RiTimeLine} label="Avg Session" value={d?.pages?.avg_session_duration_s ? `${d.pages.avg_session_duration_s}s` : '—'} sub="average time on platform" color="slate" />
+                  <StatCard icon={RiSunLine} label="Solar Designs" value={d?.design?.total_designs?.toLocaleString()} sub={`+${d?.design?.designs_in_range || 0} in range`} color="amber" />
+                  <StatCard icon={RiFlashlightLine} label="Simulations" value={d?.design?.total_simulations?.toLocaleString()} sub={`+${d?.design?.simulations_in_range || 0} in range`} color="blue" />
                 </div>
               </>
             )}
@@ -398,6 +401,24 @@ function AnalyticsPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <StatCard icon={RiProjectorLine} label="Total Projects" value={d?.projects?.total_projects?.toLocaleString()} color="emerald" />
                   <StatCard icon={RiArrowUpLine} label="New in Range" value={d?.projects?.new_in_range?.toLocaleString()} sub={`last ${preset} days`} color="amber" />
+                </div>
+              </>
+            )}
+
+            {/* ─── DESIGN & MODELLING ─── */}
+            {activeSection === 'design' && (
+              <>
+                <SectionHeader icon={RiSunLine} title="Design & Modelling" color="amber" />
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+                  <StatCard icon={RiSunLine} label="Total Designs" value={d?.design?.total_designs?.toLocaleString()} sub={`+${d?.design?.designs_in_range || 0} in range`} color="amber" />
+                  <StatCard icon={RiFlashlightLine} label="Simulations" value={d?.design?.total_simulations?.toLocaleString()} sub={`+${d?.design?.simulations_in_range || 0} in range`} color="blue" />
+                  <StatCard icon={RiShareLine} label="Report Shares" value={d?.design?.total_report_shares?.toLocaleString()} color="violet" />
+                  <StatCard icon={RiBatteryChargeLine} label="Load Profiles" value={d?.design?.total_load_profiles?.toLocaleString()} color="emerald" />
+                </div>
+                <div className="rounded-xl border border-slate-700 bg-slate-800/50 p-5">
+                  <p className="text-sm text-slate-400">
+                    For detailed tariff management, simulation drill-down, share link administration, and adoption breakdowns, visit the <a href="/admin/design" className="text-emerald-400 hover:underline">Design & Modelling</a> admin section.
+                  </p>
                 </div>
               </>
             )}

@@ -31,6 +31,7 @@ export const ADMIN_TABS = [
   { id: 'analytics', label: 'Analytics', path: '/admin/analytics', title: 'Platform Analytics - SolNuv' },
   { id: 'pickup', label: 'Pickup Requests', path: '/admin/pickup', title: 'Pickup Requests - SolNuv' },
   { id: 'agents', label: 'AI Agents', path: '/admin/agents', title: 'AI Agents - SolNuv' },
+  { id: 'design', label: 'Design & Modelling', path: '/admin/design', title: 'Design & Modelling - SolNuv' },
 ];
 
 export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
@@ -409,6 +410,8 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
             <div className="card border-l-4 border-l-amber-500"><p className="text-xs text-slate-500">Active Subscriptions</p><p className="text-3xl font-bold text-emerald-700 mt-1">{overview.active_subscriptions}</p><p className="text-xs text-slate-400 mt-1">Paying organizations</p></div>
             <div className="card border-l-4 border-l-indigo-500"><p className="text-xs text-slate-500">Revenue (30d)</p><p className="text-3xl font-bold text-forest-900 mt-1">N{Number(overview.revenue_30d_ngn || 0).toLocaleString('en-NG')}</p><p className="text-xs text-slate-400 mt-1">Gross processed this month</p></div>
             <div className="card border-l-4 border-l-rose-500"><p className="text-xs text-slate-500">Queued Push Notifications</p><p className="text-3xl font-bold text-amber-700 mt-1">{overview.queued_push_notifications}</p><p className="text-xs text-slate-400 mt-1">Messages waiting for delivery</p></div>
+            <div className="card border-l-4 border-l-orange-500"><p className="text-xs text-slate-500">Solar Designs</p><p className="text-3xl font-bold text-forest-900 mt-1">{overview.designs || 0}</p><p className="text-xs text-slate-400 mt-1">Design configurations created</p></div>
+            <div className="card border-l-4 border-l-teal-500"><p className="text-xs text-slate-500">Simulations Run</p><p className="text-3xl font-bold text-forest-900 mt-1">{overview.simulations || 0}</p><p className="text-xs text-slate-400 mt-1">Full energy + financial simulations</p></div>
           </div>
 
           <div className="grid lg:grid-cols-3 gap-4">

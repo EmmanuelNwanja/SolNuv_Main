@@ -246,6 +246,17 @@ export const adminAPI = {
   // Environment mode (test/live)
   getEnvironmentMode: () => api.get('/admin/settings/environment'),
   toggleEnvironmentMode: (mode) => api.patch('/admin/settings/environment', { mode }),
+  // Design & Modelling admin
+  getDesignOverview: () => api.get('/admin/design/overview'),
+  listSimulations: (params) => api.get('/admin/design/simulations', { params }),
+  listTariffStructures: (params) => api.get('/admin/design/tariffs', { params }),
+  getTariffDetail: (id) => api.get(`/admin/design/tariffs/${id}`),
+  createTariffTemplate: (data) => api.post('/admin/design/tariffs', data),
+  updateTariffTemplate: (id, data) => api.patch(`/admin/design/tariffs/${id}`, data),
+  deleteTariffTemplate: (id) => api.delete(`/admin/design/tariffs/${id}`),
+  listReportShares: (params) => api.get('/admin/design/report-shares', { params }),
+  revokeReportShare: (id) => api.patch(`/admin/design/report-shares/${id}/revoke`),
+  getDesignAdoption: () => api.get('/admin/design/adoption'),
 };
 
 // ==============================

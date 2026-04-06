@@ -16,6 +16,8 @@ exports.getOverview = async (req, res) => {
       activeSubscriptions,
       monthlyRevenue,
       pendingPush,
+      designsCount,
+      simulationsCount,
     ] = await Promise.all([
       supabase.from('users').select('*', { count: 'exact', head: true }),
       supabase.from('companies').select('*', { count: 'exact', head: true }),
@@ -32,6 +34,8 @@ exports.getOverview = async (req, res) => {
         .from('push_notifications')
         .select('*', { count: 'exact', head: true })
         .eq('status', 'queued'),
+      supabase.from('project_designs').select('*', { count: 'exact', head: true }),
+      supabase.from('simulation_results').select('*', { count: 'exact', head: true }),
     ]);
 
     const revenue30d = (monthlyRevenue.data || []).reduce((sum, tx) => sum + Number(tx.amount_ngn || 0), 0);
@@ -43,6 +47,8 @@ exports.getOverview = async (req, res) => {
       active_subscriptions: activeSubscriptions.count || 0,
       revenue_30d_ngn: revenue30d,
       queued_push_notifications: pendingPush.count || 0,
+      designs: designsCount.count || 0,
+      simulations: simulationsCount.count || 0,
     });
   } catch (error) {
     logger.error('Failed to load admin overview', { admin_user_id: req.user?.id || null, message: error.message });
@@ -1170,5 +1176,469 @@ exports.toggleEnvironmentMode = async (req, res) => {
   } catch (error) {
     logger.error('Failed to toggle environment mode', { message: error.message });
     return sendError(res, 'Failed to toggle environment mode', 500);
+  }
+};
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  DESIGN & MODELLING ADMIN
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+/**
+ * GET /api/admin/design/overview
+ * Aggregate KPIs for the design & modelling system
+ */
+exports.getDesignOverview = async (req, res) => {
+  try {
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 3600_000).toISOString();
+
+    const [
+      totalDesigns,
+      designsLast30,
+      totalSimulations,
+      simulationsLast30,
+      totalTariffTemplates,
+      totalCompanyTariffs,
+      totalLoadProfiles,
+      totalReportShares,
+      activeShareLinks,
+    ] = await Promise.all([
+      supabase.from('project_designs').select('*', { count: 'exact', head: true }),
+      supabase.from('project_designs').select('*', { count: 'exact', head: true }).gte('created_at', thirtyDaysAgo),
+      supabase.from('simulation_results').select('*', { count: 'exact', head: true }),
+      supabase.from('simulation_results').select('*', { count: 'exact', head: true }).gte('created_at', thirtyDaysAgo),
+      supabase.from('tariff_structures').select('*', { count: 'exact', head: true }).eq('is_template', true),
+      supabase.from('tariff_structures').select('*', { count: 'exact', head: true }).eq('is_template', false),
+      supabase.from('load_profiles').select('*', { count: 'exact', head: true }),
+      supabase.from('report_shares').select('*', { count: 'exact', head: true }),
+      supabase.from('report_shares').select('*', { count: 'exact', head: true })
+        .eq('is_active', true)
+        .gt('expires_at', new Date().toISOString()),
+    ]);
+
+    return sendSuccess(res, {
+      designs: {
+        total: totalDesigns.count || 0,
+        last_30d: designsLast30.count || 0,
+      },
+      simulations: {
+        total: totalSimulations.count || 0,
+        last_30d: simulationsLast30.count || 0,
+      },
+      tariffs: {
+        templates: totalTariffTemplates.count || 0,
+        company_custom: totalCompanyTariffs.count || 0,
+      },
+      load_profiles: {
+        total: totalLoadProfiles.count || 0,
+      },
+      report_shares: {
+        total: totalReportShares.count || 0,
+        active_links: activeShareLinks.count || 0,
+      },
+    });
+  } catch (error) {
+    logger.error('Admin: getDesignOverview failed', { message: error.message });
+    return sendError(res, 'Failed to load design overview', 500);
+  }
+};
+
+/**
+ * GET /api/admin/design/simulations
+ * Paginated list of all simulations with project & company context
+ */
+exports.listSimulations = async (req, res) => {
+  try {
+    const { page = 1, limit = 30, search = '' } = req.query;
+    const from = (Number(page) - 1) * Number(limit);
+    const to = from + Number(limit) - 1;
+
+    let query = supabase
+      .from('simulation_results')
+      .select(`
+        id, pv_capacity_kwp, annual_generation_kwh, solar_fraction,
+        annual_savings, simple_payback_years, npv_25yr, irr, lcoe,
+        created_at,
+        project_designs!inner(
+          id, project_id, pv_capacity_kwp, bess_capacity_kwh,
+          bess_dispatch_strategy, location_lat, location_lon,
+          projects!inner(id, name, company_id,
+            companies(id, name)
+          )
+        )
+      `, { count: 'exact' })
+      .order('created_at', { ascending: false })
+      .range(from, to);
+
+    const { data, error, count } = await query;
+    if (error) throw error;
+
+    const rows = (data || []).map(r => ({
+      id: r.id,
+      pv_kwp: r.pv_capacity_kwp,
+      annual_gen_kwh: r.annual_generation_kwh,
+      solar_fraction: r.solar_fraction,
+      annual_savings: r.annual_savings,
+      payback_yrs: r.simple_payback_years,
+      npv: r.npv_25yr,
+      irr: r.irr,
+      lcoe: r.lcoe,
+      created_at: r.created_at,
+      bess_kwh: r.project_designs?.bess_capacity_kwh || 0,
+      dispatch: r.project_designs?.bess_dispatch_strategy || null,
+      lat: r.project_designs?.location_lat,
+      lon: r.project_designs?.location_lon,
+      project_name: r.project_designs?.projects?.name || '—',
+      company_name: r.project_designs?.projects?.companies?.name || '—',
+      project_id: r.project_designs?.project_id,
+      company_id: r.project_designs?.projects?.company_id,
+    }));
+
+    return sendSuccess(res, { simulations: rows, total: count || 0, page: Number(page), limit: Number(limit) });
+  } catch (error) {
+    logger.error('Admin: listSimulations failed', { message: error.message });
+    return sendError(res, 'Failed to list simulations', 500);
+  }
+};
+
+/**
+ * GET /api/admin/design/tariffs
+ * List all tariff structures (templates + company-defined)
+ */
+exports.listTariffStructures = async (req, res) => {
+  try {
+    const { is_template, country, page = 1, limit = 50 } = req.query;
+    const from = (Number(page) - 1) * Number(limit);
+    const to = from + Number(limit) - 1;
+
+    let query = supabase
+      .from('tariff_structures')
+      .select('*, tariff_rates(count), tariff_ancillary_charges(count)', { count: 'exact' })
+      .order('created_at', { ascending: false })
+      .range(from, to);
+
+    if (is_template === 'true') query = query.eq('is_template', true);
+    if (is_template === 'false') query = query.eq('is_template', false);
+    if (country) query = query.eq('country', country);
+
+    const { data, error, count } = await query;
+    if (error) throw error;
+
+    return sendSuccess(res, { tariffs: data || [], total: count || 0, page: Number(page), limit: Number(limit) });
+  } catch (error) {
+    logger.error('Admin: listTariffStructures failed', { message: error.message });
+    return sendError(res, 'Failed to list tariff structures', 500);
+  }
+};
+
+/**
+ * GET /api/admin/design/tariffs/:id
+ * Get a single tariff with all rates and ancillary charges
+ */
+exports.getTariffDetail = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { data, error } = await supabase
+      .from('tariff_structures')
+      .select('*, tariff_rates(*), tariff_ancillary_charges(*)')
+      .eq('id', id)
+      .single();
+
+    if (error || !data) return sendError(res, 'Tariff structure not found', 404);
+    return sendSuccess(res, data);
+  } catch (error) {
+    logger.error('Admin: getTariffDetail failed', { id: req.params?.id, message: error.message });
+    return sendError(res, 'Failed to get tariff detail', 500);
+  }
+};
+
+/**
+ * POST /api/admin/design/tariffs
+ * Create a new tariff template (admin-managed)
+ */
+exports.createTariffTemplate = async (req, res) => {
+  try {
+    const { tariff_name, country, utility_name, tariff_type, currency, seasons, rates, ancillary_charges } = req.body;
+    if (!tariff_name || !country || !tariff_type || !currency) {
+      return sendError(res, 'tariff_name, country, tariff_type, and currency are required', 400);
+    }
+
+    const { data: tariff, error: tErr } = await supabase
+      .from('tariff_structures')
+      .insert({
+        tariff_name,
+        country,
+        utility_name: utility_name || null,
+        tariff_type,
+        currency,
+        is_template: true,
+        seasons: seasons || '[]',
+      })
+      .select('*')
+      .single();
+    if (tErr) throw tErr;
+
+    if (Array.isArray(rates) && rates.length > 0) {
+      const rateRows = rates.map(r => ({ ...r, tariff_structure_id: tariff.id }));
+      const { error: rErr } = await supabase.from('tariff_rates').insert(rateRows);
+      if (rErr) throw rErr;
+    }
+
+    if (Array.isArray(ancillary_charges) && ancillary_charges.length > 0) {
+      const chargeRows = ancillary_charges.map(c => ({ ...c, tariff_structure_id: tariff.id }));
+      const { error: cErr } = await supabase.from('tariff_ancillary_charges').insert(chargeRows);
+      if (cErr) throw cErr;
+    }
+
+    await logPlatformActivity({
+      actorUserId: req.user.id,
+      actorEmail: req.user.email,
+      action: 'admin.tariff_template.created',
+      resourceType: 'tariff_structures',
+      resourceId: tariff.id,
+      details: { tariff_name, country, tariff_type },
+    });
+
+    return sendSuccess(res, tariff, 'Tariff template created', 201);
+  } catch (error) {
+    logger.error('Admin: createTariffTemplate failed', { message: error.message });
+    return sendError(res, 'Failed to create tariff template', 500);
+  }
+};
+
+/**
+ * PATCH /api/admin/design/tariffs/:id
+ * Update a tariff template (header fields only; rates managed separately)
+ */
+exports.updateTariffTemplate = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { tariff_name, country, utility_name, tariff_type, currency, seasons } = req.body;
+    const payload = {};
+    if (tariff_name !== undefined) payload.tariff_name = tariff_name;
+    if (country !== undefined) payload.country = country;
+    if (utility_name !== undefined) payload.utility_name = utility_name;
+    if (tariff_type !== undefined) payload.tariff_type = tariff_type;
+    if (currency !== undefined) payload.currency = currency;
+    if (seasons !== undefined) payload.seasons = seasons;
+
+    if (Object.keys(payload).length === 0) return sendError(res, 'No fields to update', 400);
+
+    const { data, error } = await supabase
+      .from('tariff_structures')
+      .update(payload)
+      .eq('id', id)
+      .eq('is_template', true)
+      .select('*')
+      .single();
+
+    if (error || !data) return sendError(res, 'Template not found or not a template', 404);
+
+    await logPlatformActivity({
+      actorUserId: req.user.id,
+      actorEmail: req.user.email,
+      action: 'admin.tariff_template.updated',
+      resourceType: 'tariff_structures',
+      resourceId: id,
+      details: payload,
+    });
+
+    return sendSuccess(res, data, 'Tariff template updated');
+  } catch (error) {
+    logger.error('Admin: updateTariffTemplate failed', { id: req.params?.id, message: error.message });
+    return sendError(res, 'Failed to update tariff template', 500);
+  }
+};
+
+/**
+ * DELETE /api/admin/design/tariffs/:id
+ * Delete a tariff template (cascades to rates + charges via FK)
+ */
+exports.deleteTariffTemplate = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Verify it's a template, not user-created
+    const { data: existing } = await supabase
+      .from('tariff_structures')
+      .select('id, tariff_name, is_template')
+      .eq('id', id)
+      .single();
+
+    if (!existing) return sendError(res, 'Tariff not found', 404);
+    if (!existing.is_template) return sendError(res, 'Cannot delete company-created tariffs from admin', 403);
+
+    // Delete rates + charges first, then structure
+    await supabase.from('tariff_rates').delete().eq('tariff_structure_id', id);
+    await supabase.from('tariff_ancillary_charges').delete().eq('tariff_structure_id', id);
+    const { error } = await supabase.from('tariff_structures').delete().eq('id', id);
+    if (error) throw error;
+
+    await logPlatformActivity({
+      actorUserId: req.user.id,
+      actorEmail: req.user.email,
+      action: 'admin.tariff_template.deleted',
+      resourceType: 'tariff_structures',
+      resourceId: id,
+      details: { tariff_name: existing.tariff_name },
+    });
+
+    return sendSuccess(res, { id }, 'Tariff template deleted');
+  } catch (error) {
+    logger.error('Admin: deleteTariffTemplate failed', { id: req.params?.id, message: error.message });
+    return sendError(res, 'Failed to delete tariff template', 500);
+  }
+};
+
+/**
+ * GET /api/admin/design/report-shares
+ * List all report share links with activity info
+ */
+exports.listReportShares = async (req, res) => {
+  try {
+    const { page = 1, limit = 30, active_only } = req.query;
+    const from = (Number(page) - 1) * Number(limit);
+    const to = from + Number(limit) - 1;
+
+    let query = supabase
+      .from('report_shares')
+      .select(`
+        id, share_token, is_active, view_count, expires_at, created_at,
+        simulation_results(
+          id, pv_capacity_kwp, annual_savings,
+          project_designs(
+            project_id,
+            projects(id, name, companies(id, name))
+          )
+        )
+      `, { count: 'exact' })
+      .order('created_at', { ascending: false })
+      .range(from, to);
+
+    if (active_only === 'true') {
+      query = query.eq('is_active', true).gt('expires_at', new Date().toISOString());
+    }
+
+    const { data, error, count } = await query;
+    if (error) throw error;
+
+    const rows = (data || []).map(r => ({
+      id: r.id,
+      share_token: r.share_token,
+      is_active: r.is_active,
+      view_count: r.view_count,
+      expires_at: r.expires_at,
+      created_at: r.created_at,
+      pv_kwp: r.simulation_results?.pv_capacity_kwp,
+      annual_savings: r.simulation_results?.annual_savings,
+      project_name: r.simulation_results?.project_designs?.projects?.name || '—',
+      company_name: r.simulation_results?.project_designs?.projects?.companies?.name || '—',
+    }));
+
+    return sendSuccess(res, { shares: rows, total: count || 0, page: Number(page), limit: Number(limit) });
+  } catch (error) {
+    logger.error('Admin: listReportShares failed', { message: error.message });
+    return sendError(res, 'Failed to list report shares', 500);
+  }
+};
+
+/**
+ * PATCH /api/admin/design/report-shares/:id/revoke
+ * Revoke a share link
+ */
+exports.revokeReportShare = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { data, error } = await supabase
+      .from('report_shares')
+      .update({ is_active: false })
+      .eq('id', id)
+      .select('id, share_token, is_active')
+      .single();
+
+    if (error || !data) return sendError(res, 'Share link not found', 404);
+
+    await logPlatformActivity({
+      actorUserId: req.user.id,
+      actorEmail: req.user.email,
+      action: 'admin.report_share.revoked',
+      resourceType: 'report_shares',
+      resourceId: id,
+      details: { share_token: data.share_token },
+    });
+
+    return sendSuccess(res, data, 'Share link revoked');
+  } catch (error) {
+    logger.error('Admin: revokeReportShare failed', { id: req.params?.id, message: error.message });
+    return sendError(res, 'Failed to revoke share link', 500);
+  }
+};
+
+/**
+ * GET /api/admin/design/adoption
+ * Design feature adoption by company/plan tier
+ */
+exports.getDesignAdoption = async (req, res) => {
+  try {
+    // Get all designs joined to projects + companies
+    const { data: designs } = await supabase
+      .from('project_designs')
+      .select('id, created_at, projects!inner(company_id, companies(subscription_plan))')
+      .limit(5000);
+
+    const { data: sims } = await supabase
+      .from('simulation_results')
+      .select('id, created_at, project_designs!inner(projects!inner(company_id, companies(subscription_plan)))')
+      .limit(5000);
+
+    // Aggregate by plan
+    const designsByPlan = {};
+    const simsByPlan = {};
+    const companiesWithDesigns = new Set();
+
+    for (const d of (designs || [])) {
+      const plan = d.projects?.companies?.subscription_plan || 'free';
+      designsByPlan[plan] = (designsByPlan[plan] || 0) + 1;
+      if (d.projects?.company_id) companiesWithDesigns.add(d.projects.company_id);
+    }
+
+    for (const s of (sims || [])) {
+      const plan = s.project_designs?.projects?.companies?.subscription_plan || 'free';
+      simsByPlan[plan] = (simsByPlan[plan] || 0) + 1;
+    }
+
+    // Dispatch strategy breakdown
+    const { data: dispatchData } = await supabase
+      .from('project_designs')
+      .select('bess_dispatch_strategy')
+      .not('bess_capacity_kwh', 'is', null)
+      .gt('bess_capacity_kwh', 0);
+
+    const dispatchBreakdown = {};
+    for (const d of (dispatchData || [])) {
+      const strat = d.bess_dispatch_strategy || 'self_consumption';
+      dispatchBreakdown[strat] = (dispatchBreakdown[strat] || 0) + 1;
+    }
+
+    // Load profile source breakdown
+    const { data: lpData } = await supabase
+      .from('load_profiles')
+      .select('source_type');
+
+    const loadProfileSources = {};
+    for (const lp of (lpData || [])) {
+      const src = lp.source_type || 'unknown';
+      loadProfileSources[src] = (loadProfileSources[src] || 0) + 1;
+    }
+
+    return sendSuccess(res, {
+      designs_by_plan: designsByPlan,
+      simulations_by_plan: simsByPlan,
+      companies_using_design: companiesWithDesigns.size,
+      dispatch_strategy_breakdown: dispatchBreakdown,
+      load_profile_sources: loadProfileSources,
+    });
+  } catch (error) {
+    logger.error('Admin: getDesignAdoption failed', { message: error.message });
+    return sendError(res, 'Failed to load adoption data', 500);
   }
 };
