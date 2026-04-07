@@ -692,6 +692,7 @@ export default function DesignWizard() {
                   <label className="label">Peak Demand (kW)</label>
                   <NumericInput value={form.peak_kw}
                     onChange={v => updateForm('peak_kw', v)} placeholder="Optional" />
+                  <p className="text-xs text-gray-400 mt-1">Optional upper cap on demand. Leave blank to derive peak from load shape.</p>
                 </div>
                 <div>
                   <label className="label">Business Type</label>
@@ -726,6 +727,11 @@ export default function DesignWizard() {
                               <div className="font-medium">{(loadProfileStats.monthly_kwh[i] || 0).toLocaleString()}</div>
                             </div>
                           ))}
+                        </div>
+                      )}
+                      {form.peak_kw && parseFloat(form.peak_kw) > (loadProfileStats.stats?.peakKw || 0) && (
+                        <div className="mt-3 p-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg text-xs text-amber-700 dark:text-amber-300">
+                          ⚠ Entered cap ({parseFloat(form.peak_kw).toLocaleString()} kW) is higher than the profile&apos;s natural peak ({loadProfileStats.stats?.peakKw?.toFixed(1)} kW) — the cap had no effect. To enforce a specific peak, enter a value below {loadProfileStats.stats?.peakKw?.toFixed(1)} kW.
                         </div>
                       )}
                       <button onClick={handleConfirmProfile} className="btn-primary text-sm mt-3">Confirm & Save Profile</button>
