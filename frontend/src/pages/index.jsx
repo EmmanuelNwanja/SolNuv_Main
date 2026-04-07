@@ -163,6 +163,7 @@ export default function Home() {
                 { value: '25 yrs', label: 'Financial Modelling Horizon' },
                 { value: '5', label: 'AI-Powered Helpers' },
                 { value: '₦2.4T+', label: 'Nigerian Solar Market Value' },
+                { value: '36', label: 'Nigerian States — Degradation Coverage' },
               ].map(s => (
                 <div key={s.label}>
                   <p className="font-display font-bold text-2xl text-amber-400">{s.value}</p>
@@ -531,10 +532,10 @@ export default function Home() {
             </div>
             <div className="grid md:grid-cols-4 gap-6 items-start">
               {[
-                { name: 'Basic', price: '₦5,000', period: '/mo', cta: 'Get Basic', href: '/register', features: ['Unlimited project logging', 'Solar+BESS system design', 'Satellite irradiance data access', 'West African decommission predictions', '42 calculator uses/month', 'Basic financial modelling', 'SolNuv AI Assistant', '1 user / 1 device'] },
-                { name: 'Pro', price: '₦15,000', period: '/mo', cta: 'Start Pro', href: '/register?plan=pro', popular: true, features: ['Everything in Basic', 'Full 25-year financial simulations', 'Professional PDF & Excel reports', 'Public report sharing links', 'NESREA EPR Reports', 'Load profile analysis (CSV/manual/synthetic)', 'AI Design Engineer agent', 'Team access (5 users)'] },
-                { name: 'Elite', price: '₦40,000', period: '/mo', cta: 'Go Elite', href: '/register?plan=elite', features: ['Everything in Pro', 'Auto-send to NESREA', 'Advanced tariff modelling (TOU, multi-band, regional)', '4 AI Agents (Project Manager, Advisor, Compliance, Reports)', 'Auto-optimised system sizing', 'Team access (15 users)', 'Priority support + onboarding', 'Featured installer badge'] },
-                { name: 'Enterprise', price: '₦100,000+', period: '/mo', cta: 'Contact Us', href: '/contact', features: ['Everything in Elite', 'All AI Agents + priority & async tasks', 'Custom API integrations', 'Bulk project design import', 'White-label design reports', 'Team access (50 users)', 'Dedicated account manager', 'Quarterly advisory sessions'] },
+                { name: 'Basic', price: '₦15,000', period: '/mo', cta: 'Get Basic', href: '/register', features: ['Unlimited project logging', 'Solar+BESS system design', 'Satellite irradiance data access', 'West African decommission predictions', '54 calculator uses/month', 'Basic financial modelling', 'SolNuv AI Assistant', '1 user / 1 device'] },
+                { name: 'Pro', price: '₦40,000', period: '/mo', cta: 'Start Pro', href: '/register?plan=pro', popular: true, features: ['Everything in Basic', 'Full 25-year financial simulations', 'Professional PDF & Excel reports', 'Public report sharing links', 'NESREA EPR Reports', 'Load profile analysis (CSV/manual/synthetic)', 'AI Design Engineer agent', 'Team access (5 users)'] },
+                { name: 'Elite', price: '₦100,000', period: '/mo', cta: 'Go Elite', href: '/register?plan=elite', features: ['Everything in Pro', 'Auto-send to NESREA', 'Advanced tariff modelling (TOU, multi-band, regional)', '4 AI Agents (Project Manager, Advisor, Compliance, Reports)', 'Auto-optimised system sizing', 'Team access (15 users)', 'Priority support + onboarding', 'Featured installer badge'] },
+                { name: 'Enterprise', price: '₦250,000+', period: '/mo', cta: 'Contact Us', href: '/contact', features: ['Everything in Elite', 'All AI Agents + priority & async tasks', 'Custom API integrations', 'Bulk project design import', 'White-label design reports', 'Team access (50 users)', 'Dedicated account manager', 'Quarterly advisory sessions'] },
               ].map((plan, i) => (
                 <div key={i} className={`rounded-2xl overflow-hidden ${plan.popular ? 'ring-2 ring-forest-900 shadow-xl' : 'border border-slate-200'}`}>
                   {plan.popular && <div className="bg-forest-900 text-center py-1.5 text-xs font-bold text-amber-400">MOST POPULAR</div>}

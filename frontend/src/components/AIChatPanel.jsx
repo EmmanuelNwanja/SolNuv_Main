@@ -134,7 +134,7 @@ export default function AIChatPanel() {
     || 'AI Assistant';
   const agentDescription = selectedAgent?.ai_agent_definitions?.description || '';
   const agentTier = selectedAgent?.ai_agent_definitions?.tier || 'general';
-  const agentsLoading = open && agents.length === 0;
+  const agentsLoading = open && !agentsLoaded && !agentsError;
 
   if (!session) return null;
 

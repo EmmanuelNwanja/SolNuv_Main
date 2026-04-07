@@ -32,6 +32,7 @@ export const ADMIN_TABS = [
   { id: 'pickup', label: 'Pickup Requests', path: '/admin/pickup', title: 'Pickup Requests - SolNuv' },
   { id: 'agents', label: 'AI Agents', path: '/admin/agents', title: 'AI Agents - SolNuv' },
   { id: 'design', label: 'Design & Modelling', path: '/admin/design', title: 'Design & Modelling - SolNuv' },
+  { id: 'direct-payments', label: 'Direct Payments', path: '/admin/direct-payments', title: 'Direct Bank Transfers - SolNuv' },
 ];
 
 export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
@@ -110,6 +111,15 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
 
   const [newPush, setNewPush] = useState({ title: '', message: '', target_type: 'all', target_value: '' });
 
+  // Direct Bank Transfer state
+  const [directPayments, setDirectPayments] = useState([]);
+  const [directPaymentsFilter, setDirectPaymentsFilter] = useState('');
+  const [bankTransferSettings, setBankTransferSettings] = useState({ account_name: '', bank_name: '', account_number: '', additional_instructions: '', is_active: true });
+  const [bankSettingsBusy, setBankSettingsBusy] = useState(false);
+  const [directPaymentBusy, setDirectPaymentBusy] = useState(null); // id of row being actioned
+  const [rejectReason, setRejectReason] = useState('');
+  const [rejectingId, setRejectingId] = useState(null);
+
   useEffect(() => {
     setActiveTab(forcedTab);
   }, [forcedTab]);
@@ -131,6 +141,10 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
       logs: [{ key: 'logs', request: adminAPI.getActivityLogs() }],
       admins: [{ key: 'admins', request: adminAPI.listAdmins() }],
       pickup: [{ key: 'pickup', request: adminAPI.listRecoveryRequests({ status: 'requested' }) }],
+      'direct-payments': [
+        { key: 'directPayments', request: adminAPI.listDirectPayments() },
+        { key: 'bankTransferSettings', request: adminAPI.getAdminBankTransferSettings() },
+      ],
     };
 
     const requests = requestsByTab[forcedTab] || requestsByTab.overview;
@@ -160,6 +174,8 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
           if (key === 'logs') setLogs(payload || []);
           if (key === 'admins') setAdmins(payload || []);
           if (key === 'pickup') setRecoveryRequests(payload?.requests || []);
+          if (key === 'directPayments') setDirectPayments(payload?.submissions || []);
+          if (key === 'bankTransferSettings') setBankTransferSettings(s => ({ ...s, ...(payload || {}) }));
         });
 
         setLoadWarnings(warnings);
@@ -1353,6 +1369,197 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {/* ======================== DIRECT BANK TRANSFERS ======================== */}
+      {activeTab === 'direct-payments' && (
+        <div className="space-y-6">
+          {/* Bank Account Settings Card */}
+          <div className="bg-white border border-slate-200 rounded-2xl p-5">
+            <h2 className="text-base font-bold text-forest-900 mb-4">Bank Account Settings</h2>
+            <div className="grid sm:grid-cols-2 gap-3">
+              {[
+                { label: 'Account Name', key: 'account_name', placeholder: 'e.g. SolNuv Energy Ltd' },
+                { label: 'Bank Name', key: 'bank_name', placeholder: 'e.g. Guaranty Trust Bank' },
+                { label: 'Account Number', key: 'account_number', placeholder: '10-digit account number' },
+              ].map(({ label, key, placeholder }) => (
+                <div key={key}>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">{label}</label>
+                  <input
+                    className="input w-full text-sm"
+                    placeholder={placeholder}
+                    value={bankTransferSettings[key] || ''}
+                    onChange={e => setBankTransferSettings(s => ({ ...s, [key]: e.target.value }))}
+                  />
+                </div>
+              ))}
+              <div className="sm:col-span-2">
+                <label className="block text-xs font-medium text-slate-600 mb-1">Additional Instructions (shown to users)</label>
+                <textarea
+                  rows={2}
+                  className="input w-full text-sm"
+                  placeholder="e.g. Use your email as narration when transferring."
+                  value={bankTransferSettings.additional_instructions || ''}
+                  onChange={e => setBankTransferSettings(s => ({ ...s, additional_instructions: e.target.value }))}
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="bt-active"
+                  checked={!!bankTransferSettings.is_active}
+                  onChange={e => setBankTransferSettings(s => ({ ...s, is_active: e.target.checked }))}
+                />
+                <label htmlFor="bt-active" className="text-sm text-slate-600">Enable Direct Bank Transfer option for users</label>
+              </div>
+            </div>
+            <div className="mt-4">
+              <button
+                disabled={bankSettingsBusy}
+                className="btn-primary text-sm"
+                onClick={async () => {
+                  setBankSettingsBusy(true);
+                  try {
+                    await adminAPI.updateBankTransferSettings(bankTransferSettings);
+                    toast.success('Bank transfer settings saved');
+                  } catch (err) {
+                    toast.error(err.response?.data?.message || 'Failed to save settings');
+                  } finally {
+                    setBankSettingsBusy(false);
+                  }
+                }}
+              >
+                {bankSettingsBusy ? 'Saving...' : 'Save Settings'}
+              </button>
+            </div>
+          </div>
+
+          {/* Submissions Table */}
+          <div>
+            <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+              <h2 className="text-base font-bold text-forest-900">Payment Submissions</h2>
+              <div className="flex items-center gap-2">
+                <select
+                  className="input text-sm"
+                  value={directPaymentsFilter}
+                  onChange={e => setDirectPaymentsFilter(e.target.value)}
+                >
+                  <option value="">All statuses</option>
+                  <option value="pending">Pending</option>
+                  <option value="verified">Verified</option>
+                  <option value="rejected">Rejected</option>
+                </select>
+                <button className="btn-ghost text-sm" onClick={async () => {
+                  const { data } = await adminAPI.listDirectPayments(directPaymentsFilter ? { status: directPaymentsFilter } : undefined);
+                  setDirectPayments(data?.data?.submissions || []);
+                }}>Refresh</button>
+              </div>
+            </div>
+
+            {directPayments.filter(s => !directPaymentsFilter || s.status === directPaymentsFilter).length === 0 ? (
+              <p className="text-slate-500 text-sm">No submissions found.</p>
+            ) : (
+              <div className="space-y-3">
+                {directPayments
+                  .filter(s => !directPaymentsFilter || s.status === directPaymentsFilter)
+                  .map(sub => (
+                    <div key={sub.id} className="bg-white border border-slate-200 rounded-2xl p-5">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <p className="font-semibold text-slate-800">
+                            {sub.user?.first_name} {sub.user?.last_name}
+                            <span className="ml-2 text-xs text-slate-400">{sub.user?.email}</span>
+                          </p>
+                          <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1 text-xs text-slate-500">
+                            <span>Plan: <span className="font-semibold capitalize text-slate-700">{sub.plan_id}</span></span>
+                            <span>Interval: <span className="font-semibold capitalize text-slate-700">{sub.billing_interval}</span></span>
+                            <span>Amount: <span className="font-semibold text-slate-700">₦{Number(sub.amount_ngn || 0).toLocaleString('en-NG')}</span></span>
+                            <span>Reference: <span className="font-mono text-slate-700">{sub.reference_note || '—'}</span></span>
+                            <span>Submitted: <span className="text-slate-700">{sub.created_at ? new Date(sub.created_at).toLocaleDateString('en-NG', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}</span></span>
+                          </div>
+                          {sub.admin_note && (
+                            <p className="text-xs text-slate-400 mt-1">Admin note: {sub.admin_note}</p>
+                          )}
+                        </div>
+                        <span className={`text-xs font-bold px-2 py-1 rounded-full ${sub.status === 'verified' ? 'bg-emerald-100 text-emerald-700' : sub.status === 'rejected' ? 'bg-red-100 text-red-600' : 'bg-amber-100 text-amber-700'}`}>
+                          {sub.status?.toUpperCase()}
+                        </span>
+                      </div>
+
+                      {sub.proof_url && (
+                        <a href={sub.proof_url} target="_blank" rel="noopener noreferrer" className="inline-block mt-2 text-xs text-forest-900 hover:underline">
+                          View Receipt →
+                        </a>
+                      )}
+
+                      {sub.status === 'pending' && (
+                        <div className="mt-3 pt-3 border-t border-slate-100 flex flex-col sm:flex-row gap-2">
+                          <button
+                            disabled={directPaymentBusy === sub.id}
+                            className="btn-primary text-sm py-2 px-4"
+                            onClick={async () => {
+                              setDirectPaymentBusy(sub.id);
+                              try {
+                                await adminAPI.verifyDirectPayment(sub.id, {});
+                                setDirectPayments(prev => prev.map(s => s.id === sub.id ? { ...s, status: 'verified' } : s));
+                                toast.success('Payment verified — subscription activated');
+                              } catch (err) {
+                                toast.error(err.response?.data?.message || 'Verification failed');
+                              } finally {
+                                setDirectPaymentBusy(null);
+                              }
+                            }}
+                          >
+                            {directPaymentBusy === sub.id ? 'Verifying...' : '✓ Verify & Activate'}
+                          </button>
+
+                          {rejectingId === sub.id ? (
+                            <div className="flex gap-2 flex-1">
+                              <input
+                                className="input text-sm flex-1"
+                                placeholder="Rejection reason (required)"
+                                value={rejectReason}
+                                onChange={e => setRejectReason(e.target.value)}
+                              />
+                              <button
+                                disabled={directPaymentBusy === sub.id}
+                                className="btn-outline text-sm text-red-600 border-red-200 py-2 px-3"
+                                onClick={async () => {
+                                  if (!rejectReason.trim()) { toast.error('Enter a rejection reason'); return; }
+                                  setDirectPaymentBusy(sub.id);
+                                  try {
+                                    await adminAPI.rejectDirectPayment(sub.id, { admin_note: rejectReason });
+                                    setDirectPayments(prev => prev.map(s => s.id === sub.id ? { ...s, status: 'rejected', admin_note: rejectReason } : s));
+                                    setRejectingId(null);
+                                    setRejectReason('');
+                                    toast.success('Submission rejected');
+                                  } catch (err) {
+                                    toast.error(err.response?.data?.message || 'Rejection failed');
+                                  } finally {
+                                    setDirectPaymentBusy(null);
+                                  }
+                                }}
+                              >
+                                Confirm
+                              </button>
+                              <button className="text-xs text-slate-400 hover:text-slate-600" onClick={() => { setRejectingId(null); setRejectReason(''); }}>Cancel</button>
+                            </div>
+                          ) : (
+                            <button
+                              className="btn-outline text-sm text-red-600 border-red-200 py-2 px-4"
+                              onClick={() => { setRejectingId(sub.id); setRejectReason(''); }}
+                            >
+                              Reject
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
     </AdminRoute>

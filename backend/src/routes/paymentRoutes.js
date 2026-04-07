@@ -14,5 +14,8 @@ router.post('/initialize', paymentController.initializePayment);
 router.get('/verify/:reference', paymentController.verifyPayment);
 router.post('/promo/validate', paymentController.validatePromo);
 router.get('/history', paymentController.getSubscriptionHistory);
+router.get('/bank-transfer/settings', paymentController.getBankTransferSettings);
+router.post('/bank-transfer/submit', paymentController.submitBankTransfer);
+router.get('/bank-transfer/my-submissions', paymentController.getMyBankTransferSubmissions);
 
 module.exports = router;

@@ -1,12 +1,13 @@
 import Head from 'next/head';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '../context/AuthContext';
 import { paymentsAPI } from '../services/api';
+import { supabase } from '../utils/supabase';
 import { getDashboardLayout } from '../components/Layout';
 import { LoadingSpinner } from '../components/ui/index';
 import { MotionSection } from '../components/PageMotion';
-import { RiCheckLine, RiArrowRightLine } from 'react-icons/ri';
+import { RiCheckLine, RiArrowRightLine, RiBankLine, RiCreditCard2Line, RiUpload2Line, RiCloseLine } from 'react-icons/ri';
 import toast from 'react-hot-toast';
 
 export default function Plans() {
@@ -22,6 +23,18 @@ export default function Plans() {
   const [promoResult, setPromoResult] = useState(null);
   const [checkingPromo, setCheckingPromo] = useState(false);
 
+  // Payment method modal
+  const [pendingPlan, setPendingPlan] = useState(null);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState(null); // null | 'bank_transfer' | 'paystack'
+  const [bankSettings, setBankSettings] = useState(null);
+  const [bankSettingsLoading, setBankSettingsLoading] = useState(false);
+  const [transferRef, setTransferRef] = useState('');
+  const [transferFile, setTransferFile] = useState(null);
+  const [submittingTransfer, setSubmittingTransfer] = useState(false);
+  const [transferDone, setTransferDone] = useState(false);
+  const fileInputRef = useRef(null);
+
   useEffect(() => {
     paymentsAPI.getPlans()
       .then(r => setPlans(r.data.data?.plans || []))
@@ -32,6 +45,95 @@ export default function Plans() {
   useEffect(() => {
     setPromoResult(null);
   }, [billingInterval, promoPlanForCheck]);
+
+  // Fetch bank settings when user picks bank_transfer
+  useEffect(() => {
+    if (paymentMethod !== 'bank_transfer') return;
+    setBankSettingsLoading(true);
+    paymentsAPI.getBankTransferSettings()
+      .then(r => setBankSettings(r.data.data || null))
+      .catch(() => setBankSettings(null))
+      .finally(() => setBankSettingsLoading(false));
+  }, [paymentMethod]);
+
+  function openPaymentModal(planId) {
+    if (planId === 'enterprise') { window.location.href = '/contact'; return; }
+    if (planId === currentPlan) { toast('You are already on this plan!'); return; }
+    setPendingPlan(planId);
+    setPaymentMethod(null);
+    setTransferRef('');
+    setTransferFile(null);
+    setTransferDone(false);
+    setShowPaymentModal(true);
+  }
+
+  function closePaymentModal() {
+    setShowPaymentModal(false);
+    setPendingPlan(null);
+    setPaymentMethod(null);
+    setUpgrading(null);
+  }
+
+  function getPendingAmount() {
+    const plan = plans.find(p => p.id === pendingPlan);
+    if (!plan) return 0;
+    if (promoResult?.plan_id === pendingPlan) return promoResult.payable_amount_ngn || 0;
+    return billingInterval === 'annual' ? plan.annual_price_ngn : plan.monthly_price_ngn;
+  }
+
+  async function handlePaystackUpgrade() {
+    if (!pendingPlan) return;
+    setUpgrading(pendingPlan);
+    try {
+      const { data } = await paymentsAPI.initialize({
+        plan: pendingPlan,
+        billing_interval: billingInterval,
+        promo_code: promoResult?.plan_id === pendingPlan ? promoResult?.promo_code : null,
+      });
+      if (data.data?.authorization_url) {
+        window.location.href = data.data.authorization_url;
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to initialize payment');
+    } finally { setUpgrading(null); }
+  }
+
+  async function handleBankTransferSubmit() {
+    if (!transferRef.trim()) { toast.error('Please enter your bank transaction reference'); return; }
+    if (!transferFile) { toast.error('Please upload your payment receipt'); return; }
+    const amount = getPendingAmount();
+    if (!amount) { toast.error('Could not determine plan amount'); return; }
+
+    setSubmittingTransfer(true);
+    try {
+      // Upload receipt to Supabase storage
+      const ext = transferFile.name.split('.').pop().toLowerCase();
+      const proofType = ['pdf'].includes(ext) ? 'pdf' : 'image';
+      const filePath = `${profile?.id || 'anon'}/${Date.now()}-receipt.${ext}`;
+      const { error: uploadErr } = await supabase.storage
+        .from('payment-proofs')
+        .upload(filePath, transferFile, { upsert: false });
+      if (uploadErr) throw new Error('Receipt upload failed: ' + uploadErr.message);
+
+      const { data: urlData } = supabase.storage.from('payment-proofs').getPublicUrl(filePath);
+      const proofUrl = urlData?.publicUrl;
+
+      await paymentsAPI.submitBankTransfer({
+        plan_id: pendingPlan,
+        billing_interval: billingInterval,
+        amount_ngn: amount,
+        proof_url: proofUrl,
+        proof_type: proofType,
+        reference_note: transferRef.trim(),
+      });
+      setTransferDone(true);
+      toast.success('Submission received! An admin will verify and activate your plan within 24 hours.');
+    } catch (err) {
+      toast.error(err.response?.data?.message || err.message || 'Submission failed');
+    } finally {
+      setSubmittingTransfer(false);
+    }
+  }
 
   async function applyPromo(planId) {
     if (!promoInput.trim()) {
@@ -57,21 +159,7 @@ export default function Plans() {
   }
 
   async function handleUpgrade(planId) {
-    if (planId === 'enterprise') { window.location.href = '/contact'; return; }
-    if (planId === currentPlan) { toast('You are already on this plan!'); return; }
-    setUpgrading(planId);
-    try {
-      const { data } = await paymentsAPI.initialize({
-        plan: planId,
-        billing_interval: billingInterval,
-        promo_code: promoResult?.plan_id === planId ? promoResult?.promo_code : null,
-      });
-      if (data.data?.authorization_url) {
-        window.location.href = data.data.authorization_url;
-      }
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to initialize payment');
-    } finally { setUpgrading(null); }
+    openPaymentModal(planId);
   }
 
   return (
@@ -202,6 +290,157 @@ export default function Plans() {
         <p>Payments are processed securely. Monthly and annual subscriptions support auto-renewal.</p>
         <p className="mt-1">All plans include solar+BESS design and project tracking. Need help choosing? <a href="mailto:support@solnuv.com" className="text-forest-900 hover:underline">support@solnuv.com</a></p>
       </div>
+
+      {/* ── Payment Method Modal ─────────────────────────────────── */}
+      {showPaymentModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+            <button
+              onClick={closePaymentModal}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 p-1"
+              aria-label="Close"
+            >
+              <RiCloseLine size={22} />
+            </button>
+
+            {/* Step 1 — choose method */}
+            {!paymentMethod && (
+              <div className="p-6">
+                <h2 className="font-display font-bold text-xl text-forest-900 mb-1">Choose Payment Method</h2>
+                <p className="text-sm text-slate-500 mb-6">Select how you'd like to pay for the <span className="font-semibold capitalize">{pendingPlan}</span> plan.</p>
+                <div className="space-y-3">
+                  <button
+                    onClick={() => setPaymentMethod('bank_transfer')}
+                    className="w-full flex items-start gap-4 border-2 border-slate-200 hover:border-forest-900 rounded-xl p-4 text-left transition-all group"
+                  >
+                    <span className="mt-0.5 w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center flex-shrink-0 group-hover:bg-emerald-100">
+                      <RiBankLine className="text-emerald-600" size={20} />
+                    </span>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-slate-800">Direct Bank Transfer</span>
+                        <span className="text-xs bg-amber-100 text-amber-700 font-semibold px-2 py-0.5 rounded-full">Recommended</span>
+                      </div>
+                      <p className="text-xs text-slate-500 mt-0.5">Transfer directly to our bank account and upload your receipt. Plan activates within 24 hours of admin review.</p>
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={() => { setPaymentMethod('paystack'); handlePaystackUpgrade(); }}
+                    disabled={!!upgrading}
+                    className="w-full flex items-start gap-4 border-2 border-slate-200 hover:border-forest-900 rounded-xl p-4 text-left transition-all group disabled:opacity-60"
+                  >
+                    <span className="mt-0.5 w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0 group-hover:bg-blue-100">
+                      <RiCreditCard2Line className="text-blue-600" size={20} />
+                    </span>
+                    <div>
+                      <span className="font-semibold text-slate-800">Paystack</span>
+                      <p className="text-xs text-slate-500 mt-0.5">Pay by card, bank transfer, or USSD via Paystack. Instant activation.</p>
+                    </div>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Step 2 — bank transfer form */}
+            {paymentMethod === 'bank_transfer' && !transferDone && (
+              <div className="p-6">
+                <button onClick={() => setPaymentMethod(null)} className="text-xs text-slate-400 hover:text-slate-600 mb-4 flex items-center gap-1">
+                  ← Back
+                </button>
+                <h2 className="font-display font-bold text-xl text-forest-900 mb-1">Bank Transfer Details</h2>
+                <p className="text-sm text-slate-500 mb-5">
+                  Transfer <span className="font-semibold text-slate-800">₦{Number(getPendingAmount()).toLocaleString('en-NG')}</span> to the account below, then upload your receipt.
+                </p>
+
+                {bankSettingsLoading && <div className="flex justify-center py-6"><LoadingSpinner size="md" /></div>}
+
+                {!bankSettingsLoading && bankSettings?.is_active === false && (
+                  <p className="text-sm text-amber-700 bg-amber-50 rounded-lg p-3 mb-5">Direct bank transfer is temporarily unavailable. Please use Paystack or contact support@solnuv.com.</p>
+                )}
+
+                {!bankSettingsLoading && bankSettings?.is_active !== false && bankSettings && (
+                  <div className="bg-slate-50 rounded-xl p-4 mb-5 space-y-2 text-sm border border-slate-200">
+                    {bankSettings.bank_name && (
+                      <div className="flex justify-between"><span className="text-slate-500">Bank</span><span className="font-semibold text-slate-800">{bankSettings.bank_name}</span></div>
+                    )}
+                    {bankSettings.account_number && (
+                      <div className="flex justify-between"><span className="text-slate-500">Account No.</span><span className="font-mono font-semibold text-slate-800 text-base tracking-widest">{bankSettings.account_number}</span></div>
+                    )}
+                    {bankSettings.account_name && (
+                      <div className="flex justify-between"><span className="text-slate-500">Account Name</span><span className="font-semibold text-slate-800">{bankSettings.account_name}</span></div>
+                    )}
+                    {bankSettings.additional_instructions && (
+                      <p className="text-slate-500 pt-2 border-t border-slate-200 text-xs">{bankSettings.additional_instructions}</p>
+                    )}
+                  </div>
+                )}
+
+                {!bankSettingsLoading && !bankSettings && (
+                  <p className="text-sm text-amber-700 bg-amber-50 rounded-lg p-3 mb-5">Bank account details are not configured yet. Please contact support@solnuv.com.</p>
+                )}
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Transaction Reference / Narration <span className="text-red-500">*</span></label>
+                    <input
+                      value={transferRef}
+                      onChange={e => setTransferRef(e.target.value)}
+                      placeholder="e.g. Bank teller ID or transfer narration"
+                      className="input w-full"
+                    />
+                    <p className="text-xs text-slate-400 mt-1">Enter the reference or narration from your bank receipt to help us match the payment.</p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Payment Receipt <span className="text-red-500">*</span></label>
+                    <div
+                      onClick={() => fileInputRef.current?.click()}
+                      className="border-2 border-dashed border-slate-300 rounded-xl p-5 flex flex-col items-center gap-2 cursor-pointer hover:border-forest-900 transition-colors"
+                    >
+                      <RiUpload2Line className="text-slate-400" size={24} />
+                      {transferFile
+                        ? <span className="text-sm text-slate-700 font-medium">{transferFile.name}</span>
+                        : <><span className="text-sm text-slate-500">Click to upload receipt</span><span className="text-xs text-slate-400">PNG, JPG, or PDF — max 5 MB</span></>}
+                    </div>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp,application/pdf"
+                      className="hidden"
+                      onChange={e => {
+                        const f = e.target.files?.[0];
+                        if (f && f.size > 5 * 1024 * 1024) { toast.error('File must be under 5 MB'); e.target.value = ''; return; }
+                        setTransferFile(f || null);
+                      }}
+                    />
+                  </div>
+
+                  <button
+                    onClick={handleBankTransferSubmit}
+                    disabled={submittingTransfer || bankSettings?.is_active === false}
+                    className="btn-primary w-full py-3 flex items-center justify-center gap-2 disabled:opacity-60"
+                  >
+                    {submittingTransfer ? <><LoadingSpinner size="sm" /> Submitting...</> : 'Submit for Verification'}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Step 3 — success */}
+            {paymentMethod === 'bank_transfer' && transferDone && (
+              <div className="p-6 text-center">
+                <div className="w-14 h-14 rounded-full bg-emerald-100 flex items-center justify-center mx-auto mb-4">
+                  <RiCheckLine className="text-emerald-600" size={28} />
+                </div>
+                <h2 className="font-display font-bold text-xl text-forest-900 mb-2">Submission Received!</h2>
+                <p className="text-sm text-slate-600 mb-6">Your payment proof has been submitted. An admin will review and activate your <span className="font-semibold capitalize">{pendingPlan}</span> plan within 24 hours.</p>
+                <button onClick={closePaymentModal} className="btn-primary w-full py-3">Done</button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </>
   );
 }

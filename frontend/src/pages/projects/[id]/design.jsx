@@ -624,11 +624,13 @@ export default function DesignWizard() {
                       <label className="label">Backup Generator Size (kW)</label>
                       <input type="number" className="input" value={form.backup_generator_kw}
                         onChange={e => updateForm('backup_generator_kw', e.target.value)} placeholder="e.g. 50" />
+                      <p className="text-xs text-gray-400 mt-1">Total rated output of your diesel/gas backup generator.</p>
                     </div>
                     <div>
                       <label className="label">Diesel Cost (per litre)</label>
                       <input type="number" step="0.01" className="input" value={form.diesel_cost_per_litre}
                         onChange={e => updateForm('diesel_cost_per_litre', e.target.value)} placeholder="e.g. 800" />
+                      <p className="text-xs text-gray-400 mt-1">Current diesel pump price at your site — used to calculate generator operating cost vs. solar savings.</p>
                     </div>
                   </div>
                 </div>
@@ -687,6 +689,7 @@ export default function DesignWizard() {
                   <label className="label">Annual Consumption (kWh) *</label>
                   <NumericInput value={form.annual_kwh}
                     onChange={v => updateForm('annual_kwh', v)} placeholder="e.g. 500,000" />
+                  <p className="text-xs text-gray-400 mt-1">Total kWh consumed per year. Check your utility bills or estimate from generator fuel logs.</p>
                 </div>
                 <div>
                   <label className="label">Peak Demand (kW)</label>
@@ -699,6 +702,7 @@ export default function DesignWizard() {
                   <select className="input" value={form.business_type} onChange={e => updateForm('business_type', e.target.value)}>
                     {BUSINESS_TYPES.map(b => <option key={b.value} value={b.value}>{b.label}</option>)}
                   </select>
+                  <p className="text-xs text-gray-400 mt-1">Determines the hourly load shape pattern used to build the synthetic profile.</p>
                 </div>
               </div>
 
@@ -812,11 +816,13 @@ export default function DesignWizard() {
                   <label className="label">System Losses (%)</label>
                   <input type="number" step="0.5" className="input" value={form.system_losses_pct}
                     onChange={e => updateForm('system_losses_pct', e.target.value)} />
+                  <p className="text-xs text-gray-400 mt-1">Accounts for wiring, inverter, soiling, and mismatch losses. Typical range: 14–20%.</p>
                 </div>
                 <div>
                   <label className="label">Annual Degradation (%)</label>
                   <input type="number" step="0.1" className="input" value={form.annual_degradation_pct}
                     onChange={e => updateForm('annual_degradation_pct', e.target.value)} />
+                  <p className="text-xs text-gray-400 mt-1">Rate at which panel output declines yearly. Mono/LFP: ~0.5–0.7%; older panels: up to 1.2%.</p>
                 </div>
               </div>
             </div>
@@ -853,11 +859,13 @@ export default function DesignWizard() {
                         <label className="label">Capacity (kWh) *</label>
                         <NumericInput value={form.bess_capacity_kwh}
                           onChange={v => updateForm('bess_capacity_kwh', v)} placeholder="e.g. 200" className="input" />
+                        <p className="text-xs text-gray-400 mt-1">Total usable energy storage. Estimate: load (kW) × backup hours ÷ max DoD.</p>
                       </div>
                       <div>
                         <label className="label">Power Rating (kW) *</label>
                         <NumericInput value={form.bess_power_kw}
                           onChange={v => updateForm('bess_power_kw', v)} placeholder="e.g. 100" className="input" />
+                        <p className="text-xs text-gray-400 mt-1">Max continuous charge/discharge rate. Must match your inverter rating.</p>
                       </div>
                       <div>
                         <label className="label">Chemistry</label>
@@ -875,11 +883,13 @@ export default function DesignWizard() {
                         <label className="label">Min SOC (%)</label>
                         <input type="number" min="0" max="50" className="input" value={form.bess_min_soc}
                           onChange={e => updateForm('bess_min_soc', e.target.value)} />
+                        <p className="text-xs text-gray-400 mt-1">Minimum allowed state of charge. Keeping above 10–20% significantly extends battery life.</p>
                       </div>
                       <div>
                         <label className="label">Round-Trip Efficiency (%)</label>
                         <input type="number" min="50" max="100" className="input" value={form.bess_round_trip_efficiency}
                           onChange={e => updateForm('bess_round_trip_efficiency', e.target.value)} />
+                        <p className="text-xs text-gray-400 mt-1">Energy returned per energy stored. LFP: ~95%; Lead-acid: ~80–85%.</p>
                       </div>
 
                       {/* Off-grid / Hybrid: Autonomy days */}
@@ -910,11 +920,13 @@ export default function DesignWizard() {
                   <label className="label">Total System Cost *</label>
                   <NumericInput value={form.total_cost}
                     onChange={v => updateForm('total_cost', v)} placeholder="e.g. 50,000,000" className="input" />
+                  <p className="text-xs text-gray-400 mt-1">Full installed cost including equipment, labour, and commissioning (in ₦).</p>
                 </div>
                 <div>
                   <label className="label">Annual O&M Cost</label>
                   <NumericInput value={form.om_cost_annual}
                     onChange={v => updateForm('om_cost_annual', v)} placeholder="e.g. 500,000" className="input" />
+                  <p className="text-xs text-gray-400 mt-1">Yearly maintenance estimate. Typical: 0.5–1.5% of system CAPEX.</p>
                 </div>
                 <div>
                   <label className="label">Financing Type</label>
@@ -928,11 +940,13 @@ export default function DesignWizard() {
                   <label className="label">Discount Rate (%)</label>
                   <input type="number" step="0.5" className="input" value={form.discount_rate_pct}
                     onChange={e => updateForm('discount_rate_pct', e.target.value)} />
+                  <p className="text-xs text-gray-400 mt-1">Your cost of capital or required return rate. Use CBN MPR (~26%) as a baseline.</p>
                 </div>
                 <div>
                   <label className="label">Tariff Escalation (%/yr)</label>
                   <input type="number" step="0.5" className="input" value={form.tariff_escalation_pct}
                     onChange={e => updateForm('tariff_escalation_pct', e.target.value)} />
+                  <p className="text-xs text-gray-400 mt-1">Expected annual electricity tariff increase. Nigeria average: 8–15%.</p>
                 </div>
                 <div>
                   <label className="label">Analysis Period (years)</label>
@@ -946,11 +960,13 @@ export default function DesignWizard() {
                       <label className="label">Loan Interest Rate (%)</label>
                       <input type="number" step="0.1" className="input" value={form.loan_interest_rate}
                         onChange={e => updateForm('loan_interest_rate', e.target.value)} />
+                      <p className="text-xs text-gray-400 mt-1">Annual interest rate on the project financing loan.</p>
                     </div>
                     <div>
                       <label className="label">Loan Term (years)</label>
                       <input type="number" className="input" value={form.loan_term_years}
                         onChange={e => updateForm('loan_term_years', e.target.value)} />
+                      <p className="text-xs text-gray-400 mt-1">Repayment period. Typically 3–10 years for solar projects.</p>
                     </div>
                   </>
                 )}

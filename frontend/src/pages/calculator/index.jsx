@@ -602,30 +602,36 @@ export default function Calculator() {
                   <select className="input" value={roiForm.tariff_band} onChange={(e) => setRoiForm((f) => ({ ...f, tariff_band: e.target.value }))}>
                     {['A', 'B', 'C', 'D', 'E'].map((b) => <option key={b} value={b}>Band {b}</option>)}
                   </select>
+                  <p className="text-xs text-gray-400 mt-1">Band A = highest-supply customers; Band E = lowest. Affects your baseline tariff estimate.</p>
                 </div>
                 <div>
                   <label className="label">Tariff (N/kWh)</label>
                   <NumericInput value={roiForm.tariff_rate_ngn_per_kwh} onChange={(v) => setRoiForm((f) => ({ ...f, tariff_rate_ngn_per_kwh: Number(v) || 0 }))} />
+                  <p className="text-xs text-gray-400 mt-1">Your actual NERC-billed rate per kWh from your electricity bill.</p>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="label">Generator Fuel Price (N/L)</label>
                   <NumericInput value={roiForm.generator_fuel_price_ngn_per_liter} onChange={(v) => setRoiForm((f) => ({ ...f, generator_fuel_price_ngn_per_liter: Number(v) || 0 }))} />
+                  <p className="text-xs text-gray-400 mt-1">Current diesel pump price at the site in ₦/litre.</p>
                 </div>
                 <div>
                   <label className="label">Solar CAPEX (N)</label>
                   <NumericInput value={roiForm.proposed_solar_capex_ngn} onChange={(v) => setRoiForm((f) => ({ ...f, proposed_solar_capex_ngn: Number(v) || 0 }))} />
+                  <p className="text-xs text-gray-400 mt-1">Total installed cost of the proposed solar+BESS system.</p>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="label">Grid Offset (kWh/day)</label>
                   <input type="number" className="input" value={roiForm.projected_grid_kwh_offset_per_day} onChange={(e) => setRoiForm((f) => ({ ...f, projected_grid_kwh_offset_per_day: Number(e.target.value) }))} />
+                  <p className="text-xs text-gray-400 mt-1">Estimated daily kWh the solar system will offset from grid supply.</p>
                 </div>
                 <div>
                   <label className="label">Generator Offset (L/day)</label>
                   <input type="number" className="input" value={roiForm.projected_generator_liters_offset_per_day} onChange={(e) => setRoiForm((f) => ({ ...f, projected_generator_liters_offset_per_day: Number(e.target.value) }))} />
+                  <p className="text-xs text-gray-400 mt-1">Litres of diesel per day the solar system will displace.</p>
                 </div>
               </div>
               <div>
@@ -717,26 +723,31 @@ export default function Calculator() {
                 <div>
                   <label className="label">Rated Capacity (kWh)</label>
                   <input type="number" className="input" value={sohForm.rated_capacity_kwh} onChange={(e) => setSohForm((f) => ({ ...f, rated_capacity_kwh: Number(e.target.value) }))} />
+                  <p className="text-xs text-gray-400 mt-1">Original nameplate energy capacity when the battery was new.</p>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="label">Measured Capacity (kWh)</label>
                   <input type="number" className="input" value={sohForm.measured_capacity_kwh} onChange={(e) => setSohForm((f) => ({ ...f, measured_capacity_kwh: Number(e.target.value) }))} />
+                  <p className="text-xs text-gray-400 mt-1">Current usable capacity from a full charge-discharge test. Leave 0 to estimate from cycles.</p>
                 </div>
                 <div>
                   <label className="label">Average DoD (%)</label>
                   <input type="number" className="input" value={sohForm.avg_depth_of_discharge_pct} onChange={(e) => setSohForm((f) => ({ ...f, avg_depth_of_discharge_pct: Number(e.target.value) }))} />
+                  <p className="text-xs text-gray-400 mt-1">How deeply the battery is discharged per cycle on average. Deeper cycles = faster degradation.</p>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="label">Cycles per Day</label>
                   <input type="number" className="input" value={sohForm.estimated_cycles_per_day} onChange={(e) => setSohForm((f) => ({ ...f, estimated_cycles_per_day: Number(e.target.value) }))} />
+                  <p className="text-xs text-gray-400 mt-1">Number of charge/discharge cycles per day. Most residential/C&I systems: 1–1.5 cycles/day.</p>
                 </div>
                 <div>
                   <label className="label">Ambient Temp (°C)</label>
                   <input type="number" className="input" value={sohForm.ambient_temperature_c} onChange={(e) => setSohForm((f) => ({ ...f, ambient_temperature_c: Number(e.target.value) }))} />
+                  <p className="text-xs text-gray-400 mt-1">Average battery room/enclosure temperature. High temps (>35°C) accelerate degradation.</p>
                 </div>
               </div>
               <button onClick={runSoh} disabled={loading} className="btn-primary w-full">
@@ -791,20 +802,24 @@ export default function Calculator() {
                 <div>
                   <label className="label">Current (A)</label>
                   <input type="number" className="input" value={cableForm.current_amps} onChange={(e) => setCableForm((f) => ({ ...f, current_amps: Number(e.target.value) }))} />
+                  <p className="text-xs text-gray-400 mt-1">Maximum continuous DC current the cable must carry (e.g. string Isc × 1.25).</p>
                 </div>
                 <div>
                   <label className="label">One-way Length (m)</label>
                   <input type="number" className="input" value={cableForm.one_way_length_m} onChange={(e) => setCableForm((f) => ({ ...f, one_way_length_m: Number(e.target.value) }))} />
+                  <p className="text-xs text-gray-400 mt-1">Distance from panel/string to combiner or inverter — one way only (return is calculated).</p>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="label">System Voltage (V)</label>
                   <input type="number" className="input" value={cableForm.system_voltage_v} onChange={(e) => setCableForm((f) => ({ ...f, system_voltage_v: Number(e.target.value) }))} />
+                  <p className="text-xs text-gray-400 mt-1">Nominal DC bus voltage (e.g. 48V off-grid, 600V or 1000V string).</p>
                 </div>
                 <div>
                   <label className="label">Allowable Drop (%)</label>
                   <input type="number" className="input" value={cableForm.allowable_voltage_drop_pct} onChange={(e) => setCableForm((f) => ({ ...f, allowable_voltage_drop_pct: Number(e.target.value) }))} />
+                  <p className="text-xs text-gray-400 mt-1">Max acceptable voltage drop. IEC/NEC standard: ≤1.5% DC; ≤2% AC. Lower = more yield.</p>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -818,6 +833,7 @@ export default function Calculator() {
                 <div>
                   <label className="label">Ambient Temp (°C)</label>
                   <input type="number" className="input" value={cableForm.ambient_temperature_c} onChange={(e) => setCableForm((f) => ({ ...f, ambient_temperature_c: Number(e.target.value) }))} />
+                  <p className="text-xs text-gray-400 mt-1">Installation site temperature for derating the cable ampacity. Conduit in Nigerian sun can reach 60°C+.</p>
                 </div>
               </div>
               <div>

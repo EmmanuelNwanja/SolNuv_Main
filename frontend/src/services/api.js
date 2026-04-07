@@ -215,6 +215,9 @@ export const paymentsAPI = {
   verify: (reference) => api.get(`/payments/verify/${reference}`),
   validatePromo: (data) => api.post('/payments/promo/validate', data),
   history: () => api.get('/payments/history'),
+  getBankTransferSettings: () => api.get('/payments/bank-transfer/settings'),
+  submitBankTransfer: (data) => api.post('/payments/bank-transfer/submit', data),
+  getMyBankTransferSubmissions: () => api.get('/payments/bank-transfer/my-submissions'),
 };
 
 // ==============================
@@ -258,6 +261,12 @@ export const adminAPI = {
   listReportShares: (params) => api.get('/admin/design/report-shares', { params }),
   revokeReportShare: (id) => api.patch(`/admin/design/report-shares/${id}/revoke`),
   getDesignAdoption: () => api.get('/admin/design/adoption'),
+  // Direct Bank Transfer
+  getAdminBankTransferSettings: () => api.get('/admin/payment-settings/bank-transfer'),
+  updateBankTransferSettings: (data) => api.put('/admin/payment-settings/bank-transfer', data),
+  listDirectPayments: (params) => api.get('/admin/direct-payments', { params }),
+  verifyDirectPayment: (id, data) => api.post(`/admin/direct-payments/${id}/verify`, data || {}),
+  rejectDirectPayment: (id, data) => api.post(`/admin/direct-payments/${id}/reject`, data),
 };
 
 // ==============================

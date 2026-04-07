@@ -7,20 +7,20 @@ const PLAN_LIMITS = {
   enterprise: 50,
 };
 
-// Calculator uses per month per type for Basic tier (6 types × 7 = 42 total)
-const FREE_CALC_USES_PER_TYPE = 7;
+// Calculator uses per month per type for Basic tier (6 types × 9 = 54 total)
+const FREE_CALC_USES_PER_TYPE = 9;
 const CALC_TYPES = ['panel', 'battery', 'degradation', 'roi', 'battery-soh', 'cable-size'];
 
 const PLAN_DEFINITIONS = {
   free: {
     id: 'free',
     name: 'Basic',
-    monthly_price_ngn: 10000,
-    annual_price_ngn: 108000,
+    monthly_price_ngn: 15000,
+    annual_price_ngn: 162000,
     features: [
       'Unlimited project logging',
       'West African decommission predictions',
-      '42 calculator uses/month (7 per tool)',
+      '54 calculator uses/month (9 per tool)',
       '3 design simulations/month',
       'Email decommission alerts',
       'SolNuv AI Assistant — general solar guidance',
@@ -31,8 +31,8 @@ const PLAN_DEFINITIONS = {
   pro: {
     id: 'pro',
     name: 'Pro',
-    monthly_price_ngn: 25000,
-    annual_price_ngn: 270000,
+    monthly_price_ngn: 40000,
+    annual_price_ngn: 432000,
     popular: true,
     features: [
       'Everything in Basic',
@@ -51,8 +51,8 @@ const PLAN_DEFINITIONS = {
   elite: {
     id: 'elite',
     name: 'Elite',
-    monthly_price_ngn: 60000,
-    annual_price_ngn: 648000,
+    monthly_price_ngn: 100000,
+    annual_price_ngn: 1080000,
     features: [
       'Everything in Pro',
       'Auto-send reports to NESREA',
@@ -68,8 +68,8 @@ const PLAN_DEFINITIONS = {
   enterprise: {
     id: 'enterprise',
     name: 'Enterprise',
-    monthly_price_ngn: 150000,
-    annual_price_ngn: 1620000,
+    monthly_price_ngn: 250000,
+    annual_price_ngn: 2700000,
     features: [
       'Everything in Elite',
       'Custom API integrations',

@@ -57,4 +57,11 @@ router.get('/design/report-shares', requireAdminRole('super_admin', 'analytics',
 router.patch('/design/report-shares/:id/revoke', requireAdminRole('super_admin', 'operations'), adminController.revokeReportShare);
 router.get('/design/adoption', requireAdminRole('super_admin', 'analytics'), adminController.getDesignAdoption);
 
+// Direct Bank Transfer Management
+router.get('/payment-settings/bank-transfer', requireAdminRole('super_admin', 'finance'), adminController.getAdminBankTransferSettings);
+router.put('/payment-settings/bank-transfer', requireAdminRole('super_admin'), adminController.updateBankTransferSettings);
+router.get('/direct-payments', requireAdminRole('super_admin', 'finance', 'operations'), adminController.listDirectPayments);
+router.post('/direct-payments/:id/verify', requireAdminRole('super_admin', 'finance'), adminController.verifyDirectPayment);
+router.post('/direct-payments/:id/reject', requireAdminRole('super_admin', 'finance', 'operations'), adminController.rejectDirectPayment);
+
 module.exports = router;

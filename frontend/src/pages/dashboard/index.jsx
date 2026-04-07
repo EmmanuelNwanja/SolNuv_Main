@@ -94,12 +94,12 @@ function PopupCampaign() {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 p-0 sm:p-6"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 sm:p-6"
       onClick={handleClose}
     >
       <div
-        className="relative bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl w-full sm:max-w-xs overflow-hidden flex flex-col"
-        style={{ maxHeight: '88vh' }}
+        className="relative bg-white rounded-3xl shadow-2xl w-full max-w-[72vw] sm:max-w-xs mx-auto overflow-hidden flex flex-col"
+        style={{ maxHeight: '60vh' }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Story-style progress bars */}
@@ -151,13 +151,13 @@ function PopupCampaign() {
 
         {/* 4:5 portrait image */}
         {ad.image_url ? (
-          <div className="w-full flex-shrink-0" style={{ aspectRatio: '4/5', maxHeight: '62vh' }}>
+          <div className="w-full flex-shrink-0" style={{ aspectRatio: '4/5', maxHeight: '38vh' }}>
             <img src={ad.image_url} alt={ad.title} className="w-full h-full object-cover" />
           </div>
         ) : (
           <div
             className="w-full flex-shrink-0 bg-gradient-to-br from-forest-900 to-emerald-700 flex items-center justify-center"
-            style={{ aspectRatio: '4/5', maxHeight: '62vh' }}
+            style={{ aspectRatio: '4/5', maxHeight: '38vh' }}
           >
             <span className="text-white/40 text-sm uppercase tracking-widest text-xs">Sponsored</span>
           </div>
@@ -518,7 +518,7 @@ export default function Dashboard() {
         <MotionSection className="mb-8 bg-gradient-to-r from-forest-900 to-emerald-800 rounded-2xl p-6 text-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
             <p className="font-semibold">Unlock the Full SolNuv Toolkit</p>
-            <p className="text-sm text-white/70 mt-1">Unlimited calculator use · QR field traceability · CSV/Excel export · Custom portfolio page · NESREA EPR PDFs coming soon — all from &#x20A6;15,000/mo.</p>
+            <p className="text-sm text-white/70 mt-1">Unlimited calculator use · QR field traceability · CSV/Excel export · Custom portfolio page · NESREA EPR PDFs coming soon — all from &#x20A6;40,000/mo.</p>
           </div>
           <Link href="/plans" className="btn-amber flex-shrink-0">Upgrade to Pro →</Link>
         </MotionSection>

@@ -636,3 +636,108 @@ exports.getSubscriptionHistory = async (req, res) => {
   }
 };
 
+/**
+ * GET /api/payments/bank-transfer/settings
+ * Return the platform bank account info for direct transfer (public, authenticated users).
+ */
+exports.getBankTransferSettings = async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('platform_payment_settings')
+      .select('account_name, bank_name, account_number, additional_instructions, is_active')
+      .eq('row_key', 'bank_transfer')
+      .single();
+
+    if (error || !data) return sendError(res, 'Bank transfer settings not configured', 404);
+    return sendSuccess(res, data);
+  } catch (_err) {
+    return sendError(res, 'Failed to fetch bank transfer settings', 500);
+  }
+};
+
+/**
+ * POST /api/payments/bank-transfer/submit
+ * User submits proof of payment for a direct bank transfer.
+ * Body: { plan_id, billing_interval, amount_ngn, proof_url, proof_type, reference_note }
+ */
+exports.submitBankTransfer = async (req, res) => {
+  try {
+    const { plan_id, billing_interval = 'monthly', amount_ngn, proof_url, proof_type, reference_note } = req.body;
+
+    if (!PAID_PLAN_IDS.includes(plan_id)) return sendError(res, 'Invalid plan', 400);
+    if (!amount_ngn || Number(amount_ngn) <= 0) return sendError(res, 'amount_ngn is required', 400);
+    if (!proof_url) return sendError(res, 'proof_url is required — please upload your receipt', 400);
+
+    // Validate proof_type if provided
+    if (proof_type && !['image', 'pdf'].includes(proof_type)) {
+      return sendError(res, 'proof_type must be image or pdf', 400);
+    }
+
+    // Check for any pending/recent duplicate submission (same user + plan, within 24h)
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const { data: existing } = await supabase
+      .from('direct_payment_submissions')
+      .select('id, status')
+      .eq('user_id', req.user.id)
+      .eq('plan_id', plan_id)
+      .eq('status', 'pending')
+      .gte('created_at', since)
+      .maybeSingle();
+
+    if (existing) {
+      return sendError(res, 'You already have a pending submission for this plan. Please wait for admin review.', 409);
+    }
+
+    const { data, error } = await supabase
+      .from('direct_payment_submissions')
+      .insert({
+        user_id: req.user.id,
+        plan_id,
+        billing_interval,
+        amount_ngn: Number(amount_ngn),
+        proof_url,
+        proof_type: proof_type || 'image',
+        reference_note: reference_note || null,
+        status: 'pending',
+      })
+      .select('id, status, created_at')
+      .single();
+
+    if (error) throw error;
+
+    await logPlatformActivity({
+      actorUserId: req.user.id,
+      actorEmail: req.user.email,
+      action: 'direct_payment.submitted',
+      resourceType: 'direct_payment_submission',
+      resourceId: data.id,
+      details: { plan_id, billing_interval, amount_ngn: Number(amount_ngn) },
+    });
+
+    return sendSuccess(res, data, 'Payment proof submitted. An admin will review and activate your subscription within 1–2 business days.');
+  } catch (err) {
+    logger.error('submitBankTransfer error', { message: err.message });
+    return sendError(res, 'Failed to submit payment proof', 500);
+  }
+};
+
+/**
+ * GET /api/payments/bank-transfer/my-submissions
+ * User fetches their own submission history.
+ */
+exports.getMyBankTransferSubmissions = async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('direct_payment_submissions')
+      .select('id, plan_id, billing_interval, amount_ngn, proof_type, reference_note, status, admin_note, created_at, reviewed_at')
+      .eq('user_id', req.user.id)
+      .order('created_at', { ascending: false })
+      .limit(20);
+
+    if (error) throw error;
+    return sendSuccess(res, data || []);
+  } catch (_err) {
+    return sendError(res, 'Failed to fetch submission history', 500);
+  }
+};
+

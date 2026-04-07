@@ -1723,6 +1723,258 @@ exports.getDesignAdoption = async (req, res) => {
 };
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  DIRECT BANK TRANSFER MANAGEMENT
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+/**
+ * GET /api/admin/payment-settings/bank-transfer
+ */
+exports.getAdminBankTransferSettings = async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('platform_payment_settings')
+      .select('*')
+      .eq('row_key', 'bank_transfer')
+      .maybeSingle();
+
+    if (error) throw error;
+    return sendSuccess(res, data || {});
+  } catch (error) {
+    logger.error('Admin: getAdminBankTransferSettings failed', { message: error.message });
+    return sendError(res, 'Failed to load bank transfer settings', 500);
+  }
+};
+
+/**
+ * PUT /api/admin/payment-settings/bank-transfer
+ * super_admin only: update bank account details
+ */
+exports.updateBankTransferSettings = async (req, res) => {
+  try {
+    const { account_name, bank_name, account_number, additional_instructions, is_active } = req.body;
+
+    const payload = {
+      row_key: 'bank_transfer',
+      updated_at: new Date().toISOString(),
+      updated_by: req.user.id,
+    };
+
+    if (account_name !== undefined) payload.account_name = String(account_name).trim();
+    if (bank_name !== undefined) payload.bank_name = String(bank_name).trim();
+    if (account_number !== undefined) payload.account_number = String(account_number).trim();
+    if (additional_instructions !== undefined) payload.additional_instructions = additional_instructions;
+    if (typeof is_active === 'boolean') payload.is_active = is_active;
+
+    const { data, error } = await supabase
+      .from('platform_payment_settings')
+      .upsert(payload, { onConflict: 'row_key' })
+      .select('*')
+      .single();
+
+    if (error) throw error;
+
+    await logPlatformActivity({
+      actorUserId: req.user.id,
+      actorEmail: req.user.email,
+      action: 'admin.bank_transfer_settings.updated',
+      resourceType: 'platform_payment_settings',
+      resourceId: 'bank_transfer',
+      details: { fields_updated: Object.keys(payload).filter(k => !['row_key', 'updated_at', 'updated_by'].includes(k)) },
+    });
+
+    return sendSuccess(res, data, 'Bank transfer settings saved');
+  } catch (error) {
+    logger.error('Admin: updateBankTransferSettings failed', { message: error.message });
+    return sendError(res, 'Failed to save bank transfer settings', 500);
+  }
+};
+
+/**
+ * GET /api/admin/direct-payments
+ * List all bank transfer submissions, optional ?status filter
+ */
+exports.listDirectPayments = async (req, res) => {
+  try {
+    const { status, page = 1, limit = 50 } = req.query;
+    const offset = (Number(page) - 1) * Number(limit);
+
+    let query = supabase
+      .from('direct_payment_submissions')
+      .select(
+        `*, user:users!direct_payment_submissions_user_id_fkey(id, first_name, last_name, email,
+           companies(id, name, subscription_plan))`,
+        { count: 'exact' }
+      )
+      .order('created_at', { ascending: false })
+      .range(offset, offset + Number(limit) - 1);
+
+    if (status) query = query.eq('status', status);
+
+    let { data, error, count } = await query;
+
+    // Fallback without FK alias if schema name differs
+    if (error) {
+      let fallback = supabase
+        .from('direct_payment_submissions')
+        .select('*', { count: 'exact' })
+        .order('created_at', { ascending: false })
+        .range(offset, offset + Number(limit) - 1);
+      if (status) fallback = fallback.eq('status', status);
+      const fb = await fallback;
+      data = fb.data;
+      count = fb.count;
+      error = fb.error;
+    }
+
+    if (error) throw error;
+    return sendSuccess(res, { submissions: data || [], total: count || 0, page: Number(page), limit: Number(limit) });
+  } catch (error) {
+    logger.error('Admin: listDirectPayments failed', { message: error.message });
+    return sendError(res, 'Failed to list direct payment submissions', 500);
+  }
+};
+
+/**
+ * POST /api/admin/direct-payments/:id/verify
+ * Verify a bank transfer submission and activate the user's subscription
+ */
+exports.verifyDirectPayment = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { admin_note } = req.body;
+
+    const { data: submission, error: fetchErr } = await supabase
+      .from('direct_payment_submissions')
+      .select('*, user:users!direct_payment_submissions_user_id_fkey(id, email, company_id)')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (fetchErr) throw fetchErr;
+    if (!submission) return sendError(res, 'Submission not found', 404);
+    if (submission.status === 'verified') return sendError(res, 'Already verified', 409);
+
+    // Mark submission verified
+    const now = new Date().toISOString();
+    const { error: updateErr } = await supabase
+      .from('direct_payment_submissions')
+      .update({
+        status: 'verified',
+        admin_note: admin_note || null,
+        reviewed_by: req.user.id,
+        reviewed_at: now,
+        updated_at: now,
+      })
+      .eq('id', id);
+
+    if (updateErr) throw updateErr;
+
+    // Activate subscription for user's company
+    const targetUser = submission.user;
+    if (targetUser?.company_id) {
+      const now = new Date();
+      const expiresAt = new Date(now);
+      expiresAt.setMonth(expiresAt.getMonth() + (submission.billing_interval === 'annual' ? 12 : 1));
+
+      await supabase.from('companies').update({
+        subscription_plan: submission.plan_id,
+        subscription_interval: submission.billing_interval,
+        subscription_started_at: now.toISOString(),
+        subscription_expires_at: expiresAt.toISOString(),
+        subscription_auto_renew: false,
+        verified_at: now.toISOString(),
+        verified_by: req.user.id,
+      }).eq('id', targetUser.company_id);
+
+      const env = req.env || 'test';
+      await supabase.from('subscription_transactions').insert({
+        user_id: targetUser.id,
+        company_id: targetUser.company_id,
+        plan: submission.plan_id,
+        billing_interval: submission.billing_interval,
+        amount_ngn: submission.amount_ngn,
+        original_amount_ngn: submission.amount_ngn,
+        discount_amount_ngn: 0,
+        paystack_reference: submission.reference_note || `bank-${id}`,
+        paystack_status: 'admin_confirmed',
+        payment_channel: 'direct_transfer',
+        admin_upgraded_by: req.user.id,
+        bank_confirmed_at: now.toISOString(),
+        bank_reference: submission.reference_note || null,
+        paid_at: now.toISOString(),
+        environment: env,
+      });
+
+      assignAgentsOnSubscription(targetUser.company_id, submission.plan_id).catch(err =>
+        logger.warn('Agent assignment after bank transfer verification failed', { companyId: targetUser.company_id, message: err.message })
+      );
+    }
+
+    await logPlatformActivity({
+      actorUserId: req.user.id,
+      actorEmail: req.user.email,
+      action: 'admin.direct_payment.verified',
+      resourceType: 'direct_payment_submissions',
+      resourceId: id,
+      details: { user_id: targetUser?.id, plan: submission.plan_id, interval: submission.billing_interval },
+    });
+
+    return sendSuccess(res, { id, status: 'verified' }, 'Payment verified and subscription activated');
+  } catch (error) {
+    logger.error('Admin: verifyDirectPayment failed', { id: req.params?.id, message: error.message });
+    return sendError(res, 'Failed to verify payment', 500);
+  }
+};
+
+/**
+ * POST /api/admin/direct-payments/:id/reject
+ */
+exports.rejectDirectPayment = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { admin_note } = req.body;
+    if (!admin_note?.trim()) return sendError(res, 'A rejection reason (admin_note) is required', 400);
+
+    const { data: submission, error: fetchErr } = await supabase
+      .from('direct_payment_submissions')
+      .select('id, status, user_id')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (fetchErr) throw fetchErr;
+    if (!submission) return sendError(res, 'Submission not found', 404);
+    if (submission.status === 'verified') return sendError(res, 'Cannot reject an already-verified submission', 409);
+
+    const rejectNow = new Date().toISOString();
+    const { error: updateErr } = await supabase
+      .from('direct_payment_submissions')
+      .update({
+        status: 'rejected',
+        admin_note: admin_note.trim(),
+        reviewed_by: req.user.id,
+        reviewed_at: rejectNow,
+        updated_at: rejectNow,
+      })
+      .eq('id', id);
+
+    if (updateErr) throw updateErr;
+
+    await logPlatformActivity({
+      actorUserId: req.user.id,
+      actorEmail: req.user.email,
+      action: 'admin.direct_payment.rejected',
+      resourceType: 'direct_payment_submissions',
+      resourceId: id,
+      details: { user_id: submission.user_id, admin_note },
+    });
+
+    return sendSuccess(res, { id, status: 'rejected' }, 'Submission rejected');
+  } catch (error) {
+    logger.error('Admin: rejectDirectPayment failed', { id: req.params?.id, message: error.message });
+    return sendError(res, 'Failed to reject submission', 500);
+  }
+};
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 //  SEO & PLATFORM SETTINGS
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
