@@ -3,6 +3,7 @@ import { useRouter } from 'next/router';
 import { useState } from 'react';
 import {
   RiAdminLine,
+  RiBankLine,
   RiCloseLine,
   RiDashboardLine,
   RiFileList3Line,
@@ -42,6 +43,7 @@ const adminNavSections = [
       { href: '/admin/promo', label: 'Promotions', icon: RiPriceTag3Line },
       { href: '/admin/push', label: 'Notifications', icon: RiNotification3Line },
       { href: '/admin/paystack', label: 'Paystack Plans', icon: RiWallet3Line },
+      { href: '/admin/direct-payments', label: 'Direct Payments', icon: RiBankLine },
       { href: '/admin/logs', label: 'Activity Log', icon: RiFileList3Line },
       { href: '/admin/otp-management', label: 'OTP Operations', icon: RiKey2Line },
     ],
