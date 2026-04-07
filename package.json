@@ -1,3 +1,7 @@
 {
-  "private": true
+  "private": true,
+  "scripts": {
+    "install:frontend": "npm install --prefix frontend --legacy-peer-deps",
+    "build": "npm run build --prefix frontend"
+  }
 }
