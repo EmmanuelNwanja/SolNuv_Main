@@ -11,6 +11,7 @@ const { logPlatformActivity } = require('../services/auditService');
 const logger = require('../utils/logger');
 const {
   BILLING_INTERVALS,
+  PLAN_HIERARCHY,
   PLAN_LIMITS,
   PAID_PLAN_IDS,
   getPlanPrice,
@@ -195,6 +196,8 @@ async function activateSubscription({
   const now = new Date();
   const expiresAt = new Date(now);
   expiresAt.setMonth(expiresAt.getMonth() + durationMonths);
+  const graceUntil = new Date(expiresAt);
+  graceUntil.setDate(graceUntil.getDate() + 7);
 
   await supabase
     .from('companies')
@@ -203,6 +206,7 @@ async function activateSubscription({
       subscription_interval: billingInterval,
       subscription_started_at: now.toISOString(),
       subscription_expires_at: expiresAt.toISOString(),
+      subscription_grace_until: graceUntil.toISOString(),
       subscription_auto_renew: true,
       max_team_members: PLAN_LIMITS[plan],
       paystack_customer_id: paystackPayload?.customer?.customer_code || company.paystack_customer_id,

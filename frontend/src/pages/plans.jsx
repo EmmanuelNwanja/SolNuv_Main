@@ -18,7 +18,7 @@ export default function Plans() {
   const [upgrading, setUpgrading] = useState(null);
   const [billingInterval, setBillingInterval] = useState('monthly');
   const [promoInput, setPromoInput] = useState('');
-  const [promoPlanForCheck, setPromoPlanForCheck] = useState('pro');
+  const [promoPlanForCheck, setPromoPlanForCheck] = useState('basic');
   const [promoResult, setPromoResult] = useState(null);
   const [checkingPromo, setCheckingPromo] = useState(false);
 
@@ -36,7 +36,7 @@ export default function Plans() {
 
   useEffect(() => {
     paymentsAPI.getPlans()
-      .then(r => setPlans(r.data.data?.plans || []))
+      .then(r => setPlans((r.data.data?.plans || []).filter(p => p.id !== 'free')))
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
@@ -57,6 +57,7 @@ export default function Plans() {
 
   function openPaymentModal(planId) {
     if (planId === 'enterprise') { window.location.href = '/contact'; return; }
+    if (planId === 'free') return; // free tier is always available — nothing to pay for
     if (planId === currentPlan) { toast('You are already on this plan!'); return; }
     setPendingPlan(planId);
     setPaymentMethod(null);
@@ -195,7 +196,7 @@ export default function Plans() {
             onChange={(e) => setPromoPlanForCheck(e.target.value)}
             className="input sm:col-span-1"
           >
-            <option value="free">Basic</option>
+            <option value="basic">Basic</option>
             <option value="pro">Pro</option>
             <option value="elite">Elite</option>
             <option value="enterprise">Enterprise</option>

@@ -30,10 +30,15 @@ const navItems = [
 ];
 
 export default function Layout({ children }) {
-  const { profile, plan, isPro, company, signOut, isPlatformAdmin, session } = useAuth();
+  const { profile, plan, isPro, isFree, isBasic, isInGracePeriod, graceUntil, company, signOut, isPlatformAdmin, session } = useAuth();
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+
+  // Days remaining in grace period (null when not applicable)
+  const graceDaysLeft = isInGracePeriod && graceUntil
+    ? Math.max(0, Math.ceil((new Date(graceUntil) - new Date()) / 86_400_000))
+    : null;
 
   // Poll for unread notifications count (only when logged in)
   useEffect(() => {
@@ -104,11 +109,18 @@ export default function Layout({ children }) {
 
         {/* Plan badge */}
         <div className="p-4 border-t border-slate-100">
-          {!isPro && (
+          {isFree && (
+            <Link href="/plans" className="block mb-3 bg-violet-50 border border-violet-200 rounded-xl p-3 text-center hover:bg-violet-100 transition-colors">
+              <RiArrowUpLine className="text-violet-600 mx-auto mb-1" />
+              <p className="text-xs font-semibold text-violet-800">Subscribe to unlock features</p>
+              <p className="text-xs text-violet-600 mt-0.5">Simulations, AI Assistant & more</p>
+            </Link>
+          )}
+          {!isPro && !isFree && (
             <Link href="/plans" className="block mb-3 bg-amber-50 border border-amber-200 rounded-xl p-3 text-center hover:bg-amber-100 transition-colors">
               <RiArrowUpLine className="text-amber-600 mx-auto mb-1" />
               <p className="text-xs font-semibold text-amber-800">Upgrade to Pro</p>
-              <p className="text-xs text-amber-600 mt-0.5">Design Reports + AI Agents</p>
+              <p className="text-xs text-amber-600 mt-0.5">Design Reports + Unlimited Simulations</p>
             </Link>
           )}
           <div className="flex items-center gap-3">
@@ -138,8 +150,13 @@ export default function Layout({ children }) {
           <div className="flex-1" />
           <div className="flex items-center gap-3">
             <ThemeToggle compact />
-            <span className={`badge ${plan === 'free' ? 'badge-slate' : plan === 'pro' ? 'badge-green' : plan === 'elite' ? 'badge-forest' : 'badge-amber'}`}>
-              {plan === 'free' ? 'BASIC' : plan.toUpperCase()}
+            <span className={`badge ${
+              isFree    ? 'badge-slate' :
+              isBasic   ? 'badge-amber'  :
+              plan === 'pro'   ? 'badge-green'  :
+              plan === 'elite' ? 'badge-forest' : 'badge-amber'
+            }`}>
+              {isFree ? 'FREE' : plan.toUpperCase()}
             </span>
             <Link href="/notifications" className="relative text-slate-500 hover:text-forest-900 transition-colors p-1">
               <RiBellLine className="text-xl" />
@@ -151,6 +168,23 @@ export default function Layout({ children }) {
             </Link>
           </div>
         </header>
+
+        {/* Grace period / free tier banner */}
+        {isInGracePeriod && graceDaysLeft !== null && (
+          <div className={`px-4 lg:px-8 py-2.5 flex items-center gap-3 text-sm ${
+            graceDaysLeft <= 1 ? 'bg-red-50 border-b border-red-200 text-red-800'
+              : graceDaysLeft <= 3 ? 'bg-orange-50 border-b border-orange-200 text-orange-800'
+              : 'bg-amber-50 border-b border-amber-200 text-amber-800'
+          }`}>
+            <span className="flex-1">
+              {graceDaysLeft === 0
+                ? 'Your subscription grace period ends today.'
+                : `Your subscription has expired — ${graceDaysLeft} day${graceDaysLeft === 1 ? '' : 's'} of grace period remaining.`}
+              {' '}Features will be restricted after this.
+            </span>
+            <Link href="/plans" className="font-semibold underline underline-offset-2 whitespace-nowrap">Renew now</Link>
+          </div>
+        )}
 
         {/* Page content */}
         <main className="flex-1 p-4 lg:p-8 overflow-auto">

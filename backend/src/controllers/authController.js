@@ -291,18 +291,34 @@ exports.getMe = async (req, res) => {
 
     if (error) throw error;
 
-    // Compute effective subscription plan — if expiry has passed, treat as free
-    // (does NOT modify the DB; database cleanup happens on next successful payment)
+    // Compute effective subscription plan and grace state.
+    // Hard cutoff = subscription_grace_until (7 days after expiry).
+    // If still within grace period: plan stays active but is_in_grace_period = true.
+    // After grace period: plan downgraded to 'free' (does NOT modify DB).
     if (user.companies && user.companies.subscription_plan !== 'free') {
-      const expiresAt = user.companies.subscription_expires_at;
-      if (expiresAt && new Date(expiresAt) < new Date()) {
+      const graceUntil = user.companies.subscription_grace_until;
+      const expiresAt  = user.companies.subscription_expires_at;
+      const now        = new Date();
+      const hardCutoff = graceUntil ? new Date(graceUntil) : (expiresAt ? new Date(expiresAt) : null);
+      const softExpired = expiresAt && new Date(expiresAt) < now;
+
+      if (hardCutoff && hardCutoff < now) {
+        // Past grace period → treat as free
         user.companies = {
           ...user.companies,
           subscription_plan: 'free',
           subscription_interval: null,
           subscription_auto_renew: false,
+          is_in_grace_period: false,
         };
+      } else if (softExpired) {
+        // Between subscription expiry and grace_until → active but in grace
+        user.companies = { ...user.companies, is_in_grace_period: true };
+      } else {
+        user.companies = { ...user.companies, is_in_grace_period: false };
       }
+    } else if (user.companies) {
+      user.companies = { ...user.companies, is_in_grace_period: false };
     }
 
     // Get unread notification count

@@ -94,7 +94,7 @@ export default function Reports() {
               Generate NESREA EPR documents, download structured exports, and maintain a verifiable audit trail for your projects.
             </p>
             <div className="mt-4 flex flex-wrap gap-2 text-xs">
-              <span className="rounded-full border border-white/20 bg-white/10 px-3 py-1">Plan: {plan === 'free' ? 'BASIC' : String(plan || 'free').toUpperCase()}</span>
+              <span className="rounded-full border border-white/20 bg-white/10 px-3 py-1">Plan: {String(plan || 'free').toUpperCase()}</span>
               <span className="rounded-full border border-white/20 bg-white/10 px-3 py-1">{history.length} historical reports</span>
               <span className="rounded-full border border-white/20 bg-white/10 px-3 py-1">EPR-ready workflow</span>
             </div>

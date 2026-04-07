@@ -354,27 +354,21 @@ export default function Calculator() {
         ))}
       </div>
 
-      {/* Usage banner — Free plan only */}
+      {/* Usage banner — Free tier only */}
       {usageData?.is_limited && (
         <div className="mb-5 rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <p className="text-sm font-semibold text-amber-800">
-              Basic Plan Usage — {Object.values(usageData.usage || {}).reduce((a, b) => a + b, 0)} / 42 calculations used this month
+              {usageData.plan === 'free' ? 'Free Tier' : 'Basic Plan'} Usage — {usageData.total_used ?? Object.values(usageData.usage || {}).reduce((a, b) => a + b, 0)} / {usageData.total_limit ?? (usageData.plan === 'free' ? 6 : 54)} calculations used this month
             </p>
-            <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1">
-              {['panel','battery','degradation','roi','battery-soh','cable-size'].map(t => {
-                const used = usageData.usage?.[t] || 0;
-                const labels = { panel: 'Panel', battery: 'Battery', degradation: 'Decommission', roi: 'ROI', 'battery-soh': 'SoH', 'cable-size': 'Cable' };
-                return (
-                  <span key={t} className={`text-xs ${used >= 7 ? 'text-red-600 font-semibold' : 'text-amber-600'}`}>
-                    {labels[t]}: {used}/7{used >= 7 ? ' ✕' : ''}
-                  </span>
-                );
-              })}
-            </div>
+            <p className="text-xs text-amber-600 mt-0.5">
+              {usageData.plan === 'free'
+                ? 'Subscribe to Basic or higher for more calculator access, simulations, and AI support.'
+                : 'Upgrade to Pro for unlimited calculator access, simulations, and advanced AI tools.'}
+            </p>
           </div>
           <Link href="/plans" className="text-xs whitespace-nowrap font-semibold bg-forest-900 text-white px-3 py-2 rounded-lg hover:bg-forest-800 transition-colors">
-            Upgrade to Pro →
+            View Plans →
           </Link>
         </div>
       )}

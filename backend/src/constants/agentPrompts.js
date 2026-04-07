@@ -451,7 +451,7 @@ const AGENT_SEEDS = [
     capabilities: ['notify.escalate'],
     provider_slug: 'groq',
     fallback_provider_slug: 'gemini',
-    plan_minimum: 'free',
+    plan_minimum: 'basic',
     max_instances_per_company: 1,
     max_tokens_per_task: 2000,
     temperature: 0.4,

@@ -4,25 +4,28 @@
  */
 
 const { sendError } = require('../utils/responseHelper');
-const { PLAN_LIMITS } = require('../services/billingService');
+const { PLAN_HIERARCHY, PLAN_LIMITS } = require('../services/billingService');
 
-const PLAN_HIERARCHY = { free: 0, pro: 1, elite: 2, enterprise: 3 };
+const PLAN_HIERARCHY_LOCAL = PLAN_HIERARCHY; // { free:0, basic:1, pro:2, elite:3, enterprise:4 }
 
 /**
  * Require minimum subscription plan
- * @param {string} minPlan - 'free' | 'pro' | 'elite' | 'enterprise'
+ * @param {string} minPlan - 'free' | 'basic' | 'pro' | 'elite' | 'enterprise'
  */
 function requirePlan(minPlan) {
   return (req, res, next) => {
     if (!req.user) return sendError(res, 'Authentication required', 401);
 
     const userPlan = req.user.companies?.subscription_plan || req.user.subscription_plan || 'free';
-    const userPlanLevel = PLAN_HIERARCHY[userPlan] ?? 0;
-    const requiredLevel = PLAN_HIERARCHY[minPlan] ?? 0;
+    const userPlanLevel = PLAN_HIERARCHY_LOCAL[userPlan] ?? 0;
+    const requiredLevel = PLAN_HIERARCHY_LOCAL[minPlan] ?? 0;
 
-    // Check if subscription has expired
+    // Grace period: use subscription_grace_until as the hard cutoff if available,
+    // otherwise fall back to subscription_expires_at.
+    const graceUntil = req.user.companies?.subscription_grace_until;
     const expiresAt = req.user.companies?.subscription_expires_at;
-    if (expiresAt && new Date(expiresAt) < new Date() && userPlan !== 'free') {
+    const hardCutoff = graceUntil || expiresAt;
+    if (hardCutoff && new Date(hardCutoff) < new Date() && userPlan !== 'free') {
       return sendError(res, 'Your subscription has expired. Please renew to access this feature.', 402, {
         code: 'SUBSCRIPTION_EXPIRED',
         upgrade_url: 'https://solnuv.com/plans',

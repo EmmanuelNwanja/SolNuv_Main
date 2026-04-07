@@ -1,29 +1,48 @@
 const BILLING_INTERVALS = ['monthly', 'annual'];
 
+// Plan hierarchy: used across middlewares for level comparisons
+const PLAN_HIERARCHY = { free: 0, basic: 1, pro: 2, elite: 3, enterprise: 4 };
+
 const PLAN_LIMITS = {
   free: 1,
+  basic: 1,
   pro: 5,
   elite: 15,
   enterprise: 50,
 };
 
-// Calculator uses per month per type for Basic tier (6 types × 9 = 54 total)
-const FREE_CALC_USES_PER_TYPE = 9;
+// Calculator limits
+const FREE_CALC_TOTAL_LIMIT = 6;     // free tier: 6 total uses / month across all types
+const BASIC_CALC_TOTAL_LIMIT = 54;   // basic tier: 54 total uses / month across all types
 const CALC_TYPES = ['panel', 'battery', 'degradation', 'roi', 'battery-soh', 'cable-size'];
 
 const PLAN_DEFINITIONS = {
   free: {
     id: 'free',
+    name: 'Free',
+    monthly_price_ngn: 0,
+    annual_price_ngn: 0,
+    features: [
+      'Account login & dashboard',
+      'Unlimited project logging',
+      '6 calculator uses/month (all tools)',
+      'West African degradation data',
+    ],
+    cta: 'Current Plan',
+  },
+  basic: {
+    id: 'basic',
     name: 'Basic',
     monthly_price_ngn: 15000,
     annual_price_ngn: 162000,
     features: [
       'Unlimited project logging',
-      'West African decommission predictions',
-      '54 calculator uses/month (9 per tool)',
-      '3 design simulations/month',
-      'Email decommission alerts',
-      'SolNuv AI Assistant — general solar guidance',
+      'Solar+BESS system design',
+      'Satellite irradiance data access',
+      'Decommission predictions',
+      '54 calculator uses/month',
+      'Basic financial modelling',
+      'SolNuv AI Assistant',
       '1 user / 1 device',
     ],
     cta: 'Get Basic',
@@ -84,9 +103,7 @@ const PLAN_DEFINITIONS = {
   },
 };
 
-module.exports.__CALC_LIMITS = { FREE_CALC_USES_PER_TYPE, CALC_TYPES };
-
-const PAID_PLAN_IDS = ['free', 'pro', 'elite', 'enterprise'];
+const PAID_PLAN_IDS = ['basic', 'pro', 'elite', 'enterprise'];
 
 function getPlanPrice(planId, interval = 'monthly') {
   const def = PLAN_DEFINITIONS[planId];
@@ -123,9 +140,13 @@ function getPlanCatalogForClient() {
 
 module.exports = {
   BILLING_INTERVALS,
+  PLAN_HIERARCHY,
   PLAN_LIMITS,
   PLAN_DEFINITIONS,
   PAID_PLAN_IDS,
+  FREE_CALC_TOTAL_LIMIT,
+  BASIC_CALC_TOTAL_LIMIT,
+  CALC_TYPES,
   getPlanPrice,
   getPlanDurationMonths,
   getPlanCatalogForClient,

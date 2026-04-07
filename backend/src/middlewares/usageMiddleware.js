@@ -1,16 +1,14 @@
 /**
  * SolNuv Calculator Usage Middleware
- * Tracks calculator usage and enforces per-type monthly limits for Basic plan.
- *
- * Basic plan: 9 uses per calculator type per month (6 types × 9 = 54 total)
- * Pro / Elite / Enterprise: Unlimited
+ * Free tier : 6 total calculator uses per month across all tool types.
+ * Basic     : 54 total calculator uses per month across all tool types.
+ * Pro+      : Unlimited calculator uses.
+ * Simulation: Blocked for free tier. Basic: 3/month. Pro+: unlimited.
  */
 
 const supabase = require('../config/database');
 const { sendError } = require('../utils/responseHelper');
-
-const FREE_LIMIT_PER_TYPE = 9;
-const PLAN_HIERARCHY = { free: 0, pro: 1, elite: 2, enterprise: 3 };
+const { PLAN_HIERARCHY, FREE_CALC_TOTAL_LIMIT, BASIC_CALC_TOTAL_LIMIT } = require('../services/billingService');
 
 /**
  * Returns { year, month } for the current billing period.
@@ -34,48 +32,55 @@ function trackCalculatorUsage(calcType) {
     const userPlan = req.company?.subscription_plan || user.subscription_plan || 'free';
     const planLevel = PLAN_HIERARCHY[userPlan] ?? 0;
 
-    // Paid plans are unrestricted
-    if (planLevel > 0) return next();
+    // Pro+ : no calc limits
+    if (planLevel >= 2) return next();
 
-    // Basic plan — check + increment monthly usage for this type
+    // Free (6) or Basic (54): check TOTAL usage across all calc types this month
+    const calcLimit = planLevel === 1 ? BASIC_CALC_TOTAL_LIMIT : FREE_CALC_TOTAL_LIMIT;
+
+    // Free / Basic — check TOTAL usage across all calc types this month
     const { year, month } = currentPeriod();
+    const userId = user.supabase_uid || user.id;
 
     try {
-      // Upsert usage counter (increment by 1 atomically using RPC)
-      // Fallback: read-then-write with conflict handling
+      const { data: allRows } = await supabase
+        .from('calculator_usage')
+        .select('use_count')
+        .eq('user_id', userId)
+        .eq('period_year', year)
+        .eq('period_month', month);
+
+      const totalUsed = (allRows || []).reduce((sum, r) => sum + (r.use_count || 0), 0);
+
+      if (totalUsed >= calcLimit) {
+        const msg = planLevel === 1
+          ? `You've used all ${BASIC_CALC_TOTAL_LIMIT} Basic calculator uses for this month. Upgrade to Pro for unlimited access.`
+          : `You've used your ${FREE_CALC_TOTAL_LIMIT} free calculator uses for this month. Subscribe to Basic for more access.`;
+        return sendError(res, msg, 429, {
+          code: 'CALC_LIMIT_EXCEEDED',
+          calc_type: calcType,
+          limit: calcLimit,
+          used: totalUsed,
+          period: `${year}-${String(month).padStart(2, '0')}`,
+          upgrade_url: 'https://solnuv.com/plans',
+        });
+      }
+
+      // Increment usage for this specific type (for per-tool analytics)
       const { data: existing } = await supabase
         .from('calculator_usage')
         .select('use_count')
-        .eq('user_id', user.supabase_uid || user.id)
+        .eq('user_id', userId)
         .eq('calc_type', calcType)
         .eq('period_year', year)
         .eq('period_month', month)
         .maybeSingle();
 
-      const currentCount = existing?.use_count ?? 0;
-
-      if (currentCount >= FREE_LIMIT_PER_TYPE) {
-        return sendError(
-          res,
-          `You've used your ${FREE_LIMIT_PER_TYPE} free ${calcType} calculations for this month. Upgrade to Pro for unlimited access.`,
-          429,
-          {
-            code: 'CALC_LIMIT_EXCEEDED',
-            calc_type: calcType,
-            limit: FREE_LIMIT_PER_TYPE,
-            used: currentCount,
-            period: `${year}-${String(month).padStart(2, '0')}`,
-            upgrade_url: 'https://solnuv.com/plans',
-          }
-        );
-      }
-
-      // Increment usage (upsert)
       if (existing) {
         await supabase
           .from('calculator_usage')
-          .update({ use_count: currentCount + 1, last_used_at: new Date().toISOString() })
-          .eq('user_id', user.supabase_uid || user.id)
+          .update({ use_count: (existing.use_count || 0) + 1, last_used_at: new Date().toISOString() })
+          .eq('user_id', userId)
           .eq('calc_type', calcType)
           .eq('period_year', year)
           .eq('period_month', month);
@@ -83,7 +88,7 @@ function trackCalculatorUsage(calcType) {
         await supabase
           .from('calculator_usage')
           .insert({
-            user_id: user.supabase_uid || user.id,
+            user_id: userId,
             company_id: companyId,
             calc_type: calcType,
             period_year: year,
@@ -92,8 +97,7 @@ function trackCalculatorUsage(calcType) {
           });
       }
 
-      // Attach usage info to request so controller can include it in response
-      req.calcUsage = { used: currentCount + 1, limit: FREE_LIMIT_PER_TYPE, remaining: FREE_LIMIT_PER_TYPE - (currentCount + 1) };
+      req.calcUsage = { used: totalUsed + 1, limit: calcLimit, remaining: calcLimit - (totalUsed + 1) };
     } catch (err) {
       // On DB error, allow the calculation to proceed (don't block on tracking failure)
     }
@@ -122,19 +126,26 @@ async function getCalculatorUsage(req, res) {
       .eq('period_month', month);
 
     const usage = {};
+    let totalUsed = 0;
     for (const row of rows || []) {
       usage[row.calc_type] = row.use_count;
+      totalUsed += row.use_count || 0;
     }
 
     const userPlan = req.company?.subscription_plan || req.user?.subscription_plan || 'free';
     const planLevel = PLAN_HIERARCHY[userPlan] ?? 0;
+    const isFree = planLevel === 0;
+    const isBasic = planLevel === 1;
+    const calcLimit = isFree ? FREE_CALC_TOTAL_LIMIT : isBasic ? BASIC_CALC_TOTAL_LIMIT : null;
 
     return res.json({
       data: {
         authenticated: true,
         plan: userPlan,
-        is_limited: planLevel === 0,
-        limit_per_type: FREE_LIMIT_PER_TYPE,
+        is_limited: planLevel <= 1,
+        total_used: totalUsed,
+        total_limit: calcLimit,
+        total_remaining: calcLimit != null ? Math.max(0, calcLimit - totalUsed) : null,
         period: `${year}-${String(month).padStart(2, '0')}`,
         usage,
       },
@@ -145,9 +156,10 @@ async function getCalculatorUsage(req, res) {
 }
 
 /**
- * Middleware: track + limit simulation/load-profile usage for Basic (free) plan.
- * Basic: 3 design runs per month (shared across simulation + load-profile actions).
- * Pro+: Unlimited.
+ * Middleware: track + limit simulation/load-profile usage.
+ * Free tier : Blocked entirely (requires requirePlan('basic') on the route).
+ * Basic     : 3 design runs per month (shared across simulation + load-profile actions).
+ * Pro+      : Unlimited.
  * @param {string} actionType  'simulation' | 'load_profile' | 'auto_size'
  */
 const SIMULATION_LIMIT_PER_MONTH = 3;
@@ -162,7 +174,7 @@ function trackSimulationUsage(actionType = 'simulation') {
     const planLevel = PLAN_HIERARCHY[userPlan] ?? 0;
 
     // Pro+ plans are unrestricted
-    if (planLevel >= 1) return next();
+    if (planLevel >= 2) return next();
 
     // Basic plan — check + increment monthly usage
     const { year, month } = currentPeriod();
@@ -183,7 +195,7 @@ function trackSimulationUsage(actionType = 'simulation') {
       if (currentCount >= SIMULATION_LIMIT_PER_MONTH) {
         return sendError(
           res,
-          `You've used your ${SIMULATION_LIMIT_PER_MONTH} free ${actionType.replace('_', ' ')} runs for this month. Upgrade to Pro for unlimited access.`,
+          `You've used your ${SIMULATION_LIMIT_PER_MONTH} Basic-plan ${actionType.replace('_', ' ')} runs for this month. Upgrade to Pro for unlimited access.`,
           429,
           {
             code: 'SIMULATION_LIMIT_EXCEEDED',

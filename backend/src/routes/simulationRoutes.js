@@ -1,14 +1,14 @@
-// simulationRoutes.js
 const express = require('express');
 const router = express.Router();
 const simulationController = require('../controllers/simulationController');
 const { requireAuth } = require('../middlewares/authMiddleware');
+const { requirePlan } = require('../middlewares/subscriptionMiddleware');
 const { trackSimulationUsage } = require('../middlewares/usageMiddleware');
 
 router.use(requireAuth);
 
-// Run full simulation — Basic: 3/month, Pro+: unlimited
-router.post('/run', trackSimulationUsage('simulation'), simulationController.runProjectSimulation);
+// Run full simulation — Basic: 3/month, Pro+: unlimited (free tier blocked)
+router.post('/run', requirePlan('basic'), trackSimulationUsage('simulation'), simulationController.runProjectSimulation);
 
 // Get simulation results
 router.get('/:projectId/results', simulationController.getSimulationResults);
@@ -18,10 +18,10 @@ router.get('/:projectId/results/hourly', simulationController.getHourlyFlows);
 router.get('/solar-resource', simulationController.getSolarResource);
 
 // Auto-size PV + BESS recommendation — Basic: 3/month, Pro+: unlimited
-router.post('/auto-size', trackSimulationUsage('auto_size'), simulationController.autoSizeSystem);
+router.post('/auto-size', requirePlan('basic'), trackSimulationUsage('auto_size'), simulationController.autoSizeSystem);
 
 // AI expert feedback
-router.post('/:projectId/ai-feedback', simulationController.generateAIFeedback);
+router.post('/:projectId/ai-feedback', requirePlan('basic'), simulationController.generateAIFeedback);
 router.put('/:projectId/ai-feedback', simulationController.saveAIFeedback);
 
 module.exports = router;

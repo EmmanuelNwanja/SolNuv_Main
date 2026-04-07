@@ -7,13 +7,12 @@
 
 const supabase = require('../config/database');
 const { sendError } = require('../utils/responseHelper');
-
-const PLAN_HIERARCHY = { free: 0, pro: 1, elite: 2, enterprise: 3 };
+const { PLAN_HIERARCHY } = require('../services/billingService');
 
 // Simple in-memory rate limiter (per-user, per-minute)
 const _rateMap = new Map();
 const RATE_WINDOW_MS = 60_000;
-const RATE_LIMITS = { free: 5, pro: 10, elite: 20, enterprise: 30 };
+const RATE_LIMITS = { free: 0, basic: 5, pro: 10, elite: 20, enterprise: 30 };
 
 function cleanUpRateEntries() {
   const cutoff = Date.now() - RATE_WINDOW_MS;
@@ -63,16 +62,18 @@ async function validateAgentAccess(req, res, next) {
     return sendError(res, 'This agent is not available for direct interaction', 403);
   }
 
-  // Plan check
+  // Plan check — free tier has no AI access
   const userPlan = req.user?.companies?.subscription_plan || 'free';
+  const graceUntil = req.user?.companies?.subscription_grace_until;
   const agentExpiresAt = req.user?.companies?.subscription_expires_at;
-  if (agentExpiresAt && new Date(agentExpiresAt) < new Date() && userPlan !== 'free') {
+  const hardCutoff = graceUntil || agentExpiresAt;
+  if (hardCutoff && new Date(hardCutoff) < new Date() && userPlan !== 'free') {
     return sendError(res, 'Your subscription has expired. Please renew to access AI agents.', 402, {
       code: 'SUBSCRIPTION_EXPIRED',
       upgrade_url: 'https://solnuv.com/plans',
     });
   }
-  const requiredPlan = instance.ai_agent_definitions?.plan_minimum || 'free';
+  const requiredPlan = instance.ai_agent_definitions?.plan_minimum || 'basic';
   if ((PLAN_HIERARCHY[userPlan] ?? 0) < (PLAN_HIERARCHY[requiredPlan] ?? 0)) {
     return sendError(res, `This agent requires the ${requiredPlan} plan or higher`, 403, {
       code: 'PLAN_UPGRADE_REQUIRED',

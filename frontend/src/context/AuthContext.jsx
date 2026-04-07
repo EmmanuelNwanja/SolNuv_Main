@@ -217,11 +217,18 @@ export function AuthProvider({ children }) {
   }
 
   const isOnboarded = profile?.is_onboarded === true;
-  const _rawPlan = profile?.companies?.subscription_plan || 'free';
-  const _subExpiry = profile?.companies?.subscription_expires_at;
-  const plan = (_rawPlan !== 'free' && _subExpiry && new Date(_subExpiry) < new Date()) ? 'free' : _rawPlan;
-  const isPro = ['pro', 'elite', 'enterprise'].includes(plan);
-  const isElite = ['elite', 'enterprise'].includes(plan);
+  const _rawPlan      = profile?.companies?.subscription_plan || 'free';
+  const _graceUntil   = profile?.companies?.subscription_grace_until || null;
+  const _subExpiry    = profile?.companies?.subscription_expires_at || null;
+  const _hardCutoff   = _graceUntil || _subExpiry;
+  const isPostGrace   = _rawPlan !== 'free' && _hardCutoff && new Date(_hardCutoff) < new Date();
+  const plan          = isPostGrace ? 'free' : _rawPlan;
+  const isInGracePeriod = !!profile?.companies?.is_in_grace_period;
+  const graceUntil    = _graceUntil;
+  const isFree        = plan === 'free';
+  const isBasic       = plan === 'basic';
+  const isPro         = ['pro', 'elite', 'enterprise'].includes(plan);
+  const isElite       = ['elite', 'enterprise'].includes(plan);
   const company = profile?.companies;
   const isPlatformAdmin = profile?.is_platform_admin === true;
   const platformAdminRole = profile?.platform_admin_role || null;
@@ -230,8 +237,9 @@ export function AuthProvider({ children }) {
     <AuthContext.Provider value={{
       user, profile, session, loading,
       profileResolved, wakingServer,
-      isOnboarded, plan, isPro, isElite, company,
-      isPlatformAdmin, platformAdminRole,
+      isOnboarded, plan, isPro, isElite, isBasic, isFree,
+      isInGracePeriod, graceUntil,
+      company, isPlatformAdmin, platformAdminRole,
       signInWithGoogle, signInWithEmail, signUpWithEmail,
       signOut, refreshProfile,
     }}>
