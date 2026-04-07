@@ -216,7 +216,9 @@ export const paymentsAPI = {
   validatePromo: (data) => api.post('/payments/promo/validate', data),
   history: () => api.get('/payments/history'),
   getBankTransferSettings: () => api.get('/payments/bank-transfer/settings'),
-  submitBankTransfer: (data) => api.post('/payments/bank-transfer/submit', data),
+  submitBankTransfer: (formData) => api.post('/payments/bank-transfer/submit', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }),
   getMyBankTransferSubmissions: () => api.get('/payments/bank-transfer/my-submissions'),
 };
 

@@ -3,7 +3,6 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '../context/AuthContext';
 import { paymentsAPI } from '../services/api';
-import { supabase } from '../utils/supabase';
 import { getDashboardLayout } from '../components/Layout';
 import { LoadingSpinner } from '../components/ui/index';
 import { MotionSection } from '../components/PageMotion';
@@ -100,32 +99,21 @@ export default function Plans() {
 
   async function handleBankTransferSubmit() {
     if (!transferRef.trim()) { toast.error('Please enter your bank transaction reference'); return; }
-    if (!transferFile) { toast.error('Please upload your payment receipt'); return; }
     const amount = getPendingAmount();
     if (!amount) { toast.error('Could not determine plan amount'); return; }
 
     setSubmittingTransfer(true);
     try {
-      // Upload receipt to Supabase storage
-      const ext = transferFile.name.split('.').pop().toLowerCase();
-      const proofType = ['pdf'].includes(ext) ? 'pdf' : 'image';
-      const filePath = `${profile?.id || 'anon'}/${Date.now()}-receipt.${ext}`;
-      const { error: uploadErr } = await supabase.storage
-        .from('payment-proofs')
-        .upload(filePath, transferFile, { upsert: false });
-      if (uploadErr) throw new Error('Receipt upload failed: ' + uploadErr.message);
+      const formData = new FormData();
+      formData.append('plan_id', pendingPlan);
+      formData.append('billing_interval', billingInterval);
+      formData.append('amount_ngn', String(amount));
+      formData.append('reference_note', transferRef.trim());
+      if (transferFile) {
+        formData.append('receipt', transferFile, transferFile.name);
+      }
 
-      const { data: urlData } = supabase.storage.from('payment-proofs').getPublicUrl(filePath);
-      const proofUrl = urlData?.publicUrl;
-
-      await paymentsAPI.submitBankTransfer({
-        plan_id: pendingPlan,
-        billing_interval: billingInterval,
-        amount_ngn: amount,
-        proof_url: proofUrl,
-        proof_type: proofType,
-        reference_note: transferRef.trim(),
-      });
+      await paymentsAPI.submitBankTransfer(formData);
       setTransferDone(true);
       toast.success('Submission received! An admin will verify and activate your plan within 24 hours.');
     } catch (err) {
@@ -393,7 +381,7 @@ export default function Plans() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Payment Receipt <span className="text-red-500">*</span></label>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Payment Receipt <span className="text-slate-400 font-normal">(optional)</span></label>
                     <div
                       onClick={() => fileInputRef.current?.click()}
                       className="border-2 border-dashed border-slate-300 rounded-xl p-5 flex flex-col items-center gap-2 cursor-pointer hover:border-forest-900 transition-colors"

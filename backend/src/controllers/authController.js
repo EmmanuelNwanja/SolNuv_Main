@@ -291,6 +291,20 @@ exports.getMe = async (req, res) => {
 
     if (error) throw error;
 
+    // Compute effective subscription plan — if expiry has passed, treat as free
+    // (does NOT modify the DB; database cleanup happens on next successful payment)
+    if (user.companies && user.companies.subscription_plan !== 'free') {
+      const expiresAt = user.companies.subscription_expires_at;
+      if (expiresAt && new Date(expiresAt) < new Date()) {
+        user.companies = {
+          ...user.companies,
+          subscription_plan: 'free',
+          subscription_interval: null,
+          subscription_auto_renew: false,
+        };
+      }
+    }
+
     // Get unread notification count
     const { count: unreadCount } = await supabase
       .from('notifications')

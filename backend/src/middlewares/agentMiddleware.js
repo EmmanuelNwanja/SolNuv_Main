@@ -65,6 +65,13 @@ async function validateAgentAccess(req, res, next) {
 
   // Plan check
   const userPlan = req.user?.companies?.subscription_plan || 'free';
+  const agentExpiresAt = req.user?.companies?.subscription_expires_at;
+  if (agentExpiresAt && new Date(agentExpiresAt) < new Date() && userPlan !== 'free') {
+    return sendError(res, 'Your subscription has expired. Please renew to access AI agents.', 402, {
+      code: 'SUBSCRIPTION_EXPIRED',
+      upgrade_url: 'https://solnuv.com/plans',
+    });
+  }
   const requiredPlan = instance.ai_agent_definitions?.plan_minimum || 'free';
   if ((PLAN_HIERARCHY[userPlan] ?? 0) < (PLAN_HIERARCHY[requiredPlan] ?? 0)) {
     return sendError(res, `This agent requires the ${requiredPlan} plan or higher`, 403, {

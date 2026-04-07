@@ -658,20 +658,15 @@ exports.getBankTransferSettings = async (req, res) => {
 /**
  * POST /api/payments/bank-transfer/submit
  * User submits proof of payment for a direct bank transfer.
- * Body: { plan_id, billing_interval, amount_ngn, proof_url, proof_type, reference_note }
+ * Accepts multipart/form-data: fields { plan_id, billing_interval, amount_ngn, reference_note }
+ *                              file   { receipt } — optional image/pdf (max 5 MB)
  */
 exports.submitBankTransfer = async (req, res) => {
   try {
-    const { plan_id, billing_interval = 'monthly', amount_ngn, proof_url, proof_type, reference_note } = req.body;
+    const { plan_id, billing_interval = 'monthly', amount_ngn, reference_note } = req.body;
 
     if (!PAID_PLAN_IDS.includes(plan_id)) return sendError(res, 'Invalid plan', 400);
     if (!amount_ngn || Number(amount_ngn) <= 0) return sendError(res, 'amount_ngn is required', 400);
-    if (!proof_url) return sendError(res, 'proof_url is required — please upload your receipt', 400);
-
-    // Validate proof_type if provided
-    if (proof_type && !['image', 'pdf'].includes(proof_type)) {
-      return sendError(res, 'proof_type must be image or pdf', 400);
-    }
 
     // Check for any pending/recent duplicate submission (same user + plan, within 24h)
     const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
@@ -688,6 +683,33 @@ exports.submitBankTransfer = async (req, res) => {
       return sendError(res, 'You already have a pending submission for this plan. Please wait for admin review.', 409);
     }
 
+    // Upload receipt file if provided (multer placed it in req.file)
+    let proof_url = null;
+    let proof_type = null;
+    if (req.file) {
+      const ext = req.file.originalname?.split('.').pop()?.toLowerCase() || 'jpg';
+      proof_type = req.file.mimetype === 'application/pdf' ? 'pdf' : 'image';
+      const filePath = `${req.user.id}/${Date.now()}-receipt.${ext}`;
+
+      // Ensure bucket exists (idempotent — won't fail if already exists)
+      await supabase.storage.createBucket('payment-proofs', { public: false }).catch(() => {});
+
+      const { error: uploadErr } = await supabase.storage
+        .from('payment-proofs')
+        .upload(filePath, req.file.buffer, {
+          contentType: req.file.mimetype,
+          upsert: false,
+        });
+
+      if (uploadErr) {
+        logger.error('submitBankTransfer: receipt upload failed', { message: uploadErr.message });
+        return sendError(res, 'Receipt upload failed. Please try again.', 500);
+      }
+
+      const { data: urlData } = supabase.storage.from('payment-proofs').getPublicUrl(filePath);
+      proof_url = urlData?.publicUrl || null;
+    }
+
     const { data, error } = await supabase
       .from('direct_payment_submissions')
       .insert({
@@ -696,7 +718,7 @@ exports.submitBankTransfer = async (req, res) => {
         billing_interval,
         amount_ngn: Number(amount_ngn),
         proof_url,
-        proof_type: proof_type || 'image',
+        proof_type,
         reference_note: reference_note || null,
         status: 'pending',
       })
@@ -711,7 +733,7 @@ exports.submitBankTransfer = async (req, res) => {
       action: 'direct_payment.submitted',
       resourceType: 'direct_payment_submission',
       resourceId: data.id,
-      details: { plan_id, billing_interval, amount_ngn: Number(amount_ngn) },
+      details: { plan_id, billing_interval, amount_ngn: Number(amount_ngn), has_receipt: !!proof_url },
     });
 
     return sendSuccess(res, data, 'Payment proof submitted. An admin will review and activate your subscription within 1–2 business days.');

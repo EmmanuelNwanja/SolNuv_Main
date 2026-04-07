@@ -217,7 +217,9 @@ export function AuthProvider({ children }) {
   }
 
   const isOnboarded = profile?.is_onboarded === true;
-  const plan = profile?.companies?.subscription_plan || 'free';
+  const _rawPlan = profile?.companies?.subscription_plan || 'free';
+  const _subExpiry = profile?.companies?.subscription_expires_at;
+  const plan = (_rawPlan !== 'free' && _subExpiry && new Date(_subExpiry) < new Date()) ? 'free' : _rawPlan;
   const isPro = ['pro', 'elite', 'enterprise'].includes(plan);
   const isElite = ['elite', 'enterprise'].includes(plan);
   const company = profile?.companies;
