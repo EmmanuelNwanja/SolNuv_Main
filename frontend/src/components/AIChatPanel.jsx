@@ -128,7 +128,7 @@ export default function AIChatPanel() {
     setMessages([]);
     inputRef.current?.focus();
   };
-!agentsLoaded
+
   const agentName = selectedAgent?.config_overrides?.display_name
     || selectedAgent?.ai_agent_definitions?.name
     || 'AI Assistant';
@@ -226,6 +226,12 @@ export default function AIChatPanel() {
                 <div className="flex justify-center py-8">
                   <RiLoader4Line className="text-2xl text-forest-600 animate-spin" />
                 </div>
+              )}
+
+              {!loadingMessages && messages.length === 0 && (
+                <div className="text-center py-12 text-slate-400">
+                  <RiRobotLine className="text-4xl mx-auto mb-3 opacity-40" />
+                  <p className="text-sm font-medium">
                     {agentsLoading ? 'Connecting to AI...' : agentsError ? 'Failed to connect' : agents.length === 0 && agentsLoaded ? 'No agents available' : 'Start a conversation'}
                   </p>
                   <p className="text-xs mt-1">
@@ -235,13 +241,7 @@ export default function AIChatPanel() {
                         ? 'Check your connection and try reopening the panel.'
                         : agents.length === 0 && agentsLoaded
                           ? 'AI agents have not been provisioned yet. Contact support or check your subscription.'
-                    <div className="text-center py-12 text-slate-400">
-                  <RiRobotLine className="text-4xl mx-auto mb-3 opacity-40" />
-                  <p className="text-sm font-medium">{agentsLoading ? 'Connecting to AI...' : 'Start a conversation'}</p>
-                  <p className="text-xs mt-1">
-                    {agentsLoading
-                      ? 'Loading your available agents...'
-                      : 'Ask me anything about your solar projects, compliance, or the platform.'}
+                          : 'Ask me anything about your solar projects, compliance, or the platform.'}
                   </p>
                 </div>
               )}
