@@ -6,6 +6,7 @@ import { useAuth } from '../../../context/AuthContext';
 import { getDashboardLayout } from '../../../components/Layout';
 import { LoadingSpinner } from '../../../components/ui/index';
 import { MotionSection } from '../../../components/PageMotion';
+import SolarSchematic from '../../../components/SolarSchematic';
 import {
   RiArrowLeftLine, RiDownloadLine, RiShareLine, RiSunLine,
   RiBatteryLine, RiMoneyDollarCircleLine, RiFlashlightLine,
@@ -66,7 +67,7 @@ function MetricCard({ icon: Icon, label, value, unit, color = 'forest' }) {
 export default function ResultsDashboard() {
   const router = useRouter();
   const { id: projectId } = router.query;
-  const { user } = useAuth();
+  const { user, isElite } = useAuth();
 
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -158,6 +159,7 @@ export default function ResultsDashboard() {
     { key: 'financial', label: 'Financial' },
     { key: 'comparison', label: 'vs Grid/Diesel/Petrol' },
     { key: 'tariff', label: 'Tariff', hide: result?.grid_topology === 'off_grid' },
+    { key: 'schematic', label: '⚡ Schematic', elite: true },
     { key: 'ai_feedback', label: 'AI Expert Analysis' },
   ].filter(t => !t.hide);
 
@@ -284,12 +286,15 @@ export default function ResultsDashboard() {
         <div className="flex gap-1 mb-6 border-b border-gray-200 dark:border-gray-700 overflow-x-auto">
           {TABS.map(t => (
             <button key={t.key} onClick={() => setTab(t.key)}
-              className={`px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors ${
+              className={`px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors flex items-center gap-1.5 ${
                 tab === t.key
                   ? 'text-forest-900 dark:text-white border-b-2 border-forest-900 dark:border-green-400'
                   : 'text-gray-500 hover:text-gray-700'
               }`}>
               {t.label}
+              {t.elite && !isElite && (
+                <span className="text-[9px] font-semibold bg-amber-100 text-amber-700 border border-amber-300 px-1.5 py-0.5 rounded-full leading-none">ELITE</span>
+              )}
             </button>
           ))}
         </div>
@@ -895,6 +900,24 @@ export default function ResultsDashboard() {
                 })()
               )}
             </div>
+          )}
+
+          {/* SCHEMATIC TAB — Elite+ */}
+          {tab === 'schematic' && (
+            isElite ? (
+              <SolarSchematic design={design} result={result} />
+            ) : (
+              <div className="card p-10 text-center space-y-4">
+                <div className="text-5xl">⚡</div>
+                <h3 className="text-lg font-semibold text-forest-900 dark:text-white">System Schematic — Elite Feature</h3>
+                <p className="text-sm text-gray-500 max-w-md mx-auto">
+                  View a full single-line wiring schematic for your solar + BESS system, including component specs, string configurations, protection devices, and topology-specific layouts.
+                </p>
+                <a href="/plans" className="btn-primary inline-flex items-center gap-2 mt-2">
+                  Upgrade to Elite →
+                </a>
+              </div>
+            )
           )}
         </div>
       </MotionSection>

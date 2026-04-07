@@ -101,6 +101,15 @@ async function ensureCompanyForBilling(user) {
   }
 
   await supabase.from('users').update({ company_id: company.id }).eq('id', user.id);
+
+  // Backfill company_id onto any projects this user created before having a company
+  // (solo users have no company at registration; projects were stored with company_id=null).
+  await supabase
+    .from('projects')
+    .update({ company_id: company.id })
+    .eq('user_id', user.id)
+    .is('company_id', null);
+
   return company;
 }
 

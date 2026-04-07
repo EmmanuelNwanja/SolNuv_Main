@@ -133,9 +133,11 @@ exports.getProjects = async (req, res) => {
         recovery_requests(id, status, preferred_date)
       `, { count: 'exact' });
 
-    // Scope to user or organization
+    // Scope to user or organization.
+    // Also include any legacy projects created before this user had a company
+    // (company_id was null at creation time for solo users who later upgraded).
     if (req.user.company_id) {
-      query = query.eq('company_id', req.user.company_id);
+      query = query.or(`company_id.eq.${req.user.company_id},and(user_id.eq.${req.user.id},company_id.is.null)`);
     } else {
       query = query.eq('user_id', req.user.id);
     }
@@ -390,9 +392,9 @@ exports.getProject = async (req, res) => {
       `)
       .eq('id', id);
 
-    // Scope check
+    // Scope check — include orphaned projects (created before user had a company)
     if (req.user.company_id) {
-      query = query.eq('company_id', req.user.company_id);
+      query = query.or(`company_id.eq.${req.user.company_id},and(user_id.eq.${req.user.id},company_id.is.null)`);
     } else {
       query = query.eq('user_id', req.user.id);
     }
@@ -541,10 +543,10 @@ exports.geoVerify = async (req, res) => {
     if (isNaN(lat) || isNaN(lon)) return sendError(res, 'Invalid coordinates', 400);
     if (lat < -90 || lat > 90 || lon < -180 || lon > 180) return sendError(res, 'Coordinates out of range', 400);
 
-    // Verify ownership
+    // Verify ownership — include orphaned projects (created before user had a company)
     let query = supabase.from('projects').select('id, state, city, address, latitude, longitude, geo_source, geo_verified').eq('id', id);
     if (req.user.company_id) {
-      query = query.eq('company_id', req.user.company_id);
+      query = query.or(`company_id.eq.${req.user.company_id},and(user_id.eq.${req.user.id},company_id.is.null)`);
     } else {
       query = query.eq('user_id', req.user.id);
     }
@@ -652,7 +654,7 @@ exports.requestRecovery = async (req, res) => {
 
     let projectQuery = supabase.from('projects').select('id, name').eq('id', id);
     if (req.user.company_id) {
-      projectQuery = projectQuery.eq('company_id', req.user.company_id);
+      projectQuery = projectQuery.or(`company_id.eq.${req.user.company_id},and(user_id.eq.${req.user.id},company_id.is.null)`);
     } else {
       projectQuery = projectQuery.eq('user_id', req.user.id);
     }
@@ -911,7 +913,7 @@ exports.addEquipment = async (req, res) => {
     // Fetch project and check ownership + stage
     let projectQuery = supabase.from('projects').select('id, status, state, installation_date, user_id, company_id').eq('id', id);
     if (req.user.company_id) {
-      projectQuery = projectQuery.eq('company_id', req.user.company_id);
+      projectQuery = projectQuery.or(`company_id.eq.${req.user.company_id},and(user_id.eq.${req.user.id},company_id.is.null)`);
     } else {
       projectQuery = projectQuery.eq('user_id', req.user.id);
     }
@@ -990,7 +992,7 @@ exports.updateEquipment = async (req, res) => {
 
     let projectQuery = supabase.from('projects').select('id, status, state, installation_date, user_id, company_id').eq('id', id);
     if (req.user.company_id) {
-      projectQuery = projectQuery.eq('company_id', req.user.company_id);
+      projectQuery = projectQuery.or(`company_id.eq.${req.user.company_id},and(user_id.eq.${req.user.id},company_id.is.null)`);
     } else {
       projectQuery = projectQuery.eq('user_id', req.user.id);
     }
@@ -1069,7 +1071,7 @@ exports.deleteEquipment = async (req, res) => {
 
     let projectQuery = supabase.from('projects').select('id, status, user_id, company_id').eq('id', id);
     if (req.user.company_id) {
-      projectQuery = projectQuery.eq('company_id', req.user.company_id);
+      projectQuery = projectQuery.or(`company_id.eq.${req.user.company_id},and(user_id.eq.${req.user.id},company_id.is.null)`);
     } else {
       projectQuery = projectQuery.eq('user_id', req.user.id);
     }
@@ -1118,7 +1120,7 @@ exports.getProjectHistory = async (req, res) => {
 
     let projectQuery = supabase.from('projects').select('id, user_id, company_id').eq('id', id);
     if (req.user.company_id) {
-      projectQuery = projectQuery.eq('company_id', req.user.company_id);
+      projectQuery = projectQuery.or(`company_id.eq.${req.user.company_id},and(user_id.eq.${req.user.id},company_id.is.null)`);
     } else {
       projectQuery = projectQuery.eq('user_id', req.user.id);
     }
@@ -1147,7 +1149,7 @@ exports.exportCSV = async (req, res) => {
     let query = supabase.from('projects').select('*, equipment(*)');
 
     if (req.user.company_id) {
-      query = query.eq('company_id', req.user.company_id);
+      query = query.or(`company_id.eq.${req.user.company_id},and(user_id.eq.${req.user.id},company_id.is.null)`);
     } else {
       query = query.eq('user_id', req.user.id);
     }

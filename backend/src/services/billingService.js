@@ -76,6 +76,7 @@ const PLAN_DEFINITIONS = {
       'Everything in Pro',
       'Auto-send reports to NESREA',
       'ROI Proposal PDF + Cable Compliance PDF',
+      'System Schematic Diagram (wiring & single-line)',
       'Team access (up to 15 users)',
       'Priority support + onboarding call',
       'Advanced leaderboard insights',
