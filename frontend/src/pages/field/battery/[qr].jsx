@@ -27,7 +27,7 @@ export default function BatteryLedgerFieldPage() {
 
   async function loadLedger() {
     if (!qr) return;
-+    setLoading(true);
+    setLoading(true);
     try {
       const { data } = await projectsAPI.getBatteryLedgerByQr(qr);
       setLedger(data.data);
