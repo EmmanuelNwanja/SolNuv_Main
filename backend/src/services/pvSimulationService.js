@@ -14,6 +14,73 @@ const STC_IRRADIANCE = 1000; // W/m²
 const SOLAR_CONSTANT = 1361; // W/m² — extraterrestrial irradiance
 
 /**
+ * ASHRAE IAM (Incidence Angle Modifier) model — PVsyst/SAM industry standard.
+ * Reduces module output at high angles of incidence due to increased glass reflection.
+ * Reference: ASHRAE model with b0 coefficient (typical glass: 0.05).
+ * @param {number} cosIncidence — cos(angle of incidence)
+ * @returns {number} IAM factor (0 to 1)
+ */
+function calculateIAM(cosIncidence) {
+  if (cosIncidence <= 0.05) return 0;
+  const b0 = 0.05; // ASHRAE coefficient for standard glass
+  return Math.max(0, 1 - b0 * (1 / cosIncidence - 1));
+}
+
+/**
+ * Soiling loss model for African installations — adapted from PVsyst methodology.
+ * Models dust accumulation between cleaning events, with Harmattan/Sahel-specific factors.
+ * Reference: Kimber et al. (2006) soiling rate model + Africa-specific adjustments.
+ * @param {string} cleaningFrequency — 'daily'|'weekly'|'monthly'|'quarterly'|'rarely'
+ * @param {number} month — 0-indexed month (0=Jan, 11=Dec)
+ * @param {string} installationType — installation type key
+ * @returns {number} Soiling derate factor (0 to 1, higher is better)
+ */
+function calculateSoilingLoss(cleaningFrequency = 'monthly', month = 0, installationType = 'rooftop_tilted') {
+  // Base soiling rate: %/day between cleanings
+  const SOILING_RATES = {
+    daily: 0, weekly: 0.002, monthly: 0.003, quarterly: 0.004, rarely: 0.005,
+  };
+  // Days between cleanings
+  const CLEANING_INTERVALS = {
+    daily: 1, weekly: 7, monthly: 30, quarterly: 90, rarely: 365,
+  };
+  // Harmattan season penalty (Nov-Feb) — heavy dust in West Africa
+  const HARMATTAN_FACTOR = [1.8, 1.6, 1.2, 1.0, 1.0, 0.9, 0.8, 0.8, 0.9, 1.0, 1.3, 1.7];
+  // Ground-mount and carport have less dust pooling than rooftop
+  const installFactor = (installationType === 'ground_fixed' || installationType === 'ground_tracker') ? 0.85
+    : installationType === 'floating' ? 0.6 : 1.0;
+
+  const rate = SOILING_RATES[cleaningFrequency] || 0.003;
+  const interval = CLEANING_INTERVALS[cleaningFrequency] || 30;
+  const seasonFactor = HARMATTAN_FACTOR[month] || 1.0;
+  // Average soiling during the interval: halfway through the accumulation period
+  const avgSoiling = rate * (interval / 2) * seasonFactor * installFactor;
+  return Math.max(0.85, 1 - avgSoiling); // Floor at 85% (catastrophic soiling)
+}
+
+/**
+ * Spectral correction factor for different cell technologies — adapted from SAM.
+ * Different cell types respond differently to varying Air Mass (AM) conditions.
+ * Reference: Lee & Panchula, SAM spectral correction model.
+ * @param {number} airmass — atmospheric air mass
+ * @param {string} technology — panel technology key
+ * @returns {number} spectral correction factor (typically 0.95-1.05)
+ */
+function spectralCorrection(airmass, technology) {
+  const tech = PANEL_TECHNOLOGIES[technology] || PANEL_TECHNOLOGIES[DEFAULT_PANEL_TECHNOLOGY];
+  const group = tech.group || 'p-type';
+  // Polynomial correction coefficients per technology group (from SAM/Sandia database)
+  // AM=1.5 is reference condition (factor=1.0)
+  const am = Math.max(1, Math.min(airmass, 10));
+  if (group === 'thin-film') {
+    // CdTe/CIGS benefit from high AM (red-rich spectrum)
+    return 0.918 + 0.1175 * am - 0.0154 * am * am;
+  }
+  // Crystalline silicon — slight penalty at high AM
+  return 1.015 - 0.02 * (am - 1.5);
+}
+
+/**
  * Erbs correlation: decompose GHI into diffuse fraction based on clearness index kt.
  * Reference: Erbs, Klein & Duffie (1982), Solar Energy 28(4).
  * @param {number} kt - Clearness index (GHI / extraterrestrial horizontal irradiance)
@@ -159,18 +226,58 @@ function simulatePVGeneration(config) {
         let poaIrradiance = beamTilted + diffuseTilted + groundReflected;
         poaIrradiance = Math.max(0, poaIrradiance);
 
+        // ── IAM (Incidence Angle Modifier) — PVsyst/SAM standard ──
+        // Reduce beam component by IAM factor for glass reflection at steep angles
+        const iamFactor = calculateIAM(cosIncidence);
+        const beamTiltedIAM = beamTilted * iamFactor;
+        const poaEffective = beamTiltedIAM + diffuseTilted + groundReflected;
+
+        // ── Spectral correction — SAM methodology ──
+        // Air mass calculation (Kasten & Young, 1989)
+        const solarAltDeg = solarAltRad / DEG2RAD;
+        const airmass = solarAltDeg > 0
+          ? 1 / (Math.sin(solarAltRad) + 0.50572 * Math.pow(solarAltDeg + 6.07995, -1.6364))
+          : 10;
+        const spectralFactor = spectralCorrection(airmass, technology);
+
         // ── IEC 61215 Cell Temperature Model ──
         // T_cell = T_amb + (NOCT - 20) × (POA / 800) × (1 - η_ref / τα)
-        const cellTemp = ambTemp + (NOCT - 20) * (poaIrradiance / 800) * (1 - etaRef / tauAlpha);
+        const cellTemp = ambTemp + (NOCT - 20) * (poaEffective / 800) * (1 - etaRef / tauAlpha);
 
         // Temperature derating
         const tempDerate = 1 + tempCoeff * (cellTemp - 25);
 
-        // DC power output
-        const dcPower = capacityKwp * (poaIrradiance / STC_IRRADIANCE) * tempDerate * (1 - systemLosses);
+        // ── Soiling loss — PVsyst Africa-adapted ──
+        // Note: system_losses_pct already includes a baseline soiling assumption.
+        // This adds seasonal Harmattan variation only (net ±1-3%).
+        const soilingDerate = calculateSoilingLoss(
+          config.cleaningFrequency || 'monthly', month, installationType,
+        );
+        // Normalize to average soiling = 1.0 so system_losses_pct isn't double-counted
+        const avgSoiling = 0.97; // typical average for monthly cleaning
+        const soilingAdjustment = soilingDerate / avgSoiling;
+        const soilingFinal = Math.max(0.92, Math.min(1.03, soilingAdjustment));
+
+        // DC power output with all derates applied
+        const dcPower = capacityKwp * (poaEffective / STC_IRRADIANCE)
+          * tempDerate * spectralFactor * soilingFinal * (1 - systemLosses);
+
+        // ── Bifacial gain — PVsyst/SAM rear-side model ──
+        // Bifacial modules harvest rear-side irradiance from ground reflection.
+        // Gain depends on albedo, module height, and tilt.
+        let bifacialBoost = 0;
+        if (tech.bifacial && poaEffective > 0) {
+          // Simplified rear irradiance: GHI × albedo × view factor
+          const rearViewFactor = (1 - Math.cos(tiltRad)) / 2; // tilted panel sees more ground
+          const rearIrradiance = ghi * albedo * rearViewFactor;
+          const midGain = ((tech.bifacial_gain_min || 0) + (tech.bifacial_gain_max || 0)) / 2;
+          // Rear-side contributes proportionally to its irradiance share
+          bifacialBoost = capacityKwp * (rearIrradiance / STC_IRRADIANCE) * midGain
+            * tempDerate * (1 - systemLosses);
+        }
 
         // AC power output with inverter clipping
-        const acPower = Math.max(0, Math.min(dcPower * inverterEff, inverterAcCapKw));
+        const acPower = Math.max(0, Math.min((dcPower + bifacialBoost) * inverterEff, inverterAcCapKw));
 
         hourlyAcKw[idx] = acPower;
       }

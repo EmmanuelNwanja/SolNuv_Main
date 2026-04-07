@@ -17,6 +17,46 @@ import {
 } from 'react-icons/ri';
 import toast from 'react-hot-toast';
 
+// Format number with thousand separators, allow decimals
+function formatWithCommas(value) {
+  if (value === '' || value === undefined || value === null) return '';
+  const str = String(value);
+  // Allow trailing decimal point or trailing zeros after decimal
+  if (str.endsWith('.') || /\.\d*0+$/.test(str)) {
+    const parts = str.split('.');
+    const intPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    return intPart + '.' + (parts[1] || '');
+  }
+  const num = parseFloat(str);
+  if (isNaN(num)) return str;
+  const parts = str.split('.');
+  const intPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return parts.length > 1 ? intPart + '.' + parts[1] : intPart;
+}
+
+function stripCommas(value) {
+  return String(value).replace(/,/g, '');
+}
+
+function NumericInput({ value, onChange, className = 'input', ...props }) {
+  return (
+    <input
+      type="text"
+      inputMode="decimal"
+      className={className}
+      value={formatWithCommas(value)}
+      onChange={e => {
+        const raw = stripCommas(e.target.value);
+        // Allow empty, digits, single decimal point
+        if (raw === '' || /^-?\d*\.?\d*$/.test(raw)) {
+          onChange(raw);
+        }
+      }}
+      {...props}
+    />
+  );
+}
+
 const STEPS = [
   { key: 'location', label: 'Location', icon: RiMapPinLine },
   { key: 'tariff', label: 'Tariff', icon: RiMoneyDollarCircleLine },
@@ -34,8 +74,9 @@ const PANEL_TECHNOLOGIES = [
 ];
 
 const BATTERY_CHEMISTRIES = [
-  'LFP', 'NMC', 'NCA', 'Lead-Acid (Flooded)', 'Lead-Acid (AGM)',
-  'Lead-Acid (Gel)', 'Sodium-Ion', 'Flow (Vanadium)',
+  'LFP', 'NMC', 'NCA', 'LTO',
+  'Lead-Acid (Flooded)', 'Lead-Acid (AGM)', 'Lead-Acid (Gel)',
+  'Sodium-Ion', 'Flow (Vanadium)', 'NiCd',
 ];
 
 const BUSINESS_TYPES = [
@@ -136,13 +177,19 @@ export default function DesignWizard() {
     om_cost_annual: '',
     loan_interest_rate: 0,
     loan_term_years: 0,
+    project_horizon_years: 25,
   });
 
   // Solar resource preview
   const [solarPreview, setSolarPreview] = useState(null);
+  const [profileStale, setProfileStale] = useState(false);
 
   const updateForm = useCallback((field, value) => {
     setForm(prev => ({ ...prev, [field]: value }));
+    // Mark profile preview as stale when load inputs change
+    if (['annual_kwh', 'peak_kw', 'business_type'].includes(field)) {
+      setProfileStale(true);
+    }
   }, []);
 
   // Load project data
@@ -230,6 +277,7 @@ export default function DesignWizard() {
         country: form.country,
       });
       setLoadProfileStats(data?.data);
+      setProfileStale(false);
       toast.success('Synthetic profile generated — review and confirm');
     } catch {
       toast.error('Failed to generate load profile');
@@ -247,6 +295,7 @@ export default function DesignWizard() {
         country: form.country,
       });
       setLoadProfileStats(data?.data);
+      setProfileStale(false);
       toast.success('Load profile saved');
     } catch {
       toast.error('Failed to save profile');
@@ -311,6 +360,7 @@ export default function DesignWizard() {
         om_cost_annual: parseFloat(form.om_cost_annual) || 0,
         loan_interest_rate_pct: parseFloat(form.loan_interest_rate) || 0,
         loan_term_years: parseInt(form.loan_term_years) || 0,
+        project_horizon_years: parseInt(form.project_horizon_years) || 25,
         // Grid topology fields
         grid_topology: form.grid_topology,
         installation_type: form.installation_type,
@@ -440,14 +490,17 @@ export default function DesignWizard() {
               {form.grid_topology === 'hybrid' && (
                 <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl space-y-3">
                   <h3 className="text-sm font-semibold text-blue-800 dark:text-blue-300">Grid Reliability</h3>
+                  <p className="text-xs text-blue-600 dark:text-blue-400 mb-1">Define how unreliable your grid supply is. This directly affects battery sizing and islanding behaviour in the simulation.</p>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="label">Avg. Grid Outage (hours/day)</label>
+                      <p className="text-xs text-gray-400 mb-1">Average daily hours without grid power. Higher values mean more battery reliance and longer islanding periods.</p>
                       <input type="number" step="0.5" min="0" max="24" className="input" value={form.grid_outage_hours_day}
                         onChange={e => updateForm('grid_outage_hours_day', e.target.value)} placeholder="e.g. 6" />
                     </div>
                     <div>
                       <label className="label">Grid Availability (%)</label>
+                      <p className="text-xs text-gray-400 mb-1">Percentage of time grid power is available over a year. 100% = always on, 50% = unreliable half the time.</p>
                       <input type="number" step="1" min="0" max="100" className="input" value={form.grid_availability_pct}
                         onChange={e => updateForm('grid_availability_pct', e.target.value)} />
                     </div>
@@ -597,7 +650,7 @@ export default function DesignWizard() {
                   )}
               
                   {tariffTemplates.length === 0 && (
-                    <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-xl text-sm text-gray-500">
+                    <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg text-sm text-gray-500">
                       No tariff templates found for {form.country}. The simulation will use an estimated flat rate.
                     </div>
                   )}
@@ -632,13 +685,13 @@ export default function DesignWizard() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="label">Annual Consumption (kWh) *</label>
-                  <input type="number" className="input" value={form.annual_kwh}
-                    onChange={e => updateForm('annual_kwh', e.target.value)} placeholder="e.g. 500000" />
+                  <NumericInput value={form.annual_kwh}
+                    onChange={v => updateForm('annual_kwh', v)} placeholder="e.g. 500,000" />
                 </div>
                 <div>
                   <label className="label">Peak Demand (kW)</label>
-                  <input type="number" className="input" value={form.peak_kw}
-                    onChange={e => updateForm('peak_kw', e.target.value)} placeholder="Optional" />
+                  <NumericInput value={form.peak_kw}
+                    onChange={v => updateForm('peak_kw', v)} placeholder="Optional" />
                 </div>
                 <div>
                   <label className="label">Business Type</label>
@@ -651,7 +704,13 @@ export default function DesignWizard() {
               {loadMethod === 'synthetic' && (
                 <div className="space-y-3">
                   <button onClick={handleSyntheticPreview} className="btn-primary text-sm">Generate Synthetic Profile</button>
-                  {loadProfileStats && (
+                  {loadProfileStats && profileStale && (
+                    <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl flex items-center gap-2">
+                      <span className="text-sm text-amber-700 dark:text-amber-300">Profile outdated — inputs have changed.</span>
+                      <button onClick={handleSyntheticPreview} className="text-sm font-semibold text-amber-800 dark:text-amber-200 underline">Regenerate</button>
+                    </div>
+                  )}
+                  {loadProfileStats && !profileStale && (
                     <div className="p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 rounded-xl">
                       <p className="text-sm font-medium text-green-800 dark:text-green-300 mb-2">Profile Preview</p>
                       <div className="grid grid-cols-3 gap-2 text-sm mb-3">
@@ -724,8 +783,8 @@ export default function DesignWizard() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="label">PV Capacity (kWp) *</label>
-                  <input type="number" step="0.1" className="input" value={form.pv_capacity_kwp}
-                    onChange={e => updateForm('pv_capacity_kwp', e.target.value)} placeholder="e.g. 100" />
+                  <NumericInput value={form.pv_capacity_kwp}
+                    onChange={v => updateForm('pv_capacity_kwp', v)} placeholder="e.g. 100" className="input" />
                 </div>
                 <div>
                   <label className="label">Panel Technology</label>
@@ -786,13 +845,13 @@ export default function DesignWizard() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <label className="label">Capacity (kWh) *</label>
-                        <input type="number" className="input" value={form.bess_capacity_kwh}
-                          onChange={e => updateForm('bess_capacity_kwh', e.target.value)} placeholder="e.g. 200" />
+                        <NumericInput value={form.bess_capacity_kwh}
+                          onChange={v => updateForm('bess_capacity_kwh', v)} placeholder="e.g. 200" className="input" />
                       </div>
                       <div>
                         <label className="label">Power Rating (kW) *</label>
-                        <input type="number" className="input" value={form.bess_power_kw}
-                          onChange={e => updateForm('bess_power_kw', e.target.value)} placeholder="e.g. 100" />
+                        <NumericInput value={form.bess_power_kw}
+                          onChange={v => updateForm('bess_power_kw', v)} placeholder="e.g. 100" className="input" />
                       </div>
                       <div>
                         <label className="label">Chemistry</label>
@@ -843,13 +902,13 @@ export default function DesignWizard() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="label">Total System Cost *</label>
-                  <input type="number" className="input" value={form.total_cost}
-                    onChange={e => updateForm('total_cost', e.target.value)} placeholder="e.g. 50000000" />
+                  <NumericInput value={form.total_cost}
+                    onChange={v => updateForm('total_cost', v)} placeholder="e.g. 50,000,000" className="input" />
                 </div>
                 <div>
                   <label className="label">Annual O&M Cost</label>
-                  <input type="number" className="input" value={form.om_cost_annual}
-                    onChange={e => updateForm('om_cost_annual', e.target.value)} placeholder="e.g. 500000" />
+                  <NumericInput value={form.om_cost_annual}
+                    onChange={v => updateForm('om_cost_annual', v)} placeholder="e.g. 500,000" className="input" />
                 </div>
                 <div>
                   <label className="label">Financing Type</label>
@@ -868,6 +927,12 @@ export default function DesignWizard() {
                   <label className="label">Tariff Escalation (%/yr)</label>
                   <input type="number" step="0.5" className="input" value={form.tariff_escalation_pct}
                     onChange={e => updateForm('tariff_escalation_pct', e.target.value)} />
+                </div>
+                <div>
+                  <label className="label">Analysis Period (years)</label>
+                  <input type="number" min="5" max="40" step="1" className="input" value={form.project_horizon_years}
+                    onChange={e => updateForm('project_horizon_years', e.target.value)} />
+                  <p className="text-xs text-gray-400 mt-1">Payback horizon for financial projections (default 25 years).</p>
                 </div>
                 {form.financing_type === 'loan' && (
                   <>
@@ -980,7 +1045,7 @@ export default function DesignWizard() {
                   </div>
                   <p className="text-sm text-slate-600 dark:text-gray-300">Cost: ₦{parseFloat(form.total_cost)?.toLocaleString() || '—'}</p>
                   <p className="text-xs text-slate-400 dark:text-gray-500 mt-1">{form.financing_type} · Discount: {form.discount_rate_pct}%</p>
-                  <p className="text-xs text-slate-400 dark:text-gray-500">Tariff escalation: {form.tariff_escalation_pct}%/yr</p>
+                  <p className="text-xs text-slate-400 dark:text-gray-500">Tariff escalation: {form.tariff_escalation_pct}%/yr · {form.project_horizon_years}yr horizon</p>
                 </div>
               </div>
 

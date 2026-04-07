@@ -350,6 +350,8 @@ exports.calculateROI = async (req, res) => {
     const band = String(tariff_band || 'A').toUpperCase();
     const liveBands = await getTariffBands();
     const effectiveTariff = toNum(tariff_rate_ngn_per_kwh, liveBands[band] || liveBands.A);
+    const fuel = Math.max(0, toNum(generator_fuel_price_ngn_per_liter, 1000));
+    const gridOffset = Math.max(0, toNum(projected_grid_kwh_offset_per_day, 0));
     const genOffset = Math.max(0, toNum(projected_generator_liters_offset_per_day, 0));
     const capex = Math.max(0, toNum(proposed_solar_capex_ngn, 0));
     const annualOM = Math.max(0, toNum(annual_om_cost_ngn, 0));

@@ -363,6 +363,34 @@ const BATTERY_CHEMISTRIES = {
     temp_sensitivity:    1.3,
     notes: 'Legacy technology. Memory effect degrades capacity if not fully discharged. Still deployed in legacy telecom.',
   },
+
+  // ── Sodium-Ion ───────────────────────────────────────────────────────────
+  sodium_ion: {
+    label:               'Sodium-Ion',
+    group:               'sodium',
+    annual_soh_loss_pct: 0.030,
+    cycle_life_ref:      3000,
+    reference_dod_pct:   80,
+    cycle_exponent:      1.10,
+    recommended_dod_pct: 80,
+    round_trip_eff:      0.92,
+    temp_sensitivity:    1.2,
+    notes: 'Emerging chemistry. No lithium or cobalt. Excellent cold-weather performance. Lower energy density but very cheap.',
+  },
+
+  // ── Vanadium Redox Flow Battery (VRFB) ───────────────────────────────────
+  flow_vrfb: {
+    label:               'Flow Battery — Vanadium Redox (VRFB)',
+    group:               'flow',
+    annual_soh_loss_pct: 0.005,
+    cycle_life_ref:      20000,
+    reference_dod_pct:   100,
+    cycle_exponent:      1.02,
+    recommended_dod_pct: 100,
+    round_trip_eff:      0.75,
+    temp_sensitivity:    1.1,
+    notes: 'Near-unlimited cycle life. Energy and power decoupled. Best for long-duration storage. High upfront cost.',
+  },
 };
 
 // Legacy chemistry key aliases (for backward compatibility with existing DB values)
@@ -371,6 +399,11 @@ const CHEMISTRY_ALIASES = {
   'lithium':                'nmc',
   'lead-acid':              'lead_acid_agm',
   'lead_acid':              'lead_acid_agm',
+  'sodium-ion':             'sodium_ion',
+  'sodium':                 'sodium_ion',
+  'flow':                   'flow_vrfb',
+  'vanadium':               'flow_vrfb',
+  'nickel-cadmium':         'nicd',
 };
 
 const DEFAULT_BATTERY_CHEMISTRY = 'lfp';

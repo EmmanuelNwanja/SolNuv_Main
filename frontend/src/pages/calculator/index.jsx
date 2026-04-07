@@ -7,6 +7,44 @@ import { MotionSection } from '../../components/PageMotion';
 import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
 
+// Format number with thousand separators, allow decimals
+function formatWithCommas(value) {
+  if (value === '' || value === undefined || value === null) return '';
+  const str = String(value);
+  if (str.endsWith('.') || /\.\d*0+$/.test(str)) {
+    const parts = str.split('.');
+    const intPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    return intPart + '.' + (parts[1] || '');
+  }
+  const num = parseFloat(str);
+  if (isNaN(num)) return str;
+  const parts = str.split('.');
+  const intPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return parts.length > 1 ? intPart + '.' + parts[1] : intPart;
+}
+
+function stripCommas(value) {
+  return String(value).replace(/,/g, '');
+}
+
+function NumericInput({ value, onChange, className = 'input', ...props }) {
+  return (
+    <input
+      type="text"
+      inputMode="decimal"
+      className={className}
+      value={formatWithCommas(value)}
+      onChange={e => {
+        const raw = stripCommas(e.target.value);
+        if (raw === '' || /^-?\d*\.?\d*$/.test(raw)) {
+          onChange(raw);
+        }
+      }}
+      {...props}
+    />
+  );
+}
+
 const NIGERIAN_STATES = ['Abia','Adamawa','Akwa Ibom','Anambra','Bauchi','Bayelsa','Benue','Borno','Cross River','Delta','Ebonyi','Edo','Ekiti','Enugu','FCT','Gombe','Imo','Jigawa','Kaduna','Kano','Katsina','Kebbi','Kogi','Kwara','Lagos','Nasarawa','Niger','Ogun','Ondo','Osun','Oyo','Plateau','Rivers','Sokoto','Taraba','Yobe','Zamfara'];
 const CONDITIONS = ['excellent','good','fair','poor','damaged'];
 const CLIMATE_ZONES = [
@@ -567,17 +605,17 @@ export default function Calculator() {
                 </div>
                 <div>
                   <label className="label">Tariff (N/kWh)</label>
-                  <input type="number" className="input" value={roiForm.tariff_rate_ngn_per_kwh} onChange={(e) => setRoiForm((f) => ({ ...f, tariff_rate_ngn_per_kwh: Number(e.target.value) }))} />
+                  <NumericInput value={roiForm.tariff_rate_ngn_per_kwh} onChange={(v) => setRoiForm((f) => ({ ...f, tariff_rate_ngn_per_kwh: Number(v) || 0 }))} />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="label">Generator Fuel Price (N/L)</label>
-                  <input type="number" className="input" value={roiForm.generator_fuel_price_ngn_per_liter} onChange={(e) => setRoiForm((f) => ({ ...f, generator_fuel_price_ngn_per_liter: Number(e.target.value) }))} />
+                  <NumericInput value={roiForm.generator_fuel_price_ngn_per_liter} onChange={(v) => setRoiForm((f) => ({ ...f, generator_fuel_price_ngn_per_liter: Number(v) || 0 }))} />
                 </div>
                 <div>
                   <label className="label">Solar CAPEX (N)</label>
-                  <input type="number" className="input" value={roiForm.proposed_solar_capex_ngn} onChange={(e) => setRoiForm((f) => ({ ...f, proposed_solar_capex_ngn: Number(e.target.value) }))} />
+                  <NumericInput value={roiForm.proposed_solar_capex_ngn} onChange={(v) => setRoiForm((f) => ({ ...f, proposed_solar_capex_ngn: Number(v) || 0 }))} />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -592,7 +630,7 @@ export default function Calculator() {
               </div>
               <div>
                 <label className="label">Annual O&M Cost (N)</label>
-                <input type="number" className="input" value={roiForm.annual_om_cost_ngn} onChange={(e) => setRoiForm((f) => ({ ...f, annual_om_cost_ngn: Number(e.target.value) }))} />
+                <NumericInput value={roiForm.annual_om_cost_ngn} onChange={(v) => setRoiForm((f) => ({ ...f, annual_om_cost_ngn: Number(v) || 0 }))} />
               </div>
               <button onClick={runROI} disabled={loading} className="btn-primary w-full">
                 {loading ? 'Calculating...' : 'Calculate ROI →'}

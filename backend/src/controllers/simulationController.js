@@ -72,6 +72,7 @@ exports.runProjectSimulation = async (req, res) => {
       grid_availability_pct,
       grid_outage_hours_day,
       feed_in_tariff_per_kwh,
+      project_horizon_years,
     } = req.body;
 
     if (!project_id) return sendError(res, 'project_id is required', 400);
@@ -100,6 +101,8 @@ exports.runProjectSimulation = async (req, res) => {
       'LFP': 'lfp',
       'NMC': 'nmc',
       'NCA': 'nca',
+      'LTO': 'lto',
+      'NiCd': 'nicd',
       'Lead-Acid (Flooded)': 'lead_acid_flooded',
       'Lead-Acid (AGM)': 'lead_acid_agm',
       'Lead-Acid (Gel)': 'lead_acid_gel',
@@ -131,6 +134,7 @@ exports.runProjectSimulation = async (req, res) => {
       financing_type: financing_type || 'cash',
       loan_interest_rate_pct: parseFloat(loan_interest_rate_pct) || 0,
       loan_term_years: parseInt(loan_term_years) || 0,
+      analysis_period_years: parseInt(project_horizon_years) || 25,
       // Grid topology
       grid_topology: grid_topology || 'grid_tied_bess',
       installation_type: installation_type || 'rooftop_tilted',
@@ -155,6 +159,27 @@ exports.runProjectSimulation = async (req, res) => {
     if (upsertErr) {
       logger.error('Design upsert failed', { message: upsertErr.message });
       return sendError(res, 'Failed to save design configuration');
+    }
+
+    // Verify load profile exists for this project before running simulation
+    const { data: loadProfile } = await supabase
+      .from('load_profiles')
+      .select('id')
+      .eq('project_id', project_id)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (!loadProfile) {
+      return sendError(res, 'No load profile saved. Go to the Load Profile step and confirm your synthetic profile or upload data before simulating.', 400);
+    }
+
+    // Ensure design references the latest load profile
+    if (loadProfile.id) {
+      await supabase
+        .from('project_designs')
+        .update({ load_profile_id: loadProfile.id })
+        .eq('id', design.id);
     }
 
     const results = await runSimulation(design.id);

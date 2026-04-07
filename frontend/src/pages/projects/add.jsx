@@ -97,7 +97,7 @@ function BrandSearchSelect({ brands = [], value, onChange }) {
       </button>
 
       {open && (
-        <div className="absolute z-30 left-0 right-0 mt-1 bg-white rounded-xl border border-slate-200 shadow-xl">
+        <div className="absolute z-50 left-0 right-0 mt-1 bg-white rounded-xl border border-slate-200 shadow-xl max-h-64 overflow-visible">
           {/* Search input */}
           <div className="p-2 border-b border-slate-100 flex items-center gap-2">
             <RiSearchLine className="text-slate-400 flex-shrink-0" />

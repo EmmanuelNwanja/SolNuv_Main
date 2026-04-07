@@ -297,7 +297,7 @@ function generateSyntheticProfile({
     }
   }
 
-  // Scale to match annual kWh
+  // Scale to match annual kWh (primary constraint)
   const rawTotal = hourlyKw.reduce((s, v) => s + v, 0); // kW × 1hr = kWh
   if (rawTotal > 0) {
     const scale = annualKwh / rawTotal;
@@ -306,13 +306,30 @@ function generateSyntheticProfile({
     }
   }
 
-  // If peakKw is specified, further scale to match
+  // If peakKw is specified, clip the profile peak but preserve annual kWh.
+  // Re-distribute clipped energy across all hours proportionally.
   if (peakKw > 0) {
     const currentPeak = Math.max(...hourlyKw);
-    if (currentPeak > 0) {
-      const peakScale = peakKw / currentPeak;
+    if (currentPeak > peakKw) {
+      let clippedEnergy = 0;
       for (let i = 0; i < hourlyKw.length; i++) {
-        hourlyKw[i] *= peakScale;
+        if (hourlyKw[i] > peakKw) {
+          clippedEnergy += hourlyKw[i] - peakKw;
+          hourlyKw[i] = peakKw;
+        }
+      }
+      // Redistribute clipped energy proportionally to non-peak hours
+      if (clippedEnergy > 0) {
+        const belowPeak = hourlyKw.filter(v => v < peakKw);
+        const belowSum = belowPeak.reduce((s, v) => s + v, 0);
+        if (belowSum > 0) {
+          const redistFactor = 1 + clippedEnergy / belowSum;
+          for (let i = 0; i < hourlyKw.length; i++) {
+            if (hourlyKw[i] < peakKw) {
+              hourlyKw[i] = Math.min(hourlyKw[i] * redistFactor, peakKw);
+            }
+          }
+        }
       }
     }
   }
