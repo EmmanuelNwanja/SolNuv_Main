@@ -7,7 +7,7 @@ import { supabase } from '../utils/supabase';
 import { getDashboardLayout } from '../components/Layout';
 import { LoadingSpinner } from '../components/ui/index';
 import { MotionSection } from '../components/PageMotion';
-import { RiCheckLine, RiArrowRightLine, RiBankLine, RiCreditCard2Line, RiUpload2Line, RiCloseLine } from 'react-icons/ri';
+import { RiCheckLine, RiArrowRightLine, RiBankLine, RiBankCardLine, RiUpload2Line, RiCloseLine } from 'react-icons/ri';
 import toast from 'react-hot-toast';
 
 export default function Plans() {
@@ -331,7 +331,7 @@ export default function Plans() {
                     className="w-full flex items-start gap-4 border-2 border-slate-200 hover:border-forest-900 rounded-xl p-4 text-left transition-all group disabled:opacity-60"
                   >
                     <span className="mt-0.5 w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0 group-hover:bg-blue-100">
-                      <RiCreditCard2Line className="text-blue-600" size={20} />
+                      <RiBankCardLine className="text-blue-600" size={20} />
                     </span>
                     <div>
                       <span className="font-semibold text-slate-800">Paystack</span>

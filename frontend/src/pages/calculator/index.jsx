@@ -747,7 +747,7 @@ export default function Calculator() {
                 <div>
                   <label className="label">Ambient Temp (°C)</label>
                   <input type="number" className="input" value={sohForm.ambient_temperature_c} onChange={(e) => setSohForm((f) => ({ ...f, ambient_temperature_c: Number(e.target.value) }))} />
-                  <p className="text-xs text-gray-400 mt-1">Average battery room/enclosure temperature. High temps (>35°C) accelerate degradation.</p>
+                  <p className="text-xs text-gray-400 mt-1">Average battery room/enclosure temperature. High temps (&gt;35°C) accelerate degradation.</p>
                 </div>
               </div>
               <button onClick={runSoh} disabled={loading} className="btn-primary w-full">
