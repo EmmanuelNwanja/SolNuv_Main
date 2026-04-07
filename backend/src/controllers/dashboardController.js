@@ -746,26 +746,39 @@ exports.getPublicProfile = async (req, res) => {
       inverter: [...new Set(inverterEquipment.map((item) => item.brand).filter(Boolean))],
     };
 
-    const points = (projects || [])
-      .filter((item) => item.latitude !== null && item.longitude !== null)
-      .map((item) => ({
-        id: item.id,
-        name: item.name,
-        city: item.city,
-        state: item.state,
-        status: item.status,
-        latitude: Number(item.latitude),
-        longitude: Number(item.longitude),
-      }));
-
-    const regionalCoverage = [...new Set((projects || []).map((item) => item.state).filter(Boolean))].length;
-
     const equipmentByProject = equipment.reduce((acc, item) => {
       const list = acc.get(item.project_id) || [];
       list.push(item);
       acc.set(item.project_id, list);
       return acc;
     }, new Map());
+
+    const points = (projects || [])
+      .filter((item) => item.latitude !== null && item.longitude !== null)
+      .map((item) => {
+        const projEquip = equipmentByProject.get(item.id) || [];
+        const pCount = projEquip.filter((eq) => eq.equipment_type === 'panel').reduce((s, eq) => s + Number(eq.quantity || 0), 0);
+        const bCount = projEquip.filter((eq) => eq.equipment_type === 'battery').reduce((s, eq) => s + Number(eq.quantity || 0), 0);
+        const iCount = projEquip.filter((eq) => eq.equipment_type === 'inverter').reduce((s, eq) => s + Number(eq.quantity || 0), 0);
+        const capKw = Number(item.total_system_size_kw || 0)
+          || projEquip.filter((eq) => eq.equipment_type === 'panel').reduce((s, eq) => s + ((Number(eq.size_watts || 0) * Number(eq.quantity || 0)) / 1000), 0);
+        return {
+          id: item.id,
+          name: item.name,
+          city: item.city,
+          state: item.state,
+          status: item.status,
+          latitude: Number(item.latitude),
+          longitude: Number(item.longitude),
+          capacity_kw: Number(capKw.toFixed(2)),
+          installation_date: item.installation_date || null,
+          panel_count: pCount,
+          battery_count: bCount,
+          inverter_count: iCount,
+        };
+      });
+
+    const regionalCoverage = [...new Set((projects || []).map((item) => item.state).filter(Boolean))].length;
 
     const enrichedProjects = (projects || []).map((item) => {
       const projectEquipment = equipmentByProject.get(item.id) || [];
@@ -818,6 +831,15 @@ exports.getPublicProfile = async (req, res) => {
     const contactEmail = companyMeta?.email || user.email || null;
     const contactAddress = companyMeta?.address || [companyMeta?.city, companyMeta?.state].filter(Boolean).join(', ') || null;
 
+    // Environmental impact estimates
+    // Avg African solar yield ~1500 kWh/kWp/yr; grid emission factor ~0.5 kg CO2/kWh (sub-Saharan Africa avg)
+    const annualGenerationMwh = (cumulativeCapacityKw * 1.5) / 1000; // MWh/yr
+    const lifetimeYears = 25;
+    const co2OffsetTonnesPerYear = annualGenerationMwh * 0.5; // tonnes CO2/yr
+    const co2OffsetLifetimeTonnes = co2OffsetTonnesPerYear * lifetimeYears;
+    const treesEquivalent = Math.round(co2OffsetLifetimeTonnes / 0.022); // ~22 kg CO2 absorbed per tree per year over lifetime
+    const homesEquivalent = Math.round(annualGenerationMwh / 2.5); // avg African household ~2,500 kWh/yr
+
     return sendSuccess(res, {
       profile: {
         name: primaryName,
@@ -845,6 +867,13 @@ exports.getPublicProfile = async (req, res) => {
         total_batteries: totalBatteryCount,
         total_inverters: totalInverterCount,
         regional_coverage_states: regionalCoverage,
+      },
+      environmental_impact: {
+        annual_generation_mwh: Number(annualGenerationMwh.toFixed(2)),
+        co2_offset_tonnes_per_year: Number(co2OffsetTonnesPerYear.toFixed(2)),
+        co2_offset_lifetime_tonnes: Number(co2OffsetLifetimeTonnes.toFixed(1)),
+        trees_equivalent: treesEquivalent,
+        homes_powered: homesEquivalent,
       },
       map_summary: {
         points,

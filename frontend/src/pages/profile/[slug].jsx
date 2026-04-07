@@ -6,6 +6,8 @@ import { LoadingSpinner } from '../../components/ui/index';
 import {
   RiBuilding2Line,
   RiFlashlightLine,
+  RiHome3Line,
+  RiLeafLine,
   RiMailLine,
   RiMapPin2Line,
   RiPhoneLine,
@@ -14,6 +16,8 @@ import {
   RiRouteLine,
   RiStackLine,
   RiStarFill,
+  RiSunLine,
+  RiTimeLine,
 } from 'react-icons/ri';
 
 function formatNumber(value, digits = 2) {
@@ -68,8 +72,16 @@ export default function PublicPortfolioPage() {
 
   const profile = data.profile || {};
   const stats = data.stats || {};
+  const envImpact = data.environmental_impact || {};
   const points = data.map_summary?.points || [];
   const selectedPoint = points.find((point) => point.id === selectedMapProjectId) || points[0] || null;
+
+  const handleMarkerClick = (cluster) => {
+    const clusterPointIds = cluster.points.map((p) => p.id);
+    const currentIdx = clusterPointIds.indexOf(selectedMapProjectId);
+    const nextIdx = currentIdx >= 0 ? (currentIdx + 1) % clusterPointIds.length : 0;
+    setSelectedMapProjectId(clusterPointIds[nextIdx]);
+  };
 
   const clusters = Object.values((points || []).reduce((acc, point) => {
     const stateKey = point.state || 'Unknown';
@@ -173,7 +185,7 @@ export default function PublicPortfolioPage() {
                         <button
                           key={cluster.id}
                           type="button"
-                          onClick={() => setSelectedMapProjectId(cluster.points[0]?.id || null)}
+                          onClick={() => handleMarkerClick(cluster)}
                           className={`absolute -translate-x-1/2 -translate-y-1/2 rounded-full border-2 transition-all flex items-center justify-center text-[10px] font-bold ${isActive ? 'bg-emerald-500 border-white text-white shadow-[0_0_0_8px_rgba(16,185,129,0.25)]' : 'bg-forest-900 border-white text-white hover:scale-110'}`}
                           style={{ left: `${x}%`, top: `${y}%` }}
                           title={`${cluster.state}: ${cluster.size} project${cluster.size !== 1 ? 's' : ''}`}
@@ -187,9 +199,42 @@ export default function PublicPortfolioPage() {
 
                   {selectedPoint && (
                     <div className="mt-3 rounded-xl border border-slate-200 p-4 bg-slate-50">
-                      <p className="font-semibold text-slate-800">{selectedPoint.name}</p>
-                      <p className="text-sm text-slate-600 mt-1 flex items-center gap-1"><RiMapPin2Line /> {selectedPoint.city}, {selectedPoint.state}</p>
-                      <p className="text-xs text-slate-500 mt-1 capitalize">Status: {selectedPoint.status}</p>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1">
+                          <p className="font-semibold text-slate-800">{selectedPoint.name}</p>
+                          <p className="text-sm text-slate-600 mt-1 flex items-center gap-1"><RiMapPin2Line /> {selectedPoint.city}, {selectedPoint.state}</p>
+                        </div>
+                        <span className={`text-xs font-semibold px-2 py-1 rounded-full capitalize ${selectedPoint.status === 'active' ? 'bg-emerald-100 text-emerald-700' : selectedPoint.status === 'decommissioned' ? 'bg-red-100 text-red-700' : selectedPoint.status === 'recycled' ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'}`}>
+                          {selectedPoint.status}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3">
+                        {selectedPoint.capacity_kw > 0 && (
+                          <div className="rounded-lg bg-white border border-slate-100 px-2.5 py-2 text-xs">
+                            <p className="text-slate-500 flex items-center gap-1"><RiSunLine /> Capacity</p>
+                            <p className="font-bold text-slate-800 mt-0.5">{selectedPoint.capacity_kw >= 1000 ? `${(selectedPoint.capacity_kw / 1000).toFixed(2)} MW` : `${selectedPoint.capacity_kw} kW`}</p>
+                          </div>
+                        )}
+                        {selectedPoint.installation_date && (
+                          <div className="rounded-lg bg-white border border-slate-100 px-2.5 py-2 text-xs">
+                            <p className="text-slate-500 flex items-center gap-1"><RiTimeLine /> Commissioned</p>
+                            <p className="font-bold text-slate-800 mt-0.5">{formatDate(selectedPoint.installation_date)}</p>
+                          </div>
+                        )}
+                        {selectedPoint.panel_count > 0 && (
+                          <div className="rounded-lg bg-white border border-slate-100 px-2.5 py-2 text-xs">
+                            <p className="text-slate-500 flex items-center gap-1"><RiPlantLine /> Panels</p>
+                            <p className="font-bold text-slate-800 mt-0.5">{selectedPoint.panel_count}</p>
+                          </div>
+                        )}
+                        {selectedPoint.battery_count > 0 && (
+                          <div className="rounded-lg bg-white border border-slate-100 px-2.5 py-2 text-xs">
+                            <p className="text-slate-500 flex items-center gap-1"><RiStackLine /> Batteries</p>
+                            <p className="font-bold text-slate-800 mt-0.5">{selectedPoint.battery_count}</p>
+                          </div>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-slate-400 mt-2">Click marker again to cycle through projects in this location.</p>
                     </div>
                   )}
 
@@ -232,6 +277,49 @@ export default function PublicPortfolioPage() {
                   <p><span className="text-slate-500">Inverter:</span> <span className="text-slate-800">{(data.equipment_summary?.manufacturers?.inverter || []).join(', ') || 'N/A'}</span></p>
                 </div>
               </div>
+
+              {(envImpact.co2_offset_tonnes_per_year > 0 || envImpact.homes_powered > 0) && (
+                <div className="bg-gradient-to-br from-emerald-50 to-green-50 rounded-3xl p-5 shadow-sm border border-emerald-200">
+                  <h3 className="font-semibold text-emerald-900 flex items-center gap-2"><RiLeafLine className="text-emerald-600" /> Environmental Impact</h3>
+                  <div className="space-y-3 mt-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-emerald-100 flex items-center justify-center"><RiLeafLine className="text-emerald-600" /></div>
+                      <div>
+                        <p className="text-xs text-emerald-700/70">CO₂ Offset (per year)</p>
+                        <p className="font-bold text-emerald-900">{formatNumber(envImpact.co2_offset_tonnes_per_year, 1)} tonnes</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-emerald-100 flex items-center justify-center"><RiLeafLine className="text-emerald-600" /></div>
+                      <div>
+                        <p className="text-xs text-emerald-700/70">Lifetime CO₂ Avoided (25yr)</p>
+                        <p className="font-bold text-emerald-900">{formatNumber(envImpact.co2_offset_lifetime_tonnes, 1)} tonnes</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-green-100 flex items-center justify-center"><RiPlantLine className="text-green-600" /></div>
+                      <div>
+                        <p className="text-xs text-emerald-700/70">Equivalent Trees Planted</p>
+                        <p className="font-bold text-emerald-900">{(envImpact.trees_equivalent || 0).toLocaleString()}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-green-100 flex items-center justify-center"><RiHome3Line className="text-green-600" /></div>
+                      <div>
+                        <p className="text-xs text-emerald-700/70">Homes Powered (annual)</p>
+                        <p className="font-bold text-emerald-900">{(envImpact.homes_powered || 0).toLocaleString()}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-amber-100 flex items-center justify-center"><RiSunLine className="text-amber-600" /></div>
+                      <div>
+                        <p className="text-xs text-emerald-700/70">Est. Annual Generation</p>
+                        <p className="font-bold text-emerald-900">{formatNumber(envImpact.annual_generation_mwh, 1)} MWh</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </section>
 
