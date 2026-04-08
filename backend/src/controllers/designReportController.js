@@ -203,7 +203,7 @@ exports.createShareLink = async (req, res) => {
     const { data: share, error } = await supabase
       .from('report_shares')
       .insert({
-        simulation_result_id: result.id,
+        project_id: projectId,
         share_token: token,
         created_by: req.user.id,
         expires_at: expiresAt,
@@ -250,7 +250,7 @@ exports.getSharedReport = async (req, res) => {
 
     const { data: share } = await supabase
       .from('report_shares')
-      .select('*, simulation_results(*)')
+      .select('*')
       .eq('share_token', token)
       .single();
 
@@ -261,38 +261,47 @@ exports.getSharedReport = async (req, res) => {
       return sendError(res, 'This share link has expired', 410);
     }
 
-    // Increment view count
-    await supabase
-      .from('report_shares')
-      .update({ views: (share.views || 0) + 1, last_viewed_at: new Date().toISOString() })
-      .eq('id', share.id);
+    // Check if active
+    if (!share.is_active) {
+      return sendError(res, 'This share link has been deactivated', 410);
+    }
 
-    const result = share.simulation_results;
-    if (!result) return sendError(res, 'Report data not found', 404);
-
-    // Load design and project (limited fields for public view)
+    // Get latest simulation result for this project
     const { data: design } = await supabase
       .from('project_designs')
-      .select('pv_technology, pv_capacity_kwp, pv_tilt_deg, pv_azimuth_deg, bess_capacity_kwh, bess_power_kw, bess_chemistry, bess_dispatch_strategy')
-      .eq('id', result.project_design_id)
+      .select('id')
+      .eq('project_id', share.project_id)
+      .maybeSingle();
+
+    if (!design) return sendError(res, 'No design found for this project', 404);
+
+    const { data: result } = await supabase
+      .from('simulation_results')
+      .select('*')
+      .eq('project_design_id', design.id)
+      .order('run_at', { ascending: false })
+      .limit(1)
       .single();
 
-    // Get project_id from the design row
-    const { data: designForProject } = await supabase
+    if (!result) return sendError(res, 'No simulation results found', 404);
+
+    // Get full design data
+    const { data: fullDesign } = await supabase
       .from('project_designs')
-      .select('project_id')
-      .eq('id', result.project_design_id)
+      .select('pv_technology, pv_capacity_kwp, pv_tilt_deg, pv_azimuth_deg, bess_capacity_kwh, bess_power_kw, bess_chemistry, bess_dispatch_strategy')
+      .eq('id', design.id)
       .single();
 
+    // Get project info
     const { data: project } = await supabase
       .from('projects')
       .select('name, location, companies(name)')
-      .eq('id', designForProject?.project_id)
+      .eq('id', share.project_id)
       .single();
 
     return sendSuccess(res, {
       project: { name: project?.name, location: project?.location, company: project?.companies?.name },
-      design,
+      design: fullDesign,
       result: {
         pv_capacity_kwp: result.pv_capacity_kwp,
         annual_generation_kwh: result.annual_solar_gen_kwh,
@@ -308,7 +317,7 @@ exports.getSharedReport = async (req, res) => {
       },
     }, 'Shared report retrieved');
   } catch (err) {
-    logger.error('getSharedReport error', { message: err.message });
-    return sendError(res, 'Failed to retrieve shared report');
+    logger.error('getSharedReport error', { message: err.message, stack: err.stack });
+    return sendError(res, 'Failed to retrieve shared report: ' + err.message);
   }
 };
