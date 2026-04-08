@@ -139,6 +139,7 @@ exports.getHtmlData = async (req, res) => {
       'ai_expert_feedback', 'ai_feedback_edited', 'ai_feedback_generated_at',
       'installation_type', 'energy_comparison', 'co2_avoided_tonnes',
       'diesel_annual_cost', 'petrol_annual_cost', 'grid_only_annual_cost',
+      'design_warnings',
       'project_designs(*)',
     ].join(', ');
 

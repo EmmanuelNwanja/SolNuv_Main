@@ -377,6 +377,7 @@ exports.autoSizeSystem = async (req, res) => {
     let lat = Number(location_lat) || 6.5;
     let lon = Number(location_lon) || 3.4;
     let dispatchStrategy = 'self_consumption';
+    let gridTopology = 'grid_tied_bess';
 
     // If project_id is provided, try to use saved design data
     if (project_id) {
@@ -396,29 +397,84 @@ exports.autoSizeSystem = async (req, res) => {
         if (design.location_lat) lat = Number(design.location_lat);
         if (design.location_lon) lon = Number(design.location_lon);
         if (design.bess_dispatch_strategy) dispatchStrategy = design.bess_dispatch_strategy;
+        if (design.grid_topology) gridTopology = design.grid_topology;
       }
     }
 
     if (annualKwh <= 0) return sendError(res, 'Annual consumption (kWh) is required for auto-sizing', 400);
 
+    // Derived demand metrics
+    const avgDailyKwh = annualKwh / 365;
+    const avgKw = annualKwh / 8760;
+    // If no peak provided, estimate from average using typical residential load factor ~0.35
+    if (peakKw <= 0) peakKw = Math.round(avgKw / 0.35 * 100) / 100;
+    const loadFactor = peakKw > 0 ? avgKw / peakKw : 0.35;
+
     // Fetch solar resource
     const solar = await getHourlySolarResource(lat, lon);
     const annualGhi = solar.annualGhiKwhM2;
 
-    // PV sizing: target 65-75% of annual consumption offset
-    // PR assumption: 1500-1700 kWh/kWp typical for Africa
-    const targetPR = 1550; // kWh/kWp
-    const targetOffset = 0.70; // 70% of consumption
-    const pvCapacity = Math.round((annualKwh * targetOffset) / targetPR);
+    // ─── PV Sizing ───
+    // Target 65-75% solar fraction; use location-specific PR estimate
+    // Higher peak:average ratio (low load factor) → slight PV oversize for self-consumption
+    const targetPR = 1550; // kWh/kWp typical for Africa
+    const targetOffset = loadFactor < 0.3 ? 0.65 : loadFactor < 0.5 ? 0.70 : 0.75;
+    let pvCapacity = Math.round((annualKwh * targetOffset) / targetPR);
 
-    // BESS sizing: 2-4 hours of peak demand, or TOU arbitrage window
-    const bessHours = dispatchStrategy === 'peak_shave' ? 2 : 4;
-    const bessCapacity = Math.round(peakKw * bessHours);
+    // For off-grid: PV must be able to cover average daytime load + battery charging
+    // Assume ~5 peak sun hours/day for Africa
+    if (gridTopology === 'off_grid') {
+      const minPvOffGrid = Math.ceil(avgDailyKwh / 5); // kWp needed for daily energy
+      pvCapacity = Math.max(pvCapacity, minPvOffGrid);
+    }
 
-    // CAPEX estimate (per kWp for PV, per kWh for BESS) — African market rates
-    const pvCostPerKwp = 15000; // NGN or contextual currency
+    // ─── BESS Sizing ───
+    // Self-consumption: cover average evening load (non-sun hours ~16h × avgKw) within DoD limits
+    // Peak-shave: cover 2h of peak demand
+    // Off-grid: cover overnight demand + autonomy margin
+    const dod = 0.80; // LFP standard
+    let bessCapacity;
+    if (dispatchStrategy === 'peak_shave') {
+      bessCapacity = Math.round(peakKw * 2 / dod);
+    } else if (gridTopology === 'off_grid') {
+      // Off-grid: 2 days autonomy at average daily usage
+      bessCapacity = Math.round(avgDailyKwh * 2 / dod);
+    } else {
+      // Self-consumption: average evening/night consumption (~60% of daily load happens outside peak sun)
+      const eveningKwh = avgDailyKwh * 0.6;
+      bessCapacity = Math.round(eveningKwh / dod);
+    }
+
+    // ─── Inverter Sizing ───
+    // Must handle whichever is larger: PV output or load peak
+    // Off-grid: must handle full peak load from battery alone
+    // Grid-tied: typically sized to PV capacity / DC:AC ratio, but should accommodate load peak for hybrid
+    const dcAcRatio = 1.2;
+    const pvInverterKva = Math.round(pvCapacity / dcAcRatio * 10) / 10;
+    let minInverterKva;
+    if (gridTopology === 'off_grid') {
+      // Off-grid: inverter MUST serve full peak load (no grid backup)
+      minInverterKva = Math.ceil(peakKw * 1.25); // 25% safety margin
+    } else if (gridTopology === 'hybrid') {
+      // Hybrid: should handle peak load during outages
+      minInverterKva = Math.ceil(peakKw * 1.1);
+    } else {
+      // Grid-tied: sized to PV, grid handles peak excess
+      minInverterKva = pvInverterKva;
+    }
+    const recommendedInverterKva = Math.max(pvInverterKva, minInverterKva);
+
+    // ─── BESS Power Rating ───
+    // Must be able to discharge at peak demand rate (minus available solar at night)
+    const bessCRate = 0.5;
+    const bessPowerKw = Math.round(bessCapacity * bessCRate * 10) / 10;
+    const bessPowerAdequate = bessPowerKw >= peakKw * 0.8; // Can handle 80% of peak
+
+    // ─── CAPEX estimate ───
+    const pvCostPerKwp = 15000;
     const bessCostPerKwh = 250000;
-    const bosCost = pvCapacity * pvCostPerKwp * 0.15; // 15% of PV for BoS
+    const inverterCostPerKva = 8000;
+    const bosCost = pvCapacity * pvCostPerKwp * 0.15;
     const installCost = (pvCapacity * pvCostPerKwp + bessCapacity * bessCostPerKwh) * 0.1;
 
     const recommendation = {
@@ -429,20 +485,58 @@ exports.autoSizeSystem = async (req, res) => {
       bess_capacity_kwh: include_bess !== false ? bessCapacity : 0,
       bess_chemistry: 'lfp',
       bess_dod_pct: 80,
-      bess_c_rate: 0.5,
+      bess_c_rate: bessCRate,
+      inverter_kva: recommendedInverterKva,
+      bess_power_kw: include_bess !== false ? bessPowerKw : 0,
+      load_metrics: {
+        annual_kwh: Math.round(annualKwh),
+        avg_daily_kwh: Math.round(avgDailyKwh * 10) / 10,
+        peak_kw: peakKw,
+        avg_kw: Math.round(avgKw * 100) / 100,
+        load_factor: Math.round(loadFactor * 1000) / 1000,
+      },
       estimated_capex: {
         pv: pvCapacity * pvCostPerKwp,
         bess: include_bess !== false ? bessCapacity * bessCostPerKwh : 0,
+        inverter: Math.round(recommendedInverterKva * inverterCostPerKva),
         bos: Math.round(bosCost),
         installation: Math.round(installCost),
-        total: Math.round(pvCapacity * pvCostPerKwp + (include_bess !== false ? bessCapacity * bessCostPerKwh : 0) + bosCost + installCost),
+        total: Math.round(pvCapacity * pvCostPerKwp + (include_bess !== false ? bessCapacity * bessCostPerKwh : 0) + recommendedInverterKva * inverterCostPerKva + bosCost + installCost),
       },
+      warnings: [],
       reasoning: {
-        pv: `${pvCapacity} kWp sized to offset ~${Math.round(targetOffset * 100)}% of ${Math.round(annualKwh / 1000)} MWh annual consumption at ${targetPR} kWh/kWp performance ratio for this location (${Math.round(annualGhi)} kWh/m²/yr GHI).`,
-        bess: include_bess !== false ? `${bessCapacity} kWh (${bessHours}h at ${peakKw} kW peak) sized for ${dispatchStrategy === 'peak_shave' ? 'peak demand shaving' : 'self-consumption + TOU arbitrage'}.` : 'BESS not included.',
+        pv: `${pvCapacity} kWp sized to offset ~${Math.round(targetOffset * 100)}% of ${Math.round(annualKwh / 1000)} MWh annual consumption (${Math.round(avgDailyKwh)} kWh/day avg) at ${targetPR} kWh/kWp performance ratio for this location (${Math.round(annualGhi)} kWh/m²/yr GHI).`,
+        bess: include_bess !== false
+          ? `${bessCapacity} kWh${dispatchStrategy === 'peak_shave'
+            ? ` (2h at ${peakKw} kW peak ÷ ${(dod * 100)}% DoD) for peak demand shaving`
+            : gridTopology === 'off_grid'
+              ? ` (2 days × ${Math.round(avgDailyKwh)} kWh/day ÷ ${(dod * 100)}% DoD) for off-grid autonomy`
+              : ` (${Math.round(avgDailyKwh * 0.6)} kWh evening load ÷ ${(dod * 100)}% DoD) for self-consumption`
+          }. Power rating: ${bessPowerKw} kW (${bessCRate}C).`
+          : 'BESS not included.',
+        inverter: `${recommendedInverterKva} kVA — ${gridTopology === 'off_grid'
+          ? `must handle full ${peakKw} kW peak load (off-grid, 25% safety margin)`
+          : gridTopology === 'hybrid'
+            ? `must handle ${peakKw} kW peak load during outages (10% margin)`
+            : `sized to PV array at ${dcAcRatio} DC:AC ratio`
+        }.`,
         technology: 'n-type TOPCon Bifacial recommended for best balance of efficiency, degradation, and heat tolerance in African conditions.',
       },
     };
+
+    // Add warnings for potential issues
+    if (include_bess !== false && !bessPowerAdequate) {
+      recommendation.warnings.push({
+        type: 'bess_power_low',
+        message: `Battery power rating (${bessPowerKw} kW at ${bessCRate}C) may be insufficient for ${peakKw} kW peak demand. Consider a higher C-rate or larger battery.`,
+      });
+    }
+    if (loadFactor < 0.2) {
+      recommendation.warnings.push({
+        type: 'spiky_load',
+        message: `Very spiky load profile (load factor ${(loadFactor * 100).toFixed(0)}%). Peak demand (${peakKw} kW) is ${Math.round(peakKw / avgKw)}× average. Inverter and battery power ratings are critical — validate equipment can handle peak.`,
+      });
+    }
 
     return sendSuccess(res, recommendation, 'System sizing recommendation generated');
   } catch (err) {

@@ -12,6 +12,7 @@ import {
   RiBatteryLine, RiMoneyDollarCircleLine, RiFlashlightLine,
   RiFileExcel2Line, RiFilePdf2Line, RiLinkM,
   RiRobot2Line, RiEditLine, RiCheckLine, RiPlugLine,
+  RiAlertLine, RiErrorWarningLine, RiInformationLine,
 } from 'react-icons/ri';
 import toast from 'react-hot-toast';
 import dynamic from 'next/dynamic';
@@ -239,6 +240,27 @@ export default function ResultsDashboard() {
             <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${TOPOLOGY_COLORS[result.grid_topology] || 'bg-gray-100 text-gray-700'}`}>
               {TOPOLOGY_LABELS[result.grid_topology] || result.grid_topology}
             </span>
+          </div>
+        )}
+
+        {/* Design Warnings */}
+        {result?.design_warnings?.length > 0 && (
+          <div className="mb-6 space-y-2">
+            {result.design_warnings.map((w, i) => {
+              const sev = w.severity || 'warning';
+              const styles = sev === 'critical'
+                ? 'bg-red-50 dark:bg-red-900/20 border-red-300 dark:border-red-700 text-red-800 dark:text-red-300'
+                : sev === 'info'
+                ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700 text-blue-800 dark:text-blue-300'
+                : 'bg-amber-50 dark:bg-amber-900/20 border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-300';
+              const Icon = sev === 'critical' ? RiErrorWarningLine : sev === 'info' ? RiInformationLine : RiAlertLine;
+              return (
+                <div key={i} className={`flex items-start gap-2 p-3 border rounded-xl text-sm ${styles}`}>
+                  <Icon className="mt-0.5 flex-shrink-0 text-lg" />
+                  <span>{w.message}</span>
+                </div>
+              );
+            })}
           </div>
         )}
 

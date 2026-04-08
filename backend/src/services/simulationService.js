@@ -17,6 +17,9 @@ const { PANEL_TECHNOLOGIES, DEFAULT_PANEL_TECHNOLOGY, BATTERY_CHEMISTRIES, resol
 const HOURS_PER_YEAR = 8760;
 const DAYS_PER_MONTH = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
 
+/** Format number to 2 decimal places for warning messages */
+function fmt2(n) { return Math.round(n * 100) / 100; }
+
 /**
  * Run a complete simulation for a project design.
  * @param {string} projectDesignId
@@ -259,6 +262,66 @@ async function runSimulation(projectDesignId) {
     feedInRevenue: 0, // calculated below
   });
 
+  // 12c. Generate design validation warnings
+  const designWarnings = [];
+  const dcAcRatio = Number(design.dc_ac_ratio) || 1.2;
+  const inverterAcCap = pvCapacity / dcAcRatio;
+
+  // Inverter undersized for peak load (critical for off-grid/hybrid)
+  if ((gridTopology === 'off_grid' || gridTopology === 'hybrid') && loadStats.peakKw > inverterAcCap * 1.05) {
+    designWarnings.push({
+      type: 'inverter_undersized',
+      severity: 'critical',
+      message: `Inverter AC capacity (~${fmt2(inverterAcCap)} kW from ${pvCapacity} kWp at ${dcAcRatio} DC:AC) is below peak load demand (${fmt2(loadStats.peakKw)} kW). The system cannot serve full peak load during grid outages. Consider increasing PV capacity or reducing DC:AC ratio.`,
+    });
+  }
+
+  // BESS power rating insufficient for peak demand (off-grid/hybrid)
+  if (bessCapacity > 0) {
+    const bessPowerKw = bessCapacity * (Number(design.bess_c_rate) || 0.5);
+    if ((gridTopology === 'off_grid' || gridTopology === 'hybrid') && bessPowerKw < loadStats.peakKw * 0.7) {
+      designWarnings.push({
+        type: 'bess_power_low',
+        severity: 'warning',
+        message: `Battery max discharge power (${fmt2(bessPowerKw)} kW at ${design.bess_c_rate || 0.5}C) is significantly below peak demand (${fmt2(loadStats.peakKw)} kW). During evening/night peaks without solar, unmet load is likely. Consider a higher C-rate battery or larger capacity.`,
+      });
+    }
+  }
+
+  // Very low load factor — spiky load profile warning
+  if (loadStats.loadFactor > 0 && loadStats.loadFactor < 0.2) {
+    designWarnings.push({
+      type: 'spiky_load_profile',
+      severity: 'info',
+      message: `Load profile has a very low load factor (${(loadStats.loadFactor * 100).toFixed(0)}%) — peak demand (${fmt2(loadStats.peakKw)} kW) is ${Math.round(1 / loadStats.loadFactor)}× the average (${fmt2(loadStats.averageKw)} kW). Ensure inverter and battery power ratings can handle peak transients.`,
+    });
+  }
+
+  // High unmet load for off-grid/hybrid
+  if (bessResults.annual.unmet_load_kwh > 0 && bessResults.annual.load_kwh > 0) {
+    const unmetPct = (bessResults.annual.unmet_load_kwh / bessResults.annual.load_kwh * 100);
+    if (unmetPct > 5) {
+      designWarnings.push({
+        type: 'high_unmet_load',
+        severity: unmetPct > 15 ? 'critical' : 'warning',
+        message: `${fmt2(unmetPct)}% of annual load (${Math.round(bessResults.annual.unmet_load_kwh)} kWh) cannot be served. Consider increasing PV capacity, battery storage, or adding a backup generator.`,
+      });
+    }
+  }
+
+  // Heavy battery cycling
+  if (bessResults.annual.battery_cycles > 0) {
+    const cycleLifeEstimate = design.bess_chemistry === 'lfp' ? 6000 : design.bess_chemistry === 'nmc' ? 3000 : 4000;
+    const yearsToReplacement = bessResults.annual.battery_cycles > 0 ? Math.round(cycleLifeEstimate / bessResults.annual.battery_cycles * 10) / 10 : null;
+    if (yearsToReplacement && yearsToReplacement < 5) {
+      designWarnings.push({
+        type: 'heavy_cycling',
+        severity: 'warning',
+        message: `Battery is heavily cycled (${Math.round(bessResults.annual.battery_cycles)} cycles/year). Estimated replacement needed in ~${yearsToReplacement} years. Consider a larger battery to reduce cycle depth and extend lifespan.`,
+      });
+    }
+  }
+
   // 13. Assemble results
   const feedInTariff = Number(design.feed_in_tariff_per_kwh) || 0;
   const feedInRevenue = feedInTariff > 0 ? Math.round(bessResults.annual.grid_export_kwh * feedInTariff * 100) / 100 : 0;
@@ -301,8 +364,8 @@ async function runSimulation(projectDesignId) {
     unmet_load_kwh: bessResults.annual.unmet_load_kwh || 0,
     unmet_load_hours: bessResults.annual.unmet_load_hours || 0,
     loss_of_load_pct: bessResults.annual.loss_of_load_pct || 0,
-    autonomy_achieved_days: bessCapacity > 0 && loadStats.avgKw > 0
-      ? Math.round((bessCapacity * (Number(design.bess_dod_pct) || 80) / 100) / (loadStats.avgKw * 24) * 10) / 10
+    autonomy_achieved_days: bessCapacity > 0 && loadStats.averageKw > 0
+      ? Math.round((bessCapacity * (Number(design.bess_dod_pct) || 80) / 100) / (loadStats.averageKw * 24) * 10) / 10
       : 0,
     islanded_hours: bessResults.annual.islanded_hours || 0,
     feed_in_revenue: feedInRevenue,
@@ -318,6 +381,7 @@ async function runSimulation(projectDesignId) {
     petrol_annual_cost: energyComparison.annual_costs.petrol,
     grid_only_annual_cost: energyComparison.annual_costs.grid_only,
     executive_summary_text: null, // Will be filled by AI narration
+    design_warnings: designWarnings.length > 0 ? designWarnings : null,
   };
 
   // 14. Store results
