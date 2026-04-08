@@ -5,8 +5,39 @@ export async function exportToPdf(element, filename, options = {}) {
 
   const html2pdf = (await import('html2pdf.js')).default;
 
+  // Clone the element to modify it for PDF export without affecting the UI
+  const clonedElement = element.cloneNode(true);
+  
+  // Find and remove the sidebar navigation in the clone
+  const sidebar = clonedElement.querySelector('aside');
+  if (sidebar) {
+    sidebar.remove();
+  }
+  
+  // Find the main container with flex and make it block for full width
+  const mainContainer = clonedElement.querySelector('.max-w-7xl');
+  if (mainContainer) {
+    mainContainer.style.display = 'block';
+    mainContainer.classList.remove('flex');
+  }
+  
+  // Find main content and ensure it's full width
+  const mainContent = clonedElement.querySelector('main');
+  if (mainContent) {
+    mainContent.style.width = '100%';
+    mainContent.style.maxWidth = '100%';
+    mainContent.classList.remove('flex-1');
+    mainContent.style.flex = 'none';
+  }
+
+  // Adjust all grid layouts to fit A4
+  const allGrids = clonedElement.querySelectorAll('.grid');
+  allGrids.forEach(grid => {
+    grid.style.width = '100%';
+  });
+
   const defaultOptions = {
-    margin: 10,
+    margin: 5,
     filename: filename || 'document.pdf',
     image: { type: 'jpeg', quality: 0.98 },
     html2canvas: { 
@@ -27,7 +58,7 @@ export async function exportToPdf(element, filename, options = {}) {
   const mergedOptions = { ...defaultOptions, ...options };
 
   try {
-    await html2pdf().set(mergedOptions).from(element).save();
+    await html2pdf().set(mergedOptions).from(clonedElement).save();
     return { success: true };
   } catch (error) {
     console.error('PDF export failed:', error);
