@@ -389,7 +389,9 @@ exports.getSharedReport = async (req, res) => {
         executive_summary_text: result.executive_summary_text,
         ai_feedback_text: result.ai_feedback_text,
         // Energy comparison data if available
-        energy_comparison: result.energy_comparison ? JSON.parse(result.energy_comparison) : null,
+        energy_comparison: result.energy_comparison 
+          ? (typeof result.energy_comparison === 'string' ? JSON.parse(result.energy_comparison) : result.energy_comparison) 
+          : null,
       },
     }, 'Shared report retrieved');
   } catch (err) {
