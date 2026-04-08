@@ -182,6 +182,31 @@ exports.runProjectSimulation = async (req, res) => {
         .eq('id', design.id);
     }
 
+    // Auto-set peak_shave_threshold_kw for peak_shave dispatch strategy
+    // Use 80% of load profile peak as default if no explicit threshold was provided
+    if (designRow.bess_dispatch_strategy === 'peak_shave' && !req.body.peak_shave_threshold_kw) {
+      const { data: lpStats } = await supabase
+        .from('load_profiles')
+        .select('peak_demand_kw')
+        .eq('id', loadProfile.id)
+        .single();
+
+      const peakKw = Number(lpStats?.peak_demand_kw) || 0;
+      if (peakKw > 0) {
+        const threshold = Math.round(peakKw * 0.8 * 100) / 100;
+        await supabase
+          .from('project_designs')
+          .update({ peak_shave_threshold_kw: threshold })
+          .eq('id', design.id);
+      }
+    } else if (req.body.peak_shave_threshold_kw) {
+      // Explicit threshold provided by user
+      await supabase
+        .from('project_designs')
+        .update({ peak_shave_threshold_kw: parseFloat(req.body.peak_shave_threshold_kw) })
+        .eq('id', design.id);
+    }
+
     const results = await runSimulation(design.id);
 
     // Update project design_completed_at timestamp

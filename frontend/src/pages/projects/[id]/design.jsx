@@ -160,6 +160,7 @@ export default function DesignWizard() {
     bess_power_kw: '',
     battery_chemistry: 'LFP',
     bess_dispatch_strategy: 'self_consumption',
+    peak_shave_threshold_kw: '',
     bess_min_soc: 10,
     bess_round_trip_efficiency: 92,
     // Off-grid / Hybrid
@@ -351,6 +352,7 @@ export default function DesignWizard() {
         bess_power_kw: form.include_bess ? parseFloat(form.bess_power_kw) || 0 : 0,
         battery_chemistry: form.battery_chemistry,
         bess_dispatch_strategy: form.bess_dispatch_strategy,
+        peak_shave_threshold_kw: form.peak_shave_threshold_kw ? parseFloat(form.peak_shave_threshold_kw) : undefined,
         bess_min_soc: parseFloat(form.bess_min_soc) / 100,
         bess_round_trip_efficiency: parseFloat(form.bess_round_trip_efficiency) / 100,
         total_cost: parseFloat(form.total_cost) || 0,
@@ -879,6 +881,15 @@ export default function DesignWizard() {
                           {DISPATCH_STRATEGIES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
                         </select>
                       </div>
+                      {form.bess_dispatch_strategy === 'peak_shave' && (
+                        <div>
+                          <label className="label">Peak Shave Threshold (kW)</label>
+                          <input type="number" min="0" step="0.1" className="input" value={form.peak_shave_threshold_kw}
+                            onChange={e => updateForm('peak_shave_threshold_kw', e.target.value)}
+                            placeholder={form.peak_kw ? `Default: ${Math.round(form.peak_kw * 0.8)} kW (80% of peak)` : 'e.g. 50'} />
+                          <p className="text-xs text-gray-400 mt-1">Battery discharges when grid demand exceeds this threshold. Leave blank to auto-set at 80% of your load profile peak.</p>
+                        </div>
+                      )}
                       <div>
                         <label className="label">Min SOC (%)</label>
                         <input type="number" min="0" max="50" className="input" value={form.bess_min_soc}

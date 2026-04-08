@@ -253,7 +253,7 @@ export default function ResultsDashboard() {
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
           <MetricCard label="Solar Fraction" value={result?.utilisation_pct != null ? fmt(result.utilisation_pct, 1) : '—'} unit="%" />
           <MetricCard label="Self-Consumption" value={result?.self_consumption_pct != null ? fmt(result.self_consumption_pct, 1) : '—'} unit="%" />
-          <MetricCard label="NPV (25yr)" value={`${currSym}${fmt(result?.npv_25yr)}`} unit="" />
+          <MetricCard label={`NPV (${design?.analysis_period_years || 25}yr)`} value={`${currSym}${fmt(result?.npv_25yr)}`} unit="" />
           <MetricCard label="IRR" value={result?.irr_pct != null ? fmt(result.irr_pct, 1) : '—'} unit="%" />
           <MetricCard label="LCOE" value={result?.lcoe_normal != null ? `${currSym}${fmt(result.lcoe_normal, 2)}` : '—'} unit="/kWh" />
         </div>
@@ -427,7 +427,7 @@ export default function ResultsDashboard() {
           {tab === 'financial' && (
             <>
               <div className="card p-5 mb-4">
-                <h3 className="text-sm font-semibold mb-4">25-Year Cashflow</h3>
+                <h3 className="text-sm font-semibold mb-4">{design?.analysis_period_years || 25}-Year Cashflow</h3>
                 <div className="h-72">
                   <Line data={cashflowChart} options={{
                     responsive: true, maintainAspectRatio: false,

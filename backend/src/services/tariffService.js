@@ -29,6 +29,7 @@ function getSeasonForMonth(seasons, month) {
  */
 function getTOUPeriod(rates, seasonKey, hour, dayOfWeek) {
   const seasonRates = rates.filter(r => r.season_key === seasonKey);
+  let flatFallback = null;
 
   for (const rate of seasonRates) {
     let hoursArray;
@@ -38,6 +39,12 @@ function getTOUPeriod(rates, seasonKey, hour, dayOfWeek) {
       hoursArray = rate.saturday_hours || [];
     } else {
       hoursArray = rate.weekday_hours || [];
+    }
+
+    // Empty hours array means this rate applies to all hours (flat / all-day rate)
+    if (hoursArray.length === 0) {
+      flatFallback = { period_name: rate.period_name, rate_per_kwh: Number(rate.rate_per_kwh) };
+      continue;
     }
 
     for (const range of hoursArray) {
@@ -50,7 +57,10 @@ function getTOUPeriod(rates, seasonKey, hour, dayOfWeek) {
     }
   }
 
-  // Default to off-peak if no match
+  // Use flat/all-day rate if no TOU period matched
+  if (flatFallback) return flatFallback;
+
+  // Last-resort default to off-peak
   const offPeak = seasonRates.find(r => r.period_name === 'off_peak');
   return {
     period_name: 'off_peak',

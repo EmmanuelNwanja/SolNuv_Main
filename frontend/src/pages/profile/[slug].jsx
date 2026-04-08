@@ -292,7 +292,7 @@ export default function PublicPortfolioPage() {
                     <div className="flex items-center gap-3">
                       <div className="w-9 h-9 rounded-xl bg-emerald-100 flex items-center justify-center"><RiLeafLine className="text-emerald-600" /></div>
                       <div>
-                        <p className="text-xs text-emerald-700/70">Lifetime CO₂ Avoided (25yr)</p>
+                        <p className="text-xs text-emerald-700/70">Lifetime CO₂ Avoided ({envImpact.analysis_period_years || 25}yr)</p>
                         <p className="font-bold text-emerald-900">{formatNumber(envImpact.co2_offset_lifetime_tonnes, 1)} tonnes</p>
                       </div>
                     </div>

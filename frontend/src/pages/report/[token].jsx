@@ -118,10 +118,10 @@ export default function SharedReport() {
           {/* Key Metrics */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
             {[
-              { icon: RiSunLine, label: 'PV Capacity', value: `${fmt(result?.pv_capacity_kwp, 1)} kWp` },
-              { icon: RiFlashlightLine, label: 'Annual Generation', value: `${fmt(result?.annual_generation_kwh)} kWh` },
-              { icon: RiMoneyDollarCircleLine, label: 'Annual Savings', value: `${fmt(result?.annual_savings)}` },
-              { icon: RiMoneyDollarCircleLine, label: 'Payback', value: result?.simple_payback_years ? `${fmt(result.simple_payback_years, 1)} years` : '—' },
+              { icon: RiSunLine, label: 'PV Capacity', value: `${fmt(design?.pv_capacity_kwp, 1)} kWp` },
+              { icon: RiFlashlightLine, label: 'Annual Generation', value: `${fmt(result?.annual_solar_gen_kwh)} kWh` },
+              { icon: RiMoneyDollarCircleLine, label: 'Annual Savings', value: `${fmt(result?.year1_savings)}` },
+              { icon: RiMoneyDollarCircleLine, label: 'Payback', value: result?.simple_payback_months ? `${fmt(result.simple_payback_months / 12, 1)} years` : '—' },
             ].map((m, i) => (
               <div key={i} className="p-4 bg-white rounded-xl shadow-sm border border-gray-200">
                 <div className="flex items-center gap-2 mb-1">
@@ -136,19 +136,19 @@ export default function SharedReport() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
             <div className="p-4 bg-white rounded-xl shadow-sm border text-center">
               <p className="text-xs text-gray-400">Solar Fraction</p>
-              <p className="text-lg font-bold">{result?.solar_fraction ? (result.solar_fraction * 100).toFixed(1) + '%' : '—'}</p>
+              <p className="text-lg font-bold">{result?.utilisation_pct != null ? fmt(result.utilisation_pct, 1) + '%' : '—'}</p>
             </div>
             <div className="p-4 bg-white rounded-xl shadow-sm border text-center">
-              <p className="text-xs text-gray-400">NPV (25yr)</p>
+              <p className="text-xs text-gray-400">NPV ({result?.analysis_period_years || design?.analysis_period_years || 25}yr)</p>
               <p className="text-lg font-bold">{fmt(result?.npv_25yr)}</p>
             </div>
             <div className="p-4 bg-white rounded-xl shadow-sm border text-center">
               <p className="text-xs text-gray-400">IRR</p>
-              <p className="text-lg font-bold">{result?.irr ? (result.irr * 100).toFixed(1) + '%' : '—'}</p>
+              <p className="text-lg font-bold">{result?.irr_pct != null ? fmt(result.irr_pct, 1) + '%' : '—'}</p>
             </div>
             <div className="p-4 bg-white rounded-xl shadow-sm border text-center">
               <p className="text-xs text-gray-400">LCOE</p>
-              <p className="text-lg font-bold">{result?.lcoe ? fmt(result.lcoe, 2) + '/kWh' : '—'}</p>
+              <p className="text-lg font-bold">{result?.lcoe_normal != null ? fmt(result.lcoe_normal, 2) + '/kWh' : '—'}</p>
             </div>
           </div>
 
@@ -192,8 +192,8 @@ export default function SharedReport() {
                       <tr key={i} className="border-b">
                         <td className="px-3 py-2">{MONTHS[i]}</td>
                         <td className="px-3 py-2 text-right">{fmt(m.load_kwh)}</td>
-                        <td className="px-3 py-2 text-right">{fmt(m.generation_kwh)}</td>
-                        <td className="px-3 py-2 text-right text-green-600">{fmt(m.self_consumption_kwh)}</td>
+                        <td className="px-3 py-2 text-right">{fmt(m.pv_gen_kwh)}</td>
+                        <td className="px-3 py-2 text-right text-green-600">{fmt(m.solar_utilised_kwh)}</td>
                         <td className="px-3 py-2 text-right">{fmt(m.grid_import_kwh)}</td>
                       </tr>
                     ))}

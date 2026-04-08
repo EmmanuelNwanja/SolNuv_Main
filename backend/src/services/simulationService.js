@@ -172,8 +172,23 @@ async function runSimulation(projectDesignId) {
     });
   }
 
-  const baselineAnnualCost = baselineBill?.annual.total_cost || 0;
-  const withSolarAnnualCost = withSolarBill?.annual.total_cost || 0;
+  let baselineAnnualCost = baselineBill?.annual.total_cost || 0;
+  let withSolarAnnualCost = withSolarBill?.annual.total_cost || 0;
+
+  // For off-grid systems with no grid tariff, derive baseline from diesel-equivalent cost
+  // so savings and financial metrics are meaningful (savings = diesel cost avoided by solar)
+  if (gridTopology === 'off_grid' && baselineAnnualCost === 0) {
+    const annualLoadForBaseline = bessResults.annual.load_kwh;
+    const dieselPricePerLitre = Number(design.diesel_price_per_litre) || 1100;
+    const DIESEL_KWH_PER_LITRE = 3.5;
+    const dieselLitresBaseline = annualLoadForBaseline / DIESEL_KWH_PER_LITRE;
+    const dieselFuelBaseline = dieselLitresBaseline * dieselPricePerLitre;
+    const dieselRunHours = annualLoadForBaseline > 0 ? 8760 * 0.7 : 0;
+    const dieselMaintBaseline = dieselRunHours * 500; // ₦500/hr maintenance
+    baselineAnnualCost = Math.round(dieselFuelBaseline + dieselMaintBaseline);
+    withSolarAnnualCost = 0; // Off-grid solar has no residual grid cost
+  }
+
   const year1Savings = baselineAnnualCost - withSolarAnnualCost;
 
   // 9. Run financial model

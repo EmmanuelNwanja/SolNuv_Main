@@ -175,20 +175,22 @@ async function generateDesignReportPdf(simulationResultId) {
     doc.fontSize(10).fillColor(hex(BRAND.text)).text(exec, { lineGap: 4, paragraphGap: 8 });
   }
 
+  const analysisPeriod = Number(design?.analysis_period_years) || 25;
+
   doc.moveDown(0.8);
   addSubHeader(doc, 'Key Metrics');
 
   const metrics = [
-    ['PV System Size', fmt(result.pv_capacity_kwp) + ' kWp'],
-    ['Annual Generation', fmt(result.annual_generation_kwh) + ' kWh'],
-    ['Solar Fraction', fmtPct(result.solar_fraction)],
-    ['Self-Consumption Ratio', fmtPct(result.self_consumption_ratio)],
+    ['PV System Size', fmt(design?.pv_capacity_kwp) + ' kWp'],
+    ['Annual Generation', fmt(result.annual_solar_gen_kwh) + ' kWh'],
+    ['Solar Fraction', result.utilisation_pct != null ? fmt(result.utilisation_pct, 1) + '%' : '—'],
+    ['Self-Consumption Ratio', result.self_consumption_pct != null ? fmt(result.self_consumption_pct, 1) + '%' : '—'],
     ['Battery Capacity', design?.bess_capacity_kwh ? fmt(design.bess_capacity_kwh) + ' kWh' : 'None'],
-    ['Annual Savings', fmtCurrency(result.annual_savings, currency)],
-    ['Simple Payback', result.simple_payback_years ? fmt(result.simple_payback_years, 1) + ' years' : '—'],
-    ['NPV (25-yr)', fmtCurrency(result.npv_25yr, currency)],
-    ['IRR', result.irr ? (result.irr * 100).toFixed(1) + '%' : '—'],
-    ['LCOE', result.lcoe ? fmtCurrency(result.lcoe, currency) + '/kWh' : '—'],
+    ['Annual Savings', fmtCurrency(result.year1_savings, currency)],
+    ['Simple Payback', result.simple_payback_months ? fmt(result.simple_payback_months / 12, 1) + ' years' : '—'],
+    [`NPV (${analysisPeriod}-yr)`, fmtCurrency(result.npv_25yr, currency)],
+    ['IRR', result.irr_pct != null ? fmt(result.irr_pct, 1) + '%' : '—'],
+    ['LCOE', result.lcoe_normal != null ? fmtCurrency(result.lcoe_normal, currency) + '/kWh' : '—'],
   ];
 
   metrics.forEach(([k, v]) => addKV(doc, k, v));
@@ -198,27 +200,26 @@ async function generateDesignReportPdf(simulationResultId) {
   addHeader(doc, 'Solar System Overview', { topPad: 0.2 });
 
   addSubHeader(doc, 'PV Array Configuration');
-  addKV(doc, 'Module Technology', design?.panel_technology || 'Monocrystalline PERC');
-  addKV(doc, 'System Capacity', fmt(result.pv_capacity_kwp) + ' kWp');
-  addKV(doc, 'Array Tilt', (design?.tilt_angle || 0) + '°');
-  addKV(doc, 'Array Azimuth', (design?.azimuth_angle || 0) + '°');
-  addKV(doc, 'Annual Degradation', ((design?.annual_degradation_pct || 0.5)) + '%');
-  addKV(doc, 'System Losses', ((design?.system_losses_pct || 14)) + '%');
+  addKV(doc, 'Module Technology', design?.pv_technology || 'Monocrystalline PERC');
+  addKV(doc, 'System Capacity', fmt(design?.pv_capacity_kwp) + ' kWp');
+  addKV(doc, 'Array Tilt', (design?.pv_tilt_deg || 0) + '°');
+  addKV(doc, 'Array Azimuth', (design?.pv_azimuth_deg || 0) + '°');
+  addKV(doc, 'Annual Degradation', ((design?.pv_degradation_annual_pct || 0.5)) + '%');
+  addKV(doc, 'System Losses', ((design?.pv_system_losses_pct || 14)) + '%');
 
   if (design?.bess_capacity_kwh > 0) {
     addSubHeader(doc, 'Battery Energy Storage');
     addKV(doc, 'Rated Capacity', fmt(design.bess_capacity_kwh) + ' kWh');
-    addKV(doc, 'Usable Capacity', fmt(design.bess_capacity_kwh * (1 - (design.bess_min_soc || 0.1))) + ' kWh');
-    addKV(doc, 'Power Rating', fmt(design.bess_power_kw) + ' kW');
-    addKV(doc, 'Chemistry', design.battery_chemistry || 'LFP');
+    addKV(doc, 'Usable Capacity', fmt(design.bess_capacity_kwh * (design.bess_dod_pct || 80) / 100) + ' kWh');
+    addKV(doc, 'Chemistry', (design.bess_chemistry || 'lfp').toUpperCase());
     addKV(doc, 'Dispatch Strategy', (design.bess_dispatch_strategy || 'self_consumption').replace(/_/g, ' '));
-    addKV(doc, 'Annual Cycles', result.annual_bess_cycles ? fmt(result.annual_bess_cycles, 0) : '—');
+    addKV(doc, 'Annual Cycles', result.battery_cycles_annual != null ? fmt(result.battery_cycles_annual, 0) : '—');
   }
 
   addSubHeader(doc, 'Solar Resource Data');
   addKV(doc, 'Data Source', 'NASA POWER (Climatology)');
-  addKV(doc, 'Peak Sun Hours (avg)', result.annual_generation_kwh && result.pv_capacity_kwp
-    ? fmt(result.annual_generation_kwh / result.pv_capacity_kwp / 365, 1) + ' h/day'
+  addKV(doc, 'Peak Sun Hours (avg)', result.annual_solar_gen_kwh && design?.pv_capacity_kwp
+    ? fmt(result.annual_solar_gen_kwh / design.pv_capacity_kwp / 365, 1) + ' h/day'
     : '—');
 
   // ━━━━━━━━━━━━━━━ PAGE 4: TARIFF ANALYSIS ━━━━━━━━━━━━━━━
@@ -257,11 +258,11 @@ async function generateDesignReportPdf(simulationResultId) {
   doc.moveDown(0.5);
   addSubHeader(doc, 'Annual Cost Comparison');
   addKV(doc, 'Baseline Grid Cost', fmtCurrency(result.baseline_annual_cost, currency));
-  addKV(doc, 'With-Solar Grid Cost', fmtCurrency(result.with_solar_annual_cost, currency));
-  addKV(doc, 'Annual Savings', fmtCurrency(result.annual_savings, currency));
+  addKV(doc, 'With-Solar Grid Cost', fmtCurrency(result.year1_annual_cost, currency));
+  addKV(doc, 'Annual Savings', fmtCurrency(result.year1_savings, currency));
   addKV(doc, 'Savings Percentage',
     result.baseline_annual_cost > 0
-      ? ((result.annual_savings / result.baseline_annual_cost) * 100).toFixed(1) + '%'
+      ? ((result.year1_savings / result.baseline_annual_cost) * 100).toFixed(1) + '%'
       : '—'
   );
 
@@ -278,19 +279,21 @@ async function generateDesignReportPdf(simulationResultId) {
       addTableRow(doc, [
         monthNames[i] || i + 1,
         fmt(m.load_kwh, 0),
-        fmt(m.generation_kwh, 0),
-        fmt(m.self_consumption_kwh, 0),
-        fmt(m.export_kwh, 0),
+        fmt(m.pv_gen_kwh, 0),
+        fmt(m.solar_utilised_kwh, 0),
+        fmt(m.grid_export_kwh, 0),
         fmt(m.grid_import_kwh, 0),
       ], mWidths);
     });
   }
 
   // Totals
+  // Totals derived from monthly summary
+  const totalLoadKwh = monthly.reduce((s, m) => s + (m.load_kwh || 0), 0);
   doc.moveDown(0.5);
-  addKV(doc, 'Total Load', fmt(result.annual_consumption_kwh) + ' kWh');
-  addKV(doc, 'Total Generation', fmt(result.annual_generation_kwh) + ' kWh');
-  addKV(doc, 'Self-Consumption', fmt(result.self_consumption_kwh) + ' kWh');
+  addKV(doc, 'Total Load', fmt(totalLoadKwh) + ' kWh');
+  addKV(doc, 'Total Generation', fmt(result.annual_solar_gen_kwh) + ' kWh');
+  addKV(doc, 'Self-Consumption', fmt(result.solar_utilised_kwh) + ' kWh');
   addKV(doc, 'Grid Export', fmt(result.grid_export_kwh) + ' kWh');
   addKV(doc, 'Grid Import', fmt(result.grid_import_kwh) + ' kWh');
 
@@ -299,9 +302,11 @@ async function generateDesignReportPdf(simulationResultId) {
     addPageBreak(doc);
     addHeader(doc, 'Battery Storage Performance', { topPad: 0.2 });
 
-    addKV(doc, 'Annual Throughput', fmt(result.bess_annual_throughput_kwh) + ' kWh');
-    addKV(doc, 'Annual Full Cycles', fmt(result.annual_bess_cycles, 0));
-    addKV(doc, 'Peak Shaving Contribution', result.peak_shave_kw ? fmt(result.peak_shave_kw, 1) + ' kW' : '—');
+    addKV(doc, 'Annual Throughput', fmt(result.battery_discharged_kwh) + ' kWh');
+    addKV(doc, 'Annual Full Cycles', fmt(result.battery_cycles_annual, 0));
+    const peakShaveKw = (result.peak_demand_before_kw && result.peak_demand_after_kw)
+      ? (result.peak_demand_before_kw - result.peak_demand_after_kw) : null;
+    addKV(doc, 'Peak Shaving Contribution', peakShaveKw > 0 ? fmt(peakShaveKw, 1) + ' kW' : '—');
 
     if (monthly.length > 0) {
       doc.moveDown(0.5);
@@ -312,10 +317,10 @@ async function generateDesignReportPdf(simulationResultId) {
       monthly.forEach((m, i) => {
         addTableRow(doc, [
           monthNames[i] || i + 1,
-          fmt(m.bess_charge_kwh, 0),
-          fmt(m.bess_discharge_kwh, 0),
-          fmt(m.bess_cycles, 1),
-          m.bess_avg_soc ? fmtPct(m.bess_avg_soc) : '—',
+          fmt(m.battery_charged_kwh, 0),
+          fmt(m.battery_discharged_kwh, 0),
+          '—',
+          '—',
         ], bWidths);
       });
     }
@@ -326,23 +331,22 @@ async function generateDesignReportPdf(simulationResultId) {
   addHeader(doc, 'Financial Analysis', { topPad: 0.2 });
 
   addSubHeader(doc, 'Investment Summary');
-  addKV(doc, 'Total System Cost', fmtCurrency(design?.total_cost || result.total_system_cost, currency));
-  addKV(doc, 'Year 1 Savings', fmtCurrency(result.annual_savings, currency));
-  addKV(doc, 'Simple Payback', result.simple_payback_years ? fmt(result.simple_payback_years, 1) + ' years' : '> 25 years');
-  addKV(doc, 'Discounted Payback', result.discounted_payback_years ? fmt(result.discounted_payback_years, 1) + ' years' : '> 25 years');
-  addKV(doc, 'NPV (25 years)', fmtCurrency(result.npv_25yr, currency));
-  addKV(doc, 'IRR', result.irr ? (result.irr * 100).toFixed(1) + '%' : '—');
-  addKV(doc, 'LCOE', result.lcoe ? fmtCurrency(result.lcoe, currency) + '/kWh' : '—');
+  addKV(doc, 'Total System Cost', fmtCurrency(design?.capex_total, currency));
+  addKV(doc, 'Year 1 Savings', fmtCurrency(result.year1_savings, currency));
+  addKV(doc, 'Simple Payback', result.simple_payback_months ? fmt(result.simple_payback_months / 12, 1) + ' years' : `> ${analysisPeriod} years`);
+  addKV(doc, `NPV (${analysisPeriod} years)`, fmtCurrency(result.npv_25yr, currency));
+  addKV(doc, 'IRR', result.irr_pct != null ? fmt(result.irr_pct, 1) + '%' : '—');
+  addKV(doc, 'LCOE', result.lcoe_normal != null ? fmtCurrency(result.lcoe_normal, currency) + '/kWh' : '—');
 
   if (cashflow.length > 0) {
     doc.moveDown(0.5);
-    addSubHeader(doc, '25-Year Cashflow Projection');
+    addSubHeader(doc, `${analysisPeriod}-Year Cashflow Projection`);
 
     // Print first 5 years + year 10, 15, 20, 25
     const cfWidths = [40, 80, 80, 80, 80, 80];
     addTableRow(doc, ['Year', 'Savings', 'O&M', 'Net CF', 'Cumul. CF', 'Grid Cost'], cfWidths, { header: true });
 
-    const showYears = [0, 1, 2, 3, 4, 9, 14, 19, 24];
+    const showYears = [0, 1, 2, 3, 4, ...[9, 14, 19, 24].filter(y => y < cashflow.length)];
     showYears.forEach(yi => {
       const cf = cashflow[yi];
       if (!cf) return;
@@ -367,7 +371,7 @@ async function generateDesignReportPdf(simulationResultId) {
     `Panel degradation rate: ${design?.annual_degradation_pct || 0.5}% per year.`,
     `Discount rate: ${design?.discount_rate_pct || 10}% (nominal).`,
     `Tariff escalation: ${design?.tariff_escalation_pct || 8}% per year.`,
-    `Analysis period: 25 years.`,
+    `Analysis period: ${analysisPeriod} years.`,
     design?.bess_capacity_kwh > 0 ? `Battery round-trip efficiency: ${design?.bess_round_trip_efficiency ? (design.bess_round_trip_efficiency * 100) : 90}%.` : null,
     'Financial projections are estimates and do not constitute financial advice.',
   ].filter(Boolean);
@@ -449,19 +453,19 @@ async function generateDesignReportExcel(simulationResultId) {
     ['Location', project?.location || ''],
     ['Report Date', new Date().toLocaleDateString()],
     [''],
-    ['PV Capacity (kWp)', result.pv_capacity_kwp],
-    ['Annual Generation (kWh)', result.annual_generation_kwh],
-    ['Solar Fraction', result.solar_fraction],
-    ['Self-Consumption Ratio', result.self_consumption_ratio],
+    ['PV Capacity (kWp)', design?.pv_capacity_kwp],
+    ['Annual Generation (kWh)', result.annual_solar_gen_kwh],
+    ['Solar Fraction (%)', result.utilisation_pct],
+    ['Self-Consumption (%)', result.self_consumption_pct],
     ['BESS Capacity (kWh)', design?.bess_capacity_kwh || 0],
     [''],
     ['Baseline Annual Cost', result.baseline_annual_cost],
-    ['With-Solar Annual Cost', result.with_solar_annual_cost],
-    ['Annual Savings', result.annual_savings],
-    ['Simple Payback (yrs)', result.simple_payback_years],
-    ['NPV 25-yr', result.npv_25yr],
-    ['IRR', result.irr],
-    ['LCOE', result.lcoe],
+    ['With-Solar Annual Cost', result.year1_annual_cost],
+    ['Annual Savings', result.year1_savings],
+    ['Simple Payback (yrs)', result.simple_payback_months ? (result.simple_payback_months / 12).toFixed(1) : '—'],
+    [`NPV ${design?.analysis_period_years || 25}-yr`, result.npv_25yr],
+    ['IRR (%)', result.irr_pct],
+    ['LCOE', result.lcoe_normal],
   ];
   summaryRows.forEach(r => ws1.addRow(r));
 
@@ -474,7 +478,7 @@ async function generateDesignReportExcel(simulationResultId) {
   ws2.getRow(1).font = { bold: true };
   const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   monthly.forEach((m, i) => {
-    ws2.addRow([monthNames[i], m.load_kwh, m.generation_kwh, m.self_consumption_kwh, m.export_kwh, m.grid_import_kwh, m.savings]);
+    ws2.addRow([monthNames[i], m.load_kwh, m.pv_gen_kwh, m.solar_utilised_kwh, m.grid_export_kwh, m.grid_import_kwh, m.savings]);
   });
 
   // ── Cashflow Sheet ──
