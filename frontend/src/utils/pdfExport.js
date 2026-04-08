@@ -5,37 +5,6 @@ export async function exportToPdf(element, filename, options = {}) {
 
   const html2pdf = (await import('html2pdf.js')).default;
 
-  // Clone the element to modify it for PDF export without affecting the UI
-  const clonedElement = element.cloneNode(true);
-  
-  // Find and remove the sidebar navigation in the clone
-  const sidebar = clonedElement.querySelector('aside');
-  if (sidebar) {
-    sidebar.remove();
-  }
-  
-  // Find the main container with flex and make it block for full width
-  const mainContainer = clonedElement.querySelector('.max-w-7xl');
-  if (mainContainer) {
-    mainContainer.style.display = 'block';
-    mainContainer.classList.remove('flex');
-  }
-  
-  // Find main content and ensure it's full width
-  const mainContent = clonedElement.querySelector('main');
-  if (mainContent) {
-    mainContent.style.width = '100%';
-    mainContent.style.maxWidth = '100%';
-    mainContent.classList.remove('flex-1');
-    mainContent.style.flex = 'none';
-  }
-
-  // Adjust all grid layouts to fit A4
-  const allGrids = clonedElement.querySelectorAll('.grid');
-  allGrids.forEach(grid => {
-    grid.style.width = '100%';
-  });
-
   const defaultOptions = {
     margin: 5,
     filename: filename || 'document.pdf',
@@ -53,12 +22,62 @@ export async function exportToPdf(element, filename, options = {}) {
       compress: true,
     },
     pagebreak: { mode: ['avoid-all', 'css', 'legacy'] },
+    onclone: (clonedDoc) => {
+      // Find and remove the sidebar navigation in the clone
+      const sidebar = clonedDoc.querySelector('aside');
+      if (sidebar) {
+        sidebar.remove();
+      }
+      
+      // Find the main container with flex and make it block for full width
+      const mainContainer = clonedDoc.querySelector('.max-w-7xl');
+      if (mainContainer) {
+        mainContainer.style.display = 'block';
+        mainContainer.classList.remove('flex');
+      }
+      
+      // Find main content and ensure it's full width
+      const mainContent = clonedDoc.querySelector('main');
+      if (mainContent) {
+        mainContent.style.width = '100%';
+        mainContent.style.maxWidth = '100%';
+        mainContent.classList.remove('flex-1');
+        mainContent.style.flex = 'none';
+      }
+
+      // Adjust all grid layouts to fit A4
+      const allGrids = clonedDoc.querySelectorAll('.grid');
+      allGrids.forEach(grid => {
+        grid.style.width = '100%';
+      });
+
+      // Convert Chart.js canvases to images
+      const originalCanvases = document.querySelectorAll('canvas');
+      originalCanvases.forEach(canvas => {
+        if (canvas.width > 0 && canvas.height > 0) {
+          try {
+            const dataUrl = canvas.toDataURL('image/png', 1.0);
+            const clonedCanvas = clonedDoc.querySelector(`canvas[aria-label="${canvas.getAttribute('aria-label')}"]`);
+            if (clonedCanvas) {
+              const img = clonedDoc.createElement('img');
+              img.src = dataUrl;
+              img.style.width = '100%';
+              img.style.height = 'auto';
+              img.style.maxWidth = '100%';
+              clonedCanvas.parentNode.replaceChild(img, clonedCanvas);
+            }
+          } catch (e) {
+            console.warn('Could not convert canvas to image:', e);
+          }
+        }
+      });
+    },
   };
 
   const mergedOptions = { ...defaultOptions, ...options };
 
   try {
-    await html2pdf().set(mergedOptions).from(clonedElement).save();
+    await html2pdf().set(mergedOptions).from(element).save();
     return { success: true };
   } catch (error) {
     console.error('PDF export failed:', error);
