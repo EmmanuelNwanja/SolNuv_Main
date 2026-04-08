@@ -5,10 +5,74 @@
 
 const supabase = require('../config/database');
 const { sendSuccess, sendError } = require('../utils/responseHelper');
-const { generateNesreaReport, generateCradleToGraveCertificate } = require('../services/pdfService');
+const { generateNesreaReportPdf, generateCertificatePdf } = require('../services/puppeteerPdfService');
 const { sendEmailWithAttachment, sendReportReadyEmail } = require('../services/emailService');
 const { getSilverPrice } = require('../services/silverService');
 const logger = require('../utils/logger');
+
+/** Build template data for NESREA Report PDF */
+async function buildNesreaReportData(company, projects, reportMeta) {
+  const recoverySilver = (reportMeta.total_silver_grams * 0.35).toFixed(2);
+  const recoveryValue = (reportMeta.total_silver_grams * 0.35 * (reportMeta.silver_price_ngn || 1555)).toLocaleString('en-NG');
+
+  const projectRows = projects.map(proj => {
+    const panels = (proj.equipment || []).filter(e => e.equipment_type === 'panel');
+    const batteries = (proj.equipment || []).filter(e => e.equipment_type === 'battery');
+    return {
+      name: proj.name || '—',
+      location: [proj.city, proj.state].filter(Boolean).join(', ') || '—',
+      panels: panels.reduce((s, e) => s + (e.quantity || 0), 0),
+      batteries: batteries.reduce((s, e) => s + (e.quantity || 0), 0),
+      status: (proj.status || 'active').toUpperCase(),
+      decommDate: proj.estimated_decommission_date
+        ? new Date(proj.estimated_decommission_date).toLocaleDateString('en-NG', { year: 'numeric', month: 'short' })
+        : 'TBD',
+    };
+  });
+
+  return {
+    companyName: company?.name || '—',
+    nesreaRegNumber: company?.nesrea_registration_number || 'PENDING REGISTRATION',
+    companyAddress: [company?.city, company?.state].filter(Boolean).join(', ') || '—',
+    subscriptionTier: (company?.subscription_plan || 'free').toUpperCase(),
+
+    periodStart: new Date(reportMeta.period_start).toLocaleDateString('en-NG', { year: 'numeric', month: 'long', day: 'numeric' }),
+    periodEnd: new Date(reportMeta.period_end).toLocaleDateString('en-NG', { year: 'numeric', month: 'long', day: 'numeric' }),
+    issueDate: new Date().toLocaleDateString('en-NG', { year: 'numeric', month: 'long', day: 'numeric' }),
+
+    totalProjects: projects.length,
+    totalPanels: reportMeta.total_panels,
+    totalBatteries: reportMeta.total_batteries,
+    totalSilver: (reportMeta.total_silver_grams || 0).toFixed(2),
+    recoverySilver,
+    recoveryValue,
+    silverPrice: (reportMeta.silver_price_ngn || 1555).toLocaleString('en-NG'),
+
+    projects: projectRows,
+  };
+}
+
+/** Build template data for Certificate PDF */
+async function buildCertificateData(project, company) {
+  const panels = (project.equipment || []).filter(e => e.equipment_type === 'panel');
+  const batteries = (project.equipment || []).filter(e => e.equipment_type === 'battery');
+
+  return {
+    companyName: company?.name || '—',
+    projectName: project.name || '—',
+    location: [project.city, project.state].filter(Boolean).join(', ') || '—',
+    installationDate: project.installation_date
+      ? new Date(project.installation_date).toLocaleDateString('en-NG', { year: 'numeric', month: 'long', day: 'numeric' })
+      : '—',
+    decommissionDate: project.estimated_decommission_date
+      ? new Date(project.estimated_decommission_date).toLocaleDateString('en-NG', { year: 'numeric', month: 'long' })
+      : 'Pending Calculation',
+    totalPanels: panels.reduce((s, e) => s + (e.quantity || 0), 0),
+    totalBatteries: batteries.reduce((s, e) => s + (e.quantity || 0), 0),
+    certNumber: `SNV-${(project.id || '').substring(0, 8).toUpperCase()}-${new Date().getFullYear()}`,
+    issueDate: new Date().toLocaleDateString('en-NG', { year: 'numeric', month: 'long', day: 'numeric' }),
+  };
+}
 
 /**
  * POST /api/reports/nesrea
@@ -59,8 +123,9 @@ exports.generateNesrea = async (req, res) => {
       silver_price_ngn: silverPrice.price_per_gram_ngn,
     };
 
-    // Generate PDF
-    const pdfBuffer = await generateNesreaReport(company, projects, reportMeta);
+    // Build template data and generate PDF using Puppeteer
+    const templateData = await buildNesreaReportData(company, projects, reportMeta);
+    const pdfBuffer = await generateNesreaReportPdf(templateData);
 
     // Save report record
     const { data: reportRecord } = await supabase.from('nesrea_reports').insert({
@@ -100,7 +165,7 @@ exports.generateNesrea = async (req, res) => {
     res.setHeader('Content-Length', pdfBuffer.length);
     return res.send(pdfBuffer);
   } catch (error) {
-    console.error('NESREA report error:', error);
+    logger.error('NESREA report error:', { message: error.message, stack: error.stack });
     return sendError(res, 'Failed to generate report. Please try again.', 500);
   }
 };
@@ -132,20 +197,15 @@ exports.generateCertificate = async (req, res) => {
 
     const company = project.companies || req.company || { name: req.user.brand_name || req.user.first_name };
 
-    // Fetch change history for the certificate appendix
-    const { data: history } = await supabase
-      .from('project_history')
-      .select('id, change_type, change_summary, project_stage, changed_fields, actor_name, created_at')
-      .eq('project_id', projectId)
-      .order('created_at', { ascending: true });
-
-    const pdfBuffer = await generateCradleToGraveCertificate(project, company, history || []);
+    // Build template data and generate PDF using Puppeteer
+    const templateData = await buildCertificateData(project, company);
+    const pdfBuffer = await generateCertificatePdf(templateData);
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=SolNuv_Certificate_${project.name.replace(/\s/g, '_')}.pdf`);
     return res.send(pdfBuffer);
   } catch (error) {
-    logger.error('Certificate generation failed', { user_id: req.user?.id || null, project_id: req.params?.projectId || null, message: error.message });
+    logger.error('Certificate generation failed', { user_id: req.user?.id || null, project_id: req.params?.projectId || null, message: error.message, stack: error.stack });
     return sendError(res, 'Failed to generate certificate', 500);
   }
 };

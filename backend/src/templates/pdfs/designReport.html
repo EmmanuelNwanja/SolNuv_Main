@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Solar + BESS Design Report</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --primary: #0D3B2E;
+      --secondary: #F59E0B;
+      --accent: #10B981;
+      --text: #1E293B;
+      --muted: #64748B;
+      --light: #F1F5F9;
+      --white: #FFFFFF;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    @page {
+      size: A4;
+      margin: 15mm 15mm 20mm 15mm;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      font-size: 10pt;
+      color: var(--text);
+      line-height: 1.5;
+    }
+
+    /* Cover Page */
+    .cover {
+      height: 270mm;
+      background: linear-gradient(135deg, var(--primary) 0%, #1a5c47 100%);
+      color: var(--white);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      page-break-after: always;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .cover::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+      opacity: 0.3;
+    }
+
+    .cover-content { position: relative; z-index: 1; }
+
+    .cover-logo {
+      font-size: 28pt;
+      font-weight: 700;
+      margin-bottom: 40px;
+      letter-spacing: 2px;
+    }
+
+    .cover h1 {
+      font-size: 32pt;
+      font-weight: 300;
+      margin-bottom: 10px;
+    }
+
+    .cover h2 {
+      font-size: 24pt;
+      font-weight: 400;
+      color: var(--secondary);
+      margin-bottom: 40px;
+    }
+
+    .cover-divider {
+      width: 200px;
+      height: 3px;
+      background: var(--secondary);
+      margin: 30px auto;
+    }
+
+    .cover-project { font-size: 18pt; margin-bottom: 10px; }
+    .cover-company { font-size: 14pt; color: var(--secondary); margin-bottom: 20px; }
+    .cover-location { font-size: 11pt; color: rgba(255,255,255,0.8); }
+    .cover-date { font-size: 10pt; color: rgba(255,255,255,0.6); margin-top: 60px; }
+
+    .cover-footer {
+      position: absolute;
+      bottom: 40px;
+      font-size: 9pt;
+      color: rgba(255,255,255,0.6);
+    }
+
+    /* Page Sections */
+    .page { padding: 10px 0; page-break-after: always; }
+    .page:last-child { page-break-after: auto; }
+
+    .header {
+      background: var(--primary);
+      color: var(--white);
+      padding: 12px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+
+    .header-title { font-size: 14pt; font-weight: 600; }
+    .header-subtitle { font-size: 9pt; color: var(--secondary); }
+
+    .footer {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: var(--primary);
+      color: var(--white);
+      padding: 8px 20px;
+      font-size: 8pt;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    /* Section Styling */
+    .section { margin-bottom: 25px; }
+    .section-title {
+      font-size: 14pt;
+      font-weight: 600;
+      color: var(--primary);
+      border-bottom: 2px solid var(--secondary);
+      padding-bottom: 8px;
+      margin-bottom: 15px;
+    }
+
+    .subsection-title {
+      font-size: 11pt;
+      font-weight: 600;
+      color: var(--primary);
+      margin: 15px 0 10px 0;
+    }
+
+    /* Cards & Metrics */
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 15px;
+      margin: 15px 0;
+    }
+
+    .metric-card {
+      background: var(--light);
+      border-radius: 8px;
+      padding: 15px;
+      text-align: center;
+      border-left: 4px solid var(--secondary);
+    }
+
+    .metric-card.accent { border-left-color: var(--accent); }
+    .metric-card.primary { border-left-color: var(--primary); }
+
+    .metric-value {
+      font-size: 18pt;
+      font-weight: 700;
+      color: var(--primary);
+    }
+
+    .metric-label {
+      font-size: 8pt;
+      color: var(--muted);
+      text-transform: uppercase;
+      margin-top: 5px;
+    }
+
+    /* Tables */
+    .table-container { overflow-x: auto; margin: 15px 0; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 9pt;
+    }
+
+    th {
+      background: var(--primary);
+      color: var(--white);
+      padding: 10px 12px;
+      text-align: left;
+      font-weight: 600;
+    }
+
+    td {
+      padding: 8px 12px;
+      border-bottom: 1px solid #e2e8f0;
+    }
+
+    tr:nth-child(even) { background: var(--light); }
+    tr:hover { background: #f8fafc; }
+
+    .text-right { text-align: right; }
+    .text-center { text-align: center; }
+
+    /* Charts */
+    .chart-container {
+      margin: 20px 0;
+      background: var(--white);
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 15px;
+    }
+
+    .chart-title {
+      font-size: 11pt;
+      font-weight: 600;
+      color: var(--primary);
+      margin-bottom: 10px;
+    }
+
+    .charts-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+
+    /* KV Pairs */
+    .kv-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      margin: 10px 0;
+    }
+
+    .kv-item {
+      display: flex;
+      padding: 8px 12px;
+      background: var(--light);
+      border-radius: 4px;
+    }
+
+    .kv-label {
+      font-weight: 600;
+      color: var(--muted);
+      width: 45%;
+    }
+
+    .kv-value {
+      color: var(--text);
+      width: 55%;
+    }
+
+    /* Executive Summary Box */
+    .exec-summary {
+      background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+      border-left: 4px solid var(--accent);
+      border-radius: 0 8px 8px 0;
+      padding: 20px;
+      margin: 15px 0;
+    }
+
+    .exec-summary h3 {
+      color: var(--primary);
+      margin-bottom: 10px;
+    }
+
+    /* Disclaimer */
+    .disclaimer {
+      background: #fef3c7;
+      border-left: 4px solid var(--secondary);
+      padding: 15px;
+      font-size: 8pt;
+      color: #92400e;
+      margin-top: 20px;
+    }
+
+    /* Two Column Layout */
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+
+    /* Print optimizations */
+    @media print {
+      .page { page-break-after: always; }
+      .no-break { page-break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Cover Page -->
+<div class="cover">
+  <div class="cover-content">
+    <div class="cover-logo">SolNuv</div>
+    <h1>Solar + BESS</h1>
+    <h2>Design Report</h2>
+    <div class="cover-divider"></div>
+    <div class="cover-project">{{projectName}}</div>
+    <div class="cover-company">{{companyName}}</div>
+    <div class="cover-location">{{location}}</div>
+    <div class="cover-coords">Coordinates: {{lat}}, {{lon}}</div>
+    <div class="cover-date">Generated: {{reportDate}}</div>
+  </div>
+  <div class="cover-footer">
+    SolNuv — Africa's Solar Engineering Platform | www.solnuv.com
+  </div>
+</div>
+
+<!-- Executive Summary -->
+<div class="page">
+  <div class="header">
+    <div class="header-title">Executive Summary</div>
+    <div class="header-subtitle">{{projectName}}</div>
+  </div>
+
+  <div class="section">
+    <div class="exec-summary">
+      <h3>Key Findings</h3>
+      <p>{{executiveSummary}}</p>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Key Performance Metrics</div>
+    <div class="metrics-grid">
+      <div class="metric-card">
+        <div class="metric-value">{{pvCapacity}} kWp</div>
+        <div class="metric-label">PV System Size</div>
+      </div>
+      <div class="metric-card accent">
+        <div class="metric-value">{{annualGeneration}} kWh</div>
+        <div class="metric-label">Annual Generation</div>
+      </div>
+      <div class="metric-card primary">
+        <div class="metric-value">{{solarFraction}}%</div>
+        <div class="metric-label">Solar Fraction</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">{{bessCapacity}} kWh</div>
+        <div class="metric-label">Battery Storage</div>
+      </div>
+    </div>
+
+    <div class="metrics-grid">
+      <div class="metric-card accent">
+        <div class="metric-value">{{annualSavings}}</div>
+        <div class="metric-label">Year 1 Savings</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">{{paybackPeriod}}</div>
+        <div class="metric-label">Simple Payback</div>
+      </div>
+      <div class="metric-card primary">
+        <div class="metric-value">{{npv}}</div>
+        <div class="metric-label">NPV (25 Year)</div>
+      </div>
+      <div class="metric-card accent">
+        <div class="metric-value">{{irr}}%</div>
+        <div class="metric-label">Internal Rate of Return</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Solar System Overview -->
+<div class="page">
+  <div class="header">
+    <div class="header-title">Solar System Overview</div>
+    <div class="header-subtitle">PV Array Configuration</div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">PV Array Configuration</div>
+    <div class="kv-grid">
+      <div class="kv-item">
+        <span class="kv-label">Module Technology</span>
+        <span class="kv-value">{{pvTechnology}}</span>
+      </div>
+      <div class="kv-item">
+        <span class="kv-label">System Capacity</span>
+        <span class="kv-value">{{pvCapacity}} kWp</span>
+      </div>
+      <div class="kv-item">
+        <span class="kv-label">Array Tilt</span>
+        <span class="kv-value">{{pvTilt}}°</span>
+      </div>
+      <div class="kv-item">
+        <span class="kv-label">Array Azimuth</span>
+        <span class="kv-value">{{pvAzimuth}}°</span>
+      </div>
+      <div class="kv-item">
+        <span class="kv-label">Annual Degradation</span>
+        <span class="kv-value">{{pvDegradation}}%</span>
+      </div>
+      <div class="kv-item">
+        <span class="kv-label">System Losses</span>
+        <span class="kv-value">{{pvLosses}}%</span>
+      </div>
+    </div>
+  </div>
+
+  {{#if bessCapacity}}
+  <div class="section">
+    <div class="section-title">Battery Energy Storage System</div>
+    <div class="kv-grid">
+      <div class="kv-item">
+        <span class="kv-label">Rated Capacity</span>
+        <span class="kv-value">{{bessCapacity}} kWh</span>
+      </div>
+      <div class="kv-item">
+        <span class="kv-label">Usable Capacity</span>
+        <span class="kv-value">{{bessUsable}} kWh</span>
+      </div>
+      <div class="kv-item">
+        <span class="kv-label">Chemistry</span>
+        <span class="kv-value">{{bessChemistry}}</span>
+      </div>
+      <div class="kv-item">
+        <span class="kv-label">Dispatch Strategy</span>
+        <span class="kv-value">{{bessStrategy}}</span>
+      </div>
+    </div>
+  </div>
+  {{/if}}
+
+  <div class="section">
+    <div class="section-title">Solar Resource Data</div>
+    <div class="kv-grid">
+      <div class="kv-item">
+        <span class="kv-label">Data Source</span>
+        <span class="kv-value">NASA POWER (Climatology)</span>
+      </div>
+      <div class="kv-item">
+        <span class="kv-label">Peak Sun Hours</span>
+        <span class="kv-value">{{peakSunHours}} h/day (avg)</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Energy Analysis -->
+<div class="page">
+  <div class="header">
+    <div class="header-title">Energy Analysis</div>
+    <div class="header-subtitle">Monthly Generation & Consumption</div>
+  </div>
+
+  <div class="section">
+    <div class="chart-container">
+      <div class="chart-title">Monthly Energy Summary</div>
+      <canvas id="monthlyChart" height="200"></canvas>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Energy Totals</div>
+    <div class="kv-grid">
+      <div class="kv-item">
+        <span class="kv-label">Total Load</span>
+        <span class="kv-value">{{totalLoad}} kWh</span>
+      </div>
+      <div class="kv-item">
+        <span class="kv-label">Total Generation</span>
+        <span class="kv-value">{{annualGeneration}} kWh</span>
+      </div>
+      <div class="kv-item">
+        <span class="kv-label">Self-Consumption</span>
+        <span class="kv-value">{{selfConsumption}} kWh</span>
+      </div>
+      <div class="kv-item">
+        <span class="kv-label">Grid Export</span>
+        <span class="kv-value">{{gridExport}} kWh</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- BESS Performance -->
+{{#if bessCapacity}}
+<div class="page">
+  <div class="header">
+    <div class="header-title">Battery Storage Performance</div>
+    <div class="header-subtitle">BESS Metrics</div>
+  </div>
+
+  <div class="section">
+    <div class="kv-grid">
+      <div class="kv-item">
+        <span class="kv-label">Annual Throughput</span>
+        <span class="kv-value">{{bessThroughput}} kWh</span>
+      </div>
+      <div class="kv-item">
+        <span class="kv-label">Annual Full Cycles</span>
+        <span class="kv-value">{{bessCycles}}</span>
+      </div>
+      <div class="kv-item">
+        <span class="kv-label">Peak Shaving</span>
+        <span class="kv-value">{{peakShaving}} kW</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="chart-container">
+      <div class="chart-title">Monthly Battery Utilization</div>
+      <canvas id="bessChart" height="180"></canvas>
+    </div>
+  </div>
+</div>
+{{/if}}
+
+<!-- Financial Analysis -->
+<div class="page">
+  <div class="header">
+    <div class="header-title">Financial Analysis</div>
+    <div class="header-subtitle">Investment & Returns</div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Investment Summary</div>
+    <div class="kv-grid">
+      <div class="kv-item">
+        <span class="kv-label">Total System Cost</span>
+        <span class="kv-value">{{capexTotal}}</span>
+      </div>
+      <div class="kv-item">
+        <span class="kv-label">Year 1 Savings</span>
+        <span class="kv-value">{{annualSavings}}</span>
+      </div>
+      <div class="kv-item">
+        <span class="kv-label">Simple Payback</span>
+        <span class="kv-value">{{paybackPeriod}}</span>
+      </div>
+      <div class="kv-item">
+        <span class="kv-label">NPV (25 Years)</span>
+        <span class="kv-value">{{npv}}</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="chart-container">
+      <div class="chart-title">{{analysisPeriod}}-Year Cashflow Projection</div>
+      <canvas id="cashflowChart" height="220"></canvas>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th>Year</th>
+            <th class="text-right">Savings</th>
+            <th class="text-right">O&M</th>
+            <th class="text-right">Net Cashflow</th>
+            <th class="text-right">Cumulative</th>
+            <th class="text-right">Generation (kWh)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{#each cashflowRows}}
+          <tr>
+            <td>{{year}}</td>
+            <td class="text-right">{{savings}}</td>
+            <td class="text-right">{{omCost}}</td>
+            <td class="text-right">{{netCashflow}}</td>
+            <td class="text-right">{{cumulativeCashflow}}</td>
+            <td class="text-right">{{generationKwh}}</td>
+          </tr>
+          {{/each}}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Assumptions & Disclaimers -->
+<div class="page">
+  <div class="header">
+    <div class="header-title">Assumptions & Methodology</div>
+    <div class="header-subtitle">Technical Parameters</div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Key Assumptions</div>
+    <ul style="margin-left: 20px; line-height: 1.8;">
+      {{#each assumptions}}
+      <li>{{this}}</li>
+      {{/each}}
+    </ul>
+  </div>
+
+  <div class="section">
+    <div class="disclaimer">
+      <strong>DISCLAIMER:</strong> This report is generated by the SolNuv platform for preliminary design and feasibility assessment purposes. Actual system performance may vary based on local conditions, equipment specifications, installation quality, and other factors. A detailed engineering study by a qualified professional is recommended before final investment decisions.
+    </div>
+  </div>
+</div>
+
+<script>
+  // Monthly Energy Chart
+  const monthlyCtx = document.getElementById('monthlyChart');
+  if (monthlyCtx) {
+    new Chart(monthlyCtx, {
+      type: 'bar',
+      data: {
+        labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+        datasets: [
+          {
+            label: 'Load (kWh)',
+            data: [{{monthlyLoad}}],
+            backgroundColor: '#64748B',
+            stack: 'stack1'
+          },
+          {
+            label: 'Generation (kWh)',
+            data: [{{monthlyGen}}],
+            backgroundColor: '#10B981',
+            stack: 'stack2'
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'top' }
+        },
+        scales: {
+          y: { beginAtZero: true, title: { display: true, text: 'kWh' } }
+        }
+      }
+    });
+  }
+
+  // BESS Chart
+  const bessCtx = document.getElementById('bessChart');
+  if (bessCtx) {
+    new Chart(bessCtx, {
+      type: 'line',
+      data: {
+        labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+        datasets: [
+          {
+            label: 'Charge (kWh)',
+            data: [{{monthlyCharge}}],
+            borderColor: '#10B981',
+            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+            fill: true
+          },
+          {
+            label: 'Discharge (kWh)',
+            data: [{{monthlyDischarge}}],
+            borderColor: '#F59E0B',
+            backgroundColor: 'rgba(245, 158, 11, 0.1)',
+            fill: true
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { position: 'top' } },
+        scales: { y: { beginAtZero: true } }
+      }
+    });
+  }
+
+  // Cashflow Chart
+  const cashflowCtx = document.getElementById('cashflowChart');
+  if (cashflowCtx) {
+    new Chart(cashflowCtx, {
+      type: 'bar',
+      data: {
+        labels: [{{cashflowLabels}}],
+        datasets: [
+          {
+            label: 'Net Cashflow',
+            data: [{{cashflowValues}}],
+            backgroundColor: function(context) {
+              return context.raw >= 0 ? '#10B981' : '#EF4444';
+            }
+          },
+          {
+            label: 'Cumulative CF',
+            data: [{{cumulativeValues}}],
+            type: 'line',
+            borderColor: '#0D3B2E',
+            backgroundColor: 'transparent',
+            yAxisID: 'y1'
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { position: 'top' } },
+        scales: {
+          y: { beginAtZero: false, title: { display: true, text: 'Net CF' } },
+          y1: { position: 'right', beginAtZero: false, title: { display: true, text: 'Cumulative CF' }, grid: { drawOnChartArea: false } }
+        }
+      }
+    });
+  }
+</script>
+
+</body>
+</html>

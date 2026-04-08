@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hybrid Solar ROI Proposal</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --primary: #0D3B2E;
+      --secondary: #F59E0B;
+      --accent: #10B981;
+      --text: #1E293B;
+      --muted: #64748B;
+      --light: #F1F5F9;
+      --white: #FFFFFF;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    @page { size: A4; margin: 15mm 15mm 20mm 15mm; }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      font-size: 10pt;
+      color: var(--text);
+      line-height: 1.5;
+    }
+
+    /* Cover Page */
+    .cover {
+      min-height: 270mm;
+      background: linear-gradient(135deg, var(--primary) 0%, #1a5c47 100%);
+      color: var(--white);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 60px;
+      page-break-after: always;
+      position: relative;
+    }
+
+    .cover::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none'%3E%3Cg fill='%23ffffff' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+      opacity: 0.3;
+    }
+
+    .cover-content { position: relative; z-index: 1; }
+
+    .cover-badge {
+      background: var(--secondary);
+      color: var(--primary);
+      padding: 8px 20px;
+      border-radius: 25px;
+      font-size: 10pt;
+      font-weight: 600;
+      display: inline-block;
+      margin-bottom: 30px;
+    }
+
+    .cover h1 {
+      font-size: 36pt;
+      font-weight: 300;
+      margin-bottom: 10px;
+    }
+
+    .cover h2 {
+      font-size: 18pt;
+      font-weight: 400;
+      color: var(--secondary);
+      margin-bottom: 40px;
+    }
+
+    .cover-divider {
+      width: 200px;
+      height: 3px;
+      background: var(--secondary);
+      margin: 30px 0;
+    }
+
+    .cover-info {
+      font-size: 12pt;
+      margin-bottom: 10px;
+    }
+
+    .cover-date {
+      font-size: 10pt;
+      color: rgba(255,255,255,0.7);
+      margin-top: 50px;
+    }
+
+    /* Content Pages */
+    .page { padding: 10px 0; page-break-after: always; }
+    .page:last-child { page-break-after: auto; }
+
+    .header {
+      background: var(--primary);
+      color: var(--white);
+      padding: 12px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+
+    .header-title { font-size: 14pt; font-weight: 600; }
+    .header-subtitle { font-size: 9pt; color: var(--secondary); }
+
+    .section { margin-bottom: 25px; }
+    .section-title {
+      font-size: 14pt;
+      font-weight: 600;
+      color: var(--primary);
+      border-bottom: 2px solid var(--secondary);
+      padding-bottom: 8px;
+      margin-bottom: 15px;
+    }
+
+    /* Metrics Grid */
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 15px;
+      margin: 20px 0;
+    }
+
+    .metric-card {
+      background: var(--light);
+      border-radius: 8px;
+      padding: 20px;
+      text-align: center;
+      border-top: 4px solid var(--primary);
+    }
+
+    .metric-card.accent { border-top-color: var(--accent); }
+    .metric-card.secondary { border-top-color: var(--secondary); }
+
+    .metric-value {
+      font-size: 20pt;
+      font-weight: 700;
+      color: var(--primary);
+    }
+
+    .metric-label {
+      font-size: 9pt;
+      color: var(--muted);
+      text-transform: uppercase;
+      margin-top: 8px;
+    }
+
+    /* Tables */
+    .table-container { overflow-x: auto; margin: 15px 0; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 9pt;
+    }
+
+    th {
+      background: var(--primary);
+      color: var(--white);
+      padding: 10px 12px;
+      text-align: left;
+      font-weight: 600;
+    }
+
+    td { padding: 10px 12px; border-bottom: 1px solid #e2e8f0; }
+    tr:nth-child(even) { background: var(--light); }
+
+    .text-right { text-align: right; }
+
+    /* KV Grid */
+    .kv-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      margin: 15px 0;
+    }
+
+    .kv-item {
+      display: flex;
+      padding: 10px 15px;
+      background: var(--light);
+      border-radius: 6px;
+    }
+
+    .kv-label { font-weight: 600; color: var(--muted); width: 50%; }
+    .kv-value { color: var(--text); width: 50%; }
+
+    /* Charts */
+    .chart-container {
+      margin: 20px 0;
+      background: var(--white);
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 15px;
+    }
+
+    .chart-title {
+      font-size: 11pt;
+      font-weight: 600;
+      color: var(--primary);
+      margin-bottom: 10px;
+    }
+
+    /* Info Box */
+    .info-box {
+      background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+      border-left: 4px solid var(--accent);
+      border-radius: 0 8px 8px 0;
+      padding: 20px;
+      margin: 20px 0;
+    }
+
+    .info-box h3 {
+      color: var(--primary);
+      margin-bottom: 10px;
+    }
+
+    /* Disclaimer */
+    .disclaimer {
+      background: #fef3c7;
+      border-left: 4px solid var(--secondary);
+      padding: 15px;
+      font-size: 9pt;
+      color: #92400e;
+      margin-top: 20px;
+    }
+
+    @media print {
+      .page { page-break-after: always; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Cover Page -->
+<div class="cover">
+  <div class="cover-content">
+    <div class="cover-badge">SOLAR ROI PROPOSAL</div>
+    <h1>Hybrid Solar</h1>
+    <h2>Return on Investment Analysis</h2>
+    <div class="cover-divider"></div>
+    <div class="cover-info"><strong>Project:</strong> {{projectName}}</div>
+    <div class="cover-info"><strong>Capacity:</strong> {{systemCapacity}}</div>
+    <div class="cover-info"><strong>Prepared For:</strong> {{clientName}}</div>
+    <div class="cover-info"><strong>Location:</strong> {{location}}</div>
+    <div class="cover-date">Prepared: {{preparedDate}}</div>
+  </div>
+</div>
+
+<!-- Investment Summary -->
+<div class="page">
+  <div class="header">
+    <div class="header-title">Investment Summary</div>
+    <div class="header-subtitle">Key Financial Metrics</div>
+  </div>
+
+  <div class="section">
+    <div class="metrics-grid">
+      <div class="metric-card accent">
+        <div class="metric-value">{{paybackPeriod}}</div>
+        <div class="metric-label">Payback Period</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">{{annualSavings}}</div>
+        <div class="metric-label">Year 1 Savings</div>
+      </div>
+      <div class="metric-card secondary">
+        <div class="metric-value">{{tenYearSavings}}</div>
+        <div class="metric-label">10-Year Net Savings</div>
+      </div>
+      <div class="metric-card accent">
+        <div class="metric-value">{{tenYearRoi}}%</div>
+        <div class="metric-label">10-Year ROI</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">System Assumptions</div>
+    <div class="kv-grid">
+      <div class="kv-item">
+        <span class="kv-label">Tariff Band</span>
+        <span class="kv-value">{{tariffBand}}</span>
+      </div>
+      <div class="kv-item">
+        <span class="kv-label">Tariff Rate</span>
+        <span class="kv-value">{{tariffRate}}</span>
+      </div>
+      <div class="kv-item">
+        <span class="kv-label">Grid Offset</span>
+        <span class="kv-value">{{gridOffset}} kWh/day</span>
+      </div>
+      <div class="kv-item">
+        <span class="kv-label">Generator Offset</span>
+        <span class="kv-value">{{generatorOffset}} L/day</span>
+      </div>
+      <div class="kv-item">
+        <span class="kv-label">Solar CAPEX</span>
+        <span class="kv-value">{{solarCapex}}</span>
+      </div>
+      <div class="kv-item">
+        <span class="kv-label">Annual O&M</span>
+        <span class="kv-value">{{annualOm}}</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="chart-container">
+      <div class="chart-title">10-Year Cumulative Cashflow</div>
+      <canvas id="cashflowChart" height="200"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- Savings Breakdown -->
+<div class="page">
+  <div class="header">
+    <div class="header-title">Savings & Benefits</div>
+    <div class="header-subtitle">Financial Impact Analysis</div>
+  </div>
+
+  <div class="section">
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th>Year</th>
+            <th class="text-right">Energy Savings</th>
+            <th class="text-right">O&M Costs</th>
+            <th class="text-right">Net Cashflow</th>
+            <th class="text-right">Cumulative</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{#each cashflowRows}}
+          <tr>
+            <td>{{year}}</td>
+            <td class="text-right">{{savings}}</td>
+            <td class="text-right">{{omCost}}</td>
+            <td class="text-right">{{netCashflow}}</td>
+            <td class="text-right">{{cumulativeCashflow}}</td>
+          </tr>
+          {{/each}}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="info-box">
+    <h3>Proposal Notes</h3>
+    <p>This estimate is localised for African hybrid energy conditions, combining NERC tariff exposure and generator fuel displacement. Final economics depend on site load profile, component selection, and installation quality.</p>
+  </div>
+
+  <div class="disclaimer">
+    <strong>DISCLAIMER:</strong> This proposal is generated by the SolNuv platform for preliminary assessment purposes. Actual system performance and financial returns may vary based on local conditions, equipment specifications, installation quality, and other factors. A detailed engineering study by a qualified professional is recommended before final investment decisions.
+  </div>
+</div>
+
+<script>
+  const cashflowCtx = document.getElementById('cashflowChart');
+  if (cashflowCtx) {
+    new Chart(cashflowCtx, {
+      type: 'bar',
+      data: {
+        labels: [{{cashflowLabels}}],
+        datasets: [
+          {
+            label: 'Net Cashflow',
+            data: [{{cashflowValues}}],
+            backgroundColor: function(context) {
+              return context.raw >= 0 ? '#10B981' : '#EF4444';
+            }
+          },
+          {
+            label: 'Cumulative',
+            data: [{{cumulativeValues}}],
+            type: 'line',
+            borderColor: '#0D3B2E',
+            backgroundColor: 'transparent',
+            yAxisID: 'y1'
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { position: 'top' } },
+        scales: {
+          y: { beginAtZero: false, title: { display: true, text: 'Net CF' } },
+          y1: { position: 'right', beginAtZero: false, title: { display: true, text: 'Cumulative' }, grid: { drawOnChartArea: false } }
+        }
+      }
+    });
+  }
+</script>
+
+</body>
+</html>

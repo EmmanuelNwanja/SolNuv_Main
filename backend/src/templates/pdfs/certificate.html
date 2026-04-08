@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cradle-to-Grave Certificate</title>
+  <style>
+    :root {
+      --primary: #0D3B2E;
+      --secondary: #F59E0B;
+      --accent: #10B981;
+      --text: #1E293B;
+      --muted: #64748B;
+      --light: #F1F5F9;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    @page { size: A4; margin: 0; }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      color: var(--text);
+      background: var(--primary);
+    }
+
+    .certificate {
+      width: 210mm;
+      min-height: 297mm;
+      margin: 0 auto;
+      background: white;
+      padding: 40px;
+      position: relative;
+    }
+
+    .border-outer {
+      position: absolute;
+      top: 15px;
+      left: 15px;
+      right: 15px;
+      bottom: 15px;
+      border: 3px solid var(--primary);
+    }
+
+    .border-inner {
+      position: absolute;
+      top: 22px;
+      left: 22px;
+      right: 22px;
+      bottom: 22px;
+      border: 1px solid var(--secondary);
+    }
+
+    .stripe-top, .stripe-bottom {
+      position: absolute;
+      left: 22px;
+      right: 22px;
+      height: 8px;
+      background: var(--secondary);
+    }
+
+    .stripe-top { top: 22px; }
+    .stripe-bottom { bottom: 22px; }
+
+    .content {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      padding: 40px 60px;
+      min-height: calc(100% - 80px);
+    }
+
+    .logo {
+      font-size: 28pt;
+      font-weight: 700;
+      color: var(--primary);
+      letter-spacing: 3px;
+      margin-bottom: 30px;
+    }
+
+    .title {
+      font-size: 24pt;
+      font-weight: 300;
+      color: var(--primary);
+      margin-bottom: 5px;
+    }
+
+    .subtitle {
+      font-size: 14pt;
+      color: var(--secondary);
+      font-weight: 600;
+      margin-bottom: 20px;
+    }
+
+    .regulatory {
+      font-size: 9pt;
+      color: var(--muted);
+      max-width: 400px;
+      margin-bottom: 30px;
+    }
+
+    .divider {
+      width: 150px;
+      height: 2px;
+      background: var(--secondary);
+      margin: 25px auto;
+    }
+
+    .certifies {
+      font-size: 11pt;
+      color: var(--muted);
+      margin-bottom: 15px;
+    }
+
+    .company-name {
+      font-size: 20pt;
+      font-weight: 700;
+      color: var(--primary);
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      margin-bottom: 20px;
+    }
+
+    .declaration {
+      font-size: 10pt;
+      color: var(--text);
+      line-height: 1.8;
+      max-width: 450px;
+      margin-bottom: 30px;
+    }
+
+    .project-box {
+      background: var(--light);
+      border: 1px solid #e2e8f0;
+      border-left: 4px solid var(--secondary);
+      border-radius: 0 8px 8px 0;
+      padding: 25px;
+      width: 100%;
+      max-width: 500px;
+      margin: 20px 0;
+      text-align: left;
+    }
+
+    .project-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 10px 0;
+      border-bottom: 1px solid #e2e8f0;
+    }
+
+    .project-row:last-child { border-bottom: none; }
+    .project-label { font-size: 9pt; color: var(--muted); }
+    .project-value { font-size: 10pt; font-weight: 600; color: var(--text); }
+
+    .cert-number {
+      font-size: 10pt;
+      color: var(--muted);
+      margin: 25px 0;
+    }
+
+    .cert-number strong { color: var(--primary); }
+
+    .signature-area {
+      display: flex;
+      justify-content: center;
+      gap: 60px;
+      margin-top: auto;
+      padding-top: 30px;
+      width: 100%;
+    }
+
+    .signature-block { text-align: center; }
+    .signature-line {
+      width: 150px;
+      border-bottom: 1px solid var(--muted);
+      margin: 0 auto 10px;
+      height: 40px;
+    }
+    .signature-label { font-size: 9pt; color: var(--muted); }
+
+    .footer {
+      font-size: 8pt;
+      color: var(--muted);
+      margin-top: 30px;
+    }
+
+    .qr-placeholder {
+      width: 80px;
+      height: 80px;
+      border: 1px dashed var(--muted);
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 7pt;
+      color: var(--muted);
+      margin: 15px auto;
+    }
+
+    @media print {
+      body { background: white; }
+      .certificate { box-shadow: none; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="certificate">
+  <div class="border-outer"></div>
+  <div class="border-inner"></div>
+  <div class="stripe-top"></div>
+  <div class="stripe-bottom"></div>
+
+  <div class="content">
+    <div class="logo">SolNuv</div>
+
+    <div class="title">CERTIFICATE OF COMPLIANCE</div>
+    <div class="subtitle">Cradle-to-Grave Solar Equipment Traceability</div>
+
+    <div class="regulatory">
+      Issued under NESREA EPR Framework & National Environmental (Battery Control) Regulations 2024
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="certifies">This certifies that:</div>
+
+    <div class="company-name">{{companyName}}</div>
+
+    <div class="declaration">
+      has registered and is actively tracking the following solar installation in compliance with Nigerian environmental law.
+    </div>
+
+    <div class="project-box">
+      <div class="project-row">
+        <span class="project-label">Project Name</span>
+        <span class="project-value">{{projectName}}</span>
+      </div>
+      <div class="project-row">
+        <span class="project-label">Location</span>
+        <span class="project-value">{{location}}</span>
+      </div>
+      <div class="project-row">
+        <span class="project-label">Installation Date</span>
+        <span class="project-value">{{installationDate}}</span>
+      </div>
+      <div class="project-row">
+        <span class="project-label">Est. Decommission</span>
+        <span class="project-value">{{decommissionDate}}</span>
+      </div>
+      <div class="project-row">
+        <span class="project-label">Total Solar Panels</span>
+        <span class="project-value">{{totalPanels}} panels</span>
+      </div>
+      <div class="project-row">
+        <span class="project-label">Total Batteries</span>
+        <span class="project-value">{{totalBatteries}} units</span>
+      </div>
+      <div class="project-row">
+        <span class="project-label">Recycling Route</span>
+        <span class="project-value" style="color: var(--accent);">EPRON-Certified Formal</span>
+      </div>
+    </div>
+
+    <div class="cert-number">
+      Certificate No: <strong>{{certNumber}}</strong>
+    </div>
+
+    <div class="qr-placeholder">
+      QR Code<br>Verify Here
+    </div>
+
+    <div class="signature-area">
+      <div class="signature-block">
+        <div class="signature-line"></div>
+        <div class="signature-label">{{companyName}}</div>
+      </div>
+      <div class="signature-block">
+        <div class="signature-line"></div>
+        <div class="signature-label">SolNuv Compliance Engine</div>
+      </div>
+    </div>
+
+    <div class="footer">
+      Verify this certificate at: solnuv.com/verify/{{certNumber}}<br>
+      Issued: {{issueDate}}
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

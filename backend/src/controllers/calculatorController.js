@@ -7,7 +7,8 @@ const { sendSuccess, sendError } = require('../utils/responseHelper');
 const logger = require('../utils/logger');
 const { calculatePanelValue, calculateBatteryValue, getSilverPrice } = require('../services/silverService');
 const { calculateDecommissionDate } = require('../services/degradationService');
-const { generateProposalPdf, generateCableComplianceCertificate } = require('../services/pdfService');
+const { generateCableComplianceCertificate } = require('../services/pdfService');
+const { generateProposalPdf } = require('../services/puppeteerPdfService');
 const { PANEL_TECHNOLOGIES, BATTERY_CHEMISTRIES, resolveChemistry, cyclesAtDoD } = require('../constants/technologyConstants');
 const supabase = require('../config/database');
 
@@ -588,11 +589,62 @@ exports.exportRoiPdf = async (req, res) => {
       },
     };
 
-    const pdfBuffer = await generateProposalPdf(payload, result);
+    // Build cashflow rows for chart
+    const cashflowRows = [];
+    const cashflowLabels = [];
+    const cashflowValues = [];
+    const cumulativeValues = [];
+    let cumulative = -capex;
+
+    for (let year = 1; year <= 10; year++) {
+      const yearSavings = annualNetSavings * Math.pow(1.08, year - 1); // 8% tariff escalation
+      const netCashflow = yearSavings - annualOM * Math.pow(1.05, year - 1);
+      cumulative += netCashflow;
+
+      cashflowRows.push({
+        year,
+        savings: '₦' + Math.round(yearSavings).toLocaleString('en-NG'),
+        omCost: '₦' + Math.round(annualOM * Math.pow(1.05, year - 1)).toLocaleString('en-NG'),
+        netCashflow: '₦' + Math.round(netCashflow).toLocaleString('en-NG'),
+        cumulativeCashflow: '₦' + Math.round(cumulative).toLocaleString('en-NG'),
+      });
+
+      cashflowLabels.push(year);
+      cashflowValues.push(Math.round(netCashflow));
+      cumulativeValues.push(Math.round(cumulative));
+    }
+
+    const templateData = {
+      projectName: payload.project_name || 'Hybrid Solar Project',
+      clientName: payload.client_name || payload.user_name || 'Client',
+      location: payload.location || 'Nigeria',
+      systemCapacity: (capex / 250000).toFixed(1) + ' kWp',
+      preparedDate: new Date().toLocaleDateString('en-NG', { year: 'numeric', month: 'long', day: 'numeric' }),
+
+      paybackPeriod: paybackMonths ? (paybackMonths / 12).toFixed(1) + ' years' : 'N/A',
+      annualSavings: '₦' + Math.round(result.annual_savings.net_ngn).toLocaleString('en-NG'),
+      tenYearSavings: '₦' + Math.round(result.investment_metrics.ten_year_net_savings_ngn).toLocaleString('en-NG'),
+      tenYearRoi: result.investment_metrics.ten_year_roi_pct.toFixed(0),
+
+      tariffBand: band,
+      tariffRate: '₦' + effectiveTariff.toLocaleString('en-NG') + '/kWh',
+      gridOffset: gridOffset.toLocaleString('en-NG'),
+      generatorOffset: genOffset.toLocaleString('en-NG'),
+      solarCapex: '₦' + capex.toLocaleString('en-NG'),
+      annualOm: '₦' + annualOM.toLocaleString('en-NG'),
+
+      cashflowLabels: cashflowLabels.join(','),
+      cashflowValues: cashflowValues.join(','),
+      cumulativeValues: cumulativeValues.join(','),
+      cashflowRows,
+    };
+
+    const pdfBuffer = await generateProposalPdf(templateData);
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=SolNuv_Hybrid_ROI_Proposal_${Date.now()}.pdf`);
     return res.send(pdfBuffer);
-  } catch (_error) {
+  } catch (error) {
+    logger.error('ROI PDF export failed', { message: error.message });
     return sendError(res, 'Failed to export ROI proposal PDF', 500);
   }
 };

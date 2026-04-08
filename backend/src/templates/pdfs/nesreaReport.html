@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NESREA EPR Compliance Report</title>
+  <style>
+    :root {
+      --primary: #0D3B2E;
+      --secondary: #F59E0B;
+      --accent: #10B981;
+      --text: #1E293B;
+      --muted: #64748B;
+      --light: #F1F5F9;
+      --white: #FFFFFF;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    @page { size: A4; margin: 15mm 15mm 20mm 15mm; }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      font-size: 10pt;
+      color: var(--text);
+      line-height: 1.5;
+    }
+
+    /* Cover Page */
+    .cover {
+      min-height: 270mm;
+      background: linear-gradient(135deg, var(--primary) 0%, #1a5c47 100%);
+      color: var(--white);
+      padding: 60px;
+      page-break-after: always;
+      position: relative;
+    }
+
+    .cover-header {
+      display: flex;
+      align-items: center;
+      margin-bottom: 40px;
+    }
+
+    .cover-logo {
+      font-size: 24pt;
+      font-weight: 700;
+      letter-spacing: 2px;
+      margin-right: 30px;
+    }
+
+    .cover-badge {
+      background: var(--secondary);
+      color: var(--primary);
+      padding: 5px 15px;
+      border-radius: 20px;
+      font-size: 9pt;
+      font-weight: 600;
+    }
+
+    .cover h1 {
+      font-size: 28pt;
+      font-weight: 300;
+      margin-bottom: 10px;
+    }
+
+    .cover h2 {
+      font-size: 16pt;
+      font-weight: 400;
+      color: var(--secondary);
+      margin-bottom: 40px;
+    }
+
+    .cover-divider {
+      width: 100%;
+      height: 3px;
+      background: var(--secondary);
+      margin: 30px 0;
+    }
+
+    .entity-box {
+      background: rgba(255,255,255,0.1);
+      border-radius: 12px;
+      padding: 30px;
+      margin: 20px 0;
+    }
+
+    .entity-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 15px;
+    }
+
+    .entity-item { padding: 10px 0; }
+    .entity-label { font-size: 8pt; color: var(--secondary); text-transform: uppercase; }
+    .entity-value { font-size: 12pt; font-weight: 500; }
+
+    .period-box {
+      background: #FEF3C7;
+      border-radius: 8px;
+      padding: 20px;
+      margin: 20px 0;
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    }
+
+    .period-icon { font-size: 24pt; }
+    .period-label { font-size: 9pt; color: #92400e; }
+    .period-value { font-size: 14pt; font-weight: 600; color: var(--primary); }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 15px;
+      margin: 30px 0;
+    }
+
+    .stat-card {
+      background: rgba(255,255,255,0.1);
+      border-radius: 8px;
+      padding: 20px;
+      text-align: center;
+    }
+
+    .stat-card:nth-child(odd) { background: var(--secondary); color: var(--primary); }
+    .stat-card:nth-child(even) { background: rgba(255,255,255,0.1); }
+
+    .stat-value { font-size: 20pt; font-weight: 700; }
+    .stat-label { font-size: 8pt; text-transform: uppercase; margin-top: 5px; }
+
+    .regulatory-box {
+      background: #F0FDF4;
+      border: 1px solid #BBF7D0;
+      border-radius: 8px;
+      padding: 20px;
+      margin: 20px 0;
+    }
+
+    .regulatory-title {
+      font-size: 12pt;
+      font-weight: 600;
+      color: var(--primary);
+      margin-bottom: 15px;
+    }
+
+    .regulatory-list { list-style: none; }
+    .regulatory-list li {
+      padding: 8px 0;
+      border-bottom: 1px solid #d1fae5;
+      font-size: 9pt;
+    }
+    .regulatory-list li:last-child { border-bottom: none; }
+
+    /* Content Pages */
+    .page { padding: 10px 0; page-break-after: always; }
+    .page:last-child { page-break-after: auto; }
+
+    .header {
+      background: var(--primary);
+      color: var(--white);
+      padding: 12px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+
+    .header-title { font-size: 14pt; font-weight: 600; }
+    .header-subtitle { font-size: 9pt; color: var(--secondary); }
+
+    .section { margin-bottom: 25px; }
+    .section-title {
+      font-size: 14pt;
+      font-weight: 600;
+      color: var(--primary);
+      border-bottom: 2px solid var(--secondary);
+      padding-bottom: 8px;
+      margin-bottom: 15px;
+    }
+
+    /* Tables */
+    .table-container { overflow-x: auto; margin: 15px 0; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 9pt;
+    }
+
+    th {
+      background: var(--primary);
+      color: var(--white);
+      padding: 10px 12px;
+      text-align: left;
+      font-weight: 600;
+    }
+
+    td { padding: 10px 12px; border-bottom: 1px solid #e2e8f0; }
+    tr:nth-child(even) { background: var(--light); }
+
+    /* Silver Recovery */
+    .silver-card {
+      background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+      border-radius: 12px;
+      padding: 25px;
+      margin: 20px 0;
+    }
+
+    .silver-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 15px 0;
+      border-bottom: 1px solid #bbf7d0;
+    }
+
+    .silver-row:last-child { border-bottom: none; }
+    .silver-label { font-size: 11pt; }
+    .silver-value { font-size: 14pt; font-weight: 700; color: var(--primary); }
+    .silver-note { font-size: 8pt; color: var(--muted); }
+
+    /* Compliance Declaration */
+    .compliance-box {
+      background: #FFF7ED;
+      border-left: 4px solid var(--secondary);
+      border-radius: 0 8px 8px 0;
+      padding: 25px;
+      margin: 20px 0;
+    }
+
+    .compliance-title {
+      font-size: 12pt;
+      font-weight: 600;
+      color: var(--primary);
+      margin-bottom: 15px;
+    }
+
+    .compliance-text {
+      font-size: 9pt;
+      line-height: 1.8;
+      color: var(--text);
+      text-align: justify;
+    }
+
+    .signature-area {
+      display: flex;
+      gap: 40px;
+      margin-top: 30px;
+    }
+
+    .signature-block { width: 200px; }
+    .signature-line {
+      border-bottom: 1px solid var(--muted);
+      height: 40px;
+      margin-bottom: 5px;
+    }
+    .signature-label { font-size: 8pt; color: var(--muted); }
+
+    @media print {
+      .page { page-break-after: always; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Cover Page -->
+<div class="cover">
+  <div class="cover-header">
+    <div class="cover-logo">SolNuv</div>
+    <div class="cover-badge">EPR Compliance Platform</div>
+  </div>
+
+  <h1>National Environmental</h1>
+  <h1>(Battery Control) & EPR</h1>
+  <h1>Compliance Report</h1>
+
+  <div class="cover-divider"></div>
+
+  <h2>Extended Producer Responsibility — SolNuv Platform</h2>
+
+  <div class="entity-box">
+    <div class="entity-grid">
+      <div class="entity-item">
+        <div class="entity-label">Company Name</div>
+        <div class="entity-value">{{companyName}}</div>
+      </div>
+      <div class="entity-item">
+        <div class="entity-label">NESREA Reg. No.</div>
+        <div class="entity-value">{{nesreaRegNumber}}</div>
+      </div>
+      <div class="entity-item">
+        <div class="entity-label">Address</div>
+        <div class="entity-value">{{companyAddress}}</div>
+      </div>
+      <div class="entity-item">
+        <div class="entity-label">Subscription Tier</div>
+        <div class="entity-value">{{subscriptionTier}}</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="period-box">
+    <div class="period-icon">📅</div>
+    <div>
+      <div class="period-label">REPORT PERIOD</div>
+      <div class="period-value">{{periodStart}} — {{periodEnd}}</div>
+      <div style="font-size: 9pt; color: #92400e;">Issued: {{issueDate}}</div>
+    </div>
+  </div>
+
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-value">{{totalProjects}}</div>
+      <div class="stat-label">Total Projects</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">{{totalPanels}}</div>
+      <div class="stat-label">Solar Panels</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">{{totalBatteries}}</div>
+      <div class="stat-label">Battery Units</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">{{totalSilver}}g</div>
+      <div class="stat-label">Est. Silver (Fleet)</div>
+    </div>
+  </div>
+
+  <div class="regulatory-box">
+    <div class="regulatory-title">Regulatory Basis</div>
+    <ul class="regulatory-list">
+      <li>National Environmental (Electrical/Electronic Sector) Regulations (NESREA)</li>
+      <li>National Environmental (Battery Control) Regulations 2024</li>
+      <li>Extended Producer Responsibility (EPR) Guidelines for Solar PV Equipment</li>
+      <li>EPRON End-of-Life Accountability Framework</li>
+    </ul>
+  </div>
+</div>
+
+<!-- Traceability Page -->
+<div class="page">
+  <div class="header">
+    <div class="header-title">Cradle-to-Grave Traceability Report</div>
+    <div class="header-subtitle">{{companyName}} | NESREA Reg: {{nesreaRegNumber}}</div>
+  </div>
+
+  <div class="section">
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th>Project Name</th>
+            <th>Location</th>
+            <th class="text-center">Panels</th>
+            <th class="text-center">Batteries</th>
+            <th>Status</th>
+            <th>Est. Decomm.</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{#each projects}}
+          <tr>
+            <td><strong>{{name}}</strong></td>
+            <td>{{location}}</td>
+            <td class="text-center">{{panels}}</td>
+            <td class="text-center">{{batteries}}</td>
+            <td><span style="background: #10B981; color: white; padding: 2px 8px; border-radius: 10px; font-size: 8pt;">{{status}}</span></td>
+            <td>{{decommDate}}</td>
+          </tr>
+          {{/each}}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Silver Recovery Page -->
+<div class="page">
+  <div class="header">
+    <div class="header-title">Silver Recovery & Compliance Statement</div>
+    <div class="header-subtitle">Economic Value of Formal End-of-Life Recycling</div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Silver Content Analysis</div>
+    <p style="margin-bottom: 20px; line-height: 1.8;">
+      Silver constitutes ~47% of the reclaimable economic value of crystalline silicon panels despite being only ~0.05% of panel mass. Projections use a silver content of ~0.35 mg per watt-peak (Wp).
+    </p>
+  </div>
+
+  <div class="silver-card">
+    <div class="silver-row">
+      <div>
+        <div class="silver-label">Total Estimated Silver</div>
+        <div class="silver-note">100% theoretical</div>
+      </div>
+      <div class="silver-value">{{totalSilver}} g</div>
+    </div>
+    <div class="silver-row">
+      <div>
+        <div class="silver-label">Expected Formal Recovery (35%)</div>
+        <div class="silver-note">Certified recyclers</div>
+      </div>
+      <div class="silver-value">{{recoverySilver}} g</div>
+    </div>
+    <div class="silver-row">
+      <div>
+        <div class="silver-label">Estimated Recovery Value</div>
+        <div class="silver-note">@ ₦{{silverPrice}}/g</div>
+      </div>
+      <div class="silver-value">{{recoveryValue}}</div>
+    </div>
+    <div class="silver-row">
+      <div>
+        <div class="silver-label">Lost to Informal Sector</div>
+        <div class="silver-note">Informal = metal burning</div>
+      </div>
+      <div class="silver-value" style="color: #EF4444;">~₦0</div>
+    </div>
+  </div>
+
+  <div class="compliance-box">
+    <div class="compliance-title">COMPLIANCE DECLARATION</div>
+    <div class="compliance-text">
+      This organisation hereby declares, under the National Environmental (Battery Control) Regulations 2024 and the Extended Producer Responsibility (EPR) guidelines administered by NESREA and EPRON, that all solar PV panels and batteries listed in this report are tracked from installation to end-of-life, and that all decommissioned equipment will be routed exclusively through EPRON-certified formal recycling channels.
+    </div>
+    <div class="signature-area">
+      <div class="signature-block">
+        <div class="signature-line"></div>
+        <div class="signature-label">Authorised by: {{companyName}}</div>
+      </div>
+      <div class="signature-block">
+        <div class="signature-line"></div>
+        <div class="signature-label">Date: {{issueDate}}</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

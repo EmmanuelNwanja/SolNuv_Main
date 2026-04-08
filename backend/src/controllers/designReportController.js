@@ -6,7 +6,8 @@
 const crypto = require('crypto');
 const supabase = require('../config/database');
 const { sendSuccess, sendError } = require('../utils/responseHelper');
-const { generateDesignReportPdf, generateDesignReportExcel } = require('../services/designReportService');
+const { generateDesignReportExcel } = require('../services/designReportService');
+const { generateDesignReportPdf: generatePuppeteerPdf } = require('../services/puppeteerPdfService');
 const logger = require('../utils/logger');
 
 /** Verify ownership supporting orphaned projects (created before user joined a company) */
@@ -17,12 +18,8 @@ async function verifyProjectOwnership(projectId, user) {
   let query = supabase.from('projects').select('id, name, state, city, company_id, user_id').eq('id', projectId);
 
   if (companyId) {
-    // User has a company - can access projects belonging to:
-    // 1. Their company, OR
-    // 2. Projects they personally created (company_id is null but user_id matches)
     query = query.or(`company_id.eq.${companyId},and(user_id.eq.${userId},company_id.is.null)`);
   } else {
-    // User has no company - can only access their own projects
     query = query.eq('user_id', userId);
   }
 
@@ -66,6 +63,164 @@ async function getLatestSimulationResult(projectId, selectCols = 'id') {
   return result;
 }
 
+/** Format currency value */
+function fmtCurrency(n, currency = 'NGN') {
+  if (n === null || n === undefined) return '—';
+  const symbols = { NGN: '₦', ZAR: 'R', USD: '$', EUR: '€', GBP: '£' };
+  const sym = symbols[currency] || currency + ' ';
+  return sym + Number(n).toLocaleString('en', { maximumFractionDigits: 0 });
+}
+
+/** Format number with commas */
+function fmt(n, d = 0) {
+  if (n === null || n === undefined) return '—';
+  return Number(n).toLocaleString('en', { minimumFractionDigits: d, maximumFractionDigits: d });
+}
+
+/** Build template data for Design Report PDF */
+async function buildDesignReportData(simulationResultId) {
+  const { data: result } = await supabase
+    .from('simulation_results')
+    .select('*')
+    .eq('id', simulationResultId)
+    .single();
+
+  if (!result) throw new Error('Simulation result not found');
+
+  const { data: design } = await supabase
+    .from('project_designs')
+    .select('*')
+    .eq('id', result.project_design_id)
+    .single();
+
+  const { data: project } = await supabase
+    .from('projects')
+    .select('*, companies(name, branding_primary_color)')
+    .eq('id', design?.project_id)
+    .single();
+
+  const { data: tariff } = design?.tariff_structure_id ? await supabase
+    .from('tariff_structures')
+    .select('*, tariff_rates(*), tariff_ancillary_charges(*)')
+    .eq('id', design.tariff_structure_id)
+    .single() : { data: null };
+
+  const companyName = project?.companies?.name || 'SolNuv';
+  const currency = tariff?.currency || 'NGN';
+  const monthly = result.monthly_summary || [];
+  const cashflow = result.yearly_cashflow || [];
+  const analysisPeriod = Number(design?.analysis_period_years) || 25;
+
+  // Calculate peak sun hours
+  const peakSunHours = (design?.pv_capacity_kwp && result.annual_solar_gen_kwh)
+    ? (result.annual_solar_gen_kwh / design.pv_capacity_kwp / 365).toFixed(1)
+    : '—';
+
+  // Calculate BESS usable capacity
+  const bessUsableKwh = design?.bess_capacity_kwh
+    ? (design.bess_capacity_kwh * (design.bess_dod_pct || 80) / 100).toFixed(1)
+    : 0;
+
+  // Build monthly arrays for charts
+  const monthlyLoad = monthly.map(m => fmt(m.load_kwh, 0)).join(',');
+  const monthlyGen = monthly.map(m => fmt(m.pv_gen_kwh, 0)).join(',');
+  const monthlyCharge = monthly.map(m => fmt(m.battery_charged_kwh, 0)).join(',');
+  const monthlyDischarge = monthly.map(m => fmt(m.battery_discharged_kwh, 0)).join(',');
+
+  // Build cashflow for chart (show every year)
+  const cashflowLabels = cashflow.map(c => c.year).join(',');
+  const cashflowValues = cashflow.map(c => fmt(c.net_cashflow, 0)).join(',');
+  const cumulativeValues = cashflow.map(c => fmt(c.cumulative_cashflow, 0)).join(',');
+
+  // Build cashflow table rows (sample years)
+  const showYears = [0, 1, 2, 3, 4, ...[9, 14, 19, 24].filter(y => y < cashflow.length)];
+  const cashflowRows = showYears.map(yi => {
+    const cf = cashflow[yi];
+    if (!cf) return null;
+    return {
+      year: cf.year || yi + 1,
+      savings: fmtCurrency(cf.savings, currency),
+      omCost: fmtCurrency(cf.om_cost, currency),
+      netCashflow: fmtCurrency(cf.net_cashflow, currency),
+      cumulativeCashflow: fmtCurrency(cf.cumulative_cashflow, currency),
+      generationKwh: fmt(cf.generation_kwh, 0),
+    };
+  }).filter(Boolean);
+
+  // Total load from monthly
+  const totalLoad = monthly.reduce((s, m) => s + (m.load_kwh || 0), 0);
+
+  // Build assumptions list
+  const assumptions = [
+    'Solar resource data sourced from NASA POWER climatological averages.',
+    `PV generation modelled using isotropic transposition with ${design?.pv_system_losses_pct || 14}% total system losses.`,
+    `Panel degradation rate: ${design?.pv_degradation_annual_pct || 0.5}% per year.`,
+    `Discount rate: ${design?.discount_rate_pct || 10}% (nominal).`,
+    `Tariff escalation: ${design?.tariff_escalation_pct || 8}% per year.`,
+    `Analysis period: ${analysisPeriod} years.`,
+    design?.bess_capacity_kwh > 0 ? `Battery round-trip efficiency: ${((design?.bess_round_trip_efficiency ?? 0.90) * 100).toFixed(0)}%.` : null,
+    'Financial projections are estimates and do not constitute financial advice.',
+  ].filter(Boolean);
+
+  return {
+    projectName: project?.name || 'Project',
+    companyName,
+    location: [project?.city, project?.state].filter(Boolean).join(', ') || project?.location || 'N/A',
+    lat: (design?.location_lat || 0).toFixed(4),
+    lon: (design?.location_lon || 0).toFixed(4),
+    reportDate: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }),
+
+    executiveSummary: result.executive_summary_text || 'A comprehensive solar and battery energy storage system design analysis.',
+
+    pvCapacity: fmt(design?.pv_capacity_kwp),
+    annualGeneration: fmt(result.annual_solar_gen_kwh),
+    solarFraction: result.utilisation_pct != null ? fmt(result.utilisation_pct, 1) : '—',
+    bessCapacity: design?.bess_capacity_kwh ? fmt(design.bess_capacity_kwh) : 'None',
+    annualSavings: fmtCurrency(result.year1_savings, currency),
+    paybackPeriod: result.simple_payback_months ? fmt(result.simple_payback_months / 12, 1) + ' years' : '—',
+    npv: fmtCurrency(result.npv_25yr, currency),
+    irr: result.irr_pct != null ? fmt(result.irr_pct, 1) : '—',
+    lcoe: result.lcoe_normal != null ? fmtCurrency(result.lcoe_normal, currency) + '/kWh' : '—',
+
+    pvTechnology: design?.pv_technology || 'Monocrystalline PERC',
+    pvTilt: design?.pv_tilt_deg || 0,
+    pvAzimuth: design?.pv_azimuth_deg || 0,
+    pvDegradation: design?.pv_degradation_annual_pct || 0.5,
+    pvLosses: design?.pv_system_losses_pct || 14,
+
+    bessUsable: bessUsableKwh,
+    bessChemistry: (design?.bess_chemistry || 'LFP').toUpperCase(),
+    bessStrategy: (design?.bess_dispatch_strategy || 'self_consumption').replace(/_/g, ' '),
+
+    peakSunHours,
+
+    totalLoad: fmt(totalLoad),
+    selfConsumption: fmt(result.solar_utilised_kwh),
+    gridExport: fmt(result.grid_export_kwh),
+
+    bessThroughput: fmt(result.battery_discharged_kwh),
+    bessCycles: fmt(result.battery_cycles_annual, 0),
+    peakShaving: (result.peak_demand_before_kw && result.peak_demand_after_kw)
+      ? fmt(result.peak_demand_before_kw - result.peak_demand_after_kw, 1)
+      : '—',
+
+    capexTotal: fmtCurrency(design?.capex_total, currency),
+    analysisPeriod,
+
+    monthlyLoad,
+    monthlyGen,
+    monthlyCharge,
+    monthlyDischarge,
+
+    cashflowLabels,
+    cashflowValues,
+    cumulativeValues,
+    cashflowRows,
+
+    assumptions,
+  };
+}
+
 /**
  * GET /api/design-reports/:projectId/pdf
  * Download professional PDF design report. Pro+ plan.
@@ -80,7 +235,11 @@ exports.downloadPdf = async (req, res) => {
     const result = await getLatestSimulationResult(projectId);
     if (!result) return sendError(res, 'No simulation results found. Run a simulation first.', 404);
 
-    const pdfBuffer = await generateDesignReportPdf(result.id);
+    // Build template data
+    const templateData = await buildDesignReportData(result.id);
+
+    // Use Puppeteer for high-quality PDF with charts
+    const pdfBuffer = await generatePuppeteerPdf(templateData);
 
     const filename = `SolNuv_Design_Report_${project.name.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
     res.setHeader('Content-Type', 'application/pdf');
@@ -88,7 +247,7 @@ exports.downloadPdf = async (req, res) => {
     res.setHeader('Content-Length', pdfBuffer.length);
     return res.send(pdfBuffer);
   } catch (err) {
-    logger.error('downloadPdf error', { message: err.message });
+    logger.error('downloadPdf error', { message: err.message, stack: err.stack });
     return sendError(res, 'Failed to generate PDF report');
   }
 };
