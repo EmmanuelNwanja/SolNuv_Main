@@ -126,6 +126,8 @@ export default function Calculator() {
   const roiRef = useRef(null);
   const cableRef = useRef(null);
   const motorRef = useRef(null);
+  const gfmRef = useRef(null);
+  const tddRef = useRef(null);
 
   const [motorForm, setMotorForm] = useState({
     motor_power_kw: 200, motor_voltage_v: 400, start_method: 'dol',
@@ -133,6 +135,35 @@ export default function Calculator() {
     bess_power_kw: 250, inverter_topology: 'gfl',
   });
   const [motorResult, setMotorResult] = useState(null);
+
+  const [gfmForm, setGfmForm] = useState({
+    project_name: '',
+    load_kw: 500,
+    start_load_kw: 300,
+    duration_sec: 30,
+    grid_availability: 'primary', // primary, backup, isolated
+    critical_load_pct: 30,
+    require_black_start: false,
+    budget_ngn: 50000000,
+  });
+  const [gfmRecommendations, setGfmRecommendations] = useState(null);
+
+  const [tddForm, setTddForm] = useState({
+    project_name: '',
+    company_name: '',
+    inverter_brand: '',
+    inverter_model: '',
+    inverter_power_kw: 250,
+    inverter_topology: 'gfl',
+    bess_capacity_kwh: 500,
+    bess_power_kw: 250,
+    panel_capacity_kwp: 400,
+    transformer_kva: 500,
+    grid_connection_kv: 0.4,
+    site_address: '',
+    commissioning_date: '',
+  });
+  const [tddReport, setTddReport] = useState(null);
 
   const CABLE_QUEUE_KEY = 'solnuv_cable_sync_queue_v1';
 
@@ -277,6 +308,130 @@ export default function Calculator() {
     });
   }
 
+  function runGfmSelector() {
+    const { load_kw, start_load_kw, duration_sec, grid_availability, critical_load_pct, require_black_start, budget_ngn } = gfmForm;
+    
+    // GFM requirements analysis
+    const basePowerKw = load_kw * 1.2;
+    const startBuffer = start_load_kw > load_kw * 0.3 ? 1.5 : 1.2;
+    const recommendedPowerKw = basePowerKw * startBuffer;
+    const recommendedCapacityKwh = recommendedPowerKw * 4;
+    
+    // Grid availability factor
+    const gridFactor = grid_availability === 'isolated' ? 1.5 : grid_availability === 'backup' ? 1.25 : 1.0;
+    const adjustedPowerKw = recommendedPowerKw * gridFactor;
+    
+    // Black start premium
+    const blackStartPremium = require_black_start ? 1.3 : 1.0;
+    const finalPowerKw = adjustedPowerKw * blackStartPremium;
+    let finalCapacityKwh = finalPowerKw * (require_black_start ? 6 : 4);
+    
+    // Budget check
+    const estimatedCostNgn = finalPowerKw * 150000 + finalCapacityKwh * 80000;
+    const withinBudget = estimatedCostNgn <= budget_ngn;
+    
+    // Brand recommendations based on power class
+    const brands = finalPowerKw > 500 ? [
+      { brand: 'Huawei', model: ' Luna2000-200KTL', capacity: finalPowerKw, priceIndex: 1.0, features: ['GFM', 'Black Start', 'Grid Forming'] },
+      { brand: 'Sungrow', model: 'SG250HX', capacity: finalPowerKw, priceIndex: 0.95, features: ['GFM', 'Grid Forming'] },
+      { brand: 'Schneider', model: 'Conext XW Pro', capacity: finalPowerKw * 0.8, priceIndex: 1.2, features: ['GFM', 'Black Start'] },
+    ] : finalPowerKw > 200 ? [
+      { brand: 'Victron', model: 'Quattro', capacity: finalPowerKw, priceIndex: 1.1, features: ['GFM', 'Black Start'] },
+      { brand: 'SMA', model: 'Sunny Storage', capacity: finalPowerKw, priceIndex: 1.0, features: ['GFM', 'Grid Forming'] },
+      { brand: 'GoodWe', model: 'Lynx F G', capacity: finalPowerKw * 0.9, priceIndex: 0.85, features: ['GFM'] },
+    ] : [
+      { brand: 'Growatt', model: 'SPF 5000ES', capacity: finalPowerKw, priceIndex: 0.7, features: ['GFM'] },
+      { brand: 'Deye', model: 'SUN-5KG', capacity: finalPowerKw * 0.8, priceIndex: 0.65, features: ['GFL Upgrade Available'] },
+      { brand: 'Luxpower', model: 'WKS INV', capacity: finalPowerKw, priceIndex: 0.75, features: ['GFM'] },
+    ];
+    
+    setGfmRecommendations({
+      input: { ...gfmForm },
+      specifications: {
+        recommended_power_kw: Math.ceil(finalPowerKw),
+        recommended_capacity_kwh: Math.ceil(finalCapacityKwh),
+        min_transient_kw: Math.ceil(start_load_kw * 1.5),
+        min_transient_duration_sec: duration_sec,
+      },
+      budget: {
+        estimated_cost_ngn: Math.round(estimatedCostNgn),
+        budget_ngn: budget_ngn,
+        within_budget: withinBudget,
+        gap_ngn: Math.round(estimatedCostNgn - budget_ngn),
+      },
+      brands: brands,
+      notes: [
+        `GFM required for ${grid_availability} grid with ${critical_load_pct}% critical load`,
+        require_black_start ? 'Black start capability mandatory for islanded operation' : null,
+        `System sized for ${duration_sec}s transient support at ${start_load_kw} kW`,
+        withinBudget ? 'Within budget' : `Exceeds budget by ₦${Math.round((estimatedCostNgn - budget_ngn)/1000000)}M`,
+      ].filter(Boolean),
+    });
+  }
+
+  function runTddReport() {
+    const { inverter_brand, inverter_model, inverter_power_kw, inverter_topology, bess_capacity_kwh, bess_power_kw, panel_capacity_kwp, transformer_kva, grid_connection_kv } = tddForm;
+    
+    // Technical compliance checks
+    const checks = [];
+    
+    // GFM topology check
+    if (inverter_topology !== 'gfm') {
+      checks.push({ item: 'Inverter Topology', status: 'FAIL', message: `${inverter_brand} ${inverter_model} is ${inverter_topology.toUpperCase()}. GFM required for microgrid stability.` });
+    } else {
+      checks.push({ item: 'Inverter Topology', status: 'PASS', message: 'Grid-Forming inverter specified.' });
+    }
+    
+    // BESS power ratio
+    const bessRatio = bess_power_kw / inverter_power_kw;
+    if (bessRatio < 1.0) {
+      checks.push({ item: 'BESS Power Ratio', status: 'FAIL', message: `BESS power (${bess_power_kw}kW) is ${(bessRatio*100).toFixed(0)}% of inverter. Minimum 100% required.` });
+    } else {
+      checks.push({ item: 'BESS Power Ratio', status: 'PASS', message: `BESS/inverter ratio: ${(bessRatio*100).toFixed(0)}%` });
+    }
+    
+    // BESS duration
+    const duration = bess_capacity_kwh / bess_power_kw;
+    if (duration < 2) {
+      checks.push({ item: 'BESS Duration', status: 'FAIL', message: `${duration.toFixed(1)}h duration. Minimum 2h recommended for C&I.` });
+    } else {
+      checks.push({ item: 'BESS Duration', status: 'PASS', message: `${duration.toFixed(1)}h duration adequate.` });
+    }
+    
+    // Transformer sizing
+    const maxGen = panel_capacity_kwp * 0.8;
+    if (transformer_kva < maxGen * 1.2) {
+      checks.push({ item: 'Transformer Sizing', status: 'WARN', message: `${transformer_kva}kVA may be undersized for ${panel_capacity_kwp}kWp. Recommend ${Math.ceil(maxGen * 1.2)}kVA.` });
+    } else {
+      checks.push({ item: 'Transformer Sizing', status: 'PASS', message: `${transformer_kva}kVA adequate for ${panel_capacity_kwp}kWp.` });
+    }
+    
+    // Voltage compatibility
+    if (grid_connection_kv > 1 && inverter_power_kw > 500) {
+      checks.push({ item: 'MV Connection', status: 'WARN', message: 'Medium voltage connection requires MV switchgear and protection.' });
+    }
+    
+    const passCount = checks.filter(c => c.status === 'PASS').length;
+    const failCount = checks.filter(c => c.status === 'FAIL').length;
+    const warnCount = checks.filter(c => c.status === 'WARN').length;
+    const overallStatus = failCount === 0 ? 'PASS' : 'FAIL';
+    
+    setTddReport({
+      project_info: { ...tddForm },
+      assessment_date: new Date().toISOString().split('T')[0],
+      checks: checks,
+      summary: { pass: passCount, fail: failCount, warn: warnCount, overall: overallStatus },
+      risk_factors: checks.filter(c => c.status === 'FAIL').map(c => c.item),
+      recommendations: [
+        failCount > 0 ? 'Address all FAIL items before financial close' : null,
+        inverter_topology === 'gfl' ? 'Upgrade to GFM inverter for microgrid operation' : null,
+        warnCount > 0 ? 'Review WARN items with EPC contractor' : null,
+        'Obtain OEM technical datasheets for all equipment',
+        'Verify warranty terms and service agreements',
+      ].filter(Boolean),
+    });
+  }
+
   async function exportRoiPdf() {
     if (!roiResult || !roiRef.current) return;
     try {
@@ -347,6 +502,8 @@ export default function Calculator() {
     { id: 'soh',     label: '🧪 Battery SoH',         desc: 'Warranty Ledger Heuristic' },
     { id: 'cable',   label: '🧰 DC Cable Sizing',     desc: 'Voltage Drop Compliance' },
     { id: 'motor',   label: '⚡ Motor Starting',       desc: 'Inductive Load Analysis' },
+    { id: 'gfm',     label: '🔋 GFM Selector',         desc: 'Grid-Forming Inverter Sizing' },
+    { id: 'tdd',     label: '📋 TDD Report',          desc: 'Technical Due Diligence' },
   ];
 
   return (
@@ -1252,6 +1409,200 @@ export default function Calculator() {
                 </>
               )}
               {!motorResult && <div className="card flex items-center justify-center h-64 text-slate-300"><p className="text-sm">Enter specs and analyze</p></div>}
+            </div>
+          </div>
+        )}
+
+        {/* ── GFM INVERTER SELECTOR ─────────────────────────────────────────────── */}
+        {activeTab === 'gfm' && (
+          <div className="grid md:grid-cols-2 gap-6" ref={gfmRef}>
+            <div className="card space-y-4">
+              <h2 className="font-semibold text-forest-900">GFM Inverter Selector</h2>
+              <p className="text-xs text-slate-500">Size Grid-Forming inverter and BESS for microgrid applications</p>
+              
+              <div>
+                <label className="label">Project Name</label>
+                <input type="text" className="input" value={gfmForm.project_name} onChange={e => setGfmForm(f => ({ ...f, project_name: e.target.value }))} placeholder="e.g., Mining Site A" />
+              </div>
+              
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="label">Base Load (kW)</label>
+                  <input type="number" className="input" value={gfmForm.load_kw} onChange={e => setGfmForm(f => ({ ...f, load_kw: Number(e.target.value) }))} />
+                </div>
+                <div>
+                  <label className="label">Max Start Load (kW)</label>
+                  <input type="number" className="input" value={gfmForm.start_load_kw} onChange={e => setGfmForm(f => ({ ...f, start_load_kw: Number(e.target.value) }))} />
+                </div>
+                <div>
+                  <label className="label">Transient Duration (s)</label>
+                  <input type="number" className="input" value={gfmForm.duration_sec} onChange={e => setGfmForm(f => ({ ...f, duration_sec: Number(e.target.value) }))} />
+                </div>
+                <div>
+                  <label className="label">Grid Availability</label>
+                  <select className="input" value={gfmForm.grid_availability} onChange={e => setGfmForm(f => ({ ...f, grid_availability: e.target.value }))}>
+                    <option value="primary">Primary Grid</option>
+                    <option value="backup">Backup/Secondary</option>
+                    <option value="isolated">Isolated/Off-grid</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="label">Critical Load (%)</label>
+                  <input type="number" className="input" value={gfmForm.critical_load_pct} onChange={e => setGfmForm(f => ({ ...f, critical_load_pct: Number(e.target.value) }))} />
+                </div>
+                <div>
+                  <label className="label">Budget (₦)</label>
+                  <input type="number" className="input" value={gfmForm.budget_ngn} onChange={e => setGfmForm(f => ({ ...f, budget_ngn: Number(e.target.value) }))} />
+                </div>
+              </div>
+              
+              <label className="flex items-center gap-2">
+                <input type="checkbox" className="checkbox" checked={gfmForm.require_black_start} onChange={e => setGfmForm(f => ({ ...f, require_black_start: e.target.checked }))} />
+                <span className="text-sm">Require Black Start Capability</span>
+              </label>
+              
+              <button onClick={runGfmSelector} className="btn-primary w-full">Get Recommendations</button>
+            </div>
+            
+            <div className="space-y-4">
+              {gfmRecommendations && (
+                <>
+                  <div className="card bg-gradient-to-br from-forest-50 to-emerald-50 border-forest-200">
+                    <p className="text-xs font-semibold text-forest-600 mb-2">Recommended Specifications</p>
+                    <div className="grid grid-cols-2 gap-3 mb-3">
+                      <div><p className="text-xs text-slate-500">Inverter Power</p><p className="font-bold text-forest-900">{gfmRecommendations.specifications.recommended_power_kw} kW</p></div>
+                      <div><p className="text-xs text-slate-500">BESS Capacity</p><p className="font-bold text-forest-900">{gfmRecommendations.specifications.recommended_capacity_kwh} kWh</p></div>
+                    </div>
+                    <p className="text-xs text-slate-500">Transient: {gfmRecommendations.specifications.min_transient_kw} kW for {gfmRecommendations.specifications.min_transient_duration_sec}s</p>
+                  </div>
+                  
+                  <div className={`p-4 rounded-xl border ${gfmRecommendations.budget.within_budget ? 'bg-emerald-50 border-emerald-200' : 'bg-red-50 border-red-200'}`}>
+                    <p className="font-semibold">Budget: {gfmRecommendations.budget.within_budget ? 'Within' : 'Exceeds'}</p>
+                    <p className="text-sm">Est. ₦{gfmRecommendations.budget.estimated_cost_ngn.toLocaleString()} vs ₦{gfmRecommendations.budget.budget_ngn.toLocaleString()}</p>
+                  </div>
+                  
+                  <div className="card">
+                    <p className="text-xs font-semibold text-slate-600 mb-3">Recommended GFM Inverters</p>
+                    {gfmRecommendations.brands.map((b, i) => (
+                      <div key={i} className="flex items-center justify-between py-2 border-b border-slate-100 last:border-0">
+                        <div>
+                          <p className="font-semibold text-sm">{b.brand}{b.model}</p>
+                          <p className="text-xs text-slate-500">{b.capacity} kW | {b.features.join(', ')}</p>
+                        </div>
+                        <span className="text-xs bg-forest-100 text-forest-700 px-2 py-1 rounded">x{b.priceIndex}</span>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  {gfmRecommendations.notes.map((n, i) => (
+                    <p key={i} className="text-xs text-slate-600">• {n}</p>
+                  ))}
+                </>
+              )}
+              {!gfmRecommendations && (
+                <div className="card flex items-center justify-center h-64 text-slate-300"><p className="text-sm">Enter project specs for GFM recommendations</p></div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ── TDD REPORT ────────────────────────────────────────────────────────── */}
+        {activeTab === 'tdd' && (
+          <div className="grid md:grid-cols-2 gap-6" ref={tddRef}>
+            <div className="card space-y-4">
+              <h2 className="font-semibold text-forest-900">Technical Due Diligence Report</h2>
+              <p className="text-xs text-slate-500">Bank-ready technical assessment for C&I microgrid financing</p>
+              
+              <div className="grid grid-cols-2 gap-3">
+                <div className="col-span-2">
+                  <label className="label">Project Name</label>
+                  <input type="text" className="input" value={tddForm.project_name} onChange={e => setTddForm(f => ({ ...f, project_name: e.target.value }))} />
+                </div>
+                <div className="col-span-2">
+                  <label className="label">Company</label>
+                  <input type="text" className="input" value={tddForm.company_name} onChange={e => setTddForm(f => ({ ...f, company_name: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="label">Inverter Brand</label>
+                  <input type="text" className="input" value={tddForm.inverter_brand} onChange={e => setTddForm(f => ({ ...f, inverter_brand: e.target.value }))} placeholder="e.g., Huawei" />
+                </div>
+                <div>
+                  <label className="label">Inverter Model</label>
+                  <input type="text" className="input" value={tddForm.inverter_model} onChange={e => setTddForm(f => ({ ...f, inverter_model: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="label">Inverter Power (kW)</label>
+                  <input type="number" className="input" value={tddForm.inverter_power_kw} onChange={e => setTddForm(f => ({ ...f, inverter_power_kw: Number(e.target.value) }))} />
+                </div>
+                <div>
+                  <label className="label">Topology</label>
+                  <select className="input" value={tddForm.inverter_topology} onChange={e => setTddForm(f => ({ ...f, inverter_topology: e.target.value }))}>
+                    <option value="gfl">GFL (Grid-Following)</option>
+                    <option value="gfm">GFM (Grid-Forming)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="label">BESS Capacity (kWh)</label>
+                  <input type="number" className="input" value={tddForm.bess_capacity_kwh} onChange={e => setTddForm(f => ({ ...f, bess_capacity_kwh: Number(e.target.value) }))} />
+                </div>
+                <div>
+                  <label className="label">BESS Power (kW)</label>
+                  <input type="number" className="input" value={tddForm.bess_power_kw} onChange={e => setTddForm(f => ({ ...f, bess_power_kw: Number(e.target.value) }))} />
+                </div>
+                <div>
+                  <label className="label">PV Capacity (kWp)</label>
+                  <input type="number" className="input" value={tddForm.panel_capacity_kwp} onChange={e => setTddForm(f => ({ ...f, panel_capacity_kwp: Number(e.target.value) }))} />
+                </div>
+                <div>
+                  <label className="label">Transformer (kVA)</label>
+                  <input type="number" className="input" value={tddForm.transformer_kva} onChange={e => setTddForm(f => ({ ...f, transformer_kva: Number(e.target.value) }))} />
+                </div>
+              </div>
+              
+              <button onClick={runTddReport} className="btn-primary w-full">Generate TDD Report</button>
+            </div>
+            
+            <div className="space-y-4">
+              {tddReport && (
+                <>
+                  <div className={`p-4 rounded-xl border ${tddReport.summary.overall === 'PASS' ? 'bg-emerald-50 border-emerald-200' : 'bg-red-50 border-red-200'}`}>
+                    <p className="font-semibold">Overall: {tddReport.summary.overall}</p>
+                    <p className="text-sm">PASS: {tddReport.summary.pass} | FAIL: {tddReport.summary.fail} | WARN: {tddReport.summary.warn}</p>
+                  </div>
+                  
+                  <div className="card">
+                    <p className="text-xs font-semibold text-slate-600 mb-3">Technical Checks</p>
+                    {tddReport.checks.map((c, i) => (
+                      <div key={i} className={`flex items-center justify-between py-2 border-b border-slate-100 last:border-0 ${c.status === 'FAIL' ? 'bg-red-50' : c.status === 'WARN' ? 'bg-amber-50' : 'bg-emerald-50'}`}>
+                        <div className="flex-1">
+                          <p className="text-sm font-medium">{c.item}</p>
+                          <p className="text-xs text-slate-500">{c.message}</p>
+                        </div>
+                        <span className={`text-xs px-2 py-1 rounded ${c.status === 'PASS' ? 'bg-emerald-200 text-emerald-800' : c.status === 'FAIL' ? 'bg-red-200 text-red-800' : 'bg-amber-200 text-amber-800'}`}>{c.status}</span>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  {tddReport.risk_factors.length > 0 && (
+                    <div className="card bg-red-50 border-red-200">
+                      <p className="text-xs font-semibold text-red-800 mb-2">Risk Factors</p>
+                      {tddReport.risk_factors.map((r, i) => (
+                        <p key={i} className="text-sm text-red-700">• {r}</p>
+                      ))}
+                    </div>
+                  )}
+                  
+                  <div className="card">
+                    <p className="text-xs font-semibold text-slate-600 mb-2">Recommendations</p>
+                    {tddReport.recommendations.map((r, i) => (
+                      <p key={i} className="text-sm text-slate-700 mb-1">• {r}</p>
+                    ))}
+                  </div>
+                </>
+              )}
+              {!tddReport && (
+                <div className="card flex items-center justify-center h-64 text-slate-300"><p className="text-sm">Enter equipment specs to generate TDD report</p></div>
+              )}
             </div>
           </div>
         )}
