@@ -6,7 +6,7 @@
 const crypto = require('crypto');
 const supabase = require('../config/database');
 const { sendSuccess, sendError } = require('../utils/responseHelper');
-const { generateDesignReportPdf: generatePdfkitPdf, generateDesignReportExcel } = require('../services/designReportService');
+const { generateDesignReportPdf: generatePdfkitPdf, generateDesignReportExcel, generateSharedReportPdf } = require('../services/designReportService');
 const logger = require('../utils/logger');
 
 /** Verify ownership supporting orphaned projects (created before user joined a company) */
@@ -397,5 +397,27 @@ exports.getSharedReport = async (req, res) => {
   } catch (err) {
     logger.error('getSharedReport error', { message: err.message, stack: err.stack });
     return sendError(res, 'Failed to retrieve shared report: ' + err.message);
+  }
+};
+
+exports.downloadSharedReportPdf = async (req, res) => {
+  try {
+    const { token } = req.params;
+    if (!token) {
+      return sendError(res, 'Share token is required', 400);
+    }
+
+    const pdfBuffer = await generateSharedReportPdf(token);
+
+    const filename = `SolNuv_Design_Report_${Date.now()}.pdf`;
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Length', pdfBuffer.length);
+
+    return res.send(pdfBuffer);
+  } catch (err) {
+    logger.error('downloadSharedReportPdf error', { message: err.message, stack: err.stack });
+    return sendError(res, 'Failed to generate PDF: ' + err.message);
   }
 };

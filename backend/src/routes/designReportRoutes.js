@@ -5,8 +5,9 @@ const designReportController = require('../controllers/designReportController');
 const { requireAuth } = require('../middlewares/authMiddleware');
 const { requirePlan } = require('../middlewares/subscriptionMiddleware');
 
-// Public share endpoint — no auth
+// Public share endpoints — no auth
 router.get('/shared/:token', designReportController.getSharedReport);
+router.get('/shared/:token/pdf', designReportController.downloadSharedReportPdf);
 
 // All other endpoints require auth
 router.use(requireAuth);
