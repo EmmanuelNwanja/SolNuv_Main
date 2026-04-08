@@ -71,10 +71,15 @@ async function runSimulation(projectDesignId) {
   const lon = Number(design.location_lon) || 3.4;
   const solarResource = await getHourlySolarResource(lat, lon);
 
-  // 5. Run PV simulation
+  // 5. Run PV simulation (use user-supplied specs if present)
   let hourlyPvKw;
-  const pvCapacity = Number(design.pv_capacity_kwp) || 0;
-  const pvTech = design.pv_technology || DEFAULT_PANEL_TECHNOLOGY;
+  // Prefer user-supplied PV specs if present
+  const pvCapacity = Number(design.pv_rated_power_kw) || Number(design.pv_capacity_kwp) || 0;
+  const pvTech = design.pv_type || design.pv_technology || DEFAULT_PANEL_TECHNOLOGY;
+  const pvModuleCount = Number(design.pv_module_count) || null;
+  const pvEfficiency = Number(design.pv_efficiency) || null;
+  const pvVoltage = Number(design.pv_voltage) || null;
+  const pvCurrent = Number(design.pv_current) || null;
 
   if (design.pv_generation_source === 'helioscope' && design.pv_monthly_gen_kwh) {
     hourlyPvKw = distributeHelioscapeToHourly(design.pv_monthly_gen_kwh, solarResource.hourlyGhi);
@@ -92,6 +97,10 @@ async function runSimulation(projectDesignId) {
       hourlyTemp: solarResource.hourlyTemp,
       installationType: design.installation_type || 'rooftop_tilted',
       degradationYear: 1,
+      moduleCount: pvModuleCount,
+      efficiency: pvEfficiency,
+      voltage: pvVoltage,
+      current: pvCurrent,
     });
     hourlyPvKw = pvResult.hourlyAcKw;
   } else {
@@ -106,7 +115,16 @@ async function runSimulation(projectDesignId) {
 
   // 7. Run BESS simulation
   const gridTopology = design.grid_topology || 'grid_tied_bess';
-  const bessCapacity = Number(design.bess_capacity_kwh) || 0;
+  // Prefer user-supplied battery specs if present
+  const bessCapacity = Number(design.battery_capacity_kwh) || Number(design.bess_capacity_kwh) || 0;
+  const bessChemistry = design.battery_chemistry || design.bess_chemistry || 'lfp';
+  const bessPowerKw = Number(design.battery_power_kw) || null;
+  const bessDodPct = Number(design.battery_dod_pct) || Number(design.bess_dod_pct) || 80;
+  const bessCRate = Number(design.battery_crate) || Number(design.bess_c_rate) || 0.5;
+  const batteryIsCompletePackage = !!design.battery_is_complete_package;
+  const pcsPowerKw = Number(design.pcs_power_kw) || null;
+  const pcsEfficiency = Number(design.pcs_efficiency) || null;
+  const pcsType = design.pcs_type || null;
   let bessResults;
 
   // Build grid availability array for hybrid topology
@@ -129,9 +147,13 @@ async function runSimulation(projectDesignId) {
   } else if (bessCapacity > 0) {
     bessResults = simulateBESS({
       capacityKwh: bessCapacity,
-      chemistry: design.bess_chemistry || 'lfp',
-      dodPct: Number(design.bess_dod_pct) || 80,
-      cRate: Number(design.bess_c_rate) || 0.5,
+      chemistry: bessChemistry,
+      dodPct: bessDodPct,
+      cRate: bessCRate,
+      powerKw: bessPowerKw,
+      pcsPowerKw: batteryIsCompletePackage ? pcsPowerKw : undefined,
+      pcsEfficiency: batteryIsCompletePackage ? pcsEfficiency : undefined,
+      pcsType: batteryIsCompletePackage ? pcsType : undefined,
       strategy: design.bess_dispatch_strategy || 'self_consumption',
       peakShaveThresholdKw: Number(design.peak_shave_threshold_kw) || Infinity,
       allowGridCharge: design.bess_max_grid_charge || false,
@@ -264,15 +286,19 @@ async function runSimulation(projectDesignId) {
 
   // 12c. Generate design validation warnings
   const designWarnings = [];
-  const dcAcRatio = Number(design.dc_ac_ratio) || 1.2;
-  const inverterAcCap = pvCapacity / dcAcRatio;
-
+  // Prefer user-supplied inverter specs if present
+  const inverterRatedPower = Number(design.inverter_rated_power_kw) || (pvCapacity / (Number(design.dc_ac_ratio) || 1.2));
+  const inverterType = design.inverter_type || null;
+  const inverterPhases = Number(design.inverter_phases) || null;
+  const inverterBrand = design.inverter_brand || null;
+  const inverterModel = design.inverter_model || null;
+  const inverterEfficiency = Number(design.inverter_efficiency) || null;
   // Inverter undersized for peak load (critical for off-grid/hybrid)
-  if ((gridTopology === 'off_grid' || gridTopology === 'hybrid') && loadStats.peakKw > inverterAcCap * 1.05) {
+  if ((gridTopology === 'off_grid' || gridTopology === 'hybrid') && loadStats.peakKw > inverterRatedPower * 1.05) {
     designWarnings.push({
       type: 'inverter_undersized',
       severity: 'critical',
-      message: `Inverter AC capacity (~${fmt2(inverterAcCap)} kW from ${pvCapacity} kWp at ${dcAcRatio} DC:AC) is below peak load demand (${fmt2(loadStats.peakKw)} kW). The system cannot serve full peak load during grid outages. Consider increasing PV capacity or reducing DC:AC ratio.`,
+      message: `Inverter AC capacity (${fmt2(inverterRatedPower)} kW${inverterBrand ? `, ${inverterBrand}` : ''}${inverterModel ? `, ${inverterModel}` : ''}) is below peak load demand (${fmt2(loadStats.peakKw)} kW). The system cannot serve full peak load during grid outages. Consider increasing inverter size or selecting a higher-rated model.`,
     });
   }
 

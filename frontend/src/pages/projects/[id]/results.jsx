@@ -356,12 +356,47 @@ export default function ResultsDashboard() {
                   <div><span className="text-gray-500">Tilt:</span> <strong>{design?.pv_tilt_deg}°</strong></div>
                   <div><span className="text-gray-500">Azimuth:</span> <strong>{design?.pv_azimuth_deg}°</strong></div>
                   <div><span className="text-gray-500">Losses:</span> <strong>{design?.pv_system_losses_pct}%</strong></div>
+                  {/* User-supplied PV module */}
+                  {design?.user_pv_module_make && (
+                    <>
+                      <div className="col-span-2 md:col-span-4 font-semibold text-blue-800 dark:text-blue-300 mt-2">PV Module (User Specified):</div>
+                      <div><span className="text-gray-500">Make:</span> <strong>{design.user_pv_module_make}</strong></div>
+                      <div><span className="text-gray-500">Model:</span> <strong>{design.user_pv_module_model}</strong></div>
+                      <div><span className="text-gray-500">Power:</span> <strong>{design.user_pv_module_power_w} W</strong></div>
+                      <div><span className="text-gray-500">Vmp:</span> <strong>{design.user_pv_module_vmp} V</strong></div>
+                      <div><span className="text-gray-500">Imp:</span> <strong>{design.user_pv_module_imp} A</strong></div>
+                    </>
+                  )}
                   {design?.bess_capacity_kwh > 0 && (
                     <>
                       <div><span className="text-gray-500">Battery:</span> <strong>{design.bess_capacity_kwh} kWh</strong></div>
                       <div><span className="text-gray-500">Chemistry:</span> <strong>{design.bess_chemistry?.toUpperCase()}</strong></div>
                       <div><span className="text-gray-500">Strategy:</span> <strong>{design.bess_dispatch_strategy?.replace(/_/g, ' ')}</strong></div>
                       <div><span className="text-gray-500">DoD:</span> <strong>{design.bess_dod_pct}%</strong></div>
+                    </>
+                  )}
+                  {/* User-supplied battery/PCS */}
+                  {design?.user_battery_make && (
+                    <>
+                      <div className="col-span-2 md:col-span-4 font-semibold text-blue-800 dark:text-blue-300 mt-2">Battery & PCS (User Specified):</div>
+                      <div><span className="text-gray-500">Battery Make:</span> <strong>{design.user_battery_make}</strong></div>
+                      <div><span className="text-gray-500">Battery Model:</span> <strong>{design.user_battery_model}</strong></div>
+                      <div><span className="text-gray-500">Battery Capacity:</span> <strong>{design.user_battery_capacity_kwh} kWh</strong></div>
+                      <div><span className="text-gray-500">Battery Voltage:</span> <strong>{design.user_battery_voltage} V</strong></div>
+                      <div><span className="text-gray-500">Max Discharge:</span> <strong>{design.user_battery_max_discharge_kw} kW</strong></div>
+                      <div><span className="text-gray-500">PCS Make:</span> <strong>{design.user_pcs_make}</strong></div>
+                      <div><span className="text-gray-500">PCS Model:</span> <strong>{design.user_pcs_model}</strong></div>
+                      <div><span className="text-gray-500">PCS Power:</span> <strong>{design.user_pcs_power_kw} kW</strong></div>
+                    </>
+                  )}
+                  {/* User-supplied inverter */}
+                  {design?.user_inverter_make && (
+                    <>
+                      <div className="col-span-2 md:col-span-4 font-semibold text-blue-800 dark:text-blue-300 mt-2">Inverter (User Specified):</div>
+                      <div><span className="text-gray-500">Inverter Make:</span> <strong>{design.user_inverter_make}</strong></div>
+                      <div><span className="text-gray-500">Inverter Model:</span> <strong>{design.user_inverter_model}</strong></div>
+                      <div><span className="text-gray-500">Inverter Power:</span> <strong>{design.user_inverter_power_kw} kW</strong></div>
+                      <div><span className="text-gray-500">Inverter Voltage:</span> <strong>{design.user_inverter_voltage} V</strong></div>
                     </>
                   )}
                 </div>

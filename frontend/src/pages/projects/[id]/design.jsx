@@ -1,3 +1,28 @@
+          {/* STEP 4.5: Inverter (optional, always shown) */}
+          {step === 4 && (
+            <div className="mt-8 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-xl">
+              <h3 className="text-sm font-semibold text-blue-800 dark:text-blue-300 mb-2">Optional: Specify Inverter</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                <div>
+                  <label className="label">Inverter Make</label>
+                  <input className="input" value={form.user_inverter_make} onChange={e => updateForm('user_inverter_make', e.target.value)} placeholder="e.g. SMA" />
+                </div>
+                <div>
+                  <label className="label">Inverter Model</label>
+                  <input className="input" value={form.user_inverter_model} onChange={e => updateForm('user_inverter_model', e.target.value)} placeholder="e.g. Sunny Tripower 10.0" />
+                </div>
+                <div>
+                  <label className="label">Inverter Power (kW)</label>
+                  <input className="input" type="number" value={form.user_inverter_power_kw} onChange={e => updateForm('user_inverter_power_kw', e.target.value)} placeholder="e.g. 10" />
+                </div>
+                <div>
+                  <label className="label">Inverter Voltage (V)</label>
+                  <input className="input" type="number" value={form.user_inverter_voltage} onChange={e => updateForm('user_inverter_voltage', e.target.value)} placeholder="e.g. 400" />
+                </div>
+              </div>
+              <p className="text-xs text-blue-700 dark:text-blue-300 mt-2">If filled, these specs will be used for sizing/validation and override auto-sizing.</p>
+            </div>
+          )}
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { useEffect, useState, useCallback } from 'react';
@@ -154,6 +179,12 @@ export default function DesignWizard() {
     pv_generation_source: 'modelled',
     system_losses_pct: 14,
     annual_degradation_pct: 0.5,
+    // User-supplied PV module specs (optional)
+    user_pv_module_make: '',
+    user_pv_module_model: '',
+    user_pv_module_power_w: '',
+    user_pv_module_vmp: '',
+    user_pv_module_imp: '',
     // BESS
     include_bess: false,
     bess_capacity_kwh: '',
@@ -163,6 +194,20 @@ export default function DesignWizard() {
     peak_shave_threshold_kw: '',
     bess_min_soc: 10,
     bess_round_trip_efficiency: 92,
+    // User-supplied battery/PCS specs (optional)
+    user_battery_make: '',
+    user_battery_model: '',
+    user_battery_capacity_kwh: '',
+    user_battery_voltage: '',
+    user_battery_max_discharge_kw: '',
+    user_pcs_make: '',
+    user_pcs_model: '',
+    user_pcs_power_kw: '',
+    // Inverter (optional)
+    user_inverter_make: '',
+    user_inverter_model: '',
+    user_inverter_power_kw: '',
+    user_inverter_voltage: '',
     // Off-grid / Hybrid
     autonomy_days: 2,
     backup_generator_kw: '',
@@ -372,6 +417,26 @@ export default function DesignWizard() {
         grid_availability_pct: parseFloat(form.grid_availability_pct) || 100,
         grid_outage_hours_day: parseFloat(form.grid_outage_hours_day) || undefined,
         feed_in_tariff_per_kwh: parseFloat(form.feed_in_tariff_per_kwh) || undefined,
+        // User-supplied PV module specs
+        user_pv_module_make: form.user_pv_module_make || undefined,
+        user_pv_module_model: form.user_pv_module_model || undefined,
+        user_pv_module_power_w: form.user_pv_module_power_w ? parseFloat(form.user_pv_module_power_w) : undefined,
+        user_pv_module_vmp: form.user_pv_module_vmp ? parseFloat(form.user_pv_module_vmp) : undefined,
+        user_pv_module_imp: form.user_pv_module_imp ? parseFloat(form.user_pv_module_imp) : undefined,
+        // User-supplied battery/PCS specs
+        user_battery_make: form.user_battery_make || undefined,
+        user_battery_model: form.user_battery_model || undefined,
+        user_battery_capacity_kwh: form.user_battery_capacity_kwh ? parseFloat(form.user_battery_capacity_kwh) : undefined,
+        user_battery_voltage: form.user_battery_voltage ? parseFloat(form.user_battery_voltage) : undefined,
+        user_battery_max_discharge_kw: form.user_battery_max_discharge_kw ? parseFloat(form.user_battery_max_discharge_kw) : undefined,
+        user_pcs_make: form.user_pcs_make || undefined,
+        user_pcs_model: form.user_pcs_model || undefined,
+        user_pcs_power_kw: form.user_pcs_power_kw ? parseFloat(form.user_pcs_power_kw) : undefined,
+        // User-supplied inverter specs
+        user_inverter_make: form.user_inverter_make || undefined,
+        user_inverter_model: form.user_inverter_model || undefined,
+        user_inverter_power_kw: form.user_inverter_power_kw ? parseFloat(form.user_inverter_power_kw) : undefined,
+        user_inverter_voltage: form.user_inverter_voltage ? parseFloat(form.user_inverter_voltage) : undefined,
       };
 
       await simulationAPI.run(designPayload);
@@ -487,6 +552,33 @@ export default function DesignWizard() {
                   })}
                 </div>
               </div>
+              {/* User-supplied PV module specs (optional) */}
+              <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-xl">
+                <h3 className="text-sm font-semibold text-blue-800 dark:text-blue-300 mb-2">Optional: Specify PV Module</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                  <div>
+                    <label className="label">Make</label>
+                    <input className="input" value={form.user_pv_module_make} onChange={e => updateForm('user_pv_module_make', e.target.value)} placeholder="e.g. Jinko" />
+                  </div>
+                  <div>
+                    <label className="label">Model</label>
+                    <input className="input" value={form.user_pv_module_model} onChange={e => updateForm('user_pv_module_model', e.target.value)} placeholder="e.g. Tiger Neo 540W" />
+                  </div>
+                  <div>
+                    <label className="label">Power (W)</label>
+                    <input className="input" type="number" value={form.user_pv_module_power_w} onChange={e => updateForm('user_pv_module_power_w', e.target.value)} placeholder="e.g. 540" />
+                  </div>
+                  <div>
+                    <label className="label">Vmp (V)</label>
+                    <input className="input" type="number" value={form.user_pv_module_vmp} onChange={e => updateForm('user_pv_module_vmp', e.target.value)} placeholder="e.g. 41.1" />
+                  </div>
+                  <div>
+                    <label className="label">Imp (A)</label>
+                    <input className="input" type="number" value={form.user_pv_module_imp} onChange={e => updateForm('user_pv_module_imp', e.target.value)} placeholder="e.g. 13.1" />
+                  </div>
+                </div>
+                <p className="text-xs text-blue-700 dark:text-blue-300 mt-2">If filled, these specs will be used for sizing/validation and override auto-sizing.</p>
+              </div>
 
               {/* Hybrid: Grid outage fields */}
               {form.grid_topology === 'hybrid' && (
@@ -499,6 +591,45 @@ export default function DesignWizard() {
                       <p className="text-xs text-gray-400 mb-1">Average daily hours without grid power. Higher values mean more battery reliance and longer islanding periods.</p>
                       <input type="number" step="0.5" min="0" max="24" className="input" value={form.grid_outage_hours_day}
                         onChange={e => updateForm('grid_outage_hours_day', e.target.value)} placeholder="e.g. 6" />
+                    </div>
+                    {/* User-supplied battery/PCS specs (optional) */}
+                    <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-xl">
+                      <h3 className="text-sm font-semibold text-blue-800 dark:text-blue-300 mb-2">Optional: Specify Battery & PCS</h3>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                        <div>
+                          <label className="label">Battery Make</label>
+                          <input className="input" value={form.user_battery_make} onChange={e => updateForm('user_battery_make', e.target.value)} placeholder="e.g. BYD" />
+                        </div>
+                        <div>
+                          <label className="label">Battery Model</label>
+                          <input className="input" value={form.user_battery_model} onChange={e => updateForm('user_battery_model', e.target.value)} placeholder="e.g. LVS 15.4" />
+                        </div>
+                        <div>
+                          <label className="label">Battery Capacity (kWh)</label>
+                          <input className="input" type="number" value={form.user_battery_capacity_kwh} onChange={e => updateForm('user_battery_capacity_kwh', e.target.value)} placeholder="e.g. 15.4" />
+                        </div>
+                        <div>
+                          <label className="label">Battery Voltage (V)</label>
+                          <input className="input" type="number" value={form.user_battery_voltage} onChange={e => updateForm('user_battery_voltage', e.target.value)} placeholder="e.g. 51.2" />
+                        </div>
+                        <div>
+                          <label className="label">Max Discharge (kW)</label>
+                          <input className="input" type="number" value={form.user_battery_max_discharge_kw} onChange={e => updateForm('user_battery_max_discharge_kw', e.target.value)} placeholder="e.g. 5" />
+                        </div>
+                        <div>
+                          <label className="label">PCS Make</label>
+                          <input className="input" value={form.user_pcs_make} onChange={e => updateForm('user_pcs_make', e.target.value)} placeholder="e.g. Goodwe" />
+                        </div>
+                        <div>
+                          <label className="label">PCS Model</label>
+                          <input className="input" value={form.user_pcs_model} onChange={e => updateForm('user_pcs_model', e.target.value)} placeholder="e.g. GW10KN-ET" />
+                        </div>
+                        <div>
+                          <label className="label">PCS Power (kW)</label>
+                          <input className="input" type="number" value={form.user_pcs_power_kw} onChange={e => updateForm('user_pcs_power_kw', e.target.value)} placeholder="e.g. 10" />
+                        </div>
+                      </div>
+                      <p className="text-xs text-blue-700 dark:text-blue-300 mt-2">If filled, these specs will be used for sizing/validation and override auto-sizing.</p>
                     </div>
                     <div>
                       <label className="label">Grid Availability (%)</label>
