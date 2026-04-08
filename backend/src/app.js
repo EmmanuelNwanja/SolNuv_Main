@@ -62,6 +62,18 @@ const globalLimiter = rateLimit({
   message: { success: false, message: 'Too many requests. Please try again in 15 minutes.' },
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) => {
+    // Skip rate limiting for public read-only endpoints
+    const publicPaths = [
+      '/api/design-reports/shared/',
+      '/api/public/',
+      '/api/blog/',
+      '/api/faq/',
+      '/api/contact/',
+      '/api/analytics/pageview',
+    ];
+    return publicPaths.some(p => req.path.startsWith(p));
+  },
 });
 
 const authSensitiveLimiter = rateLimit({
