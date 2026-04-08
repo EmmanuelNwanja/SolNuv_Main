@@ -125,6 +125,14 @@ export default function Calculator() {
   const [syncingQueue, setSyncingQueue] = useState(false);
   const roiRef = useRef(null);
   const cableRef = useRef(null);
+  const motorRef = useRef(null);
+
+  const [motorForm, setMotorForm] = useState({
+    motor_power_kw: 200, motor_voltage_v: 400, start_method: 'dol',
+    num_motors: 1, source_capacity_kva: 1000, bess_capacity_kwh: 500,
+    bess_power_kw: 250, inverter_topology: 'gfl',
+  });
+  const [motorResult, setMotorResult] = useState(null);
 
   const CABLE_QUEUE_KEY = 'solnuv_cable_sync_queue_v1';
 
@@ -254,6 +262,21 @@ export default function Calculator() {
     }
   }
 
+  function runMotor() {
+    const { motor_power_kw, motor_voltage_v, start_method, num_motors, source_capacity_kva, bess_power_kw, inverter_topology } = motorForm;
+    const lockedRotorAmps = (motor_power_kw * 1000) / (motor_voltage_v * Math.sqrt(3)) * 6.5;
+    const startCurrent = start_method === 'dol' ? lockedRotorAmps : start_method === 'soft_start' ? lockedRotorAmps * 0.65 : lockedRotorAmps * 0.5;
+    const voltageDipPct = Math.min((startCurrent * num_motors / source_capacity_kva) * 30, 50);
+    const voltageDuringStart = 100 - voltageDipPct;
+    const transientCapacity = inverter_topology === 'gfm' ? bess_power_kw * 1.5 : bess_power_kw * 1.1;
+    const needsGfm = motor_power_kw > 50 || start_method === 'dol' || voltageDuringStart < 85;
+    const riskLevel = voltageDuringStart < 80 ? 'HIGH' : voltageDuringStart < 90 ? 'MEDIUM' : 'LOW';
+    setMotorResult({
+      calculations: { start_current_amps: startCurrent.toFixed(0), voltage_during_start_v: voltageDuringStart.toFixed(0), voltage_dip_pct: voltageDipPct.toFixed(1), transient_capacity_kw: transientCapacity.toFixed(0) },
+      assessment: { needs_gfm: needsGfm, topology_recommendation: needsGfm ? 'GFM Required' : 'GFL Acceptable', risk_level: riskLevel },
+    });
+  }
+
   async function exportRoiPdf() {
     if (!roiResult || !roiRef.current) return;
     try {
@@ -323,6 +346,7 @@ export default function Calculator() {
     { id: 'roi',     label: '💼 Hybrid ROI',          desc: 'Proposal Payback Engine' },
     { id: 'soh',     label: '🧪 Battery SoH',         desc: 'Warranty Ledger Heuristic' },
     { id: 'cable',   label: '🧰 DC Cable Sizing',     desc: 'Voltage Drop Compliance' },
+    { id: 'motor',   label: '⚡ Motor Starting',       desc: 'Inductive Load Analysis' },
   ];
 
   return (
@@ -1156,6 +1180,78 @@ export default function Calculator() {
                   <p className="text-sm">Select a state and date to get a prediction</p>
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* MOTOR STARTING ANALYZER */}
+        {activeTab === 'motor' && (
+          <div className="grid md:grid-cols-2 gap-6" ref={motorRef}>
+            <div className="card space-y-4">
+              <h2 className="font-semibold text-forest-900">Motor Starting Analysis</h2>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="label">Motor Power (kW)</label>
+                  <input type="number" className="input" value={motorForm.motor_power_kw} onChange={e => setMotorForm(f => ({ ...f, motor_power_kw: Number(e.target.value) }))} />
+                </div>
+                <div>
+                  <label className="label">Voltage</label>
+                  <select className="input" value={motorForm.motor_voltage_v} onChange={e => setMotorForm(f => ({ ...f, motor_voltage_v: Number(e.target.value) }))}>
+                    <option value={400}>400V</option>
+                    <option value={690}>690V</option>
+                    <option value={11000}>11kV</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="label">Start Method</label>
+                  <select className="input" value={motorForm.start_method} onChange={e => setMotorForm(f => ({ ...f, start_method: e.target.value }))}>
+                    <option value="dol">DOL</option>
+                    <option value="soft_start">Soft Start</option>
+                    <option value="vfd">VFD</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="label">Motors</label>
+                  <input type="number" className="input" value={motorForm.num_motors} onChange={e => setMotorForm(f => ({ ...f, num_motors: Number(e.target.value) }))} />
+                </div>
+                <div>
+                  <label className="label">Grid (kVA)</label>
+                  <input type="number" className="input" value={motorForm.source_capacity_kva} onChange={e => setMotorForm(f => ({ ...f, source_capacity_kva: Number(e.target.value) }))} />
+                </div>
+                <div>
+                  <label className="label">BESS (kW)</label>
+                  <input type="number" className="input" value={motorForm.bess_power_kw} onChange={e => setMotorForm(f => ({ ...f, bess_power_kw: Number(e.target.value) }))} />
+                </div>
+                <div>
+                  <label className="label">BESS (kWh)</label>
+                  <input type="number" className="input" value={motorForm.bess_capacity_kwh} onChange={e => setMotorForm(f => ({ ...f, bess_capacity_kwh: Number(e.target.value) }))} />
+                </div>
+                <div>
+                  <label className="label">Inverter</label>
+                  <select className="input" value={motorForm.inverter_topology} onChange={e => setMotorForm(f => ({ ...f, inverter_topology: e.target.value }))}>
+                    <option value="gfl">GFL</option>
+                    <option value="gfm">GFM</option>
+                  </select>
+                </div>
+              </div>
+              <button onClick={runMotor} className="btn-primary w-full">Analyze</button>
+            </div>
+            <div className="space-y-4">
+              {motorResult && (
+                <>
+                  <div className={`p-4 rounded-xl border ${motorResult.assessment.risk_level === 'LOW' ? 'bg-emerald-50 border-emerald-200' : motorResult.assessment.risk_level === 'MEDIUM' ? 'bg-amber-50 border-amber-200' : 'bg-red-50 border-red-200'}`}>
+                    <p className="font-semibold">Risk: {motorResult.assessment.risk_level}</p>
+                    <p className="text-sm text-slate-600">{motorResult.assessment.topology_recommendation}</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="card"><p className="text-xs text-slate-500">Start Current</p><p className="font-bold">{motorResult.calculations?.start_current_amps} A</p></div>
+                    <div className="card"><p className="text-xs text-slate-500">Voltage</p><p className="font-bold">{motorResult.calculations?.voltage_during_start_v} V</p></div>
+                    <div className="card"><p className="text-xs text-slate-500">Dip</p><p className="font-bold text-amber-600">{motorResult.calculations?.voltage_dip_pct}%</p></div>
+                    <div className="card"><p className="text-xs text-slate-500">Transient</p><p className="font-bold">{motorResult.calculations?.transient_capacity_kw} kW</p></div>
+                  </div>
+                </>
+              )}
+              {!motorResult && <div className="card flex items-center justify-center h-64 text-slate-300"><p className="text-sm">Enter specs and analyze</p></div>}
             </div>
           </div>
         )}
