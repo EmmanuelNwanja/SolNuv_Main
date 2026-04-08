@@ -1,28 +1,3 @@
-          {/* STEP 4.5: Inverter (optional, always shown) */}
-          {step === 4 && (
-            <div className="mt-8 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-xl">
-              <h3 className="text-sm font-semibold text-blue-800 dark:text-blue-300 mb-2">Optional: Specify Inverter</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                <div>
-                  <label className="label">Inverter Make</label>
-                  <input className="input" value={form.user_inverter_make} onChange={e => updateForm('user_inverter_make', e.target.value)} placeholder="e.g. SMA" />
-                </div>
-                <div>
-                  <label className="label">Inverter Model</label>
-                  <input className="input" value={form.user_inverter_model} onChange={e => updateForm('user_inverter_model', e.target.value)} placeholder="e.g. Sunny Tripower 10.0" />
-                </div>
-                <div>
-                  <label className="label">Inverter Power (kW)</label>
-                  <input className="input" type="number" value={form.user_inverter_power_kw} onChange={e => updateForm('user_inverter_power_kw', e.target.value)} placeholder="e.g. 10" />
-                </div>
-                <div>
-                  <label className="label">Inverter Voltage (V)</label>
-                  <input className="input" type="number" value={form.user_inverter_voltage} onChange={e => updateForm('user_inverter_voltage', e.target.value)} placeholder="e.g. 400" />
-                </div>
-              </div>
-              <p className="text-xs text-blue-700 dark:text-blue-300 mt-2">If filled, these specs will be used for sizing/validation and override auto-sizing.</p>
-            </div>
-          )}
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { useEffect, useState, useCallback } from 'react';
