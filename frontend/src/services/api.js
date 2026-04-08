@@ -59,19 +59,47 @@ function readAccessTokenFromStorage() {
   }
 }
 
-// Get fresh auth token from Supabase
+// ========================================
+// TOKEN CACHING - CRITICAL FOR AUTH
+// ========================================
+
+let accessTokenCache = null;
+let authListenerBound = false;
+
+function ensureAuthListener() {
+  if (typeof window === 'undefined' || authListenerBound) return;
+  authListenerBound = true;
+  
+  supabase.auth.onAuthStateChange((_event, session) => {
+    accessTokenCache = session?.access_token || null;
+  });
+}
+
 async function getAccessToken() {
   if (typeof window === 'undefined') return null;
-
-  const session = await getSessionSafely(1000);
-  if (session?.access_token) return session.access_token;
-
-  return readAccessTokenFromStorage();
+  
+  ensureAuthListener();
+  
+  if (!accessTokenCache) {
+    accessTokenCache = readAccessTokenFromStorage();
+  }
+  
+  if (!accessTokenCache) {
+    const session = await getSessionSafely(1500); // Restore original timeout
+    if (session?.access_token) {
+      accessTokenCache = session.access_token;
+    }
+  }
+  
+  return accessTokenCache;
 }
 
 // Attach Supabase auth token to every request
 api.interceptors.request.use(async (config) => {
   const token = await getAccessToken();
+  if (!token) {
+    console.warn('[api] No auth token for:', config.url);
+  }
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
