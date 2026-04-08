@@ -1,7 +1,7 @@
 const BILLING_INTERVALS = ['monthly', 'annual'];
 
 // Plan hierarchy: used across middlewares for level comparisons
-const PLAN_HIERARCHY = { free: 0, basic: 1, pro: 2, elite: 3, enterprise: 4 };
+const { PLAN_HIERARCHY } = require('../constants/planConstants');
 
 const PLAN_LIMITS = {
   free: 1,

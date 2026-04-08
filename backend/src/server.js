@@ -35,7 +35,17 @@ process.on('SIGTERM', () => {
 });
 
 process.on('unhandledRejection', (reason) => {
-  logger.error('Unhandled Rejection:', { reason: reason?.message || reason });
+  logger.error('Unhandled Rejection:', { reason: reason?.message || reason, stack: reason?.stack });
+  if (process.env.NODE_ENV === 'production') {
+    process.exit(1);
+  }
+});
+
+process.on('uncaughtException', (error) => {
+  logger.error('Uncaught Exception:', { error: error.message, stack: error.stack });
+  if (process.env.NODE_ENV === 'production') {
+    process.exit(1);
+  }
 });
 
 module.exports = server;

@@ -4,6 +4,7 @@
  * and distance-based confidence scoring.
  */
 
+/* global fetch */
 const logger = require('../utils/logger');
 
 const NOMINATIM_BASE = 'https://nominatim.openstreetmap.org';
@@ -44,11 +45,28 @@ function distanceToConfidence(distanceM) {
 }
 
 /**
+ * Build Nominatim query URL manually to avoid URLSearchParams browser API
+ */
+function buildNominatimSearchUrl(params) {
+  const query = Object.entries(params)
+    .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
+    .join('&');
+  return `${NOMINATIM_BASE}/search?${query}`;
+}
+
+function buildNominatimReverseUrl(params) {
+  const query = Object.entries(params)
+    .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
+    .join('&');
+  return `${NOMINATIM_BASE}/reverse?${query}`;
+}
+
+/**
  * Forward geocode an address string → { lat, lon, displayName }
  * Uses Nominatim (OpenStreetMap) — free, no API key.
  */
 async function forwardGeocode(address) {
-  const url = `${NOMINATIM_BASE}/search?` + new URLSearchParams({
+  const url = buildNominatimSearchUrl({
     q: address,
     format: 'json',
     limit: '1',
@@ -76,7 +94,7 @@ async function forwardGeocode(address) {
  * Reverse geocode coordinates → address details.
  */
 async function reverseGeocode(lat, lon) {
-  const url = `${NOMINATIM_BASE}/reverse?` + new URLSearchParams({
+  const url = buildNominatimReverseUrl({
     lat: String(lat),
     lon: String(lon),
     format: 'json',

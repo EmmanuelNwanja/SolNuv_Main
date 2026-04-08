@@ -4,6 +4,7 @@
  */
 
 const nodemailer = require('nodemailer');
+const logger = require('../utils/logger');
 
 // Brevo SMTP transporter
 const transporter = nodemailer.createTransport({
@@ -219,7 +220,7 @@ async function sendEmail(to, subject, htmlContent) {
     });
     return { success: true, messageId: info.messageId };
   } catch (error) {
-    console.error('Email send error:', error.message);
+    logger.error('Email send failed', { error: error.message, recipient: to, subject });
     return { success: false, error: error.message };
   }
 }

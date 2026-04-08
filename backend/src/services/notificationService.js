@@ -1,4 +1,5 @@
 const { sendSms } = require('./termiiService');
+const logger = require('../utils/logger');
 
 async function sendWelcomeNotification(user) {
   const phone = user?.phone;
@@ -40,9 +41,17 @@ async function notifyAdminOfPickupRequest(project, request) {
   const recyclerLabel = request?.preferred_recycler || 'SolNuv to decide';
   const message = `SolNuv Admin: New pickup request for project "${project?.name || 'N/A'}" (${request?.requester_company_name || ''}). Preferred recycler: ${recyclerLabel}. Review at solnuv.com/admin.`;
 
-  await Promise.allSettled(
+  const results = await Promise.allSettled(
     admins.filter(a => a.phone).map(a => sendSms({ to: a.phone, message, channel: 'generic' }))
   );
+
+  const failures = results.filter(r => r.status === 'rejected');
+  if (failures.length > 0) {
+    logger.warn('Some admin SMS notifications failed', {
+      count: failures.length,
+      errors: failures.map(f => f.reason?.message || 'Unknown error'),
+    });
+  }
 }
 
 async function sendDecommissionApproved(user, project) {

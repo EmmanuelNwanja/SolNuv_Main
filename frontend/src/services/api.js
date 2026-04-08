@@ -23,9 +23,6 @@ const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
-let accessTokenCache = null;
-let authListenerBound = false;
-
 function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -62,34 +59,22 @@ function readAccessTokenFromStorage() {
   }
 }
 
-function ensureAuthListener() {
-  if (typeof window === 'undefined' || authListenerBound) return;
-  authListenerBound = true;
+// Get fresh auth token from Supabase
+async function getAccessToken() {
+  if (typeof window === 'undefined') return null;
 
-  supabase.auth.onAuthStateChange((_event, session) => {
-    accessTokenCache = session?.access_token || null;
-  });
+  const session = await getSessionSafely(1000);
+  if (session?.access_token) return session.access_token;
+
+  return readAccessTokenFromStorage();
 }
 
 // Attach Supabase auth token to every request
 api.interceptors.request.use(async (config) => {
-  ensureAuthListener();
-
-  if (!accessTokenCache) {
-    accessTokenCache = readAccessTokenFromStorage();
-  }
-
-  let token = accessTokenCache;
-  if (!token) {
-    const session = await getSessionSafely();
-    token = session?.access_token || readAccessTokenFromStorage();
-    if (token) accessTokenCache = token;
-  }
-
+  const token = await getAccessToken();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
-
   return config;
 });
 

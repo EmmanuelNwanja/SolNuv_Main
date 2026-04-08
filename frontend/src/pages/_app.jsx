@@ -2,6 +2,7 @@ import { AuthProvider } from '../context/AuthContext';
 import { ThemeProvider } from '../context/ThemeContext';
 import { FloatingThemeToggle } from '../components/ThemeToggle';
 import { Toaster } from 'react-hot-toast';
+import ErrorBoundary from '../components/ErrorBoundary';
 import { useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { analyticsAPI } from '../services/api';
@@ -73,7 +74,11 @@ function AppShell({ Component, pageProps }) {
     <div className="app-shell">
       <div className="app-atmo app-atmo-top" />
       <div className="app-atmo app-atmo-bottom" />
-      {getLayout(<Component {...pageProps} />)}
+      {getLayout(
+          <ErrorBoundary>
+            <Component {...pageProps} />
+          </ErrorBoundary>
+        )}
       <FloatingThemeToggle />
     </div>
   );

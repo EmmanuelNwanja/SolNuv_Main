@@ -43,12 +43,26 @@ export default function Layout({ children }) {
   // Poll for unread notifications count (only when logged in)
   useEffect(() => {
     if (!session) return;
-    authAPI.getNotifications()
-      .then((r) => {
+
+    let isActive = true;
+
+    async function fetchNotifications() {
+      if (!isActive) return;
+      try {
+        const r = await authAPI.getNotifications();
+        if (!isActive) return;
         const items = r.data.data || [];
         setUnreadCount(items.filter((n) => !n.is_read).length);
-      })
-      .catch(() => {});
+      } catch {}
+    }
+
+    fetchNotifications();
+    const interval = setInterval(fetchNotifications, 60000); // Poll every 60s
+
+    return () => {
+      isActive = false;
+      clearInterval(interval);
+    };
   }, [session]);
 
   // Reset bell badge when user navigates to the notifications page

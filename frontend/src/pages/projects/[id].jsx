@@ -288,6 +288,15 @@ export default function ProjectDetail() {
       .finally(() => setAssetLoading(false));
   }, [id]);
 
+  // Cleanup blob URL to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      if (editPhotoPreview) {
+        URL.revokeObjectURL(editPhotoPreview);
+      }
+    };
+  }, [editPhotoPreview]);
+
   async function handleStatusUpdate(newStatus) {
     setStatusUpdating(true);
     try {

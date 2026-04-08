@@ -423,10 +423,14 @@ async function runSimulation(projectDesignId) {
   }
 
   // 15. Mark design as completed
-  await supabase
-    .from('projects')
-    .update({ design_completed_at: new Date().toISOString() })
-    .eq('id', design.project_id);
+  try {
+    await supabase
+      .from('projects')
+      .update({ design_completed_at: new Date().toISOString() })
+      .eq('id', design.project_id);
+  } catch (err) {
+    logger.error('Failed to update design_completed_at', { projectId: design.project_id, error: err.message });
+  }
 
   return { ...results, id: stored.id };
 }

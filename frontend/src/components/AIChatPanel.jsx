@@ -4,6 +4,15 @@ import { agentAPI } from '../services/api';
 import { motion, AnimatePresence } from 'framer-motion';
 import { RiRobotLine, RiCloseLine, RiSendPlaneLine, RiLoader4Line, RiArrowDownLine, RiChatNewLine } from 'react-icons/ri';
 import toast from 'react-hot-toast';
+import DOMPurify from 'dompurify';
+
+const sanitizeContent = (content) => {
+  if (!content) return '';
+  return DOMPurify.sanitize(content, {
+    ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'code', 'pre', 'br', 'p', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'span'],
+    ALLOWED_ATTR: ['class'],
+  });
+};
 
 export default function AIChatPanel() {
   const { session, plan } = useAuth();
@@ -20,6 +29,13 @@ export default function AIChatPanel() {
   const [agentsLoaded, setAgentsLoaded] = useState(false);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
+  const isMounted = useRef(true);
+
+  // Track component mount state to prevent state updates after unmount
+  useEffect(() => {
+    isMounted.current = true;
+    return () => { isMounted.current = false; };
+  }, []);
 
   // Load agents when panel opens
   useEffect(() => {
@@ -66,7 +82,11 @@ export default function AIChatPanel() {
   }, [activeConversation]);
 
   const scrollToBottom = useCallback(() => {
-    setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+    setTimeout(() => {
+      if (isMounted.current) {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }
+    }, 100);
   }, []);
 
   const handleSend = async () => {
@@ -255,7 +275,7 @@ export default function AIChatPanel() {
                         : 'bg-slate-100 text-slate-800 rounded-bl-md'
                     }`}
                   >
-                    {msg.content}
+                    <span dangerouslySetInnerHTML={{ __html: sanitizeContent(msg.content) }} />
                   </div>
                 </div>
               ))}

@@ -12,8 +12,9 @@ const aiProvider    = require('./aiProviderService');
 const toolRegistry  = require('./aiToolRegistry');
 const { SECURITY_PREAMBLE, USER_INPUT_PREFIX, USER_INPUT_SUFFIX, AGENT_SEEDS } = require('../constants/agentPrompts');
 const { logPlatformActivity } = require('./auditService');
+const { AGENT_PLAN_HIERARCHY } = require('../constants/planConstants');
 
-const PLAN_HIERARCHY = { free: 0, pro: 1, elite: 2, enterprise: 3 };
+const PLAN_HIERARCHY = AGENT_PLAN_HIERARCHY;
 const MAX_TOOL_ROUNDS = 3;
 const MAX_HISTORY_MESSAGES = 20;
 const MAX_USER_MESSAGE_LENGTH = 4000;
@@ -297,7 +298,7 @@ async function executeChat({
     conversation_id: convId,
     role: 'user',
     content: sanitised,
-  });
+  }).catch(err => logger.error('Failed to save AI message', { conversationId: convId, error: err.message }));
 
   // 6. LLM call with tool-calling loop
   const toolContext = {
@@ -549,6 +550,7 @@ async function createTask({ agentInstanceId, taskType, inputPayload, createdBy, 
 
   if (processNow) {
     // Fire and forget — don't block the caller
+    // Use setImmediate for non-blocking execution (Node.js specific)
     setImmediate(() => executeTask(task.id).catch(e => logger.error('Task execution error', { message: e.message })));
   }
 

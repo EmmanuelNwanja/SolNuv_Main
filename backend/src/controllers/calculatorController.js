@@ -4,6 +4,7 @@
  */
 
 const { sendSuccess, sendError } = require('../utils/responseHelper');
+const logger = require('../utils/logger');
 const { calculatePanelValue, calculateBatteryValue, getSilverPrice } = require('../services/silverService');
 const { calculateDecommissionDate } = require('../services/degradationService');
 const { generateProposalPdf, generateCableComplianceCertificate } = require('../services/pdfService');

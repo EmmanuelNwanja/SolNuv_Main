@@ -10,6 +10,7 @@ const { sendSuccess, sendError, sendPaginated } = require('../utils/responseHelp
 const logger = require('../utils/logger');
 const agentService = require('../services/aiAgentService');
 const aiProvider = require('../services/aiProviderService');
+const { AGENT_PLAN_HIERARCHY } = require('../constants/planConstants');
 
 // ─── USER ENDPOINTS ──────────────────────────────────────────────────────────
 
@@ -59,8 +60,7 @@ exports.getInstances = async (req, res) => {
   try {
     const companyId = req.user.company_id;
     const userPlan = req.user.subscription_plan || 'free';
-    const PLAN_HIERARCHY = { free: 0, pro: 1, elite: 2, enterprise: 3 };
-    const userPlanLevel = PLAN_HIERARCHY[userPlan] ?? 0;
+    const userPlanLevel = AGENT_PLAN_HIERARCHY[userPlan] ?? 0;
 
     if (!companyId) {
       return sendSuccess(res, []);
@@ -95,7 +95,6 @@ exports.getInstances = async (req, res) => {
 };
 
 function filterUserFacingAgents(instances, userPlanLevel) {
-  const PLAN_HIERARCHY = { free: 0, pro: 1, elite: 2, enterprise: 3 };
   const seen = new Set();
   return instances.filter(i => {
     const def = i.ai_agent_definitions;
@@ -103,7 +102,7 @@ function filterUserFacingAgents(instances, userPlanLevel) {
     // Exclude internal agents
     if (def.tier === 'internal') return false;
     // Exclude agents above the user's plan
-    const required = PLAN_HIERARCHY[def.plan_minimum || 'free'] ?? 0;
+    const required = AGENT_PLAN_HIERARCHY[def.plan_minimum || 'free'] ?? 0;
     if (userPlanLevel < required) return false;
     // Deduplicate by definition_id (keep first occurrence)
     if (seen.has(def.id)) return false;
