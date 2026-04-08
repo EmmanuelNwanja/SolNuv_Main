@@ -306,27 +306,63 @@ function generateSyntheticProfile({
     }
   }
 
-  // If peakKw is specified, clip the profile peak but preserve annual kWh.
-  // Re-distribute clipped energy across all hours proportionally.
+  // If peakKw is specified, shape the profile to match BOTH annual kWh and target peak.
+  // Uses exponent shaping: normalized^alpha adjusts peakiness while preserving shape.
+  // If peak > natural: makes profile spikier (alpha > 1).
+  // If peak < natural: flattens profile and clips (alpha < 1 + clip).
   if (peakKw > 0) {
     const currentPeak = Math.max(...hourlyKw);
-    if (currentPeak > peakKw) {
-      let clippedEnergy = 0;
-      for (let i = 0; i < hourlyKw.length; i++) {
-        if (hourlyKw[i] > peakKw) {
-          clippedEnergy += hourlyKw[i] - peakKw;
-          hourlyKw[i] = peakKw;
+    const tolerance = 0.02; // 2% tolerance
+
+    if (Math.abs(currentPeak - peakKw) / Math.max(currentPeak, peakKw) > tolerance) {
+      // Normalize profile to 0..1 range (max = 1.0)
+      const normalized = hourlyKw.map(v => v / currentPeak);
+
+      // Binary search for exponent alpha.
+      // shaped[h] = normalized[h]^alpha, then scaled so max = peakKw.
+      // Annual total = peakKw * sum(normalized^alpha).
+      // We need peakKw * sum(normalized^alpha) = annualKwh.
+      // Target sum = annualKwh / peakKw.
+      const targetSum = annualKwh / peakKw;
+
+      let lo = 0.05, hi = 20.0;
+      let alpha = 1.0;
+
+      for (let iter = 0; iter < 60; iter++) {
+        alpha = (lo + hi) / 2;
+        let shapedSum = 0;
+        for (let i = 0; i < normalized.length; i++) {
+          shapedSum += Math.pow(normalized[i], alpha);
         }
+        if (shapedSum > targetSum) {
+          lo = alpha; // need more peaky (higher alpha reduces sum)
+        } else {
+          hi = alpha; // need flatter (lower alpha increases sum)
+        }
+        if (Math.abs(shapedSum - targetSum) / targetSum < 0.0001) break;
       }
-      // Redistribute clipped energy proportionally to non-peak hours
-      if (clippedEnergy > 0) {
-        const belowPeak = hourlyKw.filter(v => v < peakKw);
-        const belowSum = belowPeak.reduce((s, v) => s + v, 0);
-        if (belowSum > 0) {
-          const redistFactor = 1 + clippedEnergy / belowSum;
-          for (let i = 0; i < hourlyKw.length; i++) {
-            if (hourlyKw[i] < peakKw) {
-              hourlyKw[i] = Math.min(hourlyKw[i] * redistFactor, peakKw);
+
+      // Apply shaping and scale so peak = peakKw
+      for (let i = 0; i < hourlyKw.length; i++) {
+        hourlyKw[i] = Math.pow(normalized[i], alpha) * peakKw;
+      }
+
+      // If target peak < natural peak, clip any residual > peakKw and redistribute
+      const newPeak = Math.max(...hourlyKw);
+      if (newPeak > peakKw * 1.01) {
+        let clipped = 0;
+        for (let i = 0; i < hourlyKw.length; i++) {
+          if (hourlyKw[i] > peakKw) {
+            clipped += hourlyKw[i] - peakKw;
+            hourlyKw[i] = peakKw;
+          }
+        }
+        if (clipped > 0) {
+          const belowSum = hourlyKw.filter(v => v < peakKw).reduce((s, v) => s + v, 0);
+          if (belowSum > 0) {
+            const factor = 1 + clipped / belowSum;
+            for (let i = 0; i < hourlyKw.length; i++) {
+              if (hourlyKw[i] < peakKw) hourlyKw[i] = Math.min(hourlyKw[i] * factor, peakKw);
             }
           }
         }
@@ -376,6 +412,7 @@ function calculateProfileStats(hourlyKw) {
     annualKwh: Math.round(annualKwh * 100) / 100,
     peakKw: Math.round(peakKw * 100) / 100,
     averageKw: Math.round(averageKw * 100) / 100,
+    avgDailyKwh: Math.round((annualKwh / 365) * 100) / 100,
     loadFactor: Math.round(loadFactor * 10000) / 10000,
     monthlyKwh,
   };
