@@ -606,7 +606,7 @@ export default function SharedReport() {
                 <div className="bg-white rounded-2xl shadow-sm border p-6">
                   <h3 className="text-base font-semibold text-[#0D3B2E] mb-4">Energy Split (Annual)</h3>
                   <div className="h-72">
-                    <Doughnut data={energySplitChart} options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' }, tooltip: { callbacks: { label: (ctx) => `${ctx.label}: ${ctx.raw.toLocaleString()} kWh` } } }} />
+                    <Doughnut data={energySplitChart} options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }} />
                   </div>
                 </div>
                 <div className="bg-white rounded-2xl shadow-sm border p-6">
