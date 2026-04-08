@@ -4,7 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Solar + BESS Design Report</title>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <style>
     :root {
       --primary: #0D3B2E;
@@ -602,113 +601,6 @@
     </div>
   </div>
 </div>
-
-<script>
-  // Monthly Energy Chart
-  const monthlyCtx = document.getElementById('monthlyChart');
-  if (monthlyCtx) {
-    new Chart(monthlyCtx, {
-      type: 'bar',
-      data: {
-        labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
-        datasets: [
-          {
-            label: 'Load (kWh)',
-            data: [{{monthlyLoad}}],
-            backgroundColor: '#64748B',
-            stack: 'stack1'
-          },
-          {
-            label: 'Generation (kWh)',
-            data: [{{monthlyGen}}],
-            backgroundColor: '#10B981',
-            stack: 'stack2'
-          }
-        ]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: { position: 'top' }
-        },
-        scales: {
-          y: { beginAtZero: true, title: { display: true, text: 'kWh' } }
-        }
-      }
-    });
-  }
-
-  // BESS Chart
-  const bessCtx = document.getElementById('bessChart');
-  if (bessCtx) {
-    new Chart(bessCtx, {
-      type: 'line',
-      data: {
-        labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
-        datasets: [
-          {
-            label: 'Charge (kWh)',
-            data: [{{monthlyCharge}}],
-            borderColor: '#10B981',
-            backgroundColor: 'rgba(16, 185, 129, 0.1)',
-            fill: true
-          },
-          {
-            label: 'Discharge (kWh)',
-            data: [{{monthlyDischarge}}],
-            borderColor: '#F59E0B',
-            backgroundColor: 'rgba(245, 158, 11, 0.1)',
-            fill: true
-          }
-        ]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: { legend: { position: 'top' } },
-        scales: { y: { beginAtZero: true } }
-      }
-    });
-  }
-
-  // Cashflow Chart
-  const cashflowCtx = document.getElementById('cashflowChart');
-  if (cashflowCtx) {
-    new Chart(cashflowCtx, {
-      type: 'bar',
-      data: {
-        labels: [{{cashflowLabels}}],
-        datasets: [
-          {
-            label: 'Net Cashflow',
-            data: [{{cashflowValues}}],
-            backgroundColor: function(context) {
-              return context.raw >= 0 ? '#10B981' : '#EF4444';
-            }
-          },
-          {
-            label: 'Cumulative CF',
-            data: [{{cumulativeValues}}],
-            type: 'line',
-            borderColor: '#0D3B2E',
-            backgroundColor: 'transparent',
-            yAxisID: 'y1'
-          }
-        ]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: { legend: { position: 'top' } },
-        scales: {
-          y: { beginAtZero: false, title: { display: true, text: 'Net CF' } },
-          y1: { position: 'right', beginAtZero: false, title: { display: true, text: 'Cumulative CF' }, grid: { drawOnChartArea: false } }
-        }
-      }
-    });
-  }
-</script>
 
 </body>
 </html>

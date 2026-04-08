@@ -1,6 +1,7 @@
 module.exports = [
   {
     files: ['src/**/*.js'],
+    ignores: ['src/templates/**'],
     languageOptions: {
       ecmaVersion: 'latest',
       sourceType: 'commonjs',

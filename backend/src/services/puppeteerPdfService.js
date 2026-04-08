@@ -11,39 +11,52 @@ let browser = null;
 
 async function getBrowser() {
   if (!browser || !browser.connected) {
-    browser = await puppeteer.launch({
-      headless: true,
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-accelerated-2d-canvas',
-        '--disable-gpu',
-      ],
-    });
+    try {
+      browser = await puppeteer.launch({
+        headless: true,
+        args: [
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-dev-shm-usage',
+          '--disable-accelerated-2d-canvas',
+          '--disable-gpu',
+          '--disable-software-rasterizer',
+          '--disable-web-security',
+        ],
+      });
+    } catch (launchErr) {
+      console.error('Puppeteer launch failed:', launchErr.message);
+      throw new Error('PDF generation service unavailable. Please try again later.');
+    }
   }
   return browser;
 }
 
 async function renderHtmlToPdf(htmlContent, options = {}) {
-  const browser = await getBrowser();
-  const page = await browser.newPage();
+  let browser;
+  try {
+    browser = await getBrowser();
+  } catch (err) {
+    console.error('Failed to get browser:', err.message);
+    throw err;
+  }
+  
+  let page;
+  try {
+    page = await browser.newPage();
+  } catch (pageErr) {
+    console.error('Failed to create page:', pageErr.message);
+    throw new Error('PDF generation service unavailable. Please try again.');
+  }
 
   try {
     await page.setContent(htmlContent, {
-      waitUntil: ['domcontentloaded', 'networkidle0'],
+      waitUntil: ['domcontentloaded'],
       timeout: 30000,
     });
 
-    // Wait for Chart.js to render if present
-    if (htmlContent.includes('chart.js') || htmlContent.includes('Chart')) {
-      await page.waitForFunction(() => {
-        return typeof Chart !== 'undefined';
-      }, { timeout: 10000 }).catch(() => {});
-      
-      // Give charts time to render
-      await page.evaluate(() => new Promise(resolve => setTimeout(resolve, 1000)));
-    }
+    // Short wait for rendering
+    await page.evaluate(() => new Promise(resolve => setTimeout(resolve, 200)));
 
     const pdfOptions = {
       format: 'A4',
@@ -66,8 +79,11 @@ async function renderHtmlToPdf(htmlContent, options = {}) {
 
     const pdfBuffer = await page.pdf(pdfOptions);
     return Buffer.from(pdfBuffer);
+  } catch (pdfErr) {
+    console.error('PDF generation failed:', pdfErr.message);
+    throw new Error('Failed to generate PDF: ' + pdfErr.message);
   } finally {
-    await page.close();
+    if (page) await page.close().catch(() => {});
   }
 }
 
