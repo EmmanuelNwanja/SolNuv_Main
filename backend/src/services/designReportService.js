@@ -91,12 +91,11 @@ function fmtCurrency(n, currency = 'ZAR') {
 // ─── Main Generator ──────────────────────────────────────────
 
 /**
- * Generate a professional design report PDF.
+ * Generate a professional design report PDF (enhanced version).
  * @param {string} simulationResultId - UUID of the simulation_results row
  * @returns {Promise<Buffer>} PDF buffer
  */
 async function generateDesignReportPdf(simulationResultId) {
-  // ── Load all data ──
   const { data: result, error: resultError } = await supabase
     .from('simulation_results')
     .select('*')
@@ -113,30 +112,59 @@ async function generateDesignReportPdf(simulationResultId) {
     .eq('id', result.project_design_id)
     .single();
 
-  const { data: project } = await supabase
-    .from('projects')
-    .select('*, companies(name, branding_primary_color)')
-    .eq('id', design?.project_id)
-    .single();
+  const projectId = design?.project_id;
+  let projectData = null;
+  let tariffData = null;
+  let equipmentData = null;
 
-  const { data: tariff } = design?.tariff_structure_id ? await supabase
-    .from('tariff_structures')
-    .select('*, tariff_rates(*), tariff_ancillary_charges(*)')
-    .eq('id', design.tariff_structure_id)
-    .single() : { data: null };
+  if (projectId) {
+    const { data: project } = await supabase
+      .from('projects')
+      .select('*, companies(name, branding_primary_color)')
+      .eq('id', projectId)
+      .single();
+    projectData = project;
 
-  const companyName = project?.companies?.name || 'SolNuv';
-  const currency = tariff?.currency || 'NGN';
+    const { data: equipment } = await supabase
+      .from('equipment')
+      .select('*')
+      .eq('project_id', projectId)
+      .eq('is_installed', true)
+      .limit(20);
+    equipmentData = equipment;
+  }
+
+  if (design?.tariff_structure_id) {
+    const { data: tariff } = await supabase
+      .from('tariff_structures')
+      .select('*, tariff_rates(*)')
+      .eq('id', design.tariff_structure_id)
+      .single();
+    tariffData = tariff;
+  }
+
+  const companyName = projectData?.companies?.name || 'SolNuv';
+  const currency = tariffData?.currency || 'NGN';
   const monthly = result.monthly_summary || [];
   const cashflow = result.yearly_cashflow || [];
+  const energyComp = result.energy_comparison 
+    ? (typeof result.energy_comparison === 'string' ? JSON.parse(result.energy_comparison) : result.energy_comparison) 
+    : {};
   const exec = result.executive_summary_text || '';
+  const aiFeedback = result.ai_feedback_text || '';
 
-  // ── Create PDF ──
+  const panels = equipmentData?.filter(e => e.equipment_type === 'panel') || [];
+  const batteries = equipmentData?.filter(e => e.equipment_type === 'battery') || [];
+
+  const co2Factor = 0.5;
+  const annualCO2 = (result.annual_solar_gen_kwh || 0) * co2Factor;
+  const treesOffset = annualCO2 * 0.02;
+
   const doc = new PDFDocument({
     size: 'A4',
-    margins: { top: 50, bottom: 50, left: 55, right: 55 },
+    margins: { top: 50, bottom: 50, left: 50, right: 50 },
     info: {
-      Title: `Solar Design Report — ${project?.name || 'Project'}`,
+      Title: `Solar Design Report — ${projectData?.name || 'Project'}`,
       Author: 'SolNuv Platform',
       Subject: 'Solar + BESS Design & Financial Analysis',
     },
@@ -146,209 +174,173 @@ async function generateDesignReportPdf(simulationResultId) {
   const chunks = [];
   doc.on('data', c => chunks.push(c));
 
-  // ━━━━━━━━━━━━━━━ PAGE 1: COVER ━━━━━━━━━━━━━━━
-  doc.rect(0, 0, doc.page.width, doc.page.height).fill(hex(BRAND.primary));
+  const pageWidth = doc.page.width - 100;
 
-  // Accent stripe
-  doc.rect(0, 280, doc.page.width, 6).fill(hex(BRAND.accent));
+  // ━━━━━━━━━━━━━━━ COVER PAGE ━━━━━━━━━━━━━━━
+  doc.rect(0, 0, doc.page.width, doc.page.height).fill(hex(BRAND.primary));
+  doc.rect(0, 260, doc.page.width, 8).fill(hex(BRAND.accent));
 
   doc.fillColor(hex(BRAND.white));
-  doc.fontSize(32).text('Solar + BESS', 55, 160, { align: 'left' });
-  doc.fontSize(32).text('Design Report', 55, 200, { align: 'left' });
+  doc.fontSize(14).fillColor(hex(BRAND.accent)).text('SOLNUV', 50, 80);
+  doc.fontSize(32).text('Solar Design Report', 50, 100);
+  doc.fontSize(14).fillColor(hex(BRAND.white)).text(companyName, 50, 200);
 
-  doc.moveDown(4);
-  doc.fontSize(14).text(project?.name || 'Project', 55, 320);
-  doc.fontSize(11).fillColor(hex(BRAND.accent)).text(companyName, 55, 345);
+  doc.fontSize(18).text(projectData?.name || 'Project', 50, 290);
+  doc.fontSize(11).fillColor(hex(BRAND.accent)).text(`${projectData?.location || ''}${projectData?.state ? ', ' + projectData.state : ''}`, 50, 315);
 
   doc.fillColor(hex(BRAND.white)).fontSize(10);
-  doc.text(`Location: ${project?.location || 'N/A'}`, 55, 400);
-  doc.text(`Coordinates: ${design?.location_lat?.toFixed(4) || '—'}, ${design?.location_lon?.toFixed(4) || '—'}`, 55, 418);
-  doc.text(`Report Date: ${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}`, 55, 436);
+  doc.text(`Generated: ${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}`, 50, 380);
 
-  doc.fontSize(9).fillColor('#7FAAAA');
-  doc.text('Generated by SolNuv — Africa\'s Solar Engineering Platform', 55, doc.page.height - 70);
-  doc.text('www.solnuv.com', 55, doc.page.height - 56);
+  doc.fontSize(8).fillColor('#7FAAAA');
+  doc.text("Generated by SolNuv — Africa's Solar Engineering Platform", 50, doc.page.height - 60);
+  doc.text('www.solnuv.com', 50, doc.page.height - 48);
 
-  // ━━━━━━━━━━━━━━━ PAGE 2: EXECUTIVE SUMMARY ━━━━━━━━━━━━━━━
+  // ━━━━━━━━━━━━━━━ EXECUTIVE SUMMARY ━━━━━━━━━━━━━━━
   addPageBreak(doc);
   addHeader(doc, 'Executive Summary', { topPad: 0.2 });
 
   if (exec) {
-    doc.fontSize(10).fillColor(hex(BRAND.text)).text(exec, { lineGap: 4, paragraphGap: 8 });
+    doc.fontSize(10).fillColor(hex(BRAND.text)).text(exec, { lineGap: 4 });
   }
-
-  const analysisPeriod = Number(design?.analysis_period_years) || 25;
 
   doc.moveDown(0.8);
   addSubHeader(doc, 'Key Metrics');
 
   const metrics = [
-    ['PV System Size', fmt(design?.pv_capacity_kwp) + ' kWp'],
+    ['PV Capacity', fmt(design?.pv_capacity_kwp, 1) + ' kWp'],
     ['Annual Generation', fmt(result.annual_solar_gen_kwh) + ' kWh'],
-    ['Solar Fraction', result.utilisation_pct != null ? fmt(result.utilisation_pct, 1) + '%' : '—'],
-    ['Self-Consumption Ratio', result.self_consumption_pct != null ? fmt(result.self_consumption_pct, 1) + '%' : '—'],
-    ['Battery Capacity', design?.bess_capacity_kwh ? fmt(design.bess_capacity_kwh) + ' kWh' : 'None'],
-    ['Annual Savings', fmtCurrency(result.year1_savings, currency)],
+    ['Year 1 Savings', fmtCurrency(result.year1_savings, currency)],
     ['Simple Payback', result.simple_payback_months ? fmt(result.simple_payback_months / 12, 1) + ' years' : '—'],
-    [`NPV (${analysisPeriod}-yr)`, fmtCurrency(result.npv_25yr, currency)],
+    ['Solar Fraction', result.utilisation_pct != null ? fmt(result.utilisation_pct, 1) + '%' : '—'],
+    ['Self-Consumption', result.self_consumption_pct != null ? fmt(result.self_consumption_pct, 1) + '%' : '—'],
+    ['NPV', fmtCurrency(result.npv_25yr, currency)],
     ['IRR', result.irr_pct != null ? fmt(result.irr_pct, 1) + '%' : '—'],
     ['LCOE', result.lcoe_normal != null ? fmtCurrency(result.lcoe_normal, currency) + '/kWh' : '—'],
   ];
 
   metrics.forEach(([k, v]) => addKV(doc, k, v));
 
-  // ━━━━━━━━━━━━━━━ PAGE 3: SOLAR SYSTEM OVERVIEW ━━━━━━━━━━━━━━━
+  // ━━━━━━━━━━━━━━━ PV SYSTEM CONFIGURATION ━━━━━━━━━━━━━━━
   addPageBreak(doc);
-  addHeader(doc, 'Solar System Overview', { topPad: 0.2 });
+  addHeader(doc, 'PV System Configuration', { topPad: 0.2 });
 
-  addSubHeader(doc, 'PV Array Configuration');
-  addKV(doc, 'Module Technology', design?.pv_technology || 'Monocrystalline PERC');
-  addKV(doc, 'System Capacity', fmt(design?.pv_capacity_kwp) + ' kWp');
-  addKV(doc, 'Array Tilt', (design?.pv_tilt_deg || 0) + '°');
-  addKV(doc, 'Array Azimuth', (design?.pv_azimuth_deg || 0) + '°');
-  addKV(doc, 'Annual Degradation', ((design?.pv_degradation_annual_pct || 0.5)) + '%');
-  addKV(doc, 'System Losses', ((design?.pv_system_losses_pct || 14)) + '%');
+  const pvConfig = [
+    ['Technology', design?.pv_technology || 'Monocrystalline'],
+    ['Array Tilt', (design?.pv_tilt_deg || 0) + '°'],
+    ['Array Azimuth', (design?.pv_azimuth_deg || 0) + '°'],
+    ['System Losses', (design?.pv_system_losses_pct || 14) + '%'],
+    ['Annual Degradation', (design?.pv_degradation_annual_pct || 0.5) + '%'],
+    ['Analysis Period', (design?.analysis_period_years || 25) + ' years'],
+    ['Discount Rate', (design?.discount_rate_pct || 10) + '%'],
+    ['Tariff Escalation', (design?.tariff_escalation_pct || 8) + '%/year'],
+  ];
 
-  if (design?.bess_capacity_kwh > 0) {
-    addSubHeader(doc, 'Battery Energy Storage');
-    addKV(doc, 'Rated Capacity', fmt(design.bess_capacity_kwh) + ' kWh');
-    addKV(doc, 'Usable Capacity', fmt(design.bess_capacity_kwh * (design.bess_dod_pct || 80) / 100) + ' kWh');
-    addKV(doc, 'Chemistry', (design.bess_chemistry || 'lfp').toUpperCase());
-    addKV(doc, 'Dispatch Strategy', (design.bess_dispatch_strategy || 'self_consumption').replace(/_/g, ' '));
-    addKV(doc, 'Annual Cycles', result.battery_cycles_annual != null ? fmt(result.battery_cycles_annual, 0) : '—');
-  }
+  pvConfig.forEach(([k, v]) => addKV(doc, k, v));
 
-  addSubHeader(doc, 'Solar Resource Data');
-  addKV(doc, 'Data Source', 'NASA POWER (Climatology)');
-  addKV(doc, 'Peak Sun Hours (avg)', result.annual_solar_gen_kwh && design?.pv_capacity_kwp
-    ? fmt(result.annual_solar_gen_kwh / design.pv_capacity_kwp / 365, 1) + ' h/day'
-    : '—');
-
-  // ━━━━━━━━━━━━━━━ PAGE 4: TARIFF ANALYSIS ━━━━━━━━━━━━━━━
-  addPageBreak(doc);
-  addHeader(doc, 'Tariff Analysis', { topPad: 0.2 });
-
-  if (tariff) {
-    addKV(doc, 'Tariff Structure', tariff.tariff_name);
-    addKV(doc, 'Utility', tariff.utility_name || '—');
-    addKV(doc, 'Type', (tariff.tariff_type || 'flat').toUpperCase());
-    addKV(doc, 'Currency', tariff.currency);
+  if (panels.length > 0) {
     doc.moveDown(0.5);
-
-    if (tariff.tariff_rates?.length > 0) {
-      addSubHeader(doc, 'Rate Schedule');
-      const rateWidths = [120, 100, 100, 160];
-      addTableRow(doc, ['Season', 'Period', 'Rate/kWh', 'Hours'], rateWidths, { header: true });
-      tariff.tariff_rates.forEach(r => {
-        const hours = (r.weekday_hours || []).length > 0
-          ? `Weekday: ${(r.weekday_hours || []).join(',')}`
-          : 'All hours';
-        addTableRow(doc, [r.season_key, r.period_name, fmtCurrency(r.rate_per_kwh, currency), hours], rateWidths);
-      });
-    }
-
-    if (tariff.tariff_ancillary_charges?.length > 0) {
-      doc.moveDown(0.5);
-      addSubHeader(doc, 'Ancillary Charges');
-      tariff.tariff_ancillary_charges.forEach(c => {
-        addKV(doc, c.charge_label, fmtCurrency(c.rate, currency) + ` (${c.charge_type.replace(/_/g, ' ')})`);
-      });
-    }
-  }
-
-  // Baseline vs with-solar cost summary
-  doc.moveDown(0.5);
-  addSubHeader(doc, 'Annual Cost Comparison');
-  addKV(doc, 'Baseline Grid Cost', fmtCurrency(result.baseline_annual_cost, currency));
-  addKV(doc, 'With-Solar Grid Cost', fmtCurrency(result.year1_annual_cost, currency));
-  addKV(doc, 'Annual Savings', fmtCurrency(result.year1_savings, currency));
-  addKV(doc, 'Savings Percentage',
-    result.baseline_annual_cost > 0
-      ? ((result.year1_savings / result.baseline_annual_cost) * 100).toFixed(1) + '%'
-      : '—'
-  );
-
-  // ━━━━━━━━━━━━━━━ PAGE 5: ENERGY ANALYSIS ━━━━━━━━━━━━━━━
-  addPageBreak(doc);
-  addHeader(doc, 'Energy Demand & Generation', { topPad: 0.2 });
-
-  if (monthly.length > 0) {
-    addSubHeader(doc, 'Monthly Energy Summary');
-    const mWidths = [50, 75, 75, 75, 75, 80];
-    addTableRow(doc, ['Month', 'Load kWh', 'Gen kWh', 'Self-use kWh', 'Export kWh', 'Grid kWh'], mWidths, { header: true });
-    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    monthly.forEach((m, i) => {
-      addTableRow(doc, [
-        monthNames[i] || i + 1,
-        fmt(m.load_kwh, 0),
-        fmt(m.pv_gen_kwh, 0),
-        fmt(m.solar_utilised_kwh, 0),
-        fmt(m.grid_export_kwh, 0),
-        fmt(m.grid_import_kwh, 0),
-      ], mWidths);
+    addSubHeader(doc, 'Installed Panels');
+    panels.forEach(p => {
+      addKV(doc, p.brand || p.manufacturer || 'Generic', `${p.quantity || 1} × ${p.rated_power_w ? (p.rated_power_w / 1000).toFixed(1) + ' kW' : '—'}`);
     });
   }
 
-  // Totals
-  // Totals derived from monthly summary
-  const totalLoadKwh = monthly.reduce((s, m) => s + (m.load_kwh || 0), 0);
-  doc.moveDown(0.5);
-  addKV(doc, 'Total Load', fmt(totalLoadKwh) + ' kWh');
-  addKV(doc, 'Total Generation', fmt(result.annual_solar_gen_kwh) + ' kWh');
-  addKV(doc, 'Self-Consumption', fmt(result.solar_utilised_kwh) + ' kWh');
-  addKV(doc, 'Grid Export', fmt(result.grid_export_kwh) + ' kWh');
-  addKV(doc, 'Grid Import', fmt(result.grid_import_kwh) + ' kWh');
-
-  // ━━━━━━━━━━━━━━━ PAGE 6: BESS PERFORMANCE ━━━━━━━━━━━━━━━
+  // ━━━━━━━━━━━━━━━ BATTERY SYSTEM ━━━━━━━━━━━━━━━
   if (design?.bess_capacity_kwh > 0) {
     addPageBreak(doc);
-    addHeader(doc, 'Battery Storage Performance', { topPad: 0.2 });
+    addHeader(doc, 'Battery Energy Storage System', { topPad: 0.2 });
 
-    addKV(doc, 'Annual Throughput', fmt(result.battery_discharged_kwh) + ' kWh');
-    addKV(doc, 'Annual Full Cycles', fmt(result.battery_cycles_annual, 0));
-    const peakShaveKw = (result.peak_demand_before_kw && result.peak_demand_after_kw)
-      ? (result.peak_demand_before_kw - result.peak_demand_after_kw) : null;
-    addKV(doc, 'Peak Shaving Contribution', peakShaveKw > 0 ? fmt(peakShaveKw, 1) + ' kW' : '—');
+    const bessConfig = [
+      ['Rated Capacity', fmt(design.bess_capacity_kwh) + ' kWh'],
+      ['Power Rating', fmt(design.bess_power_kw) + ' kW'],
+      ['Chemistry', (design.bess_chemistry || 'lifepo4').toUpperCase()],
+      ['Depth of Discharge', (design.bess_dod_pct || 80) + '%'],
+      ['Round-Trip Efficiency', ((design.bess_round_trip_efficiency || 0.9) * 100).toFixed(0) + '%'],
+      ['Dispatch Strategy', (design.bess_dispatch_strategy || 'self_consumption').replace(/_/g, ' ')],
+      ['Annual Throughput', fmt(result.battery_discharged_kwh) + ' kWh'],
+      ['Annual Cycles', result.battery_cycles_annual != null ? fmt(result.battery_cycles_annual, 0) : '—'],
+    ];
 
-    if (monthly.length > 0) {
+    bessConfig.forEach(([k, v]) => addKV(doc, k, v));
+
+    if (batteries.length > 0) {
       doc.moveDown(0.5);
-      addSubHeader(doc, 'Monthly Battery Utilisation');
-      const bWidths = [50, 90, 90, 90, 110];
-      addTableRow(doc, ['Month', 'Charge kWh', 'Discharge kWh', 'Cycles', 'Avg SOC'], bWidths, { header: true });
-      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-      monthly.forEach((m, i) => {
-        addTableRow(doc, [
-          monthNames[i] || i + 1,
-          fmt(m.battery_charged_kwh, 0),
-          fmt(m.battery_discharged_kwh, 0),
-          '—',
-          '—',
-        ], bWidths);
+      addSubHeader(doc, 'Installed Batteries');
+      batteries.forEach(b => {
+        addKV(doc, b.brand || b.manufacturer || 'Generic', `${b.quantity || 1} × ${b.rated_capacity_kwh || '—'} kWh`);
       });
     }
   }
 
-  // ━━━━━━━━━━━━━━━ PAGE 7: FINANCIAL ANALYSIS ━━━━━━━━━━━━━━━
+  // ━━━━━━━━━━━━━━━ GRID TARIFF PLAN ━━━━━━━━━━━━━━━
+  if (tariffData) {
+    addPageBreak(doc);
+    addHeader(doc, 'Grid Tariff Plan', { topPad: 0.2 });
+
+    addKV(doc, 'Tariff Name', tariffData.tariff_name || '—');
+    addKV(doc, 'Utility', tariffData.utility_name || '—');
+    addKV(doc, 'Currency', tariffData.currency || 'NGN');
+    addKV(doc, 'Grid Topology', (design?.grid_topology || 'grid_tied').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()));
+
+    if (tariffData.tariff_rates?.length > 0) {
+      doc.moveDown(0.5);
+      addSubHeader(doc, 'Rate Schedule');
+      const rateWidths = [150, 150, 180];
+      addTableRow(doc, ['Season', 'Period', 'Rate/kWh'], rateWidths, { header: true });
+      tariffData.tariff_rates.forEach(r => {
+        addTableRow(doc, [r.season_key || '—', r.period_name || '—', fmtCurrency(r.rate_per_kwh, currency)], rateWidths);
+      });
+    }
+  }
+
+  // ━━━━━━━━━━━━━━━ COST ANALYSIS ━━━━━━━━━━━━━━━
   addPageBreak(doc);
-  addHeader(doc, 'Financial Analysis', { topPad: 0.2 });
+  addHeader(doc, 'Cost Analysis', { topPad: 0.2 });
 
-  addSubHeader(doc, 'Investment Summary');
-  addKV(doc, 'Total System Cost', fmtCurrency(design?.capex_total, currency));
-  addKV(doc, 'Year 1 Savings', fmtCurrency(result.year1_savings, currency));
-  addKV(doc, 'Simple Payback', result.simple_payback_months ? fmt(result.simple_payback_months / 12, 1) + ' years' : `> ${analysisPeriod} years`);
-  addKV(doc, `NPV (${analysisPeriod} years)`, fmtCurrency(result.npv_25yr, currency));
-  addKV(doc, 'IRR', result.irr_pct != null ? fmt(result.irr_pct, 1) + '%' : '—');
-  addKV(doc, 'LCOE', result.lcoe_normal != null ? fmtCurrency(result.lcoe_normal, currency) + '/kWh' : '—');
+  const costData = [
+    ['Baseline Annual Cost', fmtCurrency(result.baseline_annual_cost, currency)],
+    ['With Solar Cost', fmtCurrency(result.year1_annual_cost, currency)],
+    ['Annual Savings', fmtCurrency(result.year1_savings, currency)],
+    ['LCOE', result.lcoe_normal != null ? fmtCurrency(result.lcoe_normal, currency) + '/kWh' : '—'],
+  ];
 
-  if (cashflow.length > 0) {
+  costData.forEach(([k, v]) => addKV(doc, k, v));
+
+  if (result.peak_demand_before_kw && result.peak_demand_after_kw) {
     doc.moveDown(0.5);
-    addSubHeader(doc, `${analysisPeriod}-Year Cashflow Projection`);
+    addKV(doc, 'Peak Demand (Before Solar)', fmt(result.peak_demand_before_kw, 1) + ' kW');
+    addKV(doc, 'Peak Demand (After Solar)', fmt(result.peak_demand_after_kw, 1) + ' kW');
+  }
 
-    // Print first 5 years + year 10, 15, 20, 25
-    const cfWidths = [40, 80, 80, 80, 80, 80];
-    addTableRow(doc, ['Year', 'Savings', 'O&M', 'Net CF', 'Cumul. CF', 'Gen kWh'], cfWidths, { header: true });
+  // ━━━━━━━━━━━━━━━ ENERGY SOURCE COMPARISON ━━━━━━━━━━━━━━━
+  if (energyComp && Object.keys(energyComp).length > 0) {
+    addPageBreak(doc);
+    addHeader(doc, 'Energy Source Comparison (Annual)', { topPad: 0.2 });
 
-    const showYears = [0, 1, 2, 3, 4, ...[9, 14, 19, 24].filter(y => y < cashflow.length)];
+    const compWidths = [140, 110, 110, 120];
+    addTableRow(doc, ['Energy Source', 'Annual Cost', 'CO2 Emissions', 'Fuel Used'], compWidths, { header: true });
+    addTableRow(doc, ['Solar PV System', fmtCurrency(result.year1_annual_cost, currency), '0 kg', '0 L'], compWidths);
+    
+    if (energyComp.grid) {
+      addTableRow(doc, ['Grid Electricity', fmtCurrency(energyComp.grid.annual_cost, currency), fmt(energyComp.grid.co2_kg) + ' kg', '—'], compWidths);
+    }
+    if (energyComp.diesel) {
+      addTableRow(doc, ['Diesel Generator', fmtCurrency(energyComp.diesel.annual_cost, currency), fmt(energyComp.diesel.co2_kg) + ' kg', fmt(energyComp.diesel.fuel_liters) + ' L'], compWidths);
+    }
+    if (energyComp.petrol) {
+      addTableRow(doc, ['Petrol Generator', fmtCurrency(energyComp.petrol.annual_cost, currency), fmt(energyComp.petrol.co2_kg) + ' kg', fmt(energyComp.petrol.fuel_liters) + ' L'], compWidths);
+    }
+  }
+
+  // ━━━━━━━━━━━━━━━ FINANCIAL PROJECTION ━━━━━━━━━━━━━━━
+  if (cashflow.length > 0) {
+    addPageBreak(doc);
+    addHeader(doc, 'Yearly Cashflow Projection', { topPad: 0.2 });
+
+    const cfWidths = [40, 80, 70, 80, 90, 80];
+    addTableRow(doc, ['Year', 'Savings', 'O&M', 'Net Cashflow', 'Cumulative', 'Generation'], cfWidths, { header: true });
+
+    const showYears = [0, 1, 2, 3, 4, 9, 14, 19, 24].filter(y => y < cashflow.length);
     showYears.forEach(yi => {
       const cf = cashflow[yi];
       if (!cf) return;
@@ -358,25 +350,79 @@ async function generateDesignReportPdf(simulationResultId) {
         fmtCurrency(cf.om_cost, currency),
         fmtCurrency(cf.net_cashflow, currency),
         fmtCurrency(cf.cumulative_cashflow, currency),
-        fmt(cf.generation_kwh, 0),
+        fmt(cf.generation_kwh, 0) + ' kWh',
       ], cfWidths);
     });
   }
 
-  // ━━━━━━━━━━━━━━━ PAGE 8: ASSUMPTIONS & DISCLAIMERS ━━━━━━━━━━━━━━━
+  // ━━━━━━━━━━━━━━━ ENVIRONMENTAL IMPACT ━━━━━━━━━━━━━━━
   addPageBreak(doc);
-  addHeader(doc, 'Assumptions & Methodology', { topPad: 0.2 });
+  addHeader(doc, 'Environmental Impact', { topPad: 0.2 });
+
+  const envMetrics = [
+    ['Annual CO2 Offset', fmt(annualCO2, 0) + ' kg'],
+    ['Trees Equivalent', fmt(treesOffset, 0)],
+    ['25-Year CO2 Offset', fmt(annualCO2 * 25, 0) + ' kg'],
+  ];
+
+  envMetrics.forEach(([k, v]) => addKV(doc, k, v));
+
+  // ━━━━━━━━━━━━━━━ AI EXPERT ANALYSIS ━━━━━━━━━━━━━━━
+  if (aiFeedback) {
+    addPageBreak(doc);
+    addHeader(doc, 'AI Expert Analysis', { topPad: 0.2 });
+
+    doc.fontSize(10).fillColor(hex(BRAND.text)).text(aiFeedback, { lineGap: 4 });
+  }
+
+  // ━━━━━━━━━━━━━━━ MONTHLY ENERGY SUMMARY ━━━━━━━━━━━━━━━
+  if (monthly.length > 0) {
+    addPageBreak(doc);
+    addHeader(doc, 'Monthly Energy Summary', { topPad: 0.2 });
+
+    const mWidths = [45, 65, 70, 70, 70, 70, 80];
+    addTableRow(doc, ['Month', 'Load', 'Solar Gen', 'Self-Used', 'Grid Import', 'Grid Export', 'Savings'], mWidths, { header: true });
+
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    monthly.forEach((m, i) => {
+      addTableRow(doc, [
+        monthNames[i] || i + 1,
+        fmt(m.load_kwh, 0),
+        fmt(m.pv_gen_kwh, 0),
+        fmt(m.solar_utilised_kwh, 0),
+        fmt(m.grid_import_kwh, 0),
+        fmt(m.grid_export_kwh, 0),
+        fmtCurrency(m.savings, currency),
+      ], mWidths);
+    });
+
+    const totalLoad = monthly.reduce((s, m) => s + (m.load_kwh || 0), 0);
+    const totalSelf = monthly.reduce((s, m) => s + (m.solar_utilised_kwh || 0), 0);
+    const totalImport = monthly.reduce((s, m) => s + (m.grid_import_kwh || 0), 0);
+    const totalExport = monthly.reduce((s, m) => s + (m.grid_export_kwh || 0), 0);
+
+    doc.moveDown(0.5);
+    addSubHeader(doc, 'Annual Totals');
+    addKV(doc, 'Total Load', fmt(totalLoad) + ' kWh');
+    addKV(doc, 'Total Generation', fmt(result.annual_solar_gen_kwh) + ' kWh');
+    addKV(doc, 'Self-Consumption', fmt(totalSelf) + ' kWh');
+    addKV(doc, 'Grid Import', fmt(totalImport) + ' kWh');
+    addKV(doc, 'Grid Export', fmt(totalExport) + ' kWh');
+  }
+
+  // ━━━━━━━━━━━━━━━ DISCLAIMER ━━━━━━━━━━━━━━━
+  addPageBreak(doc);
+  addHeader(doc, 'Assumptions & Disclaimer', { topPad: 0.2 });
 
   const assumptions = [
     'Solar resource data sourced from NASA POWER climatological averages.',
-    `PV generation modelled using isotropic transposition with ${design?.pv_system_losses_pct || 14}% total system losses.`,
-    `Panel degradation rate: ${design?.pv_degradation_annual_pct || 0.5}% per year.`,
-    `Discount rate: ${design?.discount_rate_pct || 10}% (nominal).`,
+    `PV generation modelled with ${design?.pv_system_losses_pct || 14}% total system losses.`,
+    `Panel degradation: ${design?.pv_degradation_annual_pct || 0.5}% per year.`,
+    `Discount rate: ${design?.discount_rate_pct || 10}%.`,
     `Tariff escalation: ${design?.tariff_escalation_pct || 8}% per year.`,
-    `Analysis period: ${analysisPeriod} years.`,
-    design?.bess_capacity_kwh > 0 ? `Battery round-trip efficiency: ${((design?.bess_round_trip_efficiency ?? 0.90) * 100).toFixed(0)}%.` : null,
+    `Analysis period: ${design?.analysis_period_years || 25} years.`,
     'Financial projections are estimates and do not constitute financial advice.',
-  ].filter(Boolean);
+  ];
 
   assumptions.forEach(a => {
     doc.fontSize(10).fillColor(hex(BRAND.text)).text(`• ${a}`, { indent: 10, lineGap: 3 });
@@ -386,21 +432,20 @@ async function generateDesignReportPdf(simulationResultId) {
   doc.fontSize(8).fillColor(hex(BRAND.muted));
   doc.text('DISCLAIMER: This report is generated by the SolNuv platform for preliminary design and feasibility assessment purposes. Actual system performance may vary based on local conditions, equipment specifications, installation quality, and other factors. A detailed engineering study by a qualified professional is recommended before final investment decisions.', {
     lineGap: 2,
-    width: 480,
+    width: pageWidth,
   });
 
   // ── Footer on all pages ──
   const pages = doc.bufferedPageRange();
   for (let i = 0; i < pages.count; i++) {
     doc.switchToPage(i);
-    // Skip footer on cover page
     if (i === 0) continue;
     doc.fontSize(7).fillColor(hex(BRAND.muted));
     doc.text(
-      `SolNuv Design Report — ${project?.name || 'Project'} — Page ${i + 1} of ${pages.count}`,
-      55,
+      `SolNuv Design Report — ${projectData?.name || 'Project'} — Page ${i + 1} of ${pages.count}`,
+      50,
       doc.page.height - 35,
-      { width: 480, align: 'center' }
+      { width: pageWidth, align: 'center' }
     );
   }
 
