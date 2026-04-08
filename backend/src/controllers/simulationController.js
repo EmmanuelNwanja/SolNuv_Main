@@ -12,18 +12,25 @@ const logger = require('../utils/logger');
 
 /**
  * Verify that the authenticated user owns the project.
- * Supports both company-scoped and solo-engineer (user_id) scoped access.
+ * Supports orphaned projects (created before user joined a company).
  */
 async function verifyProjectOwnership(projectId, user) {
+  const userId = user.id;
+  const companyId = user.company_id;
+
   let query = supabase
     .from('projects')
     .select('id, company_id, user_id')
     .eq('id', projectId);
 
-  if (user.company_id) {
-    query = query.eq('company_id', user.company_id);
+  if (companyId) {
+    // User has a company - can access projects belonging to:
+    // 1. Their company, OR
+    // 2. Projects they personally created (company_id is null but user_id matches)
+    query = query.or(`company_id.eq.${companyId},and(user_id.eq.${userId},company_id.is.null)`);
   } else {
-    query = query.eq('user_id', user.id);
+    // User has no company - can only access their own projects
+    query = query.eq('user_id', userId);
   }
 
   const { data } = await query.single();

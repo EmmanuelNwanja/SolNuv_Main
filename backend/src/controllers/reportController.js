@@ -25,11 +25,11 @@ exports.generateNesrea = async (req, res) => {
     const startDate = period_start || new Date(new Date().getFullYear(), 0, 1).toISOString().split('T')[0];
     const endDate = period_end || new Date().toISOString().split('T')[0];
 
-    // Fetch all company projects with equipment
+    // Fetch all company projects with equipment (including orphaned projects created before user had a company)
     const { data: projects } = await supabase
       .from('projects')
       .select('*, equipment(*)')
-      .eq('company_id', company.id)
+      .or(`company_id.eq.${company.id},and(user_id.eq.${req.user.id},company_id.is.null)`)
       .gte('installation_date', startDate)
       .lte('installation_date', endDate);
 
@@ -112,12 +112,21 @@ exports.generateNesrea = async (req, res) => {
 exports.generateCertificate = async (req, res) => {
   try {
     const { projectId } = req.params;
+    const userId = req.user.id;
+    const companyId = req.user.company_id;
 
-    const { data: project } = await supabase
+    let projectQuery = supabase
       .from('projects')
       .select('*, equipment(*), companies:companies!projects_company_id_fkey(*)')
-      .eq('id', projectId)
-      .single();
+      .eq('id', projectId);
+
+    if (companyId) {
+      projectQuery = projectQuery.or(`company_id.eq.${companyId},and(user_id.eq.${userId},company_id.is.null)`);
+    } else {
+      projectQuery = projectQuery.eq('user_id', userId);
+    }
+
+    const { data: project } = await projectQuery.maybeSingle();
 
     if (!project) return sendError(res, 'Project not found', 404);
 
@@ -170,14 +179,20 @@ exports.getHistory = async (req, res) => {
 exports.generateExcel = async (req, res) => {
   try {
     const ExcelJS = require('exceljs');
-    const scopeFilter = req.user.company_id
-      ? { field: 'company_id', value: req.user.company_id }
-      : { field: 'user_id', value: req.user.id };
+    const userId = req.user.id;
+    const companyId = req.user.company_id;
 
-    const { data: projects } = await supabase
+    let projectsQuery = supabase
       .from('projects')
-      .select('*, equipment(*)')
-      .eq(scopeFilter.field, scopeFilter.value);
+      .select('*, equipment(*)');
+
+    if (companyId) {
+      projectsQuery = projectsQuery.or(`company_id.eq.${companyId},and(user_id.eq.${userId},company_id.is.null)`);
+    } else {
+      projectsQuery = projectsQuery.eq('user_id', userId);
+    }
+
+    const { data: projects } = await projectsQuery;
 
     const rows = [];
     for (const proj of projects || []) {

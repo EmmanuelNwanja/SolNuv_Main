@@ -80,8 +80,9 @@ const pollingLimiter = rateLimit({
 
 app.use(globalLimiter);
 
-// Higher limit for polling endpoints (notifications)
+// Higher limit for polling endpoints
 app.use('/api/auth/notifications', pollingLimiter);
+app.use('/api/dashboard/leaderboard', pollingLimiter);
 
 // ==============================
 // BODY PARSING

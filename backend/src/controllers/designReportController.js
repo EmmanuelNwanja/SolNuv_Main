@@ -9,14 +9,23 @@ const { sendSuccess, sendError } = require('../utils/responseHelper');
 const { generateDesignReportPdf, generateDesignReportExcel } = require('../services/designReportService');
 const logger = require('../utils/logger');
 
-/** Verify ownership supporting solo engineers (no company_id) */
+/** Verify ownership supporting orphaned projects (created before user joined a company) */
 async function verifyProjectOwnership(projectId, user) {
-  let query = supabase.from('projects').select('id, name, state, city, company_id').eq('id', projectId);
-  if (user.company_id) {
-    query = query.eq('company_id', user.company_id);
+  const userId = user.id;
+  const companyId = user.company_id;
+
+  let query = supabase.from('projects').select('id, name, state, city, company_id, user_id').eq('id', projectId);
+
+  if (companyId) {
+    // User has a company - can access projects belonging to:
+    // 1. Their company, OR
+    // 2. Projects they personally created (company_id is null but user_id matches)
+    query = query.or(`company_id.eq.${companyId},and(user_id.eq.${userId},company_id.is.null)`);
   } else {
-    query = query.eq('user_id', user.id);
+    // User has no company - can only access their own projects
+    query = query.eq('user_id', userId);
   }
+
   const { data, error } = await query.maybeSingle();
   if (error) {
     logger.error('verifyProjectOwnership failed', { projectId, error: error.message });

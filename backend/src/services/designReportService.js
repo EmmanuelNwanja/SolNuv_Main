@@ -344,7 +344,7 @@ async function generateDesignReportPdf(simulationResultId) {
 
     // Print first 5 years + year 10, 15, 20, 25
     const cfWidths = [40, 80, 80, 80, 80, 80];
-    addTableRow(doc, ['Year', 'Savings', 'O&M', 'Net CF', 'Cumul. CF', 'Grid Cost'], cfWidths, { header: true });
+    addTableRow(doc, ['Year', 'Savings', 'O&M', 'Net CF', 'Cumul. CF', 'Gen kWh'], cfWidths, { header: true });
 
     const showYears = [0, 1, 2, 3, 4, ...[9, 14, 19, 24].filter(y => y < cashflow.length)];
     showYears.forEach(yi => {
@@ -356,7 +356,7 @@ async function generateDesignReportPdf(simulationResultId) {
         fmtCurrency(cf.om_cost, currency),
         fmtCurrency(cf.net_cashflow, currency),
         fmtCurrency(cf.cumulative_cashflow, currency),
-        fmtCurrency(cf.grid_cost, currency),
+        fmtCurrency(cf.generation_kwh, currency),
       ], cfWidths);
     });
   }
@@ -367,12 +367,12 @@ async function generateDesignReportPdf(simulationResultId) {
 
   const assumptions = [
     'Solar resource data sourced from NASA POWER climatological averages.',
-    `PV generation modelled using isotropic transposition with ${design?.system_losses_pct || 14}% total system losses.`,
-    `Panel degradation rate: ${design?.annual_degradation_pct || 0.5}% per year.`,
+    `PV generation modelled using isotropic transposition with ${design?.pv_system_losses_pct || 14}% total system losses.`,
+    `Panel degradation rate: ${design?.pv_degradation_annual_pct || 0.5}% per year.`,
     `Discount rate: ${design?.discount_rate_pct || 10}% (nominal).`,
     `Tariff escalation: ${design?.tariff_escalation_pct || 8}% per year.`,
     `Analysis period: ${analysisPeriod} years.`,
-    design?.bess_capacity_kwh > 0 ? `Battery round-trip efficiency: ${design?.bess_round_trip_efficiency ? (design.bess_round_trip_efficiency * 100) : 90}%.` : null,
+    design?.bess_capacity_kwh > 0 ? `Battery round-trip efficiency: ${((design?.bess_round_trip_efficiency ?? 0.90) * 100).toFixed(0)}%.` : null,
     'Financial projections are estimates and do not constitute financial advice.',
   ].filter(Boolean);
 
@@ -483,10 +483,10 @@ async function generateDesignReportExcel(simulationResultId) {
 
   // ── Cashflow Sheet ──
   const ws3 = wb.addWorksheet('Cashflow');
-  ws3.addRow(['Year', 'Savings', 'O&M', 'Net CF', 'Cumulative CF', 'Grid Cost', 'Solar Gen kWh']);
+  ws3.addRow(['Year', 'Savings', 'O&M', 'Net CF', 'Cumulative CF', 'Gen kWh']);
   ws3.getRow(1).font = { bold: true };
   cashflow.forEach(cf => {
-    ws3.addRow([cf.year, cf.savings, cf.om_cost, cf.net_cashflow, cf.cumulative_cashflow, cf.grid_cost, cf.generation_kwh]);
+    ws3.addRow([cf.year, cf.savings, cf.om_cost, cf.net_cashflow, cf.cumulative_cashflow, cf.generation_kwh]);
   });
 
   // ── Hourly Sheet (optional — can be very large) ──
