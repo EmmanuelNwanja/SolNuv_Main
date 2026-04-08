@@ -275,7 +275,14 @@ export default function ProjectDetail() {
           status: payload.status || 'active',
         });
       })
-      .catch(() => toast.error('Project not found'))
+      .catch((err) => {
+        if (err?.response?.status === 404) {
+          toast.error('Project not found - it may have been deleted');
+          router.replace('/projects');
+        } else {
+          toast.error('Failed to load project');
+        }
+      })
       .finally(() => setLoading(false));
   }, [id]);
 
@@ -312,7 +319,14 @@ export default function ProjectDetail() {
       await projectsAPI.delete(id);
       toast.success('Project deleted');
       router.push('/projects');
-    } catch { toast.error('Failed to delete project'); }
+    } catch (err) {
+      if (err?.response?.status === 404) {
+        toast.error('Project not found');
+        router.push('/projects');
+      } else {
+        toast.error('Failed to delete project');
+      }
+    }
   }
 
   async function handleSaveProjectEdits(e) {

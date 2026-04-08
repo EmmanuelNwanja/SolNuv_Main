@@ -514,15 +514,30 @@ exports.deleteProject = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const { error } = await supabase
+    // First check if project exists and belongs to user/company
+    const { data: existingProject, error: fetchError } = await supabase
+      .from('projects')
+      .select('id, name')
+      .eq('id', id)
+      .eq(req.user.company_id ? 'company_id' : 'user_id', req.user.company_id || req.user.id)
+      .single();
+
+    if (fetchError || !existingProject) {
+      return sendError(res, 'Project not found or access denied', 404);
+    }
+
+    // Delete the project
+    const { error: deleteError } = await supabase
       .from('projects')
       .delete()
-      .eq('id', id)
-      .eq(req.user.company_id ? 'company_id' : 'user_id', req.user.company_id || req.user.id);
+      .eq('id', id);
 
-    if (error) throw error;
+    if (deleteError) throw deleteError;
+
+    logger.info('Project deleted', { projectId: id, projectName: existingProject.name, deletedBy: req.user.id });
     return sendSuccess(res, null, 'Project deleted');
   } catch (_error) {
+    logger.error('Failed to delete project', { projectId: req.params.id, error: _error.message });
     return sendError(res, 'Failed to delete project', 500);
   }
 };
