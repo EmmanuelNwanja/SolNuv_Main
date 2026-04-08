@@ -97,13 +97,15 @@ function fmtCurrency(n, currency = 'ZAR') {
  */
 async function generateDesignReportPdf(simulationResultId) {
   // ── Load all data ──
-  const { data: result } = await supabase
+  const { data: result, error: resultError } = await supabase
     .from('simulation_results')
     .select('*')
     .eq('id', simulationResultId)
     .single();
 
-  if (!result) throw new Error('Simulation result not found');
+  if (resultError || !result) {
+    throw new Error('Simulation result not found: ' + (resultError?.message || 'Unknown error'));
+  }
 
   const { data: design } = await supabase
     .from('project_designs')
@@ -124,7 +126,7 @@ async function generateDesignReportPdf(simulationResultId) {
     .single() : { data: null };
 
   const companyName = project?.companies?.name || 'SolNuv';
-  const currency = tariff?.currency || 'ZAR';
+  const currency = tariff?.currency || 'NGN';
   const monthly = result.monthly_summary || [];
   const cashflow = result.yearly_cashflow || [];
   const exec = result.executive_summary_text || '';
@@ -356,7 +358,7 @@ async function generateDesignReportPdf(simulationResultId) {
         fmtCurrency(cf.om_cost, currency),
         fmtCurrency(cf.net_cashflow, currency),
         fmtCurrency(cf.cumulative_cashflow, currency),
-        fmtCurrency(cf.generation_kwh, currency),
+        fmt(cf.generation_kwh, 0),
       ], cfWidths);
     });
   }
