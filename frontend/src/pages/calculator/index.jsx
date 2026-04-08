@@ -1,7 +1,7 @@
 import Head from 'next/head';
 import Link from 'next/link';
-import { useState, useEffect } from 'react';
-import { calculatorAPI, downloadBlob, engineeringAPI } from '../../services/api';
+import { useState, useEffect, useRef } from 'react';
+import { calculatorAPI, engineeringAPI } from '../../services/api';
 import { getDashboardLayout } from '../../components/Layout';
 import { MotionSection } from '../../components/PageMotion';
 import { useAuth } from '../../context/AuthContext';
@@ -123,6 +123,8 @@ export default function Calculator() {
   const [cableResult, setCableResult] = useState(null);
   const [cableProjectId, setCableProjectId] = useState('');
   const [syncingQueue, setSyncingQueue] = useState(false);
+  const roiRef = useRef(null);
+  const cableRef = useRef(null);
 
   const CABLE_QUEUE_KEY = 'solnuv_cable_sync_queue_v1';
 
@@ -253,20 +255,20 @@ export default function Calculator() {
   }
 
   async function exportRoiPdf() {
-    if (!roiResult) return;
+    if (!roiResult || !roiRef.current) return;
     try {
-      const { data } = await calculatorAPI.exportRoiPdf(roiForm);
-      downloadBlob(data, `SolNuv_Hybrid_ROI_Proposal_${Date.now()}.pdf`);
+      const { exportToPdf } = await import('../../utils/pdfExport');
+      await exportToPdf(roiRef.current, `SolNuv_Hybrid_ROI_Proposal_${Date.now()}.pdf`);
     } catch {
       toast.error('Failed to export ROI PDF');
     }
   }
 
   async function exportCablePdf() {
-    if (!cableResult) return;
+    if (!cableResult || !cableRef.current) return;
     try {
-      const { data } = await calculatorAPI.exportCableCertificatePdf(cableForm);
-      downloadBlob(data, `SolNuv_Cable_Compliance_${Date.now()}.pdf`);
+      const { exportToPdf } = await import('../../utils/pdfExport');
+      await exportToPdf(cableRef.current, `SolNuv_Cable_Compliance_${Date.now()}.pdf`);
     } catch {
       toast.error('Failed to export cable certificate');
     }
@@ -587,7 +589,7 @@ export default function Calculator() {
 
         {/* ── ROI / PROPOSAL ENGINE ───────────────────────────────────────── */}
         {activeTab === 'roi' && (
-          <div className="grid md:grid-cols-2 gap-6">
+          <div className="grid md:grid-cols-2 gap-6" ref={roiRef}>
             <div className="card space-y-4">
               <h2 className="font-semibold text-forest-900">Hybrid ROI Proposal Inputs</h2>
               <div className="grid grid-cols-2 gap-3">
@@ -789,7 +791,7 @@ export default function Calculator() {
 
         {/* ── DC CABLE SIZING / COMPLIANCE ─────────────────────────────────── */}
         {activeTab === 'cable' && (
-          <div className="grid md:grid-cols-2 gap-6">
+          <div className="grid md:grid-cols-2 gap-6" ref={cableRef}>
             <div className="card space-y-4">
               <h2 className="font-semibold text-forest-900">DC Cable Sizing Inputs</h2>
               <div className="grid grid-cols-2 gap-3">

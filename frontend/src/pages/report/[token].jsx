@@ -1,7 +1,7 @@
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { useEffect, useState, useRef } from 'react';
-import { designReportAPI, downloadBlob } from '../../services/api';
+import { designReportAPI } from '../../services/api';
 import { RiSunLine, RiBatteryLine, RiMoneyDollarCircleLine, RiFlashlightLine, RiLeafLine, RiBarChartBoxLine, RiTimeLine, RiFileChartLine, RiGlobalLine, RiLockLine, RiArrowRightSLine } from 'react-icons/ri';
 import dynamic from 'next/dynamic';
 
@@ -64,7 +64,9 @@ export default function SharedReport() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [activeSection, setActiveSection] = useState('summary');
+  const [exportingPdf, setExportingPdf] = useState(false);
   const sectionRefs = useRef({});
+  const reportRef = useRef(null);
 
   useEffect(() => {
     if (!token) return;
@@ -115,13 +117,17 @@ export default function SharedReport() {
   };
 
   const downloadPdf = async () => {
+    if (!reportRef.current) return;
+    setExportingPdf(true);
+    const filename = `SolNuv_Design_Report_${data?.project?.name?.replace(/\s+/g, '_') || 'Report'}_${Date.now()}.pdf`;
     try {
-      const { data: blob } = await designReportAPI.downloadSharedReportPdf(token);
-      const filename = `SolNuv_Design_Report_${project?.name?.replace(/\s+/g, '_') || 'Report'}_${Date.now()}.pdf`;
-      downloadBlob(blob, filename);
+      const { exportToPdf } = await import('../../utils/pdfExport');
+      await exportToPdf(reportRef.current, filename);
     } catch (err) {
-      console.error('PDF download failed:', err);
-      alert('Failed to download PDF. Please try again.');
+      console.error('PDF export failed:', err);
+      alert('Failed to export PDF. Please try again.');
+    } finally {
+      setExportingPdf(false);
     }
   };
 
@@ -236,12 +242,20 @@ export default function SharedReport() {
                 </div>
                 <button
                   onClick={() => downloadPdf()}
-                  className="flex items-center gap-2 bg-[#10B981] hover:bg-[#0D9668] px-4 py-2 rounded-lg transition-colors font-medium"
+                  disabled={exportingPdf}
+                  className="flex items-center gap-2 bg-[#10B981] hover:bg-[#0D9668] px-4 py-2 rounded-lg transition-colors font-medium disabled:opacity-50"
                 >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                  Download PDF
+                  {exportingPdf ? (
+                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                  ) : (
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                  )}
+                  {exportingPdf ? 'Exporting...' : 'Download PDF'}
                 </button>
                 <a href="https://solnuv.com" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 bg-white/10 hover:bg-white/20 px-4 py-2 rounded-lg transition-colors">
                   <span className="font-semibold">SolNuv</span>
@@ -251,7 +265,7 @@ export default function SharedReport() {
           </div>
         </header>
 
-        <div className="max-w-7xl mx-auto flex">
+        <div className="max-w-7xl mx-auto flex" ref={reportRef}>
           {/* Sidebar Navigation */}
           <aside className="hidden lg:block w-64 flex-shrink-0 sticky top-24 h-[calc(100vh-6rem)] overflow-y-auto p-6">
             <nav className="space-y-1">
