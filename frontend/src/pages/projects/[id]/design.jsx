@@ -57,12 +57,13 @@ function NumericInput({ value, onChange, className = 'input', ...props }) {
   );
 }
 
-const STEPS = [
+  const STEPS = [
   { key: 'location', label: 'Location', icon: RiMapPinLine },
   { key: 'tariff', label: 'Tariff', icon: RiMoneyDollarCircleLine },
   { key: 'load', label: 'Load Profile', icon: RiFlashlightLine },
   { key: 'pv', label: 'PV System', icon: RiSunLine },
   { key: 'bess', label: 'Battery', icon: RiBatteryLine },
+  { key: 'inverter', label: 'Inverter', icon: RiPlugLine },
   { key: 'financial', label: 'Financial', icon: RiLineChartLine },
   { key: 'simulate', label: 'Simulate', icon: RiPlayLine },
 ];
@@ -440,7 +441,8 @@ export default function DesignWizard() {
         }
         return !form.include_bess || (form.bess_capacity_kwh && form.bess_power_kw);
       }
-      case 5: return form.total_cost;
+      case 5: return true; // Inverter is optional
+      case 6: return form.total_cost;
       default: return true;
     }
   };
@@ -1028,8 +1030,49 @@ export default function DesignWizard() {
             </div>
           )}
 
-          {/* STEP 5: Financial */}
+          {/* STEP 5: Inverter */}
           {step === 5 && (
+            <div className="space-y-4">
+              <h2 className="text-lg font-semibold text-forest-900 dark:text-white">Inverter Specifications</h2>
+              <p className="text-sm text-gray-500">Enter your inverter details for accurate simulation. Leave blank to use estimated values.</p>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="label">Make / Brand</label>
+                  <input type="text" className="input" value={form.user_inverter_make}
+                    onChange={e => updateForm('user_inverter_make', e.target.value)}
+                    placeholder="e.g. SMA, Huawei, Fronius" />
+                </div>
+                <div>
+                  <label className="label">Model</label>
+                  <input type="text" className="input" value={form.user_inverter_model}
+                    onChange={e => updateForm('user_inverter_model', e.target.value)}
+                    placeholder="e.g. Sunny Tripower 10" />
+                </div>
+                <div>
+                  <label className="label">Rated Power (kW)</label>
+                  <NumericInput value={form.user_inverter_power_kw}
+                    onChange={v => updateForm('user_inverter_power_kw', v)} placeholder="e.g. 10" className="input" />
+                  <p className="text-xs text-gray-400 mt-1">AC output rating of the inverter.</p>
+                </div>
+                <div>
+                  <label className="label">DC Input Voltage (V)</label>
+                  <NumericInput value={form.user_inverter_voltage}
+                    onChange={v => updateForm('user_inverter_voltage', v)} placeholder="e.g. 600" className="input" />
+                  <p className="text-xs text-gray-400 mt-1">Max DC input voltage rating.</p>
+                </div>
+              </div>
+
+              {(form.grid_topology === 'off_grid' || form.grid_topology === 'hybrid') && (
+                <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl text-sm text-amber-700 dark:text-amber-300">
+                  <strong>Note:</strong> For off-grid and hybrid systems, the inverter must be sized to handle the peak load plus battery charging. Recommended: inverter rating ≥ peak load × 1.2.
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* STEP 6: Financial */}
+          {step === 6 && (
             <div className="space-y-4">
               <h2 className="text-lg font-semibold text-forest-900 dark:text-white">Financial Parameters</h2>
 
@@ -1092,8 +1135,8 @@ export default function DesignWizard() {
             </div>
           )}
 
-          {/* STEP 6: Simulate */}
-          {step === 6 && (
+          {/* STEP 7: Simulate */}
+          {step === 7 && (
             <div className="space-y-5">
               <h2 className="text-lg font-semibold text-forest-900 dark:text-white">Review & Simulate</h2>
               <p className="text-sm text-gray-500 dark:text-gray-400">Review your design parameters before running the simulation.</p>
