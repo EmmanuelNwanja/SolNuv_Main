@@ -211,7 +211,20 @@ exports.createShareLink = async (req, res) => {
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      logger.error('createShareLink DB error', { 
+        message: error.message, 
+        details: error.details,
+        hint: error.hint,
+        projectId,
+        userId: req.user?.id 
+      });
+      return sendError(res, 'Failed to create share link: ' + error.message);
+    }
+
+    if (!share) {
+      return sendError(res, 'Share link creation failed - no data returned', 500);
+    }
 
     const baseUrl = process.env.FRONTEND_URL || 'https://solnuv.com';
     return sendSuccess(res, {
@@ -221,8 +234,8 @@ exports.createShareLink = async (req, res) => {
       expires_at: expiresAt,
     }, 'Share link created', 201);
   } catch (err) {
-    logger.error('createShareLink error', { message: err.message });
-    return sendError(res, 'Failed to create share link');
+    logger.error('createShareLink error', { message: err.message, stack: err.stack });
+    return sendError(res, 'Failed to create share link: ' + err.message);
   }
 };
 
