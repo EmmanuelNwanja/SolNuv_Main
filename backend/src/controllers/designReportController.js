@@ -288,19 +288,28 @@ exports.getSharedReport = async (req, res) => {
     // Get full design data
     const { data: fullDesign } = await supabase
       .from('project_designs')
-      .select('pv_technology, pv_capacity_kwp, pv_tilt_deg, pv_azimuth_deg, bess_capacity_kwh, bess_power_kw, bess_chemistry, bess_dispatch_strategy')
+      .select('*, project:projects(name, location, companies(name))')
       .eq('id', design.id)
       .single();
 
-    // Get project info
-    const { data: project } = await supabase
-      .from('projects')
-      .select('name, location, companies(name)')
-      .eq('id', share.project_id)
-      .single();
+    // Get project info - try from share first, fallback to design's project
+    const projectId = share.project_id || fullDesign?.project_id;
+    let projectData = null;
+    if (projectId) {
+      const { data: project } = await supabase
+        .from('projects')
+        .select('name, location, city, state, companies(name)')
+        .eq('id', projectId)
+        .single();
+      projectData = project;
+    }
 
     return sendSuccess(res, {
-      project: { name: project?.name, location: project?.location, company: project?.companies?.name },
+      project: { 
+        name: projectData?.name || fullDesign?.project?.name || 'Solar Project', 
+        location: projectData?.location || projectData?.city || fullDesign?.project?.location || 'N/A', 
+        company: projectData?.companies?.name || fullDesign?.project?.companies?.name 
+      },
       design: fullDesign,
       result: {
         pv_capacity_kwp: result.pv_capacity_kwp,
