@@ -476,13 +476,19 @@ exports.updateProject = async (req, res) => {
       .eq('id', id)
       .maybeSingle();
 
-    const { data: project, error } = await supabase
+    // Build ownership query - match by company_id OR by user_id (for orphaned projects)
+    let ownershipQuery = supabase
       .from('projects')
       .update(updateData)
-      .eq('id', id)
-      .eq(req.user.company_id ? 'company_id' : 'user_id', req.user.company_id || req.user.id)
-      .select('*, equipment(*)')
-      .single();
+      .eq('id', id);
+
+    if (req.user.company_id) {
+      ownershipQuery = ownershipQuery.or(`company_id.eq.${req.user.company_id},and(user_id.eq.${req.user.id},company_id.is.null)`);
+    } else {
+      ownershipQuery = ownershipQuery.eq('user_id', req.user.id);
+    }
+
+    const { data: project, error } = await ownershipQuery.select('*, equipment(*)').single();
 
     if (error) throw error;
 
@@ -513,14 +519,27 @@ exports.updateProject = async (req, res) => {
 exports.deleteProject = async (req, res) => {
   try {
     const { id } = req.params;
+    const userId = req.user.id;
+    const companyId = req.user.company_id;
 
-    // First check if project exists and belongs to user/company
-    const { data: existingProject, error: fetchError } = await supabase
+    // Build ownership query - match by company_id OR by user_id (for orphaned projects created before user had a company)
+    let query = supabase
       .from('projects')
-      .select('id, name')
-      .eq('id', id)
-      .eq(req.user.company_id ? 'company_id' : 'user_id', req.user.company_id || req.user.id)
-      .single();
+      .select('id, name, company_id, user_id')
+      .eq('id', id);
+
+    // Match by company_id OR by user_id (orphaned projects)
+    if (companyId) {
+      // User has a company - can delete projects belonging to:
+      // 1. Their company, OR
+      // 2. Projects they personally created (company_id is null but user_id matches)
+      query = query.or(`company_id.eq.${companyId},and(user_id.eq.${userId},company_id.is.null)`);
+    } else {
+      // User has no company - can only delete their own projects
+      query = query.eq('user_id', userId);
+    }
+
+    const { data: existingProject, error: fetchError } = await query.single();
 
     if (fetchError || !existingProject) {
       return sendError(res, 'Project not found or access denied', 404);
@@ -534,7 +553,12 @@ exports.deleteProject = async (req, res) => {
 
     if (deleteError) throw deleteError;
 
-    logger.info('Project deleted', { projectId: id, projectName: existingProject.name, deletedBy: req.user.id });
+    logger.info('Project deleted', { 
+      projectId: id, 
+      projectName: existingProject.name, 
+      deletedBy: userId,
+      wasOrphaned: existingProject.company_id === null 
+    });
     return sendSuccess(res, null, 'Project deleted');
   } catch (_error) {
     logger.error('Failed to delete project', { projectId: req.params.id, error: _error.message });

@@ -458,15 +458,22 @@ exports.getFeedbackOverview = async (req, res) => {
 exports.generateFeedbackLink = async (req, res) => {
   try {
     const { projectId } = req.params;
-    const scopeField = req.user.company_id ? 'company_id' : 'user_id';
-    const scopeValue = req.user.company_id || req.user.id;
+    const userId = req.user.id;
+    const companyId = req.user.company_id;
 
-    const { data: project } = await supabase
+    // Build ownership query - match by company_id OR by user_id (for orphaned projects)
+    let projectQuery = supabase
       .from('projects')
       .select('id, name, feedback_token')
-      .eq('id', projectId)
-      .eq(scopeField, scopeValue)
-      .single();
+      .eq('id', projectId);
+
+    if (companyId) {
+      projectQuery = projectQuery.or(`company_id.eq.${companyId},and(user_id.eq.${userId},company_id.is.null)`);
+    } else {
+      projectQuery = projectQuery.eq('user_id', userId);
+    }
+
+    const { data: project } = await projectQuery.single();
 
     if (!project) return sendError(res, 'Project not found', 404);
 
@@ -676,15 +683,20 @@ exports.getPublicProfile = async (req, res) => {
       companyMeta = companyData || null;
     }
 
-    const scopeField = user.company_id ? 'company_id' : 'user_id';
-    const scopeValue = user.company_id || user.id;
-
-    const { data: projects } = await supabase
+    // Build ownership query - match by company_id OR by user_id (for orphaned projects)
+    let projectsQuery = supabase
       .from('projects')
       .select('id, name, status, state, city, address, latitude, longitude, installation_date, estimated_decommission_date, total_system_size_kw, created_at')
-      .eq(scopeField, scopeValue)
       .order('created_at', { ascending: false })
       .limit(30);
+
+    if (user.company_id) {
+      projectsQuery = projectsQuery.or(`company_id.eq.${user.company_id},and(user_id.eq.${user.id},company_id.is.null)`);
+    } else {
+      projectsQuery = projectsQuery.eq('user_id', user.id);
+    }
+
+    const { data: projects } = await projectsQuery;
 
     const projectIds = (projects || []).map((p) => p.id);
 
