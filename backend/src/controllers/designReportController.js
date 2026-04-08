@@ -226,9 +226,8 @@ async function buildDesignReportData(simulationResultId) {
  * Download professional PDF design report. Pro+ plan.
  */
 exports.downloadPdf = async (req, res) => {
+  const { projectId } = req.params;
   try {
-    const { projectId } = req.params;
-
     const project = await verifyProjectOwnership(projectId, req.user);
     if (!project) return sendError(res, 'Project not found', 404);
 
@@ -247,8 +246,13 @@ exports.downloadPdf = async (req, res) => {
     res.setHeader('Content-Length', pdfBuffer.length);
     return res.send(pdfBuffer);
   } catch (err) {
-    logger.error('downloadPdf error', { message: err.message, stack: err.stack });
-    return sendError(res, 'Failed to generate PDF report');
+    logger.error('downloadPdf error', { 
+      message: err.message, 
+      stack: err.stack,
+      projectId,
+      userId: req.user?.id 
+    });
+    return sendError(res, 'Failed to generate PDF report: ' + err.message);
   }
 };
 

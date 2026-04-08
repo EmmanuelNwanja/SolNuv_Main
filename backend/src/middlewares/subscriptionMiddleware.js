@@ -16,14 +16,17 @@ function requirePlan(minPlan) {
   return (req, res, next) => {
     if (!req.user) return sendError(res, 'Authentication required', 401);
 
-    const userPlan = req.user.companies?.subscription_plan || req.user.subscription_plan || 'free';
+    // Get subscription plan from company if available, otherwise from user record
+    // req.company is set by authMiddleware and is the preferred source
+    const company = req.company || req.user.companies;
+    const userPlan = company?.subscription_plan || req.user.subscription_plan || 'free';
     const userPlanLevel = PLAN_HIERARCHY_LOCAL[userPlan] ?? 0;
     const requiredLevel = PLAN_HIERARCHY_LOCAL[minPlan] ?? 0;
 
     // Grace period: use subscription_grace_until as the hard cutoff if available,
     // otherwise fall back to subscription_expires_at.
-    const graceUntil = req.user.companies?.subscription_grace_until;
-    const expiresAt = req.user.companies?.subscription_expires_at;
+    const graceUntil = company?.subscription_grace_until;
+    const expiresAt = company?.subscription_expires_at;
     const hardCutoff = graceUntil || expiresAt;
     if (hardCutoff && new Date(hardCutoff) < new Date() && userPlan !== 'free') {
       return sendError(res, 'Your subscription has expired. Please renew to access this feature.', 402, {

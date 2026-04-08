@@ -165,8 +165,8 @@ exports.generateNesrea = async (req, res) => {
     res.setHeader('Content-Length', pdfBuffer.length);
     return res.send(pdfBuffer);
   } catch (error) {
-    logger.error('NESREA report error:', { message: error.message, stack: error.stack });
-    return sendError(res, 'Failed to generate report. Please try again.', 500);
+    logger.error('NESREA report error:', { message: error.message, stack: error.stack, userId: req.user?.id });
+    return sendError(res, 'Failed to generate NESREA report: ' + error.message, 500);
   }
 };
 
@@ -206,7 +206,7 @@ exports.generateCertificate = async (req, res) => {
     return res.send(pdfBuffer);
   } catch (error) {
     logger.error('Certificate generation failed', { user_id: req.user?.id || null, project_id: req.params?.projectId || null, message: error.message, stack: error.stack });
-    return sendError(res, 'Failed to generate certificate', 500);
+    return sendError(res, 'Failed to generate certificate: ' + error.message, 500);
   }
 };
 
