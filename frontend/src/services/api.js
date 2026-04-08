@@ -426,6 +426,7 @@ export const designReportAPI = {
   downloadExcel: (projectId) => api.get(`/design-reports/${projectId}/excel`, { responseType: 'blob' }),
   createShareLink: (projectId, data) => api.post(`/design-reports/${projectId}/share`, data),
   getSharedReport: (token) => api.get(`/design-reports/shared/${token}`),
+  downloadSharedReportPdf: (token) => api.get(`/design-reports/shared/${token}/pdf`, { responseType: 'blob' }),
 };
 
 // ==============================

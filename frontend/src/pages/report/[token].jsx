@@ -1,7 +1,7 @@
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { useEffect, useState, useRef } from 'react';
-import { designReportAPI } from '../../services/api';
+import { designReportAPI, downloadBlob } from '../../services/api';
 import { RiSunLine, RiBatteryLine, RiMoneyDollarCircleLine, RiFlashlightLine, RiLeafLine, RiBarChartBoxLine, RiTimeLine, RiFileChartLine, RiGlobalLine, RiLockLine, RiArrowRightSLine } from 'react-icons/ri';
 import dynamic from 'next/dynamic';
 
@@ -114,6 +114,17 @@ export default function SharedReport() {
     }
   };
 
+  const downloadPdf = async () => {
+    try {
+      const { data: blob } = await designReportAPI.downloadSharedReportPdf(token);
+      const filename = `SolNuv_Design_Report_${project?.name?.replace(/\s+/g, '_') || 'Report'}_${Date.now()}.pdf`;
+      downloadBlob(blob, filename);
+    } catch (err) {
+      console.error('PDF download failed:', err);
+      alert('Failed to download PDF. Please try again.');
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-100">
@@ -223,6 +234,15 @@ export default function SharedReport() {
                   {project?.company && <p className="text-sm text-green-300">{project.company}</p>}
                   <p className="text-xs text-green-200">{project?.location}{project?.state && `, ${project.state}`}</p>
                 </div>
+                <button
+                  onClick={() => downloadPdf()}
+                  className="flex items-center gap-2 bg-[#10B981] hover:bg-[#0D9668] px-4 py-2 rounded-lg transition-colors font-medium"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  Download PDF
+                </button>
                 <a href="https://solnuv.com" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 bg-white/10 hover:bg-white/20 px-4 py-2 rounded-lg transition-colors">
                   <span className="font-semibold">SolNuv</span>
                 </a>
