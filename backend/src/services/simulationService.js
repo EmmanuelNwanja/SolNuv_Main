@@ -219,7 +219,7 @@ async function runSimulation(projectDesignId) {
   // 9. Run financial model
   const capexTotal = Number(design.capex_total) || 0;
   const annualPvKwh = bessResults.annual.solar_gen_kwh;
-  const bessChemistry = resolveChemistry(design.bess_chemistry);
+  const bessChemistryResolved = resolveChemistry(design.bess_chemistry);
 
   const financials = calculate25YearCashflow({
     analysisPeriodYears: Number(design.analysis_period_years) || 25,
@@ -233,7 +233,7 @@ async function runSimulation(projectDesignId) {
     year1GenKwh: annualPvKwh,
     pvTechnology: pvTech,
     bessCapacityKwh: bessCapacity,
-    bessChemistry,
+    bessChemistry: bessChemistryResolved,
     bessDodPct: Number(design.bess_dod_pct) || 80,
     annualBatteryCycles: bessResults.annual.battery_cycles || 0,
     bessCapexShare: (design.capex_breakdown?.bess) || capexTotal * 0.4,
