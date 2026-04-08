@@ -285,30 +285,58 @@ exports.getSharedReport = async (req, res) => {
 
     if (!result) return sendError(res, 'No simulation results found', 404);
 
-    // Get full design data
+    // Get full design data with all fields
     const { data: fullDesign } = await supabase
       .from('project_designs')
-      .select('*, project:projects(name, location, companies(name))')
+      .select('*')
       .eq('id', design.id)
       .single();
 
-    // Get project info - try from share first, fallback to design's project
+    // Get project info with company
     const projectId = share.project_id || fullDesign?.project_id;
     let projectData = null;
+    let tariffData = null;
+    
     if (projectId) {
       const { data: project } = await supabase
         .from('projects')
-        .select('name, location, city, state, companies(name)')
+        .select('*, companies(name, branding_primary_color, nesrea_registration_number)')
         .eq('id', projectId)
         .single();
       projectData = project;
     }
 
+    // Get tariff data
+    if (fullDesign?.tariff_structure_id) {
+      const { data: tariff } = await supabase
+        .from('tariff_structures')
+        .select('*, tariff_rates(*)')
+        .eq('id', fullDesign.tariff_structure_id)
+        .single();
+      tariffData = tariff;
+    }
+
+    // Get equipment for brand info
+    let equipmentData = null;
+    if (projectId) {
+      const { data: equipment } = await supabase
+        .from('equipment')
+        .select('*')
+        .eq('project_id', projectId)
+        .eq('is_installed', true)
+        .limit(20);
+      equipmentData = equipment;
+    }
+
     return sendSuccess(res, {
       project: { 
-        name: projectData?.name || fullDesign?.project?.name || 'Solar Project', 
-        location: projectData?.location || projectData?.city || fullDesign?.project?.location || 'N/A', 
-        company: projectData?.companies?.name || fullDesign?.project?.companies?.name 
+        id: projectData?.id,
+        name: projectData?.name || fullDesign?.project_name || 'Solar Project', 
+        location: projectData?.location || projectData?.city || fullDesign?.location || 'N/A',
+        city: projectData?.city,
+        state: projectData?.state,
+        company: projectData?.companies?.name,
+        nesrea_reg: projectData?.companies?.nesrea_registration_number,
       },
       design: {
         pv_technology: fullDesign?.pv_technology,
@@ -318,16 +346,27 @@ exports.getSharedReport = async (req, res) => {
         pv_system_losses_pct: fullDesign?.pv_system_losses_pct,
         pv_degradation_annual_pct: fullDesign?.pv_degradation_annual_pct,
         bess_capacity_kwh: fullDesign?.bess_capacity_kwh,
+        bess_power_kw: fullDesign?.bess_power_kw,
         bess_dod_pct: fullDesign?.bess_dod_pct,
         bess_chemistry: fullDesign?.bess_chemistry,
         bess_dispatch_strategy: fullDesign?.bess_dispatch_strategy,
         bess_round_trip_efficiency: fullDesign?.bess_round_trip_efficiency,
         capex_total: fullDesign?.capex_total,
+        capex_breakdown: fullDesign?.capex_breakdown,
         discount_rate_pct: fullDesign?.discount_rate_pct,
         tariff_escalation_pct: fullDesign?.tariff_escalation_pct,
         analysis_period_years: fullDesign?.analysis_period_years,
         grid_topology: fullDesign?.grid_topology,
+        location_lat: fullDesign?.location_lat,
+        location_lon: fullDesign?.location_lon,
       },
+      tariff: tariffData ? {
+        name: tariffData.tariff_name,
+        utility: tariffData.utility_name,
+        currency: tariffData.currency,
+        rates: tariffData.tariff_rates,
+      } : null,
+      equipment: equipmentData,
       result: {
         pv_capacity_kwp: result.pv_capacity_kwp,
         annual_generation_kwh: result.annual_solar_gen_kwh,
@@ -343,9 +382,14 @@ exports.getSharedReport = async (req, res) => {
         year1_annual_cost: result.year1_annual_cost,
         battery_discharged_kwh: result.battery_discharged_kwh,
         battery_cycles_annual: result.battery_cycles_annual,
+        peak_demand_before_kw: result.peak_demand_before_kw,
+        peak_demand_after_kw: result.peak_demand_after_kw,
         monthly_summary: result.monthly_summary,
         yearly_cashflow: result.yearly_cashflow,
         executive_summary_text: result.executive_summary_text,
+        ai_feedback_text: result.ai_feedback_text,
+        // Energy comparison data if available
+        energy_comparison: result.energy_comparison ? JSON.parse(result.energy_comparison) : null,
       },
     }, 'Shared report retrieved');
   } catch (err) {
