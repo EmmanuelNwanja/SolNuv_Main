@@ -797,7 +797,7 @@ exports.generateOtp = async (req, res) => {
       .eq('used', false);
 
     // Create new OTP
-    const { data: newOtp, error: otpError } = await supabase
+    const insertResult = await supabase
       .from('password_reset_otps')
       .insert({
         email: normalizedEmail,
@@ -806,10 +806,23 @@ exports.generateOtp = async (req, res) => {
         channel: 'admin_generated',
         expires_at,
       })
-      .select()
-      .single();
+      .select();
 
-    if (otpError) throw otpError;
+    if (insertResult.error) {
+      logger.error('Failed to insert OTP into database', {
+        error: insertResult.error.message,
+        code: insertResult.error.code,
+        details: insertResult.error.details,
+        hint: insertResult.error.hint
+      });
+      throw new Error(`Database insert failed: ${insertResult.error.message}`);
+    }
+
+    const newOtp = insertResult.data?.[0];
+    if (!newOtp) {
+      logger.error('OTP insert returned no data', { insertResult: JSON.stringify(insertResult) });
+      throw new Error('OTP insert returned no data');
+    }
 
     await logPlatformActivity({
       actorUserId: req.user.id,
@@ -833,8 +846,8 @@ exports.generateOtp = async (req, res) => {
       message: 'OTP generated. Manually share with user if SMS delivery failed.',
     }, 'OTP created', 201);
   } catch (error) {
-    console.error('admin.generateOtp error:', error);
-    return sendError(res, 'Failed to generate OTP', 500);
+    logger.error('admin.generateOtp error:', { message: error.message, stack: error.stack });
+    return sendError(res, 'Failed to generate OTP: ' + error.message, 500);
   }
 };
 
