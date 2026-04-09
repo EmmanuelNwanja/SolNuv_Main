@@ -8,6 +8,12 @@ import toast from 'react-hot-toast';
 
 const NIGERIAN_STATES = ['Abia','Adamawa','Akwa Ibom','Anambra','Bauchi','Bayelsa','Benue','Borno','Cross River','Delta','Ebonyi','Edo','Ekiti','Enugu','FCT','Gombe','Imo','Jigawa','Kaduna','Kano','Katsina','Kebbi','Kogi','Kwara','Lagos','Nasarawa','Niger','Ogun','Ondo','Osun','Oyo','Plateau','Rivers','Sokoto','Taraba','Yobe','Zamfara'];
 
+function isValidNigerianPhone(phone) {
+  if (!phone) return false;
+  const cleaned = phone.replace(/\s/g, '');
+  return /^(\+?234|0)[789][01]\d{8}$/.test(cleaned);
+}
+
 export default function Onboarding() {
   const { session, loading, profileResolved, isOnboarded, isPlatformAdmin, refreshProfile } = useAuth();
   const router = useRouter();
@@ -91,6 +97,10 @@ export default function Onboarding() {
         toast.error('Phone number is required');
         return false;
       }
+      if (!isValidNigerianPhone(form.phone)) {
+        toast.error('Please enter a valid Nigerian phone number (e.g., 08012345678)');
+        return false;
+      }
     }
 
     if (step === 3 && isRegistered) {
@@ -106,6 +116,10 @@ export default function Onboarding() {
   async function handleSubmit() {
     if (!form.first_name) { toast.error('Please enter your first name'); return; }
     if (!form.phone) { toast.error('Phone number is required'); return; }
+    if (!isValidNigerianPhone(form.phone)) {
+      toast.error('Please enter a valid Nigerian phone number (e.g., 08012345678)');
+      return;
+    }
     if (isRegistered && !form.company_name) { toast.error('Company name is required'); return; }
     setSubmitting(true);
     setSubmitError('');
@@ -117,6 +131,7 @@ export default function Onboarding() {
       toast.success('Profile saved! Welcome to SolNuv 🌞');
       router.push('/plans?welcome=1');
     } catch (err) {
+      redirectedRef.current = false; // Reset on failure to allow retry
       const msg = err.response?.data?.message || 'Failed to save profile. Please try again.';
       setSubmitError(msg);
       toast.error(msg);
