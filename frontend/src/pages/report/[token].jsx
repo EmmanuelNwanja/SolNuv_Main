@@ -44,6 +44,7 @@ const CHEM_LABELS = {
 };
 
 const SECTIONS = [
+  { id: 'project-details', label: 'Project Details' },
   { id: 'summary', label: 'Summary' },
   { id: 'pv-system', label: 'PV System' },
   { id: 'battery', label: 'Battery' },
@@ -268,6 +269,141 @@ export default function SharedReport() {
         <div className="max-w-5xl mx-auto" ref={reportRef}>
           {/* Main Content */}
           <main className="px-6 py-8 space-y-8">
+            {/* Project Details Section */}
+            <section id="project-details" ref={(el) => (sectionRefs.current['project-details'] = el)} className="bg-white rounded-2xl p-6 shadow-sm border">
+              <h2 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                <RiFileChartLine className="text-[#10B981]" /> Project Details
+              </h2>
+              
+              <div className="grid md:grid-cols-2 gap-6">
+                {/* Client Information */}
+                <div className="bg-slate-50 rounded-xl p-4">
+                  <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-3">Client Information</h3>
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-slate-600">Client Name</span>
+                      <span className="font-medium text-slate-800">{project?.client_name || '—'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-600">Contact Email</span>
+                      <span className="font-medium text-slate-800">{project?.client_email || '—'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-600">Contact Phone</span>
+                      <span className="font-medium text-slate-800">{project?.client_phone || '—'}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Installer / Company Information */}
+                <div className="bg-emerald-50 rounded-xl p-4">
+                  <h3 className="text-sm font-semibold text-emerald-600 uppercase tracking-wide mb-3">Installer / Company</h3>
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-slate-600">Company</span>
+                      <span className="font-medium text-slate-800">{project?.company || '—'}</span>
+                    </div>
+                    {project?.company_email && (
+                      <div className="flex justify-between">
+                        <span className="text-slate-600">Email</span>
+                        <span className="font-medium text-slate-800">{project.company_email}</span>
+                      </div>
+                    )}
+                    {project?.company_phone && (
+                      <div className="flex justify-between">
+                        <span className="text-slate-600">Phone</span>
+                        <span className="font-medium text-slate-800">{project.company_phone}</span>
+                      </div>
+                    )}
+                    {project?.nesrea_reg && (
+                      <div className="flex justify-between">
+                        <span className="text-slate-600">NESREA Reg.</span>
+                        <span className="font-medium text-slate-800">{project.nesrea_reg}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Project Location */}
+                <div className="bg-slate-50 rounded-xl p-4">
+                  <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-3">Project Location</h3>
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-slate-600">Address</span>
+                      <span className="font-medium text-slate-800">{project?.address || '—'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-600">City / State</span>
+                      <span className="font-medium text-slate-800">
+                        {[project?.city, project?.state].filter(Boolean).join(', ') || '—'}
+                      </span>
+                    </div>
+                    {project?.location_lat && project?.location_lon && (
+                      <div className="flex justify-between">
+                        <span className="text-slate-600">Coordinates</span>
+                        <span className="font-medium text-slate-800">
+                          {parseFloat(project.location_lat).toFixed(4)}°N, {parseFloat(project.location_lon).toFixed(4)}°E
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Project Specifications */}
+                <div className="bg-amber-50 rounded-xl p-4">
+                  <h3 className="text-sm font-semibold text-amber-600 uppercase tracking-wide mb-3">Project Specifications</h3>
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-slate-600">System Type</span>
+                      <span className="font-medium text-slate-800 capitalize">
+                        {TOPOLOGY_LABELS[design?.grid_topology] || design?.grid_topology || '—'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-600">PV Capacity</span>
+                      <span className="font-medium text-slate-800">{fmt(design?.pv_capacity_kwp, 2)} kWp</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-600">Battery</span>
+                      <span className="font-medium text-slate-800">
+                        {design?.bess_capacity_kwh ? `${fmt(design.bess_capacity_kwh, 2)} kWh` : 'N/A'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-600">PV Technology</span>
+                      <span className="font-medium text-slate-800">
+                        {TECH_LABELS[design?.pv_technology] || design?.pv_technology || '—'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Timeline */}
+              <div className="mt-6 pt-4 border-t border-slate-200">
+                <div className="flex flex-wrap gap-6 text-sm">
+                  {project?.installation_date && (
+                    <div>
+                      <span className="text-slate-500">Installation Date: </span>
+                      <span className="font-medium text-slate-700">
+                        {new Date(project.installation_date).toLocaleDateString('en-NG', { year: 'numeric', month: 'long', day: 'numeric' })}
+                      </span>
+                    </div>
+                  )}
+                  <div>
+                    <span className="text-slate-500">Generated: </span>
+                    <span className="font-medium text-slate-700">
+                      {new Date().toLocaleDateString('en-NG', { year: 'numeric', month: 'long', day: 'numeric' })}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500">Design Lifetime: </span>
+                    <span className="font-medium text-slate-700">{design?.analysis_period_years || 25} Years</span>
+                  </div>
+                </div>
+              </div>
+            </section>
+
             {/* Executive Summary */}
             {result?.executive_summary_text && (
               <section id="summary" ref={(el) => (sectionRefs.current['summary'] = el)} className="bg-gradient-to-r from-[#0D3B2E] to-[#166534] text-white rounded-2xl p-6 shadow-lg">

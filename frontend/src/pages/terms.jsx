@@ -317,6 +317,9 @@ export default function TermsOfService() {
           <p>
             Our climate-adjusted models use research-backed data sourced from published studies, manufacturer datasheets, and Nigerian field observations. However, real-world conditions vary significantly due to micro-climates, installation quality, equipment manufacturing variance, grid conditions, and other factors that we cannot fully control or predict. Actual equipment performance may differ from our estimates.
           </p>
+          <p>
+            Our satellite irradiance data is sourced from publicly available datasets with known limitations in spatial resolution and may not fully capture micro-climate variations within specific urban or rural areas. This data should be used as a guide for system sizing rather than a precise measurement of solar resource at a given site.
+          </p>
 
           <SubHeading>10.4 Market Prices & Financial Estimates</SubHeading>
           <p>
@@ -360,7 +363,8 @@ export default function TermsOfService() {
           </p>
           <ul>
             <li>Do <strong>not</strong> constitute professional engineering advice, financial recommendations, legal counsel, or certified compliance assessments;</li>
-            <li>May contain inaccuracies, outdated information, or incomplete analysis;</li>
+            <li>May contain inaccuracies, hallucinations (plausible but incorrect information), or outdated information due to knowledge cut-off dates;</li>
+            <li>May produce different responses for identical or similar queries across different sessions;</li>
             <li>Must be independently verified before making business, financial, safety-critical, or regulatory decisions;</li>
             <li>Are not guaranteed to be consistent, reproducible, or free from bias.</li>
           </ul>
@@ -381,6 +385,60 @@ export default function TermsOfService() {
             <li>Present AI-generated outputs as certified professional work product without independent professional review;</li>
             <li>Use the AI features to build, train, or improve competing AI products or services.</li>
           </ul>
+
+          <SubHeading>12.6 AI & Technology Limitations</SubHeading>
+
+          <SubHeading>12.6.1 Machine Learning Model Limitations</SubHeading>
+          <p>
+            SolNuv&apos;s engineering tools and AI agents are powered by machine learning models and proprietary algorithms. These models:
+          </p>
+          <ul>
+            <li>Are trained on historical data and may not accurately predict future conditions;</li>
+            <li>Have inherent uncertainty margins that are disclosed where applicable;</li>
+            <li>Depend on the quality and representativeness of underlying training data;</li>
+            <li>May produce different outputs for identical inputs across different sessions due to probabilistic nature;</li>
+            <li>Are periodically updated; older results may not reflect current model versions.</li>
+          </ul>
+
+          <SubHeading>12.6.2 Degradation & Lifespan Predictions</SubHeading>
+          <p>
+            Our decommission date predictions and degradation models use:
+          </p>
+          <ul>
+            <li>Published degradation rates from manufacturer datasheets;</li>
+            <li>Climate zone classifications based on geographic region;</li>
+            <li>Statistical projections that cannot account for individual installation variance;</li>
+            <li>Estimates for real-world factors such as soiling, shading, temperature, and maintenance.</li>
+          </ul>
+          <p>
+            Actual equipment performance depends on site-specific conditions we cannot fully model. Predictions should be treated as planning benchmarks, not guarantees.
+          </p>
+
+          <SubHeading>12.6.3 Market Price & Financial Estimates</SubHeading>
+          <p>
+            All commodity prices, equipment costs, and financial projections are indicative estimates based on:
+          </p>
+          <ul>
+            <li>Published market data and research studies;</li>
+            <li>Regional cost benchmarks;</li>
+            <li>General industry assumptions.</li>
+          </ul>
+          <p>
+            These estimates do not constitute financial advice, price quotes, or contractual offers. Actual transaction prices depend on negotiation, supplier relationships, volumes, and market conditions at the time of purchase or sale.
+          </p>
+
+          <SubHeading>12.6.4 AI Response Variability</SubHeading>
+          <p>
+            AI agent responses may vary in:
+          </p>
+          <ul>
+            <li>Tone, format, and depth of analysis;</li>
+            <li>Accuracy of technical information;</li>
+            <li>Recommendations and conclusions drawn.</li>
+          </ul>
+          <p>
+            Users should verify all technical, financial, and compliance information before making decisions. AI responses are one input among many for professional judgment.
+          </p>
 
           {/* ──────────────────────────────── 13 ──────────────────────────────── */}
           <SectionHeading id="third-party">13. Third-Party Services</SectionHeading>

@@ -300,7 +300,7 @@ exports.getSharedReport = async (req, res) => {
     if (projectId) {
       const { data: project } = await supabase
         .from('projects')
-        .select('*, companies(name, branding_primary_color, nesrea_registration_number)')
+        .select('*, companies(name, branding_primary_color, nesrea_registration_number, phone, email, website, address, city, state)')
         .eq('id', projectId)
         .single();
       projectData = project;
@@ -333,9 +333,22 @@ exports.getSharedReport = async (req, res) => {
         id: projectData?.id,
         name: projectData?.name || fullDesign?.project_name || 'Solar Project', 
         location: projectData?.location || projectData?.city || fullDesign?.location || 'N/A',
+        address: projectData?.address,
         city: projectData?.city,
         state: projectData?.state,
+        client_name: projectData?.client_name,
+        client_email: projectData?.client_email,
+        client_phone: projectData?.client_phone,
+        installation_date: projectData?.installation_date,
+        location_lat: fullDesign?.location_lat,
+        location_lon: fullDesign?.location_lon,
         company: projectData?.companies?.name,
+        company_address: projectData?.companies?.address,
+        company_city: projectData?.companies?.city,
+        company_state: projectData?.companies?.state,
+        company_phone: projectData?.companies?.phone,
+        company_email: projectData?.companies?.email,
+        company_website: projectData?.companies?.website,
         nesrea_reg: projectData?.companies?.nesrea_registration_number,
       },
       design: {

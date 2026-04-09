@@ -21,6 +21,7 @@ const TOC = [
   { id: 'who-we-are',        label: '1. Who We Are' },
   { id: 'scope',             label: '2. Scope of This Policy' },
   { id: 'data-we-collect',   label: '3. Data We Collect' },
+  { id: 'pwa-data',          label: '3.9 PWA & Mobile App Data' },
   { id: 'how-we-use',        label: '4. How We Use Your Data' },
   { id: 'legal-basis',       label: '5. Legal Basis for Processing' },
   { id: 'sharing',           label: '6. Data Sharing & Third Parties' },
@@ -28,7 +29,7 @@ const TOC = [
   { id: 'retention',         label: '8. Data Retention' },
   { id: 'security',          label: '9. Security Measures' },
   { id: 'your-rights',       label: '10. Your Rights' },
-  { id: 'cookies',           label: '11. Cookies & Tracking' },
+  { id: 'cookies',           label: '11. Cookies, Storage & PWA' },
   { id: 'children',          label: '12. Children\'s Privacy' },
   { id: 'changes',           label: '13. Changes to This Policy' },
   { id: 'contact',           label: '14. Contact & Data Protection Officer' },
@@ -169,6 +170,9 @@ export default function PrivacyPolicy() {
             <li>Blog engagement metrics (reads, time spent, link clicks)</li>
             <li>Device type, browser type, and screen resolution</li>
             <li>IP address (anonymised within 30 days for analytics)</li>
+            <li>PWA install status and app launch events (for service improvement)</li>
+            <li>Offline activity queued for sync when connection is restored</li>
+            <li>Service worker cache sizes (for storage management)</li>
           </ul>
 
           <SubHeading>3.7 Data from Third-Party Authentication</SubHeading>
@@ -188,6 +192,44 @@ export default function PrivacyPolicy() {
           </ul>
           <p>
             AI conversations are processed in real time by our LLM providers (currently Google Gemini and Groq). These providers act as data processors and do not retain your data for their own training purposes under our agreements with them.
+          </p>
+
+          {/* ──────────────────────────────── 3.9 ──────────────────────────────── */}
+          <SectionHeading id="pwa-data">3.9 PWA & Mobile App Data</SectionHeading>
+          <p>
+            When you install the SolNuv platform as a Progressive Web App (PWA), the following data may be stored locally on your device:
+          </p>
+
+          <SubHeading>3.9.1 Cached Data</SubHeading>
+          <p>
+            To enable offline functionality and faster loading, we cache the following locally:
+          </p>
+          <ul>
+            <li>Static assets (scripts, stylesheets, icons, fonts)</li>
+            <li>The app manifest and configuration files</li>
+            <li>An offline fallback page for network unavailability</li>
+          </ul>
+          <p>
+            Cached data is used only to improve app performance and availability. Authentication state, project data, and API responses are never cached offline.
+          </p>
+
+          <SubHeading>3.9.2 Local Storage</SubHeading>
+          <p>
+            Your device may store locally:
+          </p>
+          <ul>
+            <li>Theme preference (light/dark mode)</li>
+            <li>Onboarding progress for incomplete registration flows</li>
+            <li>Offline queue for data that syncs when connection is restored</li>
+            <li>PWA install prompt dismissal state (to avoid repeated prompts)</li>
+          </ul>
+          <p>
+            You can clear this data at any time through your browser or device settings. Disabling local storage may affect offline functionality.
+          </p>
+
+          <SubHeading>3.9.3 PWA Install Data</SubHeading>
+          <p>
+            PWA installation creates a standalone app entry on your device. This is managed by your browser and operating system, not by SolNuv servers. Uninstalling the PWA does not delete your account or data — your data remains on our servers and accessible via the website.
           </p>
 
           {/* ──────────────────────────────── 4 ──────────────────────────────── */}
@@ -359,7 +401,7 @@ export default function PrivacyPolicy() {
           </p>
 
           {/* ──────────────────────────────── 11 ──────────────────────────────── */}
-          <SectionHeading id="cookies">11. Cookies & Tracking</SectionHeading>
+          <SectionHeading id="cookies">11. Cookies, Storage & PWA Mechanisms</SectionHeading>
 
           <SubHeading>11.1 What We Use</SubHeading>
           <p>We use the following client-side storage mechanisms:</p>
@@ -369,12 +411,26 @@ export default function PrivacyPolicy() {
             <li><strong>Service worker cache:</strong> Static assets cached for offline capability. Authenticated pages and API responses are never cached.</li>
           </ul>
 
-          <SubHeading>11.2 What We Do Not Use</SubHeading>
+          <SubHeading>11.2 Service Worker Cache</SubHeading>
+          <p>
+            A service worker caches the following for offline capability and improved performance:
+          </p>
+          <ul>
+            <li>App shell (HTML, CSS, JavaScript for core UI)</li>
+            <li>Static images and fonts</li>
+            <li>An offline fallback page</li>
+            <li>The PWA manifest file</li>
+          </ul>
+          <p>
+            Authentication tokens, API responses, and user data are explicitly excluded from caching to protect your privacy. The service worker cannot access your account credentials or personal data stored on our servers.
+          </p>
+
+          <SubHeading>11.3 What We Do Not Use</SubHeading>
           <p>
             We do <strong>not</strong> use third-party advertising cookies, tracking pixels from ad networks, or cross-site behavioural profiling tools. We do not sell or share your browsing data with advertisers.
           </p>
 
-          <SubHeading>11.3 Managing Preferences</SubHeading>
+          <SubHeading>11.4 Managing Preferences</SubHeading>
           <p>
             You can clear local storage and session storage at any time through your browser settings. Disabling local storage may affect offline functionality.
           </p>
