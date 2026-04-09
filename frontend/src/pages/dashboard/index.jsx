@@ -480,50 +480,25 @@ export default function Dashboard() {
       {recentCalcs.length > 0 && (
         <MotionSection className="mb-8">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wider">Recent Calculations</h2>
+            <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wider">Saved Calculations</h2>
             <Link href="/calculator" className="text-sm text-emerald-600 hover:text-emerald-700 font-medium">View All →</Link>
           </div>
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {recentCalcs.map(calc => {
-              const daysLeft = Math.ceil((new Date(calc.expires_at) - new Date()) / (1000 * 60 * 60 * 24));
-              const isExpiringSoon = daysLeft <= 7;
-              const CALC_LABELS = {
-                panel: 'Panel Value', battery: 'Battery Value', degrad: 'Decommission Date',
-                roi: 'Hybrid ROI', soh: 'Battery SoH', cable: 'DC Cable Sizing',
-                motor: 'Motor Starting', gfm: 'GFM Selector', tdd: 'TDD Report',
-              };
-              const CALC_ICONS = {
-                panel: '☀️', battery: '🔋', degrad: '📅', roi: '💼', soh: '🧪',
-                cable: '🧰', motor: '⚡', gfm: '🔋', tdd: '📋',
-              };
-              return (
-                <div key={calc.id} className="card p-4 hover:shadow-md transition-shadow cursor-pointer" onClick={() => setSelectedCalc(calc)}>
-                  <div className="flex items-start gap-3">
-                    <div className="w-9 h-9 bg-emerald-100 rounded-lg flex items-center justify-center text-lg flex-shrink-0">
-                      {CALC_ICONS[calc.calculator_type] || '📊'}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-sm text-gray-900 truncate">{calc.name}</p>
-                      <p className="text-xs text-gray-500">{CALC_LABELS[calc.calculator_type] || calc.calculator_type}</p>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className={`text-xs ${isExpiringSoon ? 'text-amber-600 font-medium' : 'text-gray-400'}`}>
-                          {daysLeft}d left
-                        </span>
-                        {calc.project && (
-                          <span className="text-xs text-emerald-600">
-                            {calc.project.name}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    <button className="p-1.5 hover:bg-emerald-50 rounded-lg text-emerald-600" onClick={e => { e.stopPropagation(); setSelectedCalc(calc); }}>
-                      <RiEyeLine className="w-4 h-4" />
-                    </button>
-                  </div>
+          <Link href="/calculator" className="block card p-5 hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center">
+                  <span className="text-2xl">📊</span>
                 </div>
-              );
-            })}
-          </div>
+                <div>
+                  <p className="text-3xl font-display font-bold text-forest-900">{recentCalcs.length}+</p>
+                  <p className="text-sm text-slate-500">Saved calculations</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 text-forest-900 font-medium text-sm">
+                View Calculations <RiArrowRightLine className="w-4 h-4" />
+              </div>
+            </div>
+          </Link>
         </MotionSection>
       )}
 

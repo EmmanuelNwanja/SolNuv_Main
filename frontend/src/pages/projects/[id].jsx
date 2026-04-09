@@ -2,7 +2,7 @@ import Head from 'next/head';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';
-import { projectsAPI, reportsAPI, engineeringAPI, downloadBlob } from '../../services/api';
+import { projectsAPI, reportsAPI, engineeringAPI, calculatorAPI, downloadBlob } from '../../services/api';
 import { supabase } from '../../utils/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { getDashboardLayout } from '../../components/Layout';
@@ -203,6 +203,9 @@ export default function ProjectDetail() {
   const { isPro, plan, profile, company } = useAuth();
   const [project, setProject] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [calculations, setCalculations] = useState([]);
+  const [loadingCalculations, setLoadingCalculations] = useState(false);
+  const [calcModalData, setCalcModalData] = useState(null);
   const [deleteModal, setDeleteModal] = useState(false);
   const [recoveryModal, setRecoveryModal] = useState(false);
   const [statusUpdating, setStatusUpdating] = useState(false);
@@ -293,6 +296,15 @@ export default function ProjectDetail() {
       .then((r) => setBatteryAssets(r.data.data || []))
       .catch(() => setBatteryAssets([]))
       .finally(() => setAssetLoading(false));
+  }, [id]);
+
+  useEffect(() => {
+    if (!id) return;
+    setLoadingCalculations(true);
+    calculatorAPI.getProjectCalculations(id)
+      .then((r) => setCalculations(r.data.data?.active || []))
+      .catch(() => setCalculations([]))
+      .finally(() => setLoadingCalculations(false));
   }, [id]);
 
   // Cleanup blob URL to prevent memory leaks
@@ -1118,6 +1130,50 @@ export default function ProjectDetail() {
             </div>
           )}
 
+          {/* Calculations */}
+          <div className="card">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="font-semibold text-forest-900 flex items-center gap-2">
+                <RiBarChartLine className="text-emerald-600" /> Calculations
+              </h2>
+              <Link href={`/projects/${id}/calculations`} className="text-xs text-forest-900 hover:underline font-medium">
+                View All →
+              </Link>
+            </div>
+            {loadingCalculations ? (
+              <div className="py-4 text-center text-sm text-slate-500">Loading...</div>
+            ) : calculations.length > 0 ? (
+              <div className="space-y-2">
+                <p className="text-2xl font-display font-bold text-forest-900">{calculations.length}</p>
+                <p className="text-xs text-slate-500">{calculations.length === 1 ? 'Saved calculation' : 'Saved calculations'}</p>
+                <div className="pt-2 border-t border-slate-100">
+                  {calculations.slice(0, 3).map(calc => (
+                    <button
+                      key={calc.id}
+                      onClick={() => {
+                        const calcData = typeof calc.calculation_data === 'string' ? JSON.parse(calc.calculation_data) : calc.calculation_data;
+                        setCalcModalData({ ...calc, calculation_data: calcData });
+                      }}
+                      className="w-full text-left p-2 rounded-lg hover:bg-slate-50 transition-colors"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium text-slate-700 capitalize">{calc.calculator_type?.replace('_', ' ')}</span>
+                        <span className="text-xs text-slate-400">{new Date(calc.created_at).toLocaleDateString()}</span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-4">
+                <p className="text-sm text-slate-500 mb-3">No calculations saved yet</p>
+                <Link href="/calculator" className="text-xs font-medium text-forest-900 hover:underline">
+                  Go to Calculator →
+                </Link>
+              </div>
+            )}
+          </div>
+
           {/* Actions */}
           <div className="card space-y-3">
             <h2 className="font-semibold text-forest-900 mb-2">Actions</h2>
@@ -1274,6 +1330,43 @@ export default function ProjectDetail() {
         confirmText="Yes, Delete"
         danger
       />
+
+      {/* Calculation Detail Modal */}
+      {calcModalData && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setCalcModalData(null)} />
+          <div className="relative bg-white rounded-2xl p-6 max-w-lg w-full shadow-xl animate-slide-up overflow-y-auto max-h-[90vh]">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-display font-bold text-forest-900 text-lg capitalize">
+                {calcModalData.calculator_type?.replace('_', ' ')} Calculation
+              </h3>
+              <button onClick={() => setCalcModalData(null)} className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors">
+                <RiCloseLine className="text-slate-500" />
+              </button>
+            </div>
+            <div className="text-xs text-slate-400 mb-4">
+              Saved {new Date(calcModalData.created_at).toLocaleDateString('en-NG', { year: 'numeric', month: 'long', day: 'numeric' })}
+            </div>
+            {calcModalData.calculation_data && (
+              <div className="bg-slate-50 rounded-xl p-4 space-y-2">
+                {Object.entries(calcModalData.calculation_data).map(([key, value]) => (
+                  <div key={key} className="flex justify-between text-sm">
+                    <span className="text-slate-500 capitalize">{key.replace(/_/g, ' ')}</span>
+                    <span className="font-medium text-slate-700">
+                      {typeof value === 'number' ? value.toLocaleString() : value}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="flex gap-3 mt-4">
+              <Link href={`/calculator/${calcModalData.calculator_type}`} className="flex-1 btn-primary text-center">
+                Open in Calculator
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Pickup & Testing Request Modal */}
       {recoveryModal && (
