@@ -369,29 +369,65 @@ exports.getSharedReport = async (req, res) => {
       equipment: equipmentData,
       result: {
         pv_capacity_kwp: result.pv_capacity_kwp,
+        annual_solar_gen_kwh: result.annual_solar_gen_kwh,
         annual_generation_kwh: result.annual_solar_gen_kwh,
         solar_fraction: result.utilisation_pct,
+        solar_utilised_kwh: result.solar_utilised_kwh,
+        solar_exported_kwh: result.solar_exported_kwh,
+        self_consumption_pct: result.self_consumption_pct,
         self_consumption_ratio: result.self_consumption_pct,
+        utilisation_pct: result.utilisation_pct,
         annual_savings: result.year1_savings,
+        year1_savings: result.year1_savings,
         simple_payback_years: result.simple_payback_months ? result.simple_payback_months / 12 : null,
         simple_payback_months: result.simple_payback_months,
         npv_25yr: result.npv_25yr,
+        irr_pct: result.irr_pct,
         irr: result.irr_pct,
+        lcoe_normal: result.lcoe_normal,
         lcoe: result.lcoe_normal,
         baseline_annual_cost: result.baseline_annual_cost,
         year1_annual_cost: result.year1_annual_cost,
         battery_discharged_kwh: result.battery_discharged_kwh,
+        battery_charged_kwh: result.battery_charged_kwh,
         battery_cycles_annual: result.battery_cycles_annual,
         peak_demand_before_kw: result.peak_demand_before_kw,
         peak_demand_after_kw: result.peak_demand_after_kw,
+        grid_import_kwh: result.grid_import_kwh,
+        grid_export_kwh: result.grid_export_kwh,
+        performance_ratio: result.performance_ratio,
+        roi_pct: result.roi_pct,
+        unmet_load_kwh: result.unmet_load_kwh,
+        unmet_load_hours: result.unmet_load_hours,
+        loss_of_load_pct: result.loss_of_load_pct,
+        autonomy_achieved_days: result.autonomy_achieved_days,
+        diesel_avoided_litres: result.diesel_avoided_litres,
+        islanded_hours: result.islanded_hours,
+        feed_in_revenue: result.feed_in_revenue,
+        diesel_annual_cost: result.diesel_annual_cost,
+        petrol_annual_cost: result.petrol_annual_cost,
+        grid_only_annual_cost: result.grid_only_annual_cost,
+        co2_avoided_tonnes: result.co2_avoided_tonnes,
+        design_warnings: result.design_warnings,
         monthly_summary: result.monthly_summary,
         yearly_cashflow: result.yearly_cashflow,
+        tou_breakdown: result.tou_breakdown,
         executive_summary_text: result.executive_summary_text,
-        ai_feedback_text: result.ai_feedback_text,
-        // Energy comparison data if available
-        energy_comparison: result.energy_comparison 
-          ? (typeof result.energy_comparison === 'string' ? JSON.parse(result.energy_comparison) : result.energy_comparison) 
-          : null,
+        ai_expert_feedback: result.ai_expert_feedback,
+        ai_feedback_edited: result.ai_feedback_edited,
+        ai_feedback_generated_at: result.ai_feedback_generated_at,
+        ai_feedback_text: result.ai_expert_feedback?.summary || result.ai_feedback_text || (typeof result.ai_expert_feedback === 'string' ? result.ai_expert_feedback : null),
+        grid_topology: fullDesign?.grid_topology,
+        analysis_period_years: fullDesign?.analysis_period_years,
+        energy_comparison: (() => {
+          let ec = result.energy_comparison;
+          if (!ec) return null;
+          if (typeof ec === 'string') {
+            try { ec = JSON.parse(ec); } catch { return null; }
+          }
+          if (typeof ec !== 'object') return null;
+          return ec;
+        })(),
       },
     }, 'Shared report retrieved');
   } catch (err) {

@@ -106,15 +106,14 @@ export default function ResultsDashboard() {
   }, []);
 
   const handleExportPdf = async () => {
-    if (!reportRef.current) return;
     setExporting('pdf');
     try {
-      const { exportToPdf } = await import('../../../utils/pdfExport');
-      await exportToPdf(reportRef.current, `SolNuv_Report_${project.name?.replace(/\s+/g, '_') || projectId}_${Date.now()}.pdf`);
+      const res = await designReportAPI.downloadPdf(projectId);
+      downloadBlob(res.data, `SolNuv_Report_${project?.name?.replace(/\s+/g, '_') || projectId}_${Date.now()}.pdf`);
       toast.success('PDF downloaded');
     } catch (e) {
       console.error('PDF export failed:', e);
-      toast.error('Failed to export PDF');
+      toast.error(e?.response?.data?.message || 'Failed to export PDF. PDF download requires Pro plan.');
     } finally {
       setExporting('');
     }

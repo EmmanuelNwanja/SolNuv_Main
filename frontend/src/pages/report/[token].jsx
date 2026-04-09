@@ -1,8 +1,8 @@
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { useEffect, useState, useRef } from 'react';
-import { designReportAPI } from '../../services/api';
-import { RiSunLine, RiBatteryLine, RiMoneyDollarCircleLine, RiFlashlightLine, RiLeafLine, RiBarChartBoxLine, RiTimeLine, RiFileChartLine, RiGlobalLine, RiLockLine, RiArrowRightSLine } from 'react-icons/ri';
+import { designReportAPI, downloadBlob } from '../../services/api';
+import { RiSunLine, RiBatteryLine, RiMoneyDollarCircleLine, RiFlashlightLine, RiLeafLine, RiBarChartBoxLine, RiTimeLine, RiFileChartLine, RiGlobalLine, RiLockLine, RiArrowRightSLine, RiRobot2Line } from 'react-icons/ri';
 import dynamic from 'next/dynamic';
 
 const Bar = dynamic(() => import('react-chartjs-2').then(m => m.Bar), { ssr: false });
@@ -117,12 +117,12 @@ export default function SharedReport() {
   };
 
   const downloadPdf = async () => {
-    if (!reportRef.current) return;
+    if (!token) return;
     setExportingPdf(true);
     const filename = `SolNuv_Design_Report_${data?.project?.name?.replace(/\s+/g, '_') || 'Report'}_${Date.now()}.pdf`;
     try {
-      const { exportToPdf } = await import('../../utils/pdfExport');
-      await exportToPdf(reportRef.current, filename);
+      const res = await designReportAPI.downloadSharedReportPdf(token);
+      downloadBlob(res.data, filename);
     } catch (err) {
       console.error('PDF export failed:', err);
       alert('Failed to export PDF. Please try again.');
@@ -297,32 +297,38 @@ export default function SharedReport() {
 
             {/* Key Metrics */}
             <section className="bg-white rounded-2xl shadow-sm border overflow-hidden">
-              <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-gray-100">
+              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 divide-x divide-gray-100">
                 <div className="p-6 text-center">
                   <p className="text-xs text-gray-400 uppercase tracking-wide mb-2">PV Capacity</p>
                   <p className="text-3xl font-bold text-[#0D3B2E]">{fmt(design?.pv_capacity_kwp, 1)} <span className="text-lg">kWp</span></p>
                 </div>
+                {design?.bess_capacity_kwh > 0 && (
+                  <div className="p-6 text-center">
+                    <p className="text-xs text-gray-400 uppercase tracking-wide mb-2">Battery Capacity</p>
+                    <p className="text-3xl font-bold text-[#0D3B2E]">{fmt(design?.bess_capacity_kwh, 1)} <span className="text-lg">kWh</span></p>
+                  </div>
+                )}
                 <div className="p-6 text-center">
                   <p className="text-xs text-gray-400 uppercase tracking-wide mb-2">Annual Generation</p>
-                  <p className="text-3xl font-bold text-[#0D3B2E]">{fmt(result?.annual_generation_kwh)} <span className="text-lg">kWh</span></p>
+                  <p className="text-3xl font-bold text-[#0D3B2E]">{fmt(result?.annual_solar_gen_kwh || result?.annual_generation_kwh)} <span className="text-lg">kWh</span></p>
                 </div>
                 <div className="p-6 text-center">
                   <p className="text-xs text-gray-400 uppercase tracking-wide mb-2">Year 1 Savings</p>
-                  <p className="text-3xl font-bold text-[#10B981]">{fmtCurrency(result?.annual_savings)}</p>
+                  <p className="text-3xl font-bold text-[#10B981]">{fmtCurrency(result?.year1_savings || result?.annual_savings)}</p>
                 </div>
                 <div className="p-6 text-center">
                   <p className="text-xs text-gray-400 uppercase tracking-wide mb-2">Payback Period</p>
                   <p className="text-3xl font-bold text-[#0D3B2E]">{result?.simple_payback_years ? fmt(result.simple_payback_years, 1) : '—'}</p>
                 </div>
               </div>
-              <div className="grid grid-cols-3 md:grid-cols-5 divide-x divide-gray-100 bg-gray-50 border-t">
+              <div className="grid grid-cols-3 md:grid-cols-5 lg:grid-cols-6 divide-x divide-gray-100 bg-gray-50 border-t">
                 <div className="p-4 text-center">
                   <p className="text-xs text-gray-400">Solar Fraction</p>
-                  <p className="text-lg font-semibold">{result?.solar_fraction != null ? fmt(result.solar_fraction, 1) + '%' : '—'}</p>
+                  <p className="text-lg font-semibold">{result?.utilisation_pct != null ? fmt(result.utilisation_pct, 1) + '%' : result?.solar_fraction != null ? fmt(result.solar_fraction, 1) + '%' : '—'}</p>
                 </div>
                 <div className="p-4 text-center">
                   <p className="text-xs text-gray-400">Self-Consumption</p>
-                  <p className="text-lg font-semibold">{result?.self_consumption_ratio != null ? fmt(result.self_consumption_ratio, 1) + '%' : '—'}</p>
+                  <p className="text-lg font-semibold">{result?.self_consumption_pct != null ? fmt(result.self_consumption_pct, 1) + '%' : result?.self_consumption_ratio != null ? fmt(result.self_consumption_ratio, 1) + '%' : '—'}</p>
                 </div>
                 <div className="p-4 text-center">
                   <p className="text-xs text-gray-400">NPV</p>
@@ -330,11 +336,15 @@ export default function SharedReport() {
                 </div>
                 <div className="p-4 text-center">
                   <p className="text-xs text-gray-400">IRR</p>
-                  <p className="text-lg font-semibold">{result?.irr != null ? fmt(result.irr, 1) + '%' : '—'}</p>
+                  <p className="text-lg font-semibold">{result?.irr_pct != null ? fmt(result.irr_pct, 1) + '%' : result?.irr != null ? fmt(result.irr, 1) + '%' : '—'}</p>
                 </div>
                 <div className="p-4 text-center">
                   <p className="text-xs text-gray-400">LCOE</p>
-                  <p className="text-lg font-semibold">{result?.lcoe != null ? '₦' + fmt(result.lcoe, 2) + '/kWh' : '—'}</p>
+                  <p className="text-lg font-semibold">{result?.lcoe_normal != null ? '₦' + fmt(result.lcoe_normal, 2) + '/kWh' : result?.lcoe != null ? '₦' + fmt(result.lcoe, 2) + '/kWh' : '—'}</p>
+                </div>
+                <div className="p-4 text-center">
+                  <p className="text-xs text-gray-400">ROI</p>
+                  <p className="text-lg font-semibold">{result?.roi_pct != null ? fmt(result.roi_pct, 1) + '%' : '—'}</p>
                 </div>
               </div>
             </section>
@@ -539,11 +549,14 @@ export default function SharedReport() {
                 </div>
                 <div className="p-5 bg-[#10B981]/10 border border-[#10B981]/20 rounded-xl">
                   <p className="text-xs text-gray-500 mb-1">Annual Savings</p>
-                  <p className="text-xl font-bold text-[#10B981]">{fmtCurrency(result?.annual_savings)}</p>
+                  <p className="text-xl font-bold text-[#10B981]">{fmtCurrency(result?.year1_savings || result?.annual_savings)}</p>
+                  {result?.baseline_annual_cost && result?.year1_savings && (
+                    <p className="text-xs text-gray-500 mt-1">{((result.year1_savings / result.baseline_annual_cost) * 100).toFixed(0)}% reduction</p>
+                  )}
                 </div>
                 <div className="p-5 bg-gray-50 rounded-xl">
                   <p className="text-xs text-gray-500 mb-1">LCOE</p>
-                  <p className="text-xl font-bold">{result?.lcoe != null ? '₦' + fmt(result.lcoe, 2) + '/kWh' : '—'}</p>
+                  <p className="text-xl font-bold">{result?.lcoe_normal != null ? '₦' + fmt(result.lcoe_normal, 2) + '/kWh' : result?.lcoe != null ? '₦' + fmt(result.lcoe, 2) + '/kWh' : '—'}</p>
                 </div>
               </div>
               {result?.peak_demand_before_kw && result?.peak_demand_after_kw && (
@@ -556,6 +569,25 @@ export default function SharedReport() {
                     <p className="text-xs text-gray-400 mb-1">Peak Demand (After Solar)</p>
                     <p className="text-xl font-bold text-green-600">{fmt(result.peak_demand_after_kw, 1)} kW</p>
                   </div>
+                </div>
+              )}
+
+              {/* Yearly Cost Projection Chart */}
+              {energyComp?.yearly_comparison && energyComp.yearly_comparison.length > 0 && (
+                <div className="mt-6 pt-6 border-t">
+                  <h3 className="text-base font-semibold text-[#0D3B2E] mb-4">Yearly Cost Projection</h3>
+                  <div className="h-80">
+                    <Line data={{
+                      labels: energyComp.yearly_comparison.map(y => `Yr ${y.year}`),
+                      datasets: [
+                        { label: 'Solar', data: energyComp.yearly_comparison.map(y => y.solar_cost), borderColor: BRAND.accent, backgroundColor: BRAND.accent + '22', fill: false, tension: 0.3, pointRadius: 0 },
+                        { label: 'Grid Only', data: energyComp.yearly_comparison.map(y => y.grid_cost), borderColor: BRAND.primary, borderDash: [5, 3], fill: false, tension: 0.3, pointRadius: 0 },
+                        { label: 'Diesel', data: energyComp.yearly_comparison.map(y => y.diesel_cost), borderColor: BRAND.amber, borderDash: [3, 3], fill: false, tension: 0.3, pointRadius: 0 },
+                        { label: 'Petrol', data: energyComp.yearly_comparison.map(y => y.petrol_cost), borderColor: BRAND.red, borderDash: [2, 2], fill: false, tension: 0.3, pointRadius: 0 },
+                      ],
+                    }} options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top' } }, scales: { y: { beginAtZero: true, ticks: { callback: v => `₦${(v / 1000000).toFixed(1)}M` } } } }} />
+                  </div>
+                  <p className="text-xs text-gray-400 mt-2 text-center">Annual cost comparison over project lifetime with escalation rates applied</p>
                 </div>
               )}
             </section>
@@ -572,65 +604,147 @@ export default function SharedReport() {
                     <p className="text-sm text-gray-500">Annual comparison with alternative energy sources</p>
                   </div>
                 </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="bg-[#0D3B2E] text-white">
-                        <th className="px-4 py-3 text-left rounded-tl-lg">Energy Source</th>
-                        <th className="px-4 py-3 text-right">Annual Cost</th>
-                        <th className="px-4 py-3 text-right">CO2 Emissions</th>
-                        <th className="px-4 py-3 text-right rounded-tr-lg">Fuel Used</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                      <tr className="bg-[#10B981]/10 font-semibold">
-                        <td className="px-4 py-4 text-[#10B981]">
-                          <div className="flex items-center gap-2">
-                            <RiSunLine />
-                            Solar PV System
+
+                {/* Annual Cost Comparison */}
+                {energyComp.annual_costs && (
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                    <div className="text-center p-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl border-2 border-emerald-500">
+                      <div className="text-xs text-emerald-600 font-medium mb-1">Solar System</div>
+                      <div className="text-lg font-bold text-emerald-700 dark:text-emerald-300">{fmtCurrency(energyComp.annual_costs.solar)}</div>
+                      <div className="text-xs text-emerald-500 mt-1">Your choice</div>
+                    </div>
+                    <div className="text-center p-3 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
+                      <div className="text-xs text-gray-500 font-medium mb-1">Grid Only</div>
+                      <div className="text-lg font-bold text-gray-900 dark:text-white">{fmtCurrency(energyComp.annual_costs.grid_only)}</div>
+                      {energyComp.annual_savings?.vs_grid > 0 && (
+                        <div className="text-xs text-emerald-600 mt-1">Save {fmtCurrency(energyComp.annual_savings.vs_grid)}/yr</div>
+                      )}
+                    </div>
+                    <div className="text-center p-3 bg-orange-50 dark:bg-orange-900/10 rounded-xl border border-orange-200 dark:border-orange-800">
+                      <div className="text-xs text-orange-600 font-medium mb-1">Diesel Generator</div>
+                      <div className="text-lg font-bold text-orange-700 dark:text-orange-300">{fmtCurrency(energyComp.annual_costs.diesel)}</div>
+                      {energyComp.annual_savings?.vs_diesel > 0 && (
+                        <div className="text-xs text-emerald-600 mt-1">Save {fmtCurrency(energyComp.annual_savings.vs_diesel)}/yr</div>
+                      )}
+                    </div>
+                    <div className="text-center p-3 bg-red-50 dark:bg-red-900/10 rounded-xl border border-red-200 dark:border-red-800">
+                      <div className="text-xs text-red-500 font-medium mb-1">Petrol Generator</div>
+                      <div className="text-lg font-bold text-red-600 dark:text-red-400">{fmtCurrency(energyComp.annual_costs.petrol)}</div>
+                      {energyComp.annual_savings?.vs_petrol > 0 && (
+                        <div className="text-xs text-emerald-600 mt-1">Save {fmtCurrency(energyComp.annual_savings.vs_petrol)}/yr</div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Lifetime Cost Comparison */}
+                {energyComp.lifetime_costs && (
+                  <div className="mb-6 pt-6 border-t">
+                    <h3 className="text-base font-semibold text-[#0D3B2E] mb-4">
+                      Lifetime Cost ({design?.analysis_period_years || 25} Years)
+                    </h3>
+                    <div className="space-y-3">
+                      {[
+                        { label: 'Solar System', value: energyComp.lifetime_costs.solar, color: 'bg-emerald-500' },
+                        { label: 'Grid Only', value: energyComp.lifetime_costs.grid_only, color: 'bg-gray-500' },
+                        { label: 'Diesel Gen.', value: energyComp.lifetime_costs.diesel, color: 'bg-orange-500' },
+                        { label: 'Petrol Gen.', value: energyComp.lifetime_costs.petrol, color: 'bg-red-500' },
+                      ].sort((a, b) => a.value - b.value).map((item, idx) => {
+                        const maxVal = Math.max(
+                          energyComp.lifetime_costs.solar,
+                          energyComp.lifetime_costs.grid_only,
+                          energyComp.lifetime_costs.diesel,
+                          energyComp.lifetime_costs.petrol,
+                        );
+                        const pct = maxVal > 0 ? (item.value / maxVal) * 100 : 0;
+                        return (
+                          <div key={idx}>
+                            <div className="flex justify-between text-sm mb-1">
+                              <span className="text-gray-600 dark:text-gray-400">
+                                {idx === 0 && <span className="text-emerald-600 font-semibold mr-1">Best</span>}
+                                {item.label}
+                              </span>
+                              <span className="font-semibold text-gray-900 dark:text-white">{fmtCurrency(item.value)}</span>
+                            </div>
+                            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3">
+                              <div className={`${item.color} h-3 rounded-full`} style={{ width: `${Math.max(pct, 2)}%` }} />
+                            </div>
                           </div>
-                        </td>
-                        <td className="px-4 py-4 text-right">{fmtCurrency(result?.year1_annual_cost)}</td>
-                        <td className="px-4 py-4 text-right text-green-600">0 kg</td>
-                        <td className="px-4 py-4 text-right">0 L</td>
-                      </tr>
-                      {energyComp.grid && (
-                        <tr className="hover:bg-gray-50">
-                          <td className="px-4 py-4">Grid Electricity</td>
-                          <td className="px-4 py-4 text-right">{fmtCurrency(energyComp.grid.annual_cost)}</td>
-                          <td className="px-4 py-4 text-right">{fmt(energyComp.grid.co2_kg)} kg</td>
-                          <td className="px-4 py-4 text-right">—</td>
-                        </tr>
-                      )}
-                      {energyComp.diesel && (
-                        <tr className="hover:bg-gray-50">
-                          <td className="px-4 py-4 text-red-600">
-                            <div className="flex items-center gap-2">
-                              <RiFlashlightLine className="text-red-400" />
-                              Diesel Generator
-                            </div>
-                          </td>
-                          <td className="px-4 py-4 text-right text-red-600">{fmtCurrency(energyComp.diesel.annual_cost)}</td>
-                          <td className="px-4 py-4 text-right text-red-600">{fmt(energyComp.diesel.co2_kg)} kg</td>
-                          <td className="px-4 py-4 text-right">{fmt(energyComp.diesel.fuel_liters)} L</td>
-                        </tr>
-                      )}
-                      {energyComp.petrol && (
-                        <tr className="hover:bg-gray-50">
-                          <td className="px-4 py-4 text-red-600">
-                            <div className="flex items-center gap-2">
-                              <RiFlashlightLine className="text-red-400" />
-                              Petrol Generator
-                            </div>
-                          </td>
-                          <td className="px-4 py-4 text-right text-red-600">{fmtCurrency(energyComp.petrol.annual_cost)}</td>
-                          <td className="px-4 py-4 text-right text-red-600">{fmt(energyComp.petrol.co2_kg)} kg</td>
-                          <td className="px-4 py-4 text-right">{fmt(energyComp.petrol.fuel_liters)} L</td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Fuel Consumption Comparison */}
+                {energyComp.fuel_consumption && (
+                  <div className="mt-6 pt-6 border-t">
+                    <h3 className="text-base font-semibold text-[#0D3B2E] mb-4">Fuel Consumption Comparison (Annual)</h3>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="bg-[#0D3B2E] text-white">
+                            <th className="px-3 py-2 text-left">Energy Source</th>
+                            <th className="px-3 py-2 text-right">Fuel/yr</th>
+                            <th className="px-3 py-2 text-right">CO₂/yr (kg)</th>
+                            <th className="px-3 py-2 text-right">Cost/kWh</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr className="border-b border-gray-100 dark:border-gray-700 bg-emerald-50/50 dark:bg-emerald-900/10">
+                            <td className="px-3 py-2 font-semibold text-emerald-700 dark:text-emerald-400">Solar</td>
+                            <td className="px-3 py-2 text-right">—</td>
+                            <td className="px-3 py-2 text-right">{fmt(energyComp.environmental?.co2_solar_kg)}</td>
+                            <td className="px-3 py-2 text-right">{result?.lcoe_normal != null ? '₦' + result.lcoe_normal.toFixed(2) : '—'}</td>
+                          </tr>
+                          <tr className="border-b border-gray-100 dark:border-gray-700">
+                            <td className="px-3 py-2">Grid Only</td>
+                            <td className="px-3 py-2 text-right">—</td>
+                            <td className="px-3 py-2 text-right">{fmt(energyComp.environmental?.co2_grid_only_kg)}</td>
+                            <td className="px-3 py-2 text-right">—</td>
+                          </tr>
+                          <tr className="border-b border-gray-100 dark:border-gray-700">
+                            <td className="px-3 py-2">Diesel Gen.</td>
+                            <td className="px-3 py-2 text-right">{fmt(energyComp.fuel_consumption.diesel_litres_annual)} L</td>
+                            <td className="px-3 py-2 text-right">{fmt(energyComp.environmental?.co2_diesel_kg)}</td>
+                            <td className="px-3 py-2 text-right">{energyComp.fuel_consumption.diesel_cost_per_kwh ? '₦' + energyComp.fuel_consumption.diesel_cost_per_kwh.toFixed(2) : '—'}</td>
+                          </tr>
+                          <tr>
+                            <td className="px-3 py-2">Petrol Gen.</td>
+                            <td className="px-3 py-2 text-right">{fmt(energyComp.fuel_consumption.petrol_litres_annual)} L</td>
+                            <td className="px-3 py-2 text-right">{fmt(energyComp.environmental?.co2_petrol_kg)}</td>
+                            <td className="px-3 py-2 text-right">{energyComp.fuel_consumption.petrol_cost_per_kwh ? '₦' + energyComp.fuel_consumption.petrol_cost_per_kwh.toFixed(2) : '—'}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {/* Environmental Impact */}
+                {energyComp.environmental && (
+                  <div className="mt-6 pt-6 border-t">
+                    <h3 className="text-base font-semibold text-[#0D3B2E] mb-4">Environmental Impact (Annual)</h3>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div className="text-center p-3 bg-green-50 dark:bg-green-900/20 rounded-xl">
+                        <div className="text-2xl font-bold text-green-700 dark:text-green-400">{fmt(energyComp.environmental.co2_avoided_vs_grid_kg)}</div>
+                        <div className="text-xs text-gray-500 mt-1">kg CO₂ avoided vs grid</div>
+                      </div>
+                      <div className="text-center p-3 bg-green-50 dark:bg-green-900/20 rounded-xl">
+                        <div className="text-2xl font-bold text-green-700 dark:text-green-400">{fmt(energyComp.environmental.co2_avoided_lifetime_tonnes, 1)}</div>
+                        <div className="text-xs text-gray-500 mt-1">tonnes CO₂ avoided (lifetime)</div>
+                      </div>
+                      <div className="text-center p-3 bg-green-50 dark:bg-green-900/20 rounded-xl">
+                        <div className="text-2xl font-bold text-green-700 dark:text-green-400">{fmt(energyComp.environmental.trees_equivalent)}</div>
+                        <div className="text-xs text-gray-500 mt-1">trees equivalent per year</div>
+                      </div>
+                      <div className="text-center p-3 bg-amber-50 dark:bg-amber-900/20 rounded-xl">
+                        <div className="text-2xl font-bold text-amber-700 dark:text-amber-400">{fmt(energyComp.environmental.diesel_avoided_litres)}</div>
+                        <div className="text-xs text-gray-500 mt-1">litres diesel avoided/yr</div>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </section>
             )}
 
@@ -709,54 +823,204 @@ export default function SharedReport() {
               </section>
             )}
 
-            {/* Environmental Impact */}
-            <section id="environmental" ref={(el) => (sectionRefs.current['environmental'] = el)} className="bg-white rounded-2xl shadow-sm border p-6">
-              <div className="flex items-center gap-3 mb-6 pb-4 border-b border-gray-200">
-                <div className="w-10 h-10 bg-[#10B981]/10 rounded-lg flex items-center justify-center">
-                  <RiLeafLine className="w-5 h-5 text-[#10B981]" />
+            {/* Environmental Impact - Summary */}
+            {energyComp?.environmental && !energyComp?.annual_costs && (
+              <section id="environmental" ref={(el) => (sectionRefs.current['environmental'] = el)} className="bg-white rounded-2xl shadow-sm border p-6">
+                <div className="flex items-center gap-3 mb-6 pb-4 border-b border-gray-200">
+                  <div className="w-10 h-10 bg-[#10B981]/10 rounded-lg flex items-center justify-center">
+                    <RiLeafLine className="w-5 h-5 text-[#10B981]" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-semibold text-[#0D3B2E]">Environmental Impact</h2>
+                    <p className="text-sm text-gray-500">Carbon offset and sustainability metrics</p>
+                  </div>
                 </div>
-                <div>
-                  <h2 className="text-lg font-semibold text-[#0D3B2E]">Environmental Impact</h2>
-                  <p className="text-sm text-gray-500">Carbon offset and sustainability metrics</p>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="p-5 bg-green-50 border border-green-100 rounded-xl text-center">
+                    <p className="text-xs text-gray-500 mb-2">Annual CO2 Offset</p>
+                    <p className="text-2xl font-bold text-green-600">{fmt(annualCO2, 0)} <span className="text-sm font-normal">kg</span></p>
+                  </div>
+                  <div className="p-5 bg-green-50 border border-green-100 rounded-xl text-center">
+                    <p className="text-xs text-gray-500 mb-2">Trees Equivalent</p>
+                    <p className="text-2xl font-bold text-green-600">{fmt(treesOffset, 0)}</p>
+                  </div>
+                  <div className="p-5 bg-blue-50 border border-blue-100 rounded-xl text-center">
+                    <p className="text-xs text-gray-500 mb-2">Trees Planted</p>
+                    <p className="text-2xl font-bold text-blue-600">{Math.round(treesOffset)}</p>
+                  </div>
+                  <div className="p-5 bg-gray-50 rounded-xl text-center">
+                    <p className="text-xs text-gray-500 mb-2">25-Year CO2 Offset</p>
+                    <p className="text-2xl font-bold">{fmt(annualCO2 * 25, 0)} <span className="text-sm font-normal">kg</span></p>
+                  </div>
                 </div>
-              </div>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="p-5 bg-green-50 border border-green-100 rounded-xl text-center">
-                  <p className="text-xs text-gray-500 mb-2">Annual CO2 Offset</p>
-                  <p className="text-2xl font-bold text-green-600">{fmt(annualCO2, 0)} <span className="text-sm font-normal">kg</span></p>
+              </section>
+            )}
+
+            {/* Environmental Impact - With Energy Comparison Data */}
+            {energyComp?.environmental && energyComp?.annual_costs && (
+              <section id="environmental" ref={(el) => (sectionRefs.current['environmental'] = el)} className="bg-white rounded-2xl shadow-sm border p-6">
+                <div className="flex items-center gap-3 mb-6 pb-4 border-b border-gray-200">
+                  <div className="w-10 h-10 bg-[#10B981]/10 rounded-lg flex items-center justify-center">
+                    <RiLeafLine className="w-5 h-5 text-[#10B981]" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-semibold text-[#0D3B2E]">Environmental Impact Summary</h2>
+                    <p className="text-sm text-gray-500">Carbon offset and sustainability metrics</p>
+                  </div>
                 </div>
-                <div className="p-5 bg-green-50 border border-green-100 rounded-xl text-center">
-                  <p className="text-xs text-gray-500 mb-2">Trees Equivalent</p>
-                  <p className="text-2xl font-bold text-green-600">{fmt(treesOffset, 0)}</p>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="p-5 bg-green-50 border border-green-100 rounded-xl text-center">
+                    <p className="text-xs text-gray-500 mb-2">Annual CO2 Avoided</p>
+                    <p className="text-2xl font-bold text-green-600">{fmt(energyComp.environmental.co2_avoided_vs_grid_kg, 0)} <span className="text-sm font-normal">kg</span></p>
+                    <p className="text-xs text-gray-400 mt-1">vs grid</p>
+                  </div>
+                  <div className="p-5 bg-green-50 border border-green-100 rounded-xl text-center">
+                    <p className="text-xs text-gray-500 mb-2">Lifetime CO2 Avoided</p>
+                    <p className="text-2xl font-bold text-green-600">{fmt(energyComp.environmental.co2_avoided_lifetime_tonnes, 1)} <span className="text-sm font-normal">tonnes</span></p>
+                  </div>
+                  <div className="p-5 bg-green-50 border border-green-100 rounded-xl text-center">
+                    <p className="text-xs text-gray-500 mb-2">Trees Equivalent</p>
+                    <p className="text-2xl font-bold text-green-600">{fmt(energyComp.environmental.trees_equivalent, 0)}</p>
+                    <p className="text-xs text-gray-400 mt-1">per year</p>
+                  </div>
+                  <div className="p-5 bg-amber-50 border border-amber-100 rounded-xl text-center">
+                    <p className="text-xs text-gray-500 mb-2">Diesel Avoided</p>
+                    <p className="text-2xl font-bold text-amber-600">{fmt(energyComp.environmental.diesel_avoided_litres, 0)} <span className="text-sm font-normal">L</span></p>
+                    <p className="text-xs text-gray-400 mt-1">per year</p>
+                  </div>
                 </div>
-                <div className="p-5 bg-blue-50 border border-blue-100 rounded-xl text-center">
-                  <p className="text-xs text-gray-500 mb-2">Trees Planted</p>
-                  <p className="text-2xl font-bold text-blue-600">{Math.round(treesOffset)}</p>
-                </div>
-                <div className="p-5 bg-gray-50 rounded-xl text-center">
-                  <p className="text-xs text-gray-500 mb-2">25-Year CO2 Offset</p>
-                  <p className="text-2xl font-bold">{fmt(annualCO2 * 25, 0)} <span className="text-sm font-normal">kg</span></p>
-                </div>
-              </div>
-            </section>
+              </section>
+            )}
 
             {/* AI Expert Analysis */}
-            {result?.ai_feedback_text && (
+            {(result?.ai_expert_feedback || result?.ai_feedback_text) && (
               <section id="ai-analysis" ref={(el) => (sectionRefs.current['ai-analysis'] = el)} className="bg-white rounded-2xl shadow-sm border p-6">
                 <div className="flex items-center gap-3 mb-6 pb-4 border-b border-gray-200">
                   <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                    <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                    </svg>
+                    <RiRobot2Line className="w-5 h-5 text-blue-600" />
                   </div>
                   <div>
                     <h2 className="text-lg font-semibold text-[#0D3B2E]">AI Expert Analysis</h2>
                     <p className="text-sm text-gray-500">Intelligent insights and recommendations</p>
                   </div>
                 </div>
-                <div className="p-5 bg-blue-50 border border-blue-200 rounded-xl">
-                  <p className="text-sm leading-relaxed text-gray-700 whitespace-pre-wrap">{result.ai_feedback_text}</p>
-                </div>
+
+                {/* Display structured AI feedback if available */}
+                {result?.ai_expert_feedback && typeof result.ai_expert_feedback === 'object' ? (
+                  <div className="space-y-6">
+                    {/* Rating + Summary */}
+                    {result.ai_expert_feedback.overall_rating && (
+                      <div className="flex items-center gap-3">
+                        <span className={`text-xs font-semibold px-3 py-1 rounded-full ${
+                          result.ai_expert_feedback.overall_rating === 'excellent' || result.ai_expert_feedback.overall_rating === 'good'
+                            ? 'bg-green-100 text-green-700'
+                            : result.ai_expert_feedback.overall_rating === 'fair'
+                            ? 'bg-amber-100 text-amber-700'
+                            : 'bg-red-100 text-red-700'
+                        }`}>
+                          {result.ai_expert_feedback.overall_rating.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                        </span>
+                        {result.ai_feedback_generated_at && (
+                          <span className="text-xs text-gray-400">
+                            Generated {new Date(result.ai_feedback_generated_at).toLocaleDateString()}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                    {result.ai_expert_feedback.summary && (
+                      <div className="p-5 bg-blue-50 border border-blue-200 rounded-xl">
+                        <p className="text-sm leading-relaxed text-gray-700">{result.ai_expert_feedback.summary}</p>
+                      </div>
+                    )}
+
+                    {/* Sizing Assessment */}
+                    {result.ai_expert_feedback.sizing_assessment && (
+                      <div className="p-5 bg-gray-50 rounded-xl">
+                        <h3 className="text-sm font-semibold mb-3">Sizing Assessment</h3>
+                        <div className="grid grid-cols-2 gap-4 text-sm">
+                          <div>
+                            <span className="text-gray-500">PV Sizing:</span>{' '}
+                            <span className={`font-medium ${
+                              result.ai_expert_feedback.sizing_assessment.pv_sizing === 'appropriate' 
+                                ? 'text-green-600' 
+                                : 'text-amber-600'
+                            }`}>
+                              {result.ai_expert_feedback.sizing_assessment.pv_sizing?.replace('_', ' ')}
+                            </span>
+                            {result.ai_expert_feedback.sizing_assessment.pv_comment && (
+                              <p className="text-xs text-gray-400 mt-0.5">{result.ai_expert_feedback.sizing_assessment.pv_comment}</p>
+                            )}
+                          </div>
+                          <div>
+                            <span className="text-gray-500">Battery Sizing:</span>{' '}
+                            <span className={`font-medium ${
+                              result.ai_expert_feedback.sizing_assessment.battery_sizing === 'appropriate'
+                                ? 'text-green-600'
+                                : result.ai_expert_feedback.sizing_assessment.battery_sizing === 'not_applicable'
+                                ? 'text-gray-400'
+                                : 'text-amber-600'
+                            }`}>
+                              {result.ai_expert_feedback.sizing_assessment.battery_sizing?.replace('_', ' ')}
+                            </span>
+                            {result.ai_expert_feedback.sizing_assessment.battery_comment && (
+                              <p className="text-xs text-gray-400 mt-0.5">{result.ai_expert_feedback.sizing_assessment.battery_comment}</p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Strengths & Concerns */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {result.ai_expert_feedback.strengths?.length > 0 && (
+                        <div className="p-5 bg-green-50 rounded-xl border border-green-200">
+                          <h3 className="text-sm font-semibold text-green-700 mb-3">Strengths</h3>
+                          <ul className="space-y-2">
+                            {result.ai_expert_feedback.strengths.map((s, i) => (
+                              <li key={i} className="text-sm text-gray-600 flex items-start gap-2">
+                                <span className="text-green-500 mt-0.5">&#10003;</span>
+                                <span>{s}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      {result.ai_expert_feedback.concerns?.length > 0 && (
+                        <div className="p-5 bg-amber-50 rounded-xl border border-amber-200">
+                          <h3 className="text-sm font-semibold text-amber-700 mb-3">Concerns</h3>
+                          <ul className="space-y-2">
+                            {result.ai_expert_feedback.concerns.map((c, i) => (
+                              <li key={i} className="text-sm text-gray-600 flex items-start gap-2">
+                                <span className="text-amber-500 mt-0.5">&#9888;</span>
+                                <span>{c}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Recommendations */}
+                    {result.ai_expert_feedback.recommendations?.length > 0 && (
+                      <div className="p-5 bg-gray-50 rounded-xl">
+                        <h3 className="text-sm font-semibold mb-3">Recommendations</h3>
+                        <ol className="space-y-2">
+                          {result.ai_expert_feedback.recommendations.map((r, i) => (
+                            <li key={i} className="text-sm text-gray-600 flex items-start gap-2">
+                              <span className="w-5 h-5 bg-[#10B981] text-white rounded-full text-xs flex items-center justify-center flex-shrink-0 mt-0.5">{i + 1}</span>
+                              <span>{r}</span>
+                            </li>
+                          ))}
+                        </ol>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  /* Fallback: plain text feedback */
+                  <div className="p-5 bg-blue-50 border border-blue-200 rounded-xl">
+                    <p className="text-sm leading-relaxed text-gray-700 whitespace-pre-wrap">{result.ai_feedback_text}</p>
+                  </div>
+                )}
               </section>
             )}
 
