@@ -77,11 +77,30 @@ exports.createOrUpdateProfile = async (req, res) => {
 
     // Pre-fetch existing user row so we can reuse their company_id and avoid
     // accidentally creating a duplicate company (which would revert a paid plan to free).
-    const { data: preCheckUser } = await supabase
+    // First try by supabase_uid, then fallback to email for legacy users without supabase_uid
+    let { data: preCheckUser } = await supabase
       .from('users')
       .select('id, company_id')
       .eq('supabase_uid', supabaseUser.id)
       .maybeSingle();
+    
+    // Legacy user fallback: find by email and link supabase_uid
+    if (!preCheckUser) {
+      const { data: legacyUser } = await supabase
+        .from('users')
+        .select('id, company_id')
+        .eq('email', supabaseUser.email.toLowerCase())
+        .maybeSingle();
+      
+      if (legacyUser) {
+        // Link supabase_uid to existing legacy user
+        await supabase
+          .from('users')
+          .update({ supabase_uid: supabaseUser.id })
+          .eq('id', legacyUser.id);
+        preCheckUser = legacyUser;
+      }
+    }
 
     let companyId = null;
 
