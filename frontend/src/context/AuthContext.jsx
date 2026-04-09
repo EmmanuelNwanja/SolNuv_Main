@@ -76,9 +76,15 @@ export function AuthProvider({ children }) {
       setSession(session);
       setUser(session?.user || null);
       // If onAuthStateChange hasn't fired yet (race), kick off the fetch here as a fallback.
-      // The in-flight ref prevents a double call when both fire close together.
-      if (session && !profileFetchInFlight.current) fetchProfile();
-      else if (!session) {
+      // But only if we don't already have a valid profile.
+      if (session && !profileFetchInFlight.current) {
+        if (!profile || !profile.is_onboarded) {
+          fetchProfile();
+        } else {
+          setProfileResolved(true);
+          setLoading(false);
+        }
+      } else if (!session) {
         setProfileResolved(true);
         setLoading(false);
       }
@@ -106,7 +112,15 @@ export function AuthProvider({ children }) {
       }
 
       if (session) {
-        await fetchProfile();
+        // Only fetch profile if we don't already have a valid profile with is_onboarded = true
+        // This prevents race conditions where a freshly set profile gets overwritten
+        if (!profile || !profile.is_onboarded) {
+          await fetchProfile();
+        } else {
+          // We have a valid profile, just resolve
+          setProfileResolved(true);
+          setWakingServer(false);
+        }
       } else {
         setProfileResolved(true);
         setLoading(false);
@@ -124,7 +138,8 @@ export function AuthProvider({ children }) {
     profileFetchInFlight.current = true;
     try {
       const { data } = await authAPI.getMe();
-      setProfile(data.data);
+      // Merge with existing profile to preserve any locally-set data (e.g. is_onboarded after onboarding)
+      setProfile(prev => ({ ...prev, ...data.data }));
       setProfileResolved(true);
       setWakingServer(false);
       writeProfileCache(data.data); // persist for cold-start resilience
@@ -145,26 +160,23 @@ export function AuthProvider({ children }) {
           try {
             await authAPI.wakeBackend();
             const retry = await authAPI.getMeQuick();
-            setProfile(retry.data.data);
+            // Merge with existing profile to preserve locally-set data
+            setProfile(prev => ({ ...prev, ...retry.data.data }));
             setProfileResolved(true);
             setWakingServer(false);
             writeProfileCache(retry.data.data); // persist for cold-start resilience
           } catch {
-            // Both attempts failed — fall back to cached profile so the user
-            // stays "logged in" during a prolonged outage instead of seeing an
-            // infinite spinner or being forced to the login page.
+            // Both attempts failed — preserve existing profile so user isn't logged out
+            // Only clear if we have no existing profile
             const cached = getMatchingCachedProfile(activeSessionUserRef.current);
-            if (cached) {
-              setProfile(cached);
-            } else {
-              setProfile(null);
-            }
+            setProfile(prev => prev ?? cached ?? null);
             setProfileResolved(true); // always unblock ProtectedRoute
             setWakingServer(false);
           }
         } else {
           // Non-transient error (e.g. 401 with bad token) — resolve immediately
           // so guards can redirect rather than spinning indefinitely.
+          // Preserve existing profile if we have one
           const cached = getMatchingCachedProfile(activeSessionUserRef.current);
           setProfile(prev => prev ?? cached ?? null);
           setProfileResolved(true);
