@@ -8,6 +8,7 @@
 const supabase = require('../config/database');
 const { sendError } = require('../utils/responseHelper');
 const { PLAN_HIERARCHY } = require('../services/billingService');
+const { isSubscriptionHardExpired } = require('../services/gracePeriodService');
 
 // Simple in-memory rate limiter (per-user, per-minute)
 const _rateMap = new Map();
@@ -64,10 +65,7 @@ async function validateAgentAccess(req, res, next) {
 
   // Plan check — free tier has no AI access
   const userPlan = req.user?.companies?.subscription_plan || 'free';
-  const graceUntil = req.user?.companies?.subscription_grace_until;
-  const agentExpiresAt = req.user?.companies?.subscription_expires_at;
-  const hardCutoff = graceUntil || agentExpiresAt;
-  if (hardCutoff && new Date(hardCutoff) < new Date() && userPlan !== 'free') {
+  if (isSubscriptionHardExpired(req.user?.companies)) {
     return sendError(res, 'Your subscription has expired. Please renew to access AI agents.', 402, {
       code: 'SUBSCRIPTION_EXPIRED',
       upgrade_url: 'https://solnuv.com/plans',

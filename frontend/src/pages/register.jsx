@@ -77,6 +77,8 @@ export default function Register() {
     try {
       const { error } = await signInWithGoogle();
       if (error) {
+        // Clear pending metadata — a failed OAuth attempt must not pollute a later email signup
+        localStorage.removeItem('solnuv_pending_onboarding');
         const errorMsg = error.message || '';
         if (errorMsg.includes('popup_closed') || errorMsg.includes('popup')) {
           toast.error('Sign-in popup was closed. Please try again.');
@@ -91,6 +93,7 @@ export default function Register() {
         setSubmitting(false);
       }
     } catch (err) {
+      localStorage.removeItem('solnuv_pending_onboarding');
       toast.error('An unexpected error occurred. Please try again.');
       setSubmitting(false);
     }

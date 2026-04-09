@@ -452,8 +452,14 @@ exports.verifyPayment = async (req, res) => {
     }
 
     const isAuthorizedUser = req.user.id === user_id;
-    const isAuthorizedCompanyMember = !!(req.user.company_id && req.user.company_id === company_id);
-    if (!isAuthorizedUser && !isAuthorizedCompanyMember) {
+    // Only admins/super_admins within the same company may verify on behalf of another member.
+    // Regular members cannot verify payments initiated by others to prevent authorization bypass.
+    const isAuthorizedAdmin = !!(
+      req.user.company_id &&
+      req.user.company_id === company_id &&
+      ['super_admin', 'admin'].includes(req.user.role)
+    );
+    if (!isAuthorizedUser && !isAuthorizedAdmin) {
       return sendError(res, 'Unauthorized to verify this payment', 403);
     }
 

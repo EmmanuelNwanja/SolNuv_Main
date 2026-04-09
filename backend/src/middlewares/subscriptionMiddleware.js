@@ -5,6 +5,7 @@
 
 const { sendError } = require('../utils/responseHelper');
 const { PLAN_HIERARCHY, PLAN_LIMITS } = require('../services/billingService');
+const { isSubscriptionHardExpired } = require('../services/gracePeriodService');
 
 const PLAN_HIERARCHY_LOCAL = PLAN_HIERARCHY; // { free:0, basic:1, pro:2, elite:3, enterprise:4 }
 
@@ -23,12 +24,8 @@ function requirePlan(minPlan) {
     const userPlanLevel = PLAN_HIERARCHY_LOCAL[userPlan] ?? 0;
     const requiredLevel = PLAN_HIERARCHY_LOCAL[minPlan] ?? 0;
 
-    // Grace period: use subscription_grace_until as the hard cutoff if available,
-    // otherwise fall back to subscription_expires_at.
-    const graceUntil = company?.subscription_grace_until;
-    const expiresAt = company?.subscription_expires_at;
-    const hardCutoff = graceUntil || expiresAt;
-    if (hardCutoff && new Date(hardCutoff) < new Date() && userPlan !== 'free') {
+    // Grace period: use shared helper so expiry logic stays in one place.
+    if (isSubscriptionHardExpired(company)) {
       return sendError(res, 'Your subscription has expired. Please renew to access this feature.', 402, {
         code: 'SUBSCRIPTION_EXPIRED',
         upgrade_url: 'https://solnuv.com/plans',

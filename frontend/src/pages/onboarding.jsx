@@ -12,13 +12,11 @@ function isValidNigerianPhone(phone) {
   if (!phone) return false;
   const cleaned = phone.replace(/\s/g, '');
   return /^(\+?234|0)[789][01]\d{8}$/.test(cleaned);
-              )}
-          </div>
-        </div>
-      </div>
-    </>
-  );
 }
+
+export default function Onboarding() {
+  const { session, loading, setProfile, isOnboarded, isPlatformAdmin, profileResolved } = useAuth();
+  const router = useRouter();
   const redirectedRef = useRef(false);
   const [step, setStep] = useState(1);
   const [submitting, setSubmitting] = useState(false);
@@ -38,29 +36,15 @@ function isValidNigerianPhone(phone) {
     company_city: '',
   });
 
+  // Single combined redirect effect — prevents race conditions from having multiple
+  // independent effects that can fire out of order and bounce the user between routes.
   useEffect(() => {
-    if (!loading && !session) router.replace('/login');
-  }, [session, loading, router]);
-
-  // Platform admins never need onboarding — redirect to /admin immediately
-  useEffect(() => {
-    if (!loading && profileResolved && session && isPlatformAdmin) {
-      router.replace('/admin');
-    }
-  }, [loading, profileResolved, session, isPlatformAdmin, router]);
-
-  // Already onboarded regular users should not be on this page
-  useEffect(() => {
-    if (!loading && profileResolved && session && isOnboarded && !isPlatformAdmin) {
-      // Don't redirect if handleSubmit already set the destination (avoids race)
-      if (!redirectedRef.current) router.replace('/dashboard');
-    }
-  }, [loading, profileResolved, session, isOnboarded, isPlatformAdmin, router]);
-
-  // Phone verification is no longer mandatory - users proceed directly to onboarding
-  useEffect(() => {
-    // This effect intentionally left empty - removed phone verification redirect
-  }, []);
+    if (loading) return;
+    if (!session) { router.replace('/login'); return; }
+    if (!profileResolved) return;
+    if (isPlatformAdmin) { router.replace('/admin'); return; }
+    if (isOnboarded && !redirectedRef.current) router.replace('/dashboard');
+  }, [loading, session, profileResolved, isPlatformAdmin, isOnboarded, router]);
 
   useEffect(() => {
     if (!session?.user) return;
@@ -84,6 +68,13 @@ function isValidNigerianPhone(phone) {
   const totalSteps = isRegistered ? 3 : 2;
 
   function validateCurrentStep() {
+    if (step === 1) {
+      if (!form.user_type) {
+        toast.error('Please select your account type to continue');
+        return false;
+      }
+    }
+
     if (step === 2) {
       if (!form.first_name?.trim()) {
         toast.error('Please enter your first name');
@@ -285,3 +276,10 @@ function isValidNigerianPhone(phone) {
                   {!submitting && <RiCheckLine />}
                 </button>
               )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}

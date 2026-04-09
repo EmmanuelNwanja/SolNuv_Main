@@ -66,6 +66,19 @@ function readAccessTokenFromStorage() {
 let accessTokenCache = null;
 let authListenerBound = false;
 
+/**
+ * Decode and check JWT expiry without a library.
+ * Adds a 30-second buffer so we refresh slightly before hard expiry.
+ */
+function isTokenExpired(token) {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return typeof payload.exp === 'number' && payload.exp < (Date.now() / 1000) + 30;
+  } catch {
+    return true; // treat unparseable tokens as expired
+  }
+}
+
 function ensureAuthListener() {
   if (typeof window === 'undefined' || authListenerBound) return;
   authListenerBound = true;
@@ -79,9 +92,17 @@ async function getAccessToken() {
   if (typeof window === 'undefined') return null;
   
   ensureAuthListener();
+
+  // Discard cached token if it is expired or about to expire
+  if (accessTokenCache && isTokenExpired(accessTokenCache)) {
+    accessTokenCache = null;
+  }
   
   if (!accessTokenCache) {
-    accessTokenCache = readAccessTokenFromStorage();
+    const fromStorage = readAccessTokenFromStorage();
+    if (fromStorage && !isTokenExpired(fromStorage)) {
+      accessTokenCache = fromStorage;
+    }
   }
   
   if (!accessTokenCache) {

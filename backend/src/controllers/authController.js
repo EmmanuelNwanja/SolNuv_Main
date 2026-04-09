@@ -578,6 +578,22 @@ exports.requestPasswordResetOtp = async (req, res) => {
     const otp = String(Math.floor(100000 + Math.random() * 900000));
     const expiresAt = new Date(Date.now() + (10 * 60 * 1000));
 
+    // Check for an existing valid (unused, non-expired) OTP to prevent accumulating
+    // multiple simultaneous valid codes which would multiply the brute-force attack surface.
+    const { data: existingOtp } = await supabase
+      .from('password_reset_otps')
+      .select('id')
+      .eq('email', normalizedEmail)
+      .eq('used', false)
+      .gt('expires_at', new Date().toISOString())
+      .maybeSingle();
+
+    if (existingOtp) {
+      // Return a success-looking response so the client can proceed to verification,
+      // but don't reveal whether we actually sent a new OTP or not.
+      return sendSuccess(res, { expires_in_minutes: 10 }, 'OTP sent successfully');
+    }
+
     await supabase
       .from('password_reset_otps')
       .insert({
@@ -653,18 +669,19 @@ exports.completePasswordReset = async (req, res) => {
     const normalizedEmail = String(email).trim().toLowerCase();
     const nowIso = new Date().toISOString();
 
-    const { data: row } = await supabase
+    // Atomically claim the OTP row — set used=true in one UPDATE with all filters.
+    // Any concurrent request racing on the same OTP will see 0 rows returned.
+    const { data: row, error: claimError } = await supabase
       .from('password_reset_otps')
-      .select('*')
+      .update({ used: true })
       .eq('email', normalizedEmail)
       .eq('otp_code', String(otp).trim())
       .eq('used', false)
       .gt('expires_at', nowIso)
-      .order('created_at', { ascending: false })
-      .limit(1)
+      .select()
       .maybeSingle();
 
-    if (!row) return sendError(res, 'Invalid or expired OTP', 400);
+    if (claimError || !row) return sendError(res, 'Invalid or expired OTP', 400);
 
     const { data: profile } = await supabase
       .from('users')
@@ -680,13 +697,21 @@ exports.completePasswordReset = async (req, res) => {
     );
 
     if (resetError) {
+      // Restore OTP as unused so the user can retry with the same code
+      await supabase.from('password_reset_otps').update({ used: false }).eq('id', row.id);
       return sendError(res, resetError.message || 'Failed to update password', 500);
     }
 
-    await supabase
-      .from('password_reset_otps')
-      .update({ used: true })
-      .eq('id', row.id);
+    // Invalidate all existing sessions to protect against session hijacking
+    // (attacker who had a stolen session can no longer access the account)
+    try {
+      await supabase.auth.admin.signOut(profile.supabase_uid, { scope: 'global' });
+    } catch (signOutErr) {
+      logger.warn('Failed to invalidate sessions after password reset', {
+        supabase_uid: profile.supabase_uid,
+        message: signOutErr.message,
+      });
+    }
 
     return sendSuccess(res, null, 'Password reset successful');
   } catch (error) {
@@ -709,6 +734,20 @@ exports.requestPhoneVerificationOtp = async (req, res) => {
     const email = String(req.supabaseUser?.email || '').toLowerCase();
     const otp = String(Math.floor(100000 + Math.random() * 900000));
     const expiresAt = new Date(Date.now() + (10 * 60 * 1000)).toISOString();
+
+    // Prevent multiple valid OTPs from accumulating for the same user/phone
+    const { data: existingPhoneOtp } = await supabase
+      .from('phone_verification_otps')
+      .select('id')
+      .eq('supabase_uid', req.supabaseUser.id)
+      .eq('phone', normalizedPhone)
+      .eq('used', false)
+      .gt('expires_at', new Date().toISOString())
+      .maybeSingle();
+
+    if (existingPhoneOtp) {
+      return sendSuccess(res, { phone: normalizedPhone, expires_in_minutes: 10 }, 'Verification OTP sent');
+    }
 
     await supabase
       .from('phone_verification_otps')
@@ -752,17 +791,17 @@ exports.verifyPhoneVerificationOtp = async (req, res) => {
     const normalizedEmail = String(req.supabaseUser?.email || '').toLowerCase();
     const nowIso = new Date().toISOString();
 
-    // Primary source: signup phone verification OTP table
+    // Atomically claim the phone verification OTP — prevents concurrent requests
+    // from consuming the same OTP code twice (TOCTOU race condition).
     const { data: signupRow } = await supabase
       .from('phone_verification_otps')
-      .select('*')
+      .update({ used: true })
       .eq('supabase_uid', req.supabaseUser.id)
       .eq('phone', normalizedPhone)
       .eq('otp_code', String(otp).trim())
       .eq('used', false)
       .gt('expires_at', nowIso)
-      .order('created_at', { ascending: false })
-      .limit(1)
+      .select()
       .maybeSingle();
 
     // Fallback source: admin-generated OTPs are currently created in password_reset_otps.
@@ -771,16 +810,16 @@ exports.verifyPhoneVerificationOtp = async (req, res) => {
     let otpSource = 'phone_verification_otps';
 
     if (!row) {
+      // Fallback: atomically claim an admin-generated OTP from password_reset_otps
       const { data: adminRow } = await supabase
         .from('password_reset_otps')
-        .select('*')
+        .update({ used: true })
         .eq('email', normalizedEmail)
         .eq('phone', normalizedPhone)
         .eq('otp_code', String(otp).trim())
         .eq('used', false)
         .gt('expires_at', nowIso)
-        .order('created_at', { ascending: false })
-        .limit(1)
+        .select()
         .maybeSingle();
 
       if (adminRow) {
@@ -791,17 +830,7 @@ exports.verifyPhoneVerificationOtp = async (req, res) => {
 
     if (!row) return sendError(res, 'Invalid or expired OTP', 400);
 
-    if (otpSource === 'phone_verification_otps') {
-      await supabase
-        .from('phone_verification_otps')
-        .update({ used: true })
-        .eq('id', row.id);
-    } else {
-      await supabase
-        .from('password_reset_otps')
-        .update({ used: true })
-        .eq('id', row.id);
-    }
+    // Both paths above already set used=true atomically — no separate update needed.
 
     const existingMeta = req.supabaseUser?.user_metadata || {};
     const updateResult = await supabase.auth.admin.updateUserById(req.supabaseUser.id, {

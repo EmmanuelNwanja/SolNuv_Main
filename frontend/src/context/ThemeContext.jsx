@@ -3,7 +3,8 @@ import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 const ThemeContext = createContext(null);
 
 function getInitialTheme() {
-  if (typeof window === 'undefined') return 'light';
+  // SSR: return same default as client to prevent hydration mismatch (theme flash).
+  if (typeof window === 'undefined') return 'dark';
 
   // Respect explicit user choice stored in localStorage; otherwise default to dark.
   const saved = window.localStorage.getItem('solnuv_theme');

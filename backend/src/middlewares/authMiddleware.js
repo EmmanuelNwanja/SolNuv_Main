@@ -6,6 +6,7 @@
 const { createClient } = require('@supabase/supabase-js');
 const supabase = require('../config/database');
 const { sendError } = require('../utils/responseHelper');
+const logger = require('../utils/logger');
 
 // Public Supabase client for token verification
 const supabasePublic = createClient(
@@ -67,6 +68,17 @@ async function requireAuth(req, res, next) {
         .maybeSingle();
 
       if (!legacyError && legacyUser) {
+        // Security guard: only link if the Supabase account has a confirmed email.
+        // An attacker could create a Supabase account with an unconfirmed email matching
+        // a legacy user's address and silently hijack their profile.
+        if (!user.email_confirmed_at) {
+          // Refuse to link until email is confirmed — treat as new unprovisioned user
+          req.supabaseUser = user;
+          req.user = null;
+          req.isNewUser = true;
+          return next();
+        }
+
         // Link supabase_uid to existing legacy user
         await supabase
           .from('users')
@@ -172,7 +184,9 @@ async function optionalAuth(req, res, next) {
       }
     }
   } catch (err) {
-    // Silent fail for optional auth
+    // Log the error so it surfaces in monitoring, but don't fail the request
+    // since auth is optional on these endpoints.
+    logger.error('optionalAuth error', { message: err.message });
   }
   next();
 }

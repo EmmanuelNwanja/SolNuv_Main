@@ -55,8 +55,12 @@ export default function AuthCallback() {
 
         router.replace('/dashboard');
       } catch {
-        // Backend may be waking from cold start; ping health and retry once.
+        // Backend may be waking from cold start; refresh session token then retry once.
         try {
+          // Ensure the Supabase token is fresh before retrying — avoids a scenario
+          // where the token expired between getSession() and getMe(), causing the
+          // retry to also fail with 401 and silently dropping the user to /login.
+          await supabase.auth.refreshSession();
           await authAPI.wakeBackend();
           const { data } = await authAPI.getMe();
           const profile = data?.data;
