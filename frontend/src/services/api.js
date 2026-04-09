@@ -97,9 +97,6 @@ async function getAccessToken() {
 // Attach Supabase auth token to every request
 api.interceptors.request.use(async (config) => {
   const token = await getAccessToken();
-  if (!token) {
-    console.warn('[api] No auth token for:', config.url);
-  }
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }

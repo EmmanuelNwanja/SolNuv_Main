@@ -17,6 +17,34 @@ export default function Register() {
   const [showPw, setShowPw] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [agreed, setAgreed] = useState(false);
+  const [cooldownEnd, setCooldownEnd] = useState(null);
+
+  useEffect(() => {
+    const saved = localStorage.getItem('solnuv_register_cooldown');
+    if (saved) {
+      const end = parseInt(saved, 10);
+      if (end > Date.now()) {
+        setCooldownEnd(end);
+      } else {
+        localStorage.removeItem('solnuv_register_cooldown');
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!cooldownEnd) return;
+    const remaining = cooldownEnd - Date.now();
+    if (remaining <= 0) {
+      setCooldownEnd(null);
+      localStorage.removeItem('solnuv_register_cooldown');
+      return;
+    }
+    const timer = setTimeout(() => {
+      setCooldownEnd(null);
+      localStorage.removeItem('solnuv_register_cooldown');
+    }, remaining);
+    return () => clearTimeout(timer);
+  }, [cooldownEnd]);
 
   useEffect(() => {
     if (session && !loading && profileResolved) {
@@ -26,6 +54,11 @@ export default function Register() {
   }, [session, loading, profileResolved, isOnboarded, isPlatformAdmin, router]);
 
   async function handleGoogle() {
+    if (cooldownEnd) {
+      const remaining = Math.ceil((cooldownEnd - Date.now()) / 1000);
+      toast.error(`Please wait ${remaining}s before trying again`);
+      return;
+    }
     if (!phone.trim()) {
       toast.error('Phone number is required before Google sign up');
       return;
@@ -42,18 +75,40 @@ export default function Register() {
 
     setSubmitting(true);
     const { error } = await signInWithGoogle();
-    if (error) { toast.error(error.message); setSubmitting(false); }
+    if (error) { 
+      if (error.status === 429 || error.message?.includes('rate')) {
+        toast.error('Too many attempts. Please wait a moment and try again.');
+      } else {
+        toast.error(error.message);
+      }
+      setSubmitting(false);
+    }
   }
 
   async function handleEmail(e) {
     e.preventDefault();
+    if (cooldownEnd) {
+      const remaining = Math.ceil((cooldownEnd - Date.now()) / 1000);
+      toast.error(`Please wait ${remaining}s before trying again`);
+      return;
+    }
     if (password !== confirm) { toast.error('Passwords do not match'); return; }
     if (password.length < 8) { toast.error('Password must be at least 8 characters'); return; }
     if (!phone.trim()) { toast.error('Phone number is required'); return; }
     if (!agreed) { toast.error('Please accept the Terms of Service and Privacy Policy to continue'); return; }
     setSubmitting(true);
     const { error } = await signUpWithEmail(email, password, { phone, business_type: businessType });
-    if (error) { toast.error(error.message); setSubmitting(false); }
+    if (error) {
+      if (error.status === 429 || error.message?.includes('rate')) {
+        toast.error('Too many attempts. Please wait a moment and try again.');
+        const cooldown = Date.now() + 60000;
+        setCooldownEnd(cooldown);
+        localStorage.setItem('solnuv_register_cooldown', String(cooldown));
+      } else {
+        toast.error(error.message);
+      }
+      setSubmitting(false);
+    }
     else {
       localStorage.setItem('solnuv_pending_onboarding', JSON.stringify({
         phone,
@@ -144,8 +199,8 @@ export default function Register() {
                   . I confirm I am at least 18 years old.
                 </span>
               </label>
-              <button type="submit" disabled={submitting || !agreed} className="btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed">
-                {submitting ? 'Creating account...' : 'Create Account'}
+              <button type="submit" disabled={submitting || !agreed || !!cooldownEnd} className="btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed">
+                {submitting ? 'Creating account...' : cooldownEnd ? `Wait ${Math.ceil((cooldownEnd - Date.now()) / 1000)}s` : 'Create Account'}
               </button>
             </form>
           </div>
