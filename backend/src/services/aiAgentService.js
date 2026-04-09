@@ -13,6 +13,7 @@ const toolRegistry  = require('./aiToolRegistry');
 const { SECURITY_PREAMBLE, USER_INPUT_PREFIX, USER_INPUT_SUFFIX, AGENT_SEEDS } = require('../constants/agentPrompts');
 const { logPlatformActivity } = require('./auditService');
 const { AGENT_PLAN_HIERARCHY } = require('../constants/planConstants');
+const { isSubscriptionHardExpired } = require('./gracePeriodService');
 
 const PLAN_HIERARCHY = AGENT_PLAN_HIERARCHY;
 const MAX_TOOL_ROUNDS = 3;
@@ -760,16 +761,15 @@ async function runInternalAgent(agentSlug) {
  */
 async function checkExpiredSubscriptions() {
   try {
-    const nowIso = new Date().toISOString();
-
-    // Companies with active agent instances whose subscription has expired
-    const { data: expiredCompanies } = await supabase
+    const { data: companies } = await supabase
       .from('companies')
-      .select('id, subscription_plan')
-      .lt('subscription_expires_at', nowIso)
-      .in('subscription_plan', ['elite', 'enterprise']);
+      .select('id, subscription_plan, subscription_expires_at, subscription_grace_until')
+      .neq('subscription_plan', 'free');
 
-    if (!expiredCompanies || expiredCompanies.length === 0) return;
+    if (!companies || companies.length === 0) return;
+
+    const expiredCompanies = companies.filter((company) => isSubscriptionHardExpired(company));
+    if (expiredCompanies.length === 0) return;
 
     for (const company of expiredCompanies) {
       await revokeAgentsOnDowngrade(company.id, 'free');

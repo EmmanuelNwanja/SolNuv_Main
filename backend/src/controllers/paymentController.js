@@ -11,7 +11,6 @@ const { logPlatformActivity } = require('../services/auditService');
 const logger = require('../utils/logger');
 const {
   BILLING_INTERVALS,
-  PLAN_HIERARCHY,
   PLAN_LIMITS,
   PAID_PLAN_IDS,
   getPlanPrice,
@@ -221,6 +220,7 @@ async function activateSubscription({
   company,
   plan,
   billingInterval,
+  autoRenewEnabled = true,
   paidAmountNgn,
   originalAmountNgn,
   discountAmountNgn,
@@ -244,7 +244,7 @@ async function activateSubscription({
       subscription_started_at: now.toISOString(),
       subscription_expires_at: expiresAt.toISOString(),
       subscription_grace_until: graceUntil.toISOString(),
-      subscription_auto_renew: true,
+      subscription_auto_renew: !!autoRenewEnabled,
       max_team_members: PLAN_LIMITS[plan],
       paystack_customer_id: paystackPayload?.customer?.customer_code || company.paystack_customer_id,
       paystack_subscription_code: paystackPayload?.subscription?.subscription_code || company.paystack_subscription_code,
@@ -452,12 +452,12 @@ exports.verifyPayment = async (req, res) => {
     }
 
     const isAuthorizedUser = req.user.id === user_id;
-    // Only admins/super_admins within the same company may verify on behalf of another member.
-    // Regular members cannot verify payments initiated by others to prevent authorization bypass.
+    // Only super_admins within the same company may verify on behalf of another member.
+    // Regular members/admins cannot verify payments initiated by others.
     const isAuthorizedAdmin = !!(
       req.user.company_id &&
       req.user.company_id === company_id &&
-      ['super_admin', 'admin'].includes(req.user.role)
+      req.user.role === 'super_admin'
     );
     if (!isAuthorizedUser && !isAuthorizedAdmin) {
       return sendError(res, 'Unauthorized to verify this payment', 403);
@@ -491,11 +491,15 @@ exports.verifyPayment = async (req, res) => {
       baseAmountNgn: getPlanPrice(plan, billing_interval),
     });
 
+    const autoRenewEnabled = !!metadata?.auto_renew
+      && !!(txData?.subscription?.subscription_code || txData?.plan_object?.plan_code);
+
     const expiresAt = await activateSubscription({
       user,
       company,
       plan,
       billingInterval: billing_interval,
+      autoRenewEnabled,
       paidAmountNgn: amount / 100,
       originalAmountNgn: Number(metadata?.original_amount_ngn || getPlanPrice(plan, billing_interval)),
       discountAmountNgn: Number(metadata?.discount_amount_ngn || promoValidation.discountAmountNgn || 0),
@@ -577,11 +581,15 @@ exports.handleWebhook = async (req, res) => {
             });
           }
 
+          const autoRenewEnabled = !!metadata?.auto_renew
+            && !!(data?.subscription?.subscription_code || data?.plan_object?.plan_code);
+
           await activateSubscription({
             user,
             company,
             plan: metadata.plan,
             billingInterval: metadata.billing_interval || 'monthly',
+            autoRenewEnabled,
             paidAmountNgn: Number(data.amount || 0) / 100,
             originalAmountNgn: Number(metadata.original_amount_ngn || getPlanPrice(metadata.plan, metadata.billing_interval || 'monthly')),
             discountAmountNgn: Number(metadata.discount_amount_ngn || promoValidation.discountAmountNgn || 0),
@@ -591,6 +599,13 @@ exports.handleWebhook = async (req, res) => {
             paymentStatus: data.status,
           });
         }
+      } else {
+        logger.warn('Paystack charge.success webhook missing required metadata fields', {
+          reference: data?.reference || null,
+          has_plan: !!metadata.plan,
+          has_company_id: !!metadata.company_id,
+          has_user_id: !!metadata.user_id,
+        });
       }
     }
 
@@ -782,7 +797,6 @@ exports.submitBankTransfer = async (req, res) => {
         return sendError(res, 'Receipt upload failed. Please try again.', 500);
       }
 
-      let proof_url = null;
       try {
         const { data: urlData } = supabase.storage.from('payment-proofs').getPublicUrl(filePath);
         proof_url = urlData?.publicUrl || null;

@@ -59,7 +59,7 @@ exports.chat = async (req, res) => {
 exports.getInstances = async (req, res) => {
   try {
     const companyId = req.user.company_id;
-    const userPlan = req.user.subscription_plan || 'free';
+    const userPlan = req.user?.companies?.subscription_plan || req.user.subscription_plan || 'free';
     const userPlanLevel = AGENT_PLAN_HIERARCHY[userPlan] ?? 0;
 
     if (!companyId) {

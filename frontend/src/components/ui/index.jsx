@@ -73,8 +73,8 @@ export function EmptyState({ icon: Icon, title, description, action }) {
 
 // PlanGate — locks content behind a plan
 export function PlanGate({ requiredPlan = 'pro', currentPlan, children }) {
-  const hierarchy = { free: 0, pro: 1, elite: 2, enterprise: 3 };
-  const hasAccess = (hierarchy[currentPlan] ?? 0) >= (hierarchy[requiredPlan] ?? 1);
+  const hierarchy = { free: 0, basic: 1, pro: 2, elite: 3, enterprise: 4 };
+  const hasAccess = (hierarchy[currentPlan] ?? 0) >= (hierarchy[requiredPlan] ?? 2);
 
   if (hasAccess) return children;
 

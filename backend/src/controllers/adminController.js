@@ -6,6 +6,7 @@ const { assignAgentsOnSubscription, revokeAgentsOnDowngrade } = require('../serv
 const { sendDecommissionApproved } = require('../services/notificationService');
 const logger = require('../utils/logger');
 const crypto = require('crypto');
+const { PLAN_LIMITS, PLAN_HIERARCHY } = require('../services/billingService');
 
 // Helper: Sanitize search input to prevent SQL/ILIKE injection
 function sanitizeSearch(input) {
@@ -170,7 +171,15 @@ exports.updateUserVerification = async (req, res) => {
       }
     }
 
+    let previousPlan = 'free';
     if (targetUser.company_id) {
+      const { data: currentCompany } = await supabase
+        .from('companies')
+        .select('subscription_plan')
+        .eq('id', targetUser.company_id)
+        .maybeSingle();
+      previousPlan = currentCompany?.subscription_plan || 'free';
+
       const companyUpdate = {};
       if (typeof company_verified === 'boolean') {
         companyUpdate.verified_at = company_verified ? new Date().toISOString() : null;
@@ -185,10 +194,32 @@ exports.updateUserVerification = async (req, res) => {
       if (isPlanChange && company_plan !== 'free') {
         const now = new Date();
         const expiresAt = new Date(now);
-        expiresAt.setMonth(expiresAt.getMonth() + (subscription_interval === 'annual' ? 12 : 1));
+        const resolvedInterval = subscription_interval || 'monthly';
+        expiresAt.setMonth(expiresAt.getMonth() + (resolvedInterval === 'annual' ? 12 : 1));
+        const graceUntil = new Date(expiresAt);
+        graceUntil.setDate(graceUntil.getDate() + 7);
+
         companyUpdate.subscription_started_at = now.toISOString();
+        companyUpdate.subscription_interval = resolvedInterval;
         companyUpdate.subscription_expires_at = expiresAt.toISOString();
+        companyUpdate.subscription_grace_until = graceUntil.toISOString();
         companyUpdate.subscription_auto_renew = payment_channel === 'paystack';
+
+        // Default max team members to plan limit unless explicitly overridden by admin.
+        if (!(typeof max_team_members === 'number' && max_team_members > 0)) {
+          companyUpdate.max_team_members = PLAN_LIMITS[company_plan] || PLAN_LIMITS.free;
+        }
+      }
+
+      if (isPlanChange && company_plan === 'free') {
+        companyUpdate.subscription_interval = null;
+        companyUpdate.subscription_started_at = null;
+        companyUpdate.subscription_expires_at = null;
+        companyUpdate.subscription_grace_until = null;
+        companyUpdate.subscription_auto_renew = false;
+        if (!(typeof max_team_members === 'number' && max_team_members > 0)) {
+          companyUpdate.max_team_members = PLAN_LIMITS.free;
+        }
       }
 
       if (Object.keys(companyUpdate).length > 0) {
@@ -197,7 +228,6 @@ exports.updateUserVerification = async (req, res) => {
 
       // Record transaction for non-free plan changes
       if (isPlanChange && company_plan !== 'free') {
-        const { PLAN_LIMITS } = require('../services/billingService');
         const env = req.env || 'test';
         const paidAtDate = payment_channel === 'direct_transfer' && bank_confirmed_at
           ? bank_confirmed_at
@@ -244,13 +274,16 @@ exports.updateUserVerification = async (req, res) => {
 
     // Auto-assign or revoke AI agents when plan changes
     if (isPlanChange && targetUser.company_id) {
-      if (company_plan === 'free') {
-        revokeAgentsOnDowngrade(targetUser.company_id, 'free').catch(err =>
-          logger.warn('Agent revocation after admin downgrade failed', { companyId: targetUser.company_id, message: err.message })
+      const previousLevel = PLAN_HIERARCHY[previousPlan] ?? 0;
+      const nextLevel = PLAN_HIERARCHY[company_plan] ?? 0;
+
+      if (nextLevel < previousLevel) {
+        revokeAgentsOnDowngrade(targetUser.company_id, company_plan).catch(err =>
+          logger.warn('Agent revocation after admin downgrade failed', { companyId: targetUser.company_id, fromPlan: previousPlan, toPlan: company_plan, message: err.message })
         );
-      } else {
+      } else if (nextLevel > previousLevel) {
         assignAgentsOnSubscription(targetUser.company_id, company_plan).catch(err =>
-          logger.warn('Agent assignment after admin upgrade failed', { companyId: targetUser.company_id, message: err.message })
+          logger.warn('Agent assignment after admin upgrade failed', { companyId: targetUser.company_id, fromPlan: previousPlan, toPlan: company_plan, message: err.message })
         );
       }
     }
@@ -1953,6 +1986,7 @@ exports.verifyDirectPayment = async (req, res) => {
         subscription_expires_at: expiresAt.toISOString(),
         subscription_grace_until: graceUntil.toISOString(),
         subscription_auto_renew: false,
+        max_team_members: PLAN_LIMITS[submission.plan_id] || PLAN_LIMITS.free,
         verified_at: now.toISOString(),
         verified_by: req.user.id,
       }).eq('id', targetUser.company_id);
