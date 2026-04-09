@@ -18,11 +18,7 @@ export default function Onboarding() {
   const { session, loading, setProfile, isOnboarded, isPlatformAdmin, profileResolved } = useAuth();
   const router = useRouter();
   const redirectedRef = useRef(false);
-  const [step, setStep] = useState(() => {
-    if (typeof window === 'undefined') return 1;
-    const saved = sessionStorage.getItem('solnuv_onboarding_step');
-    return saved ? parseInt(saved, 10) : 1;
-  });
+  const [step, setStep] = useState(1);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
 
@@ -39,6 +35,23 @@ export default function Onboarding() {
     company_state: 'Lagos',
     company_city: '',
   });
+
+  // Restore step + form from sessionStorage on mount (useEffect not lazy initializer
+  // to avoid SSR/hydration mismatches — Next.js server always renders step=1 first).
+  useEffect(() => {
+    const savedStep = sessionStorage.getItem('solnuv_onboarding_step');
+    const savedForm = sessionStorage.getItem('solnuv_onboarding_form');
+    if (savedStep) {
+      const parsed = parseInt(savedStep, 10);
+      if (!isNaN(parsed) && parsed >= 1 && parsed <= 3) setStep(parsed);
+    }
+    if (savedForm) {
+      try {
+        const parsedForm = JSON.parse(savedForm);
+        setForm(prev => ({ ...prev, ...parsedForm }));
+      } catch {}
+    }
+  }, []);
 
   // Single combined redirect effect — prevents race conditions from having multiple
   // independent effects that can fire out of order and bounce the user between routes.
@@ -70,10 +83,14 @@ export default function Onboarding() {
   const update = (field, val) => setForm(f => ({ ...f, [field]: val }));
   const isRegistered = form.business_type === 'registered';
 
-  // Persist step so browser refresh doesn't restart the flow
+  // Persist step + form so browser refresh doesn't lose progress
   useEffect(() => {
     sessionStorage.setItem('solnuv_onboarding_step', String(step));
   }, [step]);
+
+  useEffect(() => {
+    sessionStorage.setItem('solnuv_onboarding_form', JSON.stringify(form));
+  }, [form]);
   const totalSteps = isRegistered ? 3 : 2;
 
   function validateCurrentStep() {
@@ -123,6 +140,7 @@ export default function Onboarding() {
       const { data } = await authAPI.saveProfile(form);
       localStorage.removeItem('solnuv_pending_onboarding');
       sessionStorage.removeItem('solnuv_onboarding_step');
+      sessionStorage.removeItem('solnuv_onboarding_form');
       redirectedRef.current = true; // block the already-onboarded useEffect redirect
       
       // Update profile directly from response to avoid race condition

@@ -245,6 +245,19 @@ export function AuthProvider({ children }) {
     await fetchProfile();
   }
 
+  // External callers (e.g. onboarding submit) set the profile directly from an
+  // API response, bypassing fetchProfile(). That means the localStorage cache
+  // (solnuv_profile_v1) is never updated. On a cold-start Render refresh, the
+  // 8-second safety timer reads the stale cache (is_onboarded: false) and
+  // ProtectedRoute loops the user back to /onboarding indefinitely.
+  // This wrapper ensures any direct setProfile call also commits to the cache.
+  function setProfileWithCache(data) {
+    setProfile(data);
+    if (data && typeof data !== 'function') {
+      writeProfileCache(data);
+    }
+  }
+
   const isOnboarded = profile?.is_onboarded === true;
   const _rawPlan      = profile?.companies?.subscription_plan || 'free';
   const _graceUntil   = profile?.companies?.subscription_grace_until || null;
@@ -275,7 +288,7 @@ export function AuthProvider({ children }) {
       company, isPlatformAdmin, platformAdminRole,
       verificationStatus, isVerified,
       signInWithGoogle, signInWithEmail, signUpWithEmail,
-      signOut, refreshProfile, setProfile,
+      signOut, refreshProfile, setProfile: setProfileWithCache,
     }}>
       {children}
     </AuthContext.Provider>
