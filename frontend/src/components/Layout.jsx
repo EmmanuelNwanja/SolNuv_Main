@@ -7,6 +7,7 @@ import AdminLayout from './AdminLayout';
 import { ThemeToggle } from './ThemeToggle';
 import { PageMotion } from './PageMotion';
 import AIChatPanel from './AIChatPanel';
+import { PWAInstallBanner } from './PWAInstallBanner';
 import { authAPI } from '../services/api';
 import {
   RiDashboardLine, RiSunLine, RiBarChartLine, RiFileTextLine,
@@ -208,6 +209,7 @@ export default function Layout({ children }) {
 
       {/* AI Chat panel — available on all dashboard pages */}
       <AIChatPanel />
+      <PWAInstallBanner />
     </div>
   );
 }

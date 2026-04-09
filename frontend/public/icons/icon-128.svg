@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Background circle -->
+  <circle cx="64" cy="64" r="64" fill="#0d3b2e"/>
+  
+  <!-- Sun rays -->
+  <line x1="64" y1="8" x2="64" y2="24" stroke="#F59E0B" stroke-width="10" stroke-linecap="round"/>
+  <line x1="64" y1="120" x2="64" y2="104" stroke="#F59E0B" stroke-width="10" stroke-linecap="round"/>
+  <line x1="8" y1="64" x2="24" y2="64" stroke="#F59E0B" stroke-width="10" stroke-linecap="round"/>
+  <line x1="120" y1="64" x2="104" y2="64" stroke="#F59E0B" stroke-width="10" stroke-linecap="round"/>
+  <line x1="11.312" y1="11.312" x2="33.2" y2="33.2" stroke="#F59E0B" stroke-width="10" stroke-linecap="round"/>
+  <line x1="120" y1="120" x2="94.8" y2="94.8" stroke="#F59E0B" stroke-width="10" stroke-linecap="round"/>
+  <line x1="116.688" y1="11.312" x2="{DIAG_RAY_RIGHT}" y2="33.2" stroke="#F59E0B" stroke-width="10" stroke-linecap="round"/>
+  <line x1="11.312" y1="120" x2="33.2" y2="94.8" stroke="#F59E0B" stroke-width="10" stroke-linecap="round"/>
+  
+  <!-- Sun circle -->
+  <circle cx="64" cy="64" r="28" fill="#F59E0B"/>
+  
+  <!-- Green leaf accent -->
+  <path d="M76 76 Q96 44 108 108 Q84 76 76 76Z" fill="#10B981"/>
+</svg>

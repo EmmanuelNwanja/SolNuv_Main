@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 72 72" width="72" height="72">
+  <!-- Background circle -->
+  <circle cx="36" cy="36" r="36" fill="#0d3b2e"/>
+  
+  <!-- Sun rays -->
+  <line x1="36" y1="4.5" x2="36" y2="13.5" stroke="#F59E0B" stroke-width="5.625" stroke-linecap="round"/>
+  <line x1="36" y1="67.5" x2="36" y2="58.5" stroke="#F59E0B" stroke-width="5.625" stroke-linecap="round"/>
+  <line x1="4.5" y1="36" x2="13.5" y2="36" stroke="#F59E0B" stroke-width="5.625" stroke-linecap="round"/>
+  <line x1="67.5" y1="36" x2="58.5" y2="36" stroke="#F59E0B" stroke-width="5.625" stroke-linecap="round"/>
+  <line x1="6.3629999999999995" y1="6.3629999999999995" x2="18.675" y2="18.675" stroke="#F59E0B" stroke-width="5.625" stroke-linecap="round"/>
+  <line x1="67.5" y1="67.5" x2="53.325" y2="53.325" stroke="#F59E0B" stroke-width="5.625" stroke-linecap="round"/>
+  <line x1="65.637" y1="6.3629999999999995" x2="{DIAG_RAY_RIGHT}" y2="18.675" stroke="#F59E0B" stroke-width="5.625" stroke-linecap="round"/>
+  <line x1="6.3629999999999995" y1="67.5" x2="18.675" y2="53.325" stroke="#F59E0B" stroke-width="5.625" stroke-linecap="round"/>
+  
+  <!-- Sun circle -->
+  <circle cx="36" cy="36" r="15.75" fill="#F59E0B"/>
+  
+  <!-- Green leaf accent -->
+  <path d="M42.75 42.75 Q54 24.75 60.75 60.75 Q47.25 42.75 42.75 42.75Z" fill="#10B981"/>
+</svg>

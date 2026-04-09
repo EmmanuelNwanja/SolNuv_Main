@@ -1,12 +1,15 @@
-const CACHE_NAME = 'solnuv-pwa-v3';
+const CACHE_NAME = 'solnuv-pwa-v4';
+const OFFLINE_URL = '/offline';
 const URLS_TO_CACHE = [
-  '/offline.html',
+  '/offline',
+  '/manifest.json',
 ];
 
 function isCacheableStaticAsset(url) {
   return url.pathname.startsWith('/_next/static/') ||
     url.pathname === '/favicon.ico' ||
     url.pathname === '/favicon.svg' ||
+    url.pathname.startsWith('/icons/') ||
     /\.(?:js|css|png|jpg|jpeg|gif|svg|webp|ico|woff2?)$/i.test(url.pathname);
 }
 
@@ -21,7 +24,7 @@ async function networkFirst(req) {
   } catch {
     const cached = await cache.match(req);
     if (cached) return cached;
-    return caches.match('/offline.html');
+    return caches.match(OFFLINE_URL);
   }
 }
 
@@ -97,11 +100,7 @@ self.addEventListener('fetch', (event) => {
   event.respondWith(
     fetch(req).catch((error) => {
       console.error(`[SW] Fetch failed for ${req.url}:`, error);
-      return new Response(JSON.stringify({ error: 'Network unavailable' }), {
-        status: 503,
-        statusText: 'Service Unavailable',
-        headers: { 'Content-Type': 'application/json' }
-      });
+      return caches.match(OFFLINE_URL);
     })
   );
 });
