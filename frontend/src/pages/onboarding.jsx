@@ -12,11 +12,13 @@ function isValidNigerianPhone(phone) {
   if (!phone) return false;
   const cleaned = phone.replace(/\s/g, '');
   return /^(\+?234|0)[789][01]\d{8}$/.test(cleaned);
+              )}
+          </div>
+        </div>
+      </div>
+    </>
+  );
 }
-
-export default function Onboarding() {
-  const { session, loading, profileResolved, isOnboarded, isPlatformAdmin, refreshProfile, setProfile } = useAuth();
-  const router = useRouter();
   const redirectedRef = useRef(false);
   const [step, setStep] = useState(1);
   const [submitting, setSubmitting] = useState(false);
