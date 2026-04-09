@@ -74,13 +74,24 @@ export default function Register() {
     }));
 
     setSubmitting(true);
-    const { error } = await signInWithGoogle();
-    if (error) { 
-      if (error.status === 429 || error.message?.includes('rate')) {
-        toast.error('Too many attempts. Please wait a moment and try again.');
-      } else {
-        toast.error(error.message);
+    try {
+      const { error } = await signInWithGoogle();
+      if (error) {
+        const errorMsg = error.message || '';
+        if (errorMsg.includes('popup_closed') || errorMsg.includes('popup')) {
+          toast.error('Sign-in popup was closed. Please try again.');
+        } else if (error.status === 429 || errorMsg.includes('rate') || errorMsg.includes('too many')) {
+          toast.error('Too many attempts. Please wait 2 minutes before trying again.');
+          const cooldown = Date.now() + 120000;
+          setCooldownEnd(cooldown);
+          localStorage.setItem('solnuv_register_cooldown', String(cooldown));
+        } else {
+          toast.error(errorMsg || 'Google sign-in failed. Please try again.');
+        }
+        setSubmitting(false);
       }
+    } catch (err) {
+      toast.error('An unexpected error occurred. Please try again.');
       setSubmitting(false);
     }
   }
@@ -96,26 +107,75 @@ export default function Register() {
     if (password.length < 8) { toast.error('Password must be at least 8 characters'); return; }
     if (!phone.trim()) { toast.error('Phone number is required'); return; }
     if (!agreed) { toast.error('Please accept the Terms of Service and Privacy Policy to continue'); return; }
-    setSubmitting(true);
-    const { error } = await signUpWithEmail(email, password, { phone, business_type: businessType });
-    if (error) {
-      if (error.status === 429 || error.message?.includes('rate')) {
-        toast.error('Too many attempts. Please wait a moment and try again.');
-        const cooldown = Date.now() + 60000;
-        setCooldownEnd(cooldown);
-        localStorage.setItem('solnuv_register_cooldown', String(cooldown));
-      } else {
-        toast.error(error.message);
-      }
-      setSubmitting(false);
+    if (!email.trim() || !email.includes('@')) {
+      toast.error('Please enter a valid email address'); return;
     }
-    else {
+    
+    setSubmitting(true);
+    try {
+      const { error, data } = await signUpWithEmail(email, password, { phone, business_type: businessType });
+      
+      if (error) {
+        const errorMsg = error.message || '';
+        const errorStatus = error.status || error.statusCode;
+        
+        // Check for common Supabase errors
+        if (errorMsg.toLowerCase().includes('already registered') || 
+            errorMsg.toLowerCase().includes('already exists') || 
+            errorMsg.toLowerCase().includes('already been registered') ||
+            errorMsg.toLowerCase().includes('user already registered')) {
+          toast.error('This email is already registered. Try signing in instead.');
+          setSubmitting(false);
+          return;
+        }
+        
+        if (errorStatus === 429 || errorMsg.includes('rate') || errorMsg.includes('too many')) {
+          toast.error('Too many signup attempts. Please wait 2 minutes before trying again.');
+          const cooldown = Date.now() + 120000;
+          setCooldownEnd(cooldown);
+          localStorage.setItem('solnuv_register_cooldown', String(cooldown));
+          setSubmitting(false);
+          return;
+        }
+        
+        if (errorMsg.includes('invalid email') || errorMsg.includes('email format')) {
+          toast.error('Please enter a valid email address.');
+          setSubmitting(false);
+          return;
+        }
+        
+        if (errorMsg.includes('weak password') || errorMsg.includes('Password should be')) {
+          toast.error('Password is too weak. Use at least 8 characters with a mix of letters and numbers.');
+          setSubmitting(false);
+          return;
+        }
+        
+        // Generic fallback with user-friendly message
+        toast.error(errorMsg || 'Registration failed. Please try again.');
+        setSubmitting(false);
+        return;
+      }
+      
+      // Check if email confirmation is required
+      if (data?.user && !data?.session) {
+        localStorage.setItem('solnuv_pending_onboarding', JSON.stringify({
+          phone,
+          business_type: businessType,
+        }));
+        toast.success('Account created! Please check your email to confirm your account.');
+        router.push('/verify-phone');
+        return;
+      }
+      
       localStorage.setItem('solnuv_pending_onboarding', JSON.stringify({
         phone,
         business_type: businessType,
       }));
       toast.success('Account created! Verify your phone to continue.');
       router.push('/verify-phone');
+    } catch (err) {
+      toast.error('An unexpected error occurred. Please try again.');
+      setSubmitting(false);
     }
   }
 
