@@ -63,33 +63,16 @@ async function sendDecommissionApproved(user, project) {
 }
 
 async function notifyAdminsOfVerificationRequest(user, type) {
-  const supabase = require('../config/database');
-  
-  const { data: admins } = await supabase
-    .from('admin_users')
-    .select('phone, email')
-    .in('role', ['super_admin', 'operations'])
-    .eq('is_active', true)
-    .limit(10);
-
-  if (!admins || admins.length === 0) return;
-
   const userType = type === 'company' ? 'company' : 'solo';
   const userName = user?.first_name || 'Unknown';
   const userEmail = user?.email || '';
-  const message = `SolNuv Admin: New ${userType} user verification request from ${userName} (${userEmail}). Review at solnuv.com/admin/verification.`;
-
-  const results = await Promise.allSettled(
-    admins.filter(a => a.phone).map(a => sendSms({ to: a.phone, message, channel: 'generic' }))
-  );
-
-  const failures = results.filter(r => r.status === 'rejected');
-  if (failures.length > 0) {
-    logger.warn('Some admin SMS notifications failed for verification request', {
-      count: failures.length,
-      errors: failures.map(f => f.reason?.message || 'Unknown error'),
-    });
-  }
+  
+  logger.info('New verification request', {
+    user_id: user?.id,
+    user_name: userName,
+    user_email: userEmail,
+    user_type: userType,
+  });
 }
 
 async function notifyUserOfVerificationStatus(user, status, reason = null) {
