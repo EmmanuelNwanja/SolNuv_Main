@@ -1,6 +1,6 @@
 import Head from 'next/head';
 import { useEffect, useState } from 'react';
-import { adminAPI } from '../../services/api';
+import { adminAPI, authAPI } from '../../services/api';
 import { getAdminLayout } from '../../components/Layout';
 import { RiCheckLine, RiCloseLine, RiFileCopyLine, RiRefreshLine, RiAddLine, RiShieldCheckLine, RiKeyLine, RiTimeLine } from 'react-icons/ri';
 import AdminRoute from '../../components/AdminRoute';
@@ -24,7 +24,7 @@ export default function OtpManagement() {
   async function loadOtps() {
     setLoading(true);
     try {
-      await adminAPI.wakeBackend();
+      await authAPI.wakeBackend();
       const { data } = await adminAPI.getOtps();
       setOtps(data.data || []);
     } catch (err) {
@@ -41,7 +41,7 @@ export default function OtpManagement() {
 
     setGeneratingOtp(true);
     try {
-      await adminAPI.wakeBackend();
+      await authAPI.wakeBackend();
       const { data } = await adminAPI.generateOtp(generateForm);
       toast.success('OTP generated! Manually share with user if needed.');
       // Add new OTP to the top of the list
