@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { getAuthCallbackUrl, supabase } from '../utils/supabase';
-import { authAPI } from '../services/api';
+import { authAPI as backendAuthAPI } from '../services/api';
 
 const AuthContext = createContext({});
 
@@ -188,14 +188,31 @@ export function AuthProvider({ children }) {
   }
 
   async function signUpWithEmail(email, password, metadata = {}) {
-    return supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: getAuthCallbackUrl(),
-        data: metadata,
-      },
-    });
+    try {
+      const response = await backendAuthAPI.signup({
+        email,
+        password,
+        phone: metadata.phone || '',
+        business_type: metadata.business_type || 'solo',
+      });
+      
+      if (response.data?.user) {
+        const { data: sessionData } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+        
+        return { data: sessionData, error: null };
+      }
+      
+      return { data: response.data, error: null };
+    } catch (err) {
+      const error = {
+        message: err.response?.data?.message || err.message || 'Signup failed',
+        status: err.response?.status || 500,
+      };
+      return { data: null, error };
+    }
   }
 
   async function signOut() {

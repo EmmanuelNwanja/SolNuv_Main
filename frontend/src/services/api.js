@@ -137,6 +137,7 @@ export const authAPI = {
   checkInvite: (token) => api.get(`/auth/accept-invite/${token}`),
   getTeam: () => api.get('/auth/team'),
   getNotifications: (markRead = false) => api.get('/auth/notifications', { params: markRead ? { mark_read: 'true' } : {} }),
+  signup: (data) => api.post('/auth/signup', data),
 };
 
 // ==============================

@@ -811,3 +811,83 @@ exports.verifyPhoneVerificationOtp = async (req, res) => {
     return sendError(res, 'Failed to verify phone OTP', 500);
   }
 };
+
+/**
+ * POST /api/auth/signup
+ * Backend-mediated signup using Supabase Admin API to bypass client-side rate limits
+ */
+exports.signup = async (req, res) => {
+  try {
+    const { email, password, phone, business_type } = req.body;
+
+    if (!email || !password || !phone) {
+      return sendError(res, 'Email, password, and phone are required', 400);
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return sendError(res, 'Invalid email format', 400);
+    }
+
+    if (password.length < 8) {
+      return sendError(res, 'Password must be at least 8 characters', 400);
+    }
+
+    const phoneRegex = /^(\+?234|0)[789][01]\d{8}$/;
+    const cleanedPhone = (phone || '').replace(/\s/g, '');
+    if (!phoneRegex.test(cleanedPhone)) {
+      return sendError(res, 'Invalid Nigerian phone number format', 400);
+    }
+
+    const { data: existingUser } = await supabase
+      .from('users')
+      .select('id')
+      .eq('email', email.toLowerCase())
+      .maybeSingle();
+
+    if (existingUser) {
+      return sendError(res, 'This email is already registered. Try signing in instead.', 409);
+    }
+
+    const frontendUrl = process.env.FRONTEND_URL || 'https://solnuv.com';
+    const redirectTo = `${frontendUrl}/auth/callback`;
+
+    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+      email: email.toLowerCase(),
+      password,
+      email_confirm: true,
+      user_metadata: {
+        phone: cleanedPhone,
+        business_type: business_type || 'solo',
+      },
+      data: {
+        phone: cleanedPhone,
+        business_type: business_type || 'solo',
+      },
+    });
+
+    if (authError) {
+      logger.error('Supabase signup error', { message: authError.message, code: authError.code });
+      
+      if (authError.code === 'signup_disabled') {
+        return sendError(res, 'Account creation is currently disabled. Please try again later.', 503);
+      }
+      
+      if (authError.message?.toLowerCase().includes('already') || authError.code === 'user_already_exists') {
+        return sendError(res, 'This email is already registered. Try signing in instead.', 409);
+      }
+      
+      return sendError(res, authError.message || 'Failed to create account', 500);
+    }
+
+    logger.info('User signup successful via backend', { user_id: authData.user.id, email });
+    
+    return sendSuccess(res, {
+      user: { id: authData.user.id, email: authData.user.email },
+      message: 'Account created successfully',
+    });
+  } catch (err) {
+    logger.error('Signup error', { message: err.message, stack: err.stack });
+    return sendError(res, 'An unexpected error occurred', 500);
+  }
+};

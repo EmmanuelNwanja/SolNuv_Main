@@ -4,6 +4,7 @@ const authController = require('../controllers/authController');
 const { requireAuth, requireProfile } = require('../middlewares/authMiddleware');
 const { checkTeamLimit } = require('../middlewares/subscriptionMiddleware');
 
+router.post('/signup', authController.signup);
 router.post('/password-reset/request', authController.requestPasswordResetOtp);
 router.post('/password-reset/verify', authController.verifyPasswordResetOtp);
 router.post('/password-reset/complete', authController.completePasswordReset);
