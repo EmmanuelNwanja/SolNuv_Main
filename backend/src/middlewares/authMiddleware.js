@@ -55,6 +55,24 @@ async function requireAuth(req, res, next) {
       dbUser = dbUserWithCompany;
     }
 
+    // Legacy user fallback: find by email and link supabase_uid
+    if (!dbUser && user.email) {
+      const { data: legacyUser, error: legacyError } = await supabase
+        .from('users')
+        .select('*, companies:companies!users_company_id_fkey(*)')
+        .eq('email', user.email.toLowerCase())
+        .maybeSingle();
+
+      if (!legacyError && legacyUser) {
+        // Link supabase_uid to existing legacy user
+        await supabase
+          .from('users')
+          .update({ supabase_uid: user.id })
+          .eq('id', legacyUser.id);
+        dbUser = legacyUser;
+      }
+    }
+
     if (!dbUser) {
       // User authenticated but no profile yet - provide minimal info
       req.supabaseUser = user;
