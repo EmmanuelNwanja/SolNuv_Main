@@ -220,31 +220,29 @@ export default function SharedReport() {
         <meta name="robots" content="noindex, nofollow" />
       </Head>
 
-      <div className="min-h-screen bg-gray-100">
+      <div className="min-h-screen min-h-[100dvh] bg-gray-100">
         {/* Sticky Header */}
         <header className="sticky top-0 z-50 bg-[#0D3B2E] text-white shadow-lg">
-          <div className="max-w-7xl mx-auto px-6 py-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-[#10B981] rounded-lg flex items-center justify-center">
-                    <RiSunLine className="w-6 h-6" />
-                  </div>
-                  <div>
-                    <p className="text-xs text-green-300">SolNuv Design Report</p>
-                    <h1 className="text-lg font-bold">{project?.name || 'Solar Project'}</h1>
-                  </div>
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-4">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-[#10B981] rounded-lg flex items-center justify-center flex-shrink-0">
+                  <RiSunLine className="w-5 h-5 sm:w-6 sm:h-6" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[10px] sm:text-xs text-green-300 hidden sm:block">SolNuv Design Report</p>
+                  <h1 className="text-sm sm:text-lg font-bold truncate">{project?.name || 'Solar Project'}</h1>
                 </div>
               </div>
-              <div className="flex items-center gap-6">
-                <div className="text-right hidden md:block">
+              <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
+                <div className="text-right hidden lg:block">
                   {project?.company && <p className="text-sm text-green-300">{project.company}</p>}
                   <p className="text-xs text-green-200">{project?.location}{project?.state && `, ${project.state}`}</p>
                 </div>
                 <button
                   onClick={() => downloadPdf()}
                   disabled={exportingPdf}
-                  className="flex items-center gap-2 bg-[#10B981] hover:bg-[#0D9668] px-4 py-2 rounded-lg transition-colors font-medium disabled:opacity-50"
+                  className="flex items-center gap-1 sm:gap-2 bg-[#10B981] hover:bg-[#0D9668] px-2 sm:px-4 py-2 rounded-lg transition-colors font-medium disabled:opacity-50 text-xs sm:text-sm"
                 >
                   {exportingPdf ? (
                     <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
@@ -256,9 +254,10 @@ export default function SharedReport() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
                   )}
-                  {exportingPdf ? 'Exporting...' : 'Download PDF'}
+                  <span className="hidden sm:inline">{exportingPdf ? 'Exporting...' : 'Download PDF'}</span>
+                  <span className="sm:hidden">PDF</span>
                 </button>
-                <a href="https://solnuv.com" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 bg-white/10 hover:bg-white/20 px-4 py-2 rounded-lg transition-colors">
+                <a href="https://solnuv.com" target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 bg-white/10 hover:bg-white/20 px-2 sm:px-3 py-2 rounded-lg transition-colors text-xs sm:text-sm">
                   <span className="font-semibold">SolNuv</span>
                 </a>
               </div>

@@ -49,9 +49,7 @@ export default function AuthCallback() {
         }
 
         if (!profile?.is_onboarded) {
-          const { data: userData } = await supabase.auth.getUser();
-          const phoneVerified = !!userData?.user?.user_metadata?.phone_verified;
-          router.replace(phoneVerified ? '/onboarding' : '/verify-phone');
+          router.replace('/onboarding');
           return;
         }
 
@@ -67,9 +65,7 @@ export default function AuthCallback() {
             return;
           }
           if (!profile?.is_onboarded) {
-            const { data: userData } = await supabase.auth.getUser();
-            const phoneVerified = !!userData?.user?.user_metadata?.phone_verified;
-            router.replace(phoneVerified ? '/onboarding' : '/verify-phone');
+            router.replace('/onboarding');
             return;
           }
           router.replace('/dashboard');

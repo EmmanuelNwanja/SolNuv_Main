@@ -84,16 +84,16 @@ export default function Layout({ children }) {
   const initials = displayName.charAt(0).toUpperCase();
 
   return (
-    <div className="min-h-screen bg-slate-50 flex">
+    <div className="min-h-screen min-h-[100dvh] bg-slate-50 flex">
       {/* Mobile overlay */}
       {sidebarOpen && (
         <div className="fixed inset-0 bg-black/40 z-20 lg:hidden" onClick={() => setSidebarOpen(false)} />
       )}
 
       {/* SIDEBAR */}
-      <aside className={`fixed top-0 left-0 h-full w-64 bg-white border-r border-slate-100 z-30 flex flex-col transition-transform duration-300 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 lg:static lg:flex`}>
+      <aside className={`fixed top-0 left-0 h-full h-[100dvh] w-64 bg-white border-r border-slate-100 z-30 flex flex-col transition-transform duration-300 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 lg:static lg:flex`}>
         {/* Logo */}
-        <div className="p-6 border-b border-slate-100">
+        <div className="p-4 sm:p-6 border-b border-slate-100">
           <Link href="/dashboard" className="flex items-center gap-2">
             <div className="w-8 h-8 bg-forest-900 rounded-lg flex items-center justify-center">
               <RiSunLine className="text-amber-400 text-lg" />
@@ -103,7 +103,7 @@ export default function Layout({ children }) {
         </div>
 
         {/* Nav */}
-        <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+        <nav className="flex-1 p-2 sm:p-4 space-y-1 overflow-y-auto">
           {[...navItems, ...(isPlatformAdmin ? [{ href: '/admin', icon: RiAdminLine, label: 'Admin' }] : [])].map(({ href, icon: Icon, label, pro }) => {
             const active = router.pathname === href || router.pathname.startsWith(href + '/');
             const locked = pro && !isPro;
@@ -158,12 +158,12 @@ export default function Layout({ children }) {
       {/* MAIN CONTENT */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top bar */}
-        <header className="bg-white border-b border-slate-100 px-4 lg:px-8 py-4 flex items-center gap-4 sticky top-0 z-10">
+        <header className="bg-white border-b border-slate-100 px-4 lg:px-8 py-3 sm:py-4 flex items-center gap-4 sticky top-0 z-10">
           <button onClick={() => setSidebarOpen(true)} className="lg:hidden text-slate-600 hover:text-forest-900 p-1">
             <RiMenuLine className="text-xl" />
           </button>
           <div className="flex-1" />
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             <ThemeToggle compact />
             <span className={`badge ${
               isFree    ? 'badge-slate' :
@@ -186,7 +186,7 @@ export default function Layout({ children }) {
 
         {/* Grace period / free tier banner */}
         {isInGracePeriod && graceDaysLeft !== null && (
-          <div className={`px-4 lg:px-8 py-2.5 flex items-center gap-3 text-sm ${
+          <div className={`px-4 lg:px-8 py-2 flex items-center gap-2 sm:gap-3 text-xs sm:text-sm ${
             graceDaysLeft <= 1 ? 'bg-red-50 border-b border-red-200 text-red-800'
               : graceDaysLeft <= 3 ? 'bg-orange-50 border-b border-orange-200 text-orange-800'
               : 'bg-amber-50 border-b border-amber-200 text-amber-800'

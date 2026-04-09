@@ -55,16 +55,10 @@ export default function Onboarding() {
     }
   }, [loading, profileResolved, session, isOnboarded, isPlatformAdmin, router]);
 
-  // Only require phone verification for brand-new regular users (not yet onboarded)
+  // Phone verification is no longer mandatory - users proceed directly to onboarding
   useEffect(() => {
-    if (!session?.user) return;
-    if (!profileResolved) return;
-    if (isPlatformAdmin) return; // already handled above
-    if (isOnboarded) return; // already handled above
-    if (!session.user.user_metadata?.phone_verified) {
-      router.replace('/verify-phone');
-    }
-  }, [session?.user, profileResolved, isOnboarded, isPlatformAdmin, router]);
+    // This effect intentionally left empty - removed phone verification redirect
+  }, []);
 
   useEffect(() => {
     if (!session?.user) return;

@@ -50,6 +50,18 @@ body {
   color: var(--text-primary);
   -webkit-font-smoothing: antialiased;
   transition: background-color .35s ease, color .35s ease;
+  /* Fix for iOS Safari shaky viewport */
+  min-height: 100vh;
+  min-height: 100dvh;
+  position: relative;
+  overflow-x: hidden;
+}
+
+.app-shell {
+  position: relative;
+  min-height: 100vh;
+  min-height: 100dvh;
+  animation: pageFade .45s ease;
 }
 
 /* DISPLAY FONT */
@@ -217,7 +229,9 @@ body {
   }
 
   .auth-shell {
-    @apply min-h-screen flex items-center justify-center p-4;
+    @apply flex items-center justify-center p-4;
+    min-height: 100vh;
+    min-height: 100dvh;
     position: relative;
     z-index: 1;
   }
