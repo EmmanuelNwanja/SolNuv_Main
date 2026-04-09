@@ -9,7 +9,7 @@ const { runInternalAgent, checkExpiredSubscriptions, seedAgentDefinitions } = re
 
 // ─── KEEP-ALIVE ──────────────────────────────────────────────────────────────
 // Render free-tier web services sleep after 15 minutes of inactivity.
-// This self-ping fires every 10 minutes so the process is never idle,
+// This self-ping fires every 8 minutes so the process is never idle,
 // even when zero users are on the platform.
 function startKeepAlive() {
   const selfUrl = (process.env.RENDER_EXTERNAL_URL || '').replace(/\/$/, '');
@@ -22,12 +22,12 @@ function startKeepAlive() {
 
   setInterval(async () => {
     try {
-      await axios.get(pingUrl, { timeout: 10_000 });
+      await axios.get(pingUrl, { timeout: 30_000 });
       logger.info(`Keep-alive ✓ ${pingUrl}`);
     } catch (err) {
       logger.warn(`Keep-alive ping failed: ${err.message}`);
     }
-  }, 10 * 60 * 1000); // every 10 minutes
+  }, 8 * 60 * 1000); // every 8 minutes
 
   logger.info(`⏱  Keep-alive active → ${pingUrl} (every 10 min)`);
 }

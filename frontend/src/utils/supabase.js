@@ -6,15 +6,11 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 export function getAppUrl() {
   const configured = process.env.NEXT_PUBLIC_APP_URL?.trim();
   if (configured) {
-    const normalized = configured.replace(/\/$/, '');
-    // Prevent apex/www callback mismatches in production OAuth configuration.
-    if (normalized === 'https://solnuv.com' || normalized === 'http://solnuv.com') {
-      return 'https://www.solnuv.com';
-    }
+    const normalized = configured.replace(/\/$/, '').replace(/^https?:\/\/www\./, 'https://');
     return normalized;
   }
-  if (typeof window !== 'undefined') return window.location.origin;
-  return 'https://www.solnuv.com';
+  if (typeof window !== 'undefined') return window.location.origin.replace(/^https?:\/\/www\./, 'https://');
+  return 'https://solnuv.com';
 }
 
 export function getAuthCallbackUrl() {

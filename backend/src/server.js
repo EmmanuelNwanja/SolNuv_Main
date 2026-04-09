@@ -48,4 +48,9 @@ process.on('uncaughtException', (error) => {
   }
 });
 
+// Handle timeout errors gracefully
+process.on('timeout', () => {
+  logger.warn('Process timeout detected');
+});
+
 module.exports = server;

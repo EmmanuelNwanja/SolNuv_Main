@@ -180,18 +180,18 @@ function PopupCampaign() {
           </div>
           <p className="font-bold text-slate-800 text-base leading-snug">{ad.title}</p>
           {ad.body_text && <p className="text-sm text-slate-500 mt-1 line-clamp-2">{ad.body_text}</p>}
-          <div className="mt-4 flex gap-3">
+          <div className="mt-4 flex gap-3 justify-center">
             {ad.target_url && (
               <button
                 onClick={handleClick}
-                className="flex-1 bg-forest-900 hover:bg-forest-800 text-white font-semibold py-2.5 rounded-xl text-sm transition-colors"
+                className="min-w-[120px] bg-forest-900 hover:bg-forest-800 text-white font-semibold py-2.5 px-5 rounded-xl text-sm transition-colors"
               >
                 Learn More
               </button>
             )}
             <button
               onClick={handleClose}
-              className="flex-1 border border-slate-200 text-slate-600 hover:bg-slate-50 font-medium py-2.5 rounded-xl text-sm transition-colors"
+              className="min-w-[120px] border border-slate-200 text-slate-600 hover:bg-slate-50 font-medium py-2.5 px-5 rounded-xl text-sm transition-colors"
             >
               Dismiss
             </button>
