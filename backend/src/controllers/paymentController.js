@@ -39,6 +39,34 @@ async function hasProcessedTransaction(reference) {
   return !!data;
 }
 
+async function isWebhookEventProcessed(eventType, reference) {
+  if (!eventType || !reference) return false;
+
+  const { data } = await supabase
+    .from('webhook_events')
+    .select('id')
+    .eq('event_type', eventType)
+    .eq('reference', reference)
+    .maybeSingle();
+
+  return !!data;
+}
+
+async function logWebhookEventProcessed(eventType, reference, payload) {
+  try {
+    await supabase.from('webhook_events').insert({
+      event_type: eventType,
+      reference: reference,
+      payload: payload,
+      processed_at: new Date().toISOString(),
+    });
+  } catch (err) {
+    if (err.code !== '23505') {
+      logger.error('Failed to log webhook event', { eventType, reference, error: err.message });
+    }
+  }
+}
+
 async function ensureCompanyForBilling(user) {
   if (user.company_id) {
     const { data: company } = await supabase
@@ -561,26 +589,42 @@ exports.handleWebhook = async (req, res) => {
     }
 
     if (event === 'subscription.disable' || event === 'invoice.payment_failed') {
-      const customerCode = data?.customer?.customer_code;
-      if (customerCode) {
-        await supabase
-          .from('companies')
-          .update({ subscription_auto_renew: false })
-          .eq('paystack_customer_id', customerCode);
+      const reference = data?.reference || data?.id;
+      if (reference && await isWebhookEventProcessed(event, reference)) {
+        logger.info('Webhook event already processed', { event, reference });
+      } else {
+        const customerCode = data?.customer?.customer_code;
+        if (customerCode) {
+          await supabase
+            .from('companies')
+            .update({ subscription_auto_renew: false })
+            .eq('paystack_customer_id', customerCode);
+        }
+        if (reference) {
+          await logWebhookEventProcessed(event, reference, data);
+        }
       }
     }
 
     if (event === 'subscription.create' || event === 'subscription.not_renew') {
-      const customerCode = data?.customer?.customer_code;
-      if (customerCode) {
-        await supabase
-          .from('companies')
-          .update({
-            paystack_subscription_code: data?.subscription_code || null,
-            paystack_plan_code: data?.plan?.plan_code || null,
-            subscription_auto_renew: event !== 'subscription.not_renew',
-          })
-          .eq('paystack_customer_id', customerCode);
+      const reference = data?.subscription_code || data?.id;
+      if (reference && await isWebhookEventProcessed(event, reference)) {
+        logger.info('Webhook event already processed', { event, reference });
+      } else {
+        const customerCode = data?.customer?.customer_code;
+        if (customerCode) {
+          await supabase
+            .from('companies')
+            .update({
+              paystack_subscription_code: data?.subscription_code || null,
+              paystack_plan_code: data?.plan?.plan_code || null,
+              subscription_auto_renew: event !== 'subscription.not_renew',
+            })
+            .eq('paystack_customer_id', customerCode);
+        }
+        if (reference) {
+          await logWebhookEventProcessed(event, reference, data);
+        }
       }
     }
 
