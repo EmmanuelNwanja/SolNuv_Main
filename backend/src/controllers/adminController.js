@@ -1156,6 +1156,7 @@ exports.approveDecommission = async (req, res) => {
       .single();
 
     if (updateErr) throw updateErr;
+    if (!updated) return sendError(res, 'Recovery request not found', 404);
 
     // Notify the project owner (non-blocking, errors logged)
     sendDecommissionApproved(updated.requester, updated.project).catch((err) => {
