@@ -18,7 +18,11 @@ export default function Onboarding() {
   const { session, loading, setProfile, isOnboarded, isPlatformAdmin, profileResolved } = useAuth();
   const router = useRouter();
   const redirectedRef = useRef(false);
-  const [step, setStep] = useState(1);
+  const [step, setStep] = useState(() => {
+    if (typeof window === 'undefined') return 1;
+    const saved = sessionStorage.getItem('solnuv_onboarding_step');
+    return saved ? parseInt(saved, 10) : 1;
+  });
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
 
@@ -65,6 +69,11 @@ export default function Onboarding() {
 
   const update = (field, val) => setForm(f => ({ ...f, [field]: val }));
   const isRegistered = form.business_type === 'registered';
+
+  // Persist step so browser refresh doesn't restart the flow
+  useEffect(() => {
+    sessionStorage.setItem('solnuv_onboarding_step', String(step));
+  }, [step]);
   const totalSteps = isRegistered ? 3 : 2;
 
   function validateCurrentStep() {
@@ -113,6 +122,7 @@ export default function Onboarding() {
     try {
       const { data } = await authAPI.saveProfile(form);
       localStorage.removeItem('solnuv_pending_onboarding');
+      sessionStorage.removeItem('solnuv_onboarding_step');
       redirectedRef.current = true; // block the already-onboarded useEffect redirect
       
       // Update profile directly from response to avoid race condition
