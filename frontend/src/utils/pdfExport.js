@@ -23,134 +23,132 @@ export async function exportToPdf(element, filename, options = {}) {
     },
     pagebreak: { mode: ['avoid-all', 'css', 'legacy'] },
     onclone: (clonedDoc) => {
-      // Remove ALL sidebars completely - sidebar is the navigation panel
+      // STEP 1: Completely remove sidebar <aside> elements
       const asides = clonedDoc.querySelectorAll('aside');
-      asides.forEach(aside => {
-        aside.style.display = 'none';
-        aside.style.width = '0';
-        aside.style.minWidth = '0';
-        aside.style.maxWidth = '0';
-        aside.style.padding = '0';
-        aside.style.margin = '0';
-        aside.style.border = 'none';
+      asides.forEach(aside => aside.remove());
+
+      // Remove nav elements that are inside the sidebar container
+      const navElements = clonedDoc.querySelectorAll('nav');
+      navElements.forEach(nav => {
+        // Check if this nav is likely a sidebar nav (has buttons as children)
+        const buttons = nav.querySelectorAll('button');
+        if (buttons.length > 2) {
+          nav.remove();
+        }
       });
 
-      // Remove any sidebar-related navigation buttons
-      const navButtons = clonedDoc.querySelectorAll('nav button');
-      navButtons.forEach(btn => {
-        btn.style.display = 'none';
-      });
-
-      // Find and fix the main container - it usually has flex layout
-      const flexContainers = clonedDoc.querySelectorAll('[class*="flex"]');
-      flexContainers.forEach(container => {
-        // Skip if it's the header or footer
-        if (container.tagName === 'HEADER' || container.tagName === 'FOOTER') return;
+      // STEP 2: Fix flex containers that had sidebar + main layout
+      const allDivs = clonedDoc.querySelectorAll('div');
+      allDivs.forEach(div => {
+        const style = div.style;
+        const classList = div.className || '';
         
-        // Check if this container has both sidebar-like and main-content-like children
-        const children = container.children;
-        let hasAside = false;
-        let hasMain = false;
-        
-        for (let child of children) {
-          if (child.tagName === 'ASIDE' || child.classList?.contains('sidebar')) {
-            hasAside = true;
+        // If div has flex and contains the main content area, convert to block
+        if (style.display === 'flex' || classList.includes('flex')) {
+          // Check if this is a layout container (has w-64 which is sidebar width)
+          if (classList.includes('w-64') || style.width === '16rem' || style.width === '256px') {
+            style.display = 'none';
           }
-          if (child.tagName === 'MAIN' || child.classList?.contains('main')) {
-            hasMain = true;
+          
+          // Check parent to see if this div is the flex container with aside
+          const parent = div.parentElement;
+          if (parent) {
+            const parentClass = parent.className || '';
+            // If parent has max-w-7xl and is flex, make it block
+            if (parentClass.includes('max-w-7xl')) {
+              parent.style.display = 'block';
+              parent.classList.remove('flex');
+              parent.style.flex = '';
+              parent.style.maxWidth = '100%';
+              parent.style.padding = '16px';
+            }
           }
         }
+      });
+
+      // STEP 3: Fix the main content wrapper
+      const maxWContainers = clonedDoc.querySelectorAll('[class*="max-w-"]');
+      maxWContainers.forEach(container => {
+        const style = container.style;
+        const classList = container.className || '';
         
-        // If container has aside and main, restructure it
-        if (hasAside && hasMain) {
-          container.style.display = 'block';
-          container.style.flexDirection = '';
-          container.classList.remove('flex');
+        // Skip header/footer
+        if (container.tagName === 'HEADER' || container.tagName === 'FOOTER') {
+          style.position = 'relative';
+          style.top = '';
+          return;
         }
+        
+        // If this container has flex layout, convert to block
+        if (style.display === 'flex' || classList.includes('flex')) {
+          style.display = 'block';
+        }
+        
+        // Expand to full width
+        style.maxWidth = '100%';
+        style.width = '100%';
+        style.margin = '0';
+        style.padding = '16px';
       });
 
-      // Fix main container layout - look for the max-w-7xl container that wraps content
-      const mainContainers = clonedDoc.querySelectorAll('.max-w-7xl');
-      mainContainers.forEach(mainContainer => {
-        // Check if this is the report container (has flex layout with aside)
-        if (mainContainer.classList.contains('flex') || mainContainer.style.display === 'flex') {
-          mainContainer.style.display = 'block';
-          mainContainer.classList.remove('flex');
-          mainContainer.style.flex = '';
-        }
-        mainContainer.style.maxWidth = '100%';
-        mainContainer.style.margin = '0 auto';
-        mainContainer.style.padding = '0 8px';
-      });
-
-      // Fix main content area
+      // STEP 4: Fix main content area
       const mainElements = clonedDoc.querySelectorAll('main');
       mainElements.forEach(main => {
         main.style.width = '100%';
         main.style.maxWidth = '100%';
-        main.style.flex = '1';
-        main.style.padding = '16px 8px';
+        main.style.flex = '';
+        main.style.padding = '0';
         main.style.boxSizing = 'border-box';
       });
 
-      // Fix all grid layouts to fit A4
-      const allGrids = clonedDoc.querySelectorAll('.grid');
-      allGrids.forEach(grid => {
+      // STEP 5: Fix grid layouts
+      const grids = clonedDoc.querySelectorAll('[class*="grid"]');
+      grids.forEach(grid => {
         grid.style.width = '100%';
         grid.style.maxWidth = '100%';
-        grid.style.gridTemplateColumns = 'repeat(auto-fit, minmax(150px, 1fr))';
       });
 
-      // Fix header sticky positioning that can cause issues
-      const headers = clonedDoc.querySelectorAll('header');
-      headers.forEach(header => {
-        header.style.position = 'relative';
-        header.style.top = '';
-        header.style.zIndex = '';
-      });
-
-      // Ensure chart containers have proper dimensions
+      // STEP 6: Ensure charts render properly
       const chartContainers = clonedDoc.querySelectorAll('[class*="h-"]');
       chartContainers.forEach(container => {
-        // Reset height to auto for better PDF rendering
-        const heightClass = Array.from(container.classList).find(c => c.match(/^h-\d+$/));
-        if (heightClass) {
-          container.style.height = 'auto';
-          container.style.minHeight = '200px';
-        }
+        container.style.height = 'auto';
+        container.style.minHeight = '200px';
+        container.style.maxHeight = '400px';
       });
 
-      // Convert Chart.js canvases to images
-      const originalCanvases = document.querySelectorAll('canvas');
+      // STEP 7: Convert Chart.js canvases to images BEFORE html2canvas captures
+      const originalCanvases = Array.from(document.querySelectorAll('canvas'));
       originalCanvases.forEach(canvas => {
         if (canvas.width > 0 && canvas.height > 0 && canvas.parentElement) {
           try {
             const dataUrl = canvas.toDataURL('image/png', 1.0);
+            
+            // Find the corresponding canvas in the cloned document
             let clonedCanvas = null;
             
-            // Try by ID first
+            // Method 1: Match by ID
             if (canvas.id) {
               clonedCanvas = clonedDoc.getElementById(canvas.id);
             }
             
-            // Try by finding canvas in same parent with same dimensions
-            if (!clonedCanvas) {
-              const parent = canvas.parentElement;
-              if (parent) {
-                const firstClass = parent.className.split(' ')[0];
-                if (firstClass) {
-                  const clonedParent = clonedDoc.querySelector('[class*="' + firstClass + '"]');
-                  if (clonedParent) {
-                    clonedCanvas = clonedParent.querySelector('canvas');
+            // Method 2: Match by parent class pattern
+            if (!clonedCanvas && canvas.parentElement) {
+              const parentClasses = canvas.parentElement.className?.split(' ') || [];
+              for (const cls of parentClasses) {
+                if (cls && cls.length > 3) {
+                  const matches = clonedDoc.querySelectorAll('.' + cls + ' canvas');
+                  if (matches.length > 0) {
+                    clonedCanvas = matches[0];
+                    break;
                   }
                 }
               }
             }
             
-            // Try by finding any canvas in clone that hasn't been converted yet
+            // Method 3: Find any canvas that hasn't been replaced yet
             if (!clonedCanvas) {
-              const allClonedCanvases = clonedDoc.querySelectorAll('canvas');
-              for (let c of allClonedCanvases) {
+              const canvases = clonedDoc.querySelectorAll('canvas');
+              for (const c of canvases) {
                 if (c.parentElement && !c.parentElement.querySelector('img')) {
                   clonedCanvas = c;
                   break;
@@ -158,7 +156,8 @@ export async function exportToPdf(element, filename, options = {}) {
               }
             }
             
-            if (clonedCanvas) {
+            // Replace with image
+            if (clonedCanvas && clonedCanvas.parentElement) {
               const img = clonedDoc.createElement('img');
               img.src = dataUrl;
               img.style.width = '100%';
@@ -166,10 +165,10 @@ export async function exportToPdf(element, filename, options = {}) {
               img.style.maxWidth = '100%';
               img.style.display = 'block';
               img.style.margin = '0 auto';
-              clonedCanvas.parentNode.replaceChild(img, clonedCanvas);
+              clonedCanvas.parentElement.replaceChild(img, clonedCanvas);
             }
           } catch (e) {
-            console.warn('Could not convert canvas to image:', e);
+            console.warn('Canvas conversion failed:', e);
           }
         }
       });

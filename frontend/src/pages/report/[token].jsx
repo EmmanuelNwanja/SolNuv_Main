@@ -1,7 +1,7 @@
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { useEffect, useState, useRef } from 'react';
-import { designReportAPI, downloadBlob } from '../../services/api';
+import { designReportAPI } from '../../services/api';
 import { RiSunLine, RiBatteryLine, RiMoneyDollarCircleLine, RiFlashlightLine, RiLeafLine, RiBarChartBoxLine, RiTimeLine, RiFileChartLine, RiGlobalLine, RiLockLine, RiArrowRightSLine, RiRobot2Line } from 'react-icons/ri';
 import dynamic from 'next/dynamic';
 
@@ -117,12 +117,12 @@ export default function SharedReport() {
   };
 
   const downloadPdf = async () => {
-    if (!token) return;
+    if (!reportRef.current) return;
     setExportingPdf(true);
     const filename = `SolNuv_Design_Report_${data?.project?.name?.replace(/\s+/g, '_') || 'Report'}_${Date.now()}.pdf`;
     try {
-      const res = await designReportAPI.downloadSharedReportPdf(token);
-      downloadBlob(res.data, filename);
+      const { exportToPdf } = await import('../../utils/pdfExport');
+      await exportToPdf(reportRef.current, filename);
     } catch (err) {
       console.error('PDF export failed:', err);
       alert('Failed to export PDF. Please try again.');
