@@ -7,7 +7,7 @@ import { MotionSection } from '../../components/PageMotion';
 import { useAuth } from '../../context/AuthContext';
 import CalculationPdfTemplate from '../../components/CalculationPdfTemplate';
 import toast from 'react-hot-toast';
-import { RiSaveLine, RiDownloadLine, RiAddLine, RiCloseLine, RiCheckLine, RiCalculatorLine } from 'react-icons/ri';
+import { RiSaveLine, RiDownloadLine, RiAddLine, RiCloseLine, RiCheckLine, RiCalculatorLine, RiArrowRightLine } from 'react-icons/ri';
 
 // Format number with thousand separators, allow decimals
 function formatWithCommas(value) {

@@ -119,7 +119,7 @@ export default function Onboarding() {
     setSubmitError('');
     try {
       const { data } = await authAPI.saveProfile(form);
-      localStorage.removeItem('solvuv_pending_onboarding');
+      localStorage.removeItem('solnuv_pending_onboarding');
       redirectedRef.current = true; // block the already-onboarded useEffect redirect
       
       // Update profile directly from response to avoid race condition
