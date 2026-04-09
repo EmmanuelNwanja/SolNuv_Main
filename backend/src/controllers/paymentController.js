@@ -530,6 +530,19 @@ exports.handleWebhook = async (req, res) => {
             baseAmountNgn: getPlanPrice(metadata.plan, metadata.billing_interval || 'monthly'),
           });
 
+          const expectedAmount = getPlanPrice(metadata.plan, metadata.billing_interval || 'monthly');
+          const paidAmountNgn = Number(data.amount || 0) / 100;
+
+          if (paidAmountNgn < expectedAmount * 0.95) {
+            logger.warn('Payment amount mismatch in webhook', {
+              expected: expectedAmount,
+              paid: paidAmountNgn,
+              reference: data.reference,
+              customer: data.customer?.customer_code,
+              plan: metadata.plan,
+            });
+          }
+
           await activateSubscription({
             user,
             company,
