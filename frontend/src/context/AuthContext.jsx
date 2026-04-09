@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { getAuthCallbackUrl, supabase } from '../utils/supabase';
-import { authAPI as backendAuthAPI } from '../services/api';
+import { authAPI } from '../services/api';
 
 const AuthContext = createContext({});
 
@@ -204,7 +204,7 @@ export function AuthProvider({ children }) {
 
   async function signUpWithEmail(email, password, metadata = {}) {
     try {
-      const response = await backendAuthAPI.signup({
+      const response = await authAPI.signup({
         email,
         password,
         phone: metadata.phone || '',
