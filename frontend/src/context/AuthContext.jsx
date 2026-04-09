@@ -263,7 +263,7 @@ export function AuthProvider({ children }) {
       company, isPlatformAdmin, platformAdminRole,
       verificationStatus, isVerified,
       signInWithGoogle, signInWithEmail, signUpWithEmail,
-      signOut, refreshProfile,
+      signOut, refreshProfile, setProfile,
     }}>
       {children}
     </AuthContext.Provider>

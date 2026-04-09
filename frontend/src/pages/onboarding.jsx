@@ -15,7 +15,7 @@ function isValidNigerianPhone(phone) {
 }
 
 export default function Onboarding() {
-  const { session, loading, profileResolved, isOnboarded, isPlatformAdmin, refreshProfile } = useAuth();
+  const { session, loading, profileResolved, isOnboarded, isPlatformAdmin, refreshProfile, setProfile } = useAuth();
   const router = useRouter();
   const redirectedRef = useRef(false);
   const [step, setStep] = useState(1);
@@ -118,10 +118,15 @@ export default function Onboarding() {
     setSubmitting(true);
     setSubmitError('');
     try {
-      await authAPI.saveProfile(form);
-      localStorage.removeItem('solnuv_pending_onboarding');
+      const { data } = await authAPI.saveProfile(form);
+      localStorage.removeItem('solvuv_pending_onboarding');
       redirectedRef.current = true; // block the already-onboarded useEffect redirect
-      await refreshProfile();
+      
+      // Update profile directly from response to avoid race condition
+      if (data?.data) {
+        setProfile(data.data);
+      }
+      
       toast.success('Profile saved! Welcome to SolNuv 🌞');
       router.push('/plans?welcome=1');
     } catch (err) {
