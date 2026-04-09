@@ -11,6 +11,12 @@ const { sendTeamInvitation } = require('../services/emailService');
 const logger = require('../utils/logger');
 const { v4: uuidv4 } = require('uuid');
 
+// Temporary incident diagnostics for targeted login tracing.
+const AUTH_DEBUG_EMAIL = String(process.env.AUTH_DEBUG_EMAIL || 'emmanuelnwanja@gmail.com').toLowerCase();
+function shouldTraceAuth(email) {
+  return String(email || '').toLowerCase().trim() === AUTH_DEBUG_EMAIL;
+}
+
 function slugify(value) {
   return String(value || '')
     .toLowerCase()
@@ -295,6 +301,14 @@ exports.createOrUpdateProfile = async (req, res) => {
  */
 exports.getMe = async (req, res) => {
   try {
+    if (shouldTraceAuth(req.supabaseUser?.email || req.user?.email)) {
+      logger.info('[auth-trace] getMe entered', {
+        email: String(req.supabaseUser?.email || req.user?.email || '').toLowerCase(),
+        req_is_new_user: !!req.isNewUser,
+        has_req_user: !!req.user,
+      });
+    }
+
     if (req.isNewUser || !req.user) {
       // Defensive fallback for legacy rows: on fresh logins a user may be marked as
       // new before their existing record is linked to supabase_uid.
@@ -309,11 +323,29 @@ exports.getMe = async (req, res) => {
 
         const legacyUser = !legacyError && Array.isArray(legacyUsers) ? legacyUsers[0] : null;
         if (legacyUser) {
+          if (shouldTraceAuth(normalizedEmail)) {
+            logger.info('[auth-trace] getMe legacy fallback hit', {
+              email: normalizedEmail,
+              legacy_user_id: legacyUser.id,
+              legacy_is_onboarded: legacyUser.is_onboarded === true,
+              has_first_name: !!legacyUser.first_name,
+              has_user_type: !!legacyUser.user_type,
+            });
+          }
+
           if (!legacyUser.supabase_uid && req.supabaseUser?.id) {
             await supabase
               .from('users')
               .update({ supabase_uid: req.supabaseUser.id })
               .eq('id', legacyUser.id);
+
+            if (shouldTraceAuth(normalizedEmail)) {
+              logger.info('[auth-trace] getMe linked legacy supabase_uid', {
+                email: normalizedEmail,
+                legacy_user_id: legacyUser.id,
+                supabase_uid: req.supabaseUser.id,
+              });
+            }
           }
 
           const isOnboarded = !!(
@@ -321,11 +353,26 @@ exports.getMe = async (req, res) => {
             (legacyUser.first_name && String(legacyUser.first_name).trim() && legacyUser.user_type)
           );
 
+          if (shouldTraceAuth(normalizedEmail)) {
+            logger.info('[auth-trace] getMe returning legacy fallback user', {
+              email: normalizedEmail,
+              legacy_user_id: legacyUser.id,
+              computed_is_onboarded: isOnboarded,
+            });
+          }
+
           return sendSuccess(res, {
             ...legacyUser,
             is_onboarded: isOnboarded,
           });
         }
+      }
+
+      if (shouldTraceAuth(normalizedEmail)) {
+        logger.info('[auth-trace] getMe returning minimal new-user payload', {
+          email: normalizedEmail,
+          supabase_uid: req.supabaseUser?.id || null,
+        });
       }
 
       return sendSuccess(res, {
@@ -350,6 +397,16 @@ exports.getMe = async (req, res) => {
       user.is_onboarded ||
       (user.first_name && String(user.first_name).trim() && user.user_type)
     );
+
+    if (shouldTraceAuth(user.email)) {
+      logger.info('[auth-trace] getMe returning persisted user', {
+        email: String(user.email || '').toLowerCase(),
+        user_id: user.id,
+        computed_is_onboarded: user.is_onboarded === true,
+        has_first_name: !!user.first_name,
+        has_user_type: !!user.user_type,
+      });
+    }
 
     // Compute effective subscription plan and grace state.
     // Hard cutoff = subscription_grace_until (7 days after expiry).
