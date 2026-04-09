@@ -59,25 +59,40 @@ async function requireAuth(req, res, next) {
     // Use ilike for case-insensitive match and trim for whitespace
     if (!dbUser && user.email) {
       const normalizedEmail = user.email.toLowerCase().trim();
+      console.log('[AUTH] Legacy user lookup by email:', normalizedEmail);
+      
       const { data: legacyUser, error: legacyError } = await supabase
         .from('users')
         .select('*, companies:companies!users_company_id_fkey(*)')
         .ilike('email', normalizedEmail)
         .maybeSingle();
 
+      console.log('[AUTH] Legacy user result:', legacyUser ? `Found user ${legacyUser.id}` : 'Not found', legacyError);
+
       if (!legacyError && legacyUser) {
+        console.log('[AUTH] Linking supabase_uid', user.id, 'to legacy user', legacyUser.id);
+        
         // Link supabase_uid to existing legacy user
-        await supabase
+        const { error: updateError } = await supabase
           .from('users')
           .update({ supabase_uid: user.id })
           .eq('id', legacyUser.id);
+        
+        if (updateError) {
+          console.error('[AUTH] Failed to link supabase_uid:', updateError);
+        } else {
+          console.log('[AUTH] Successfully linked supabase_uid');
+        }
+        
         // Re-fetch to get updated data with supabase_uid
         const { data: updatedUser } = await supabase
           .from('users')
           .select('*, companies:companies!users_company_id_fkey(*)')
           .eq('id', legacyUser.id)
           .single();
+        
         dbUser = updatedUser || { ...legacyUser, supabase_uid: user.id };
+        console.log('[AUTH] dbUser after linking:', dbUser?.id, 'is_onboarded:', dbUser?.is_onboarded);
       }
     }
 

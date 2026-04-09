@@ -294,8 +294,11 @@ exports.createOrUpdateProfile = async (req, res) => {
  */
 exports.getMe = async (req, res) => {
   try {
+    console.log('[getMe] req.isNewUser:', req.isNewUser, 'req.user:', req.user?.id, 'email:', req.supabaseUser?.email);
+    
     if (req.isNewUser || !req.user) {
       // Return Supabase user data for onboarding
+      console.log('[getMe] Returning is_onboarded: false for new/incomplete user');
       return sendSuccess(res, {
         supabase_uid: req.supabaseUser?.id,
         email: req.supabaseUser?.email,
@@ -303,6 +306,8 @@ exports.getMe = async (req, res) => {
         is_onboarded: false,
       });
     }
+    
+    console.log('[getMe] User found:', req.user.id, 'is_onboarded:', req.user.is_onboarded);
 
     // Get fresh data with related info
     const { data: user, error } = await supabase
