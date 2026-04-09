@@ -121,14 +121,17 @@ export default function Onboarding() {
       const { data } = await authAPI.saveProfile(form);
       localStorage.removeItem('solnuv_pending_onboarding');
       redirectedRef.current = true; // block the already-onboarded useEffect redirect
-      
+
       // Update profile directly from response to avoid race condition
       if (data?.data) {
         setProfile(data.data);
+        // Always refresh profile from backend to ensure latest state
+        await refreshProfile();
       }
-      
+
       toast.success('Profile saved! Welcome to SolNuv 🌞');
-      router.push('/plans?welcome=1');
+      // After onboarding, always redirect to dashboard if onboarded
+      router.push('/dashboard');
     } catch (err) {
       redirectedRef.current = false; // Reset on failure to allow retry
       const msg = err.response?.data?.message || 'Failed to save profile. Please try again.';
