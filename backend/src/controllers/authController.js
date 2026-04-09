@@ -362,8 +362,14 @@ exports.getProfileStatus = async (req, res) => {
       });
     }
 
+    const isOnboarded = !!(
+      req.user &&
+      req.user.first_name?.trim() &&
+      req.user.user_type
+    );
+
     return sendSuccess(res, {
-      is_onboarded: !!req.user,
+      is_onboarded: isOnboarded,
       user_id: req.user.id,
       first_name: req.user.first_name,
       company_id: req.user.company_id,
