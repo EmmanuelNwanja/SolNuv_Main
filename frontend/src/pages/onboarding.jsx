@@ -121,17 +121,14 @@ export default function Onboarding() {
       const { data } = await authAPI.saveProfile(form);
       localStorage.removeItem('solnuv_pending_onboarding');
       redirectedRef.current = true; // block the already-onboarded useEffect redirect
-
+      
       // Update profile directly from response to avoid race condition
       if (data?.data) {
         setProfile(data.data);
-        // Always refresh profile from backend to ensure latest state
-        await refreshProfile();
       }
-
+      
       toast.success('Profile saved! Welcome to SolNuv 🌞');
-      // After onboarding, always redirect to dashboard if onboarded
-      router.push('/dashboard');
+      router.push('/plans?welcome=1');
     } catch (err) {
       redirectedRef.current = false; // Reset on failure to allow retry
       const msg = err.response?.data?.message || 'Failed to save profile. Please try again.';
@@ -280,16 +277,19 @@ export default function Onboarding() {
                 <button onClick={() => { if (validateCurrentStep()) setStep(s => s + 1); }} className="btn-primary flex items-center gap-2">
                   Continue <RiArrowRightLine />
                 </button>
-              ) : (
-                <button onClick={handleSubmit} disabled={submitting} className="btn-primary flex items-center gap-2">
-                  {submitting ? 'Saving...' : 'Complete Setup'}
-                  {!submitting && <RiCheckLine />}
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-    </>
-  );
+              try {
+                const { data } = await authAPI.saveProfile(form);
+                localStorage.removeItem('solnuv_pending_onboarding');
+                redirectedRef.current = true; // block the already-onboarded useEffect redirect
+
+                // Update profile directly from response to avoid race condition
+                if (data?.data) {
+                  setProfile(data.data);
+                }
+
+                // Always refresh profile from backend to guarantee latest onboarding state
+                await refreshProfile();
+
+                toast.success('Profile saved! Welcome to SolNuv \ud83c\udf1e');
+                router.push('/plans?welcome=1');
 }
