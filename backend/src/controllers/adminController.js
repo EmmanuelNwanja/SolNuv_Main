@@ -3,7 +3,23 @@ const { sendSuccess, sendError } = require('../utils/responseHelper');
 const { logPlatformActivity } = require('../services/auditService');
 const { invalidateEnvironmentCache } = require('../middlewares/environmentMiddleware');
 const { assignAgentsOnSubscription, revokeAgentsOnDowngrade } = require('../services/aiAgentService');
+const { sendDecommissionApproved } = require('../services/notificationService');
 const logger = require('../utils/logger');
+const crypto = require('crypto');
+
+// Helper: Sanitize search input to prevent SQL/ILIKE injection
+function sanitizeSearch(input) {
+  if (!input || typeof input !== 'string') return '';
+  return input.trim().slice(0, 200).replace(/[%_]/g, '\\$&');
+}
+
+// Helper: Safe pagination with validation
+function getPagination(query) {
+  const page = Math.max(1, parseInt(query.page, 10) || 1);
+  const limit = Math.min(100, Math.max(1, parseInt(query.limit, 10) || 20));
+  const from = (page - 1) * limit;
+  return { page, limit, from, to: from + limit - 1 };
+}
 
 exports.getOverview = async (req, res) => {
   try {
@@ -59,8 +75,8 @@ exports.getOverview = async (req, res) => {
 exports.listUsers = async (req, res) => {
   try {
     const { search = '', page = 1, limit = 20 } = req.query;
-    const from = (Number(page) - 1) * Number(limit);
-    const to = from + Number(limit) - 1;
+    const { page: p, limit: l, from, to } = getPagination({ page, limit });
+    const safeSearch = sanitizeSearch(search);
 
     const baseSelect = 'id, first_name, last_name, email, role, is_active, created_at, company_id';
     const enrichedSelect = `${baseSelect}, companies:companies!users_company_id_fkey(name, subscription_plan, subscription_expires_at, subscription_interval, max_team_members, verified_at), admin_users:admin_users!admin_users_user_id_fkey(role, is_active)`;
@@ -71,8 +87,8 @@ exports.listUsers = async (req, res) => {
       .order('created_at', { ascending: false })
       .range(from, to);
 
-    if (search) {
-      query = query.or(`first_name.ilike.%${search}%,last_name.ilike.%${search}%,email.ilike.%${search}%`);
+    if (safeSearch) {
+      query = query.or(`first_name.ilike.%${safeSearch}%,last_name.ilike.%${safeSearch}%,email.ilike.%${safeSearch}%`);
     }
 
     let { data, error, count } = await query;
@@ -84,8 +100,8 @@ exports.listUsers = async (req, res) => {
         .order('created_at', { ascending: false })
         .range(from, to);
 
-      if (search) {
-        fallbackQuery = fallbackQuery.or(`first_name.ilike.%${search}%,last_name.ilike.%${search}%,email.ilike.%${search}%`);
+      if (safeSearch) {
+        fallbackQuery = fallbackQuery.or(`first_name.ilike.%${safeSearch}%,last_name.ilike.%${safeSearch}%,email.ilike.%${safeSearch}%`);
       }
 
       const fallback = await fallbackQuery;
@@ -99,8 +115,8 @@ exports.listUsers = async (req, res) => {
     return sendSuccess(res, {
       users: data || [],
       total: count || 0,
-      page: Number(page),
-      limit: Number(limit),
+      page: p,
+      limit: l,
     });
   } catch (error) {
     logger.error('Failed to fetch admin users', { admin_user_id: req.user?.id || null, message: error.message });
@@ -604,6 +620,32 @@ exports.sendPushNotification = async (req, res) => {
     const { title, message, target_type = 'all', target_value = null } = req.body;
     if (!title || !message) return sendError(res, 'title and message are required', 400);
 
+    // Validate target_type and target_value
+    const validTargetTypes = ['all', 'user', 'plan', 'company'];
+    if (!validTargetTypes.includes(target_type)) {
+      return sendError(res, 'Invalid target_type. Must be one of: all, user, plan, company', 400);
+    }
+
+    // Validate target_value based on target_type
+    if (target_type === 'plan' && target_value) {
+      const validPlans = ['free', 'basic', 'pro', 'elite', 'enterprise'];
+      if (!validPlans.includes(target_value)) {
+        return sendError(res, 'Invalid plan value. Must be one of: free, basic, pro, elite, enterprise', 400);
+      }
+    }
+    if (target_type === 'user' && target_value) {
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!uuidRegex.test(target_value)) {
+        return sendError(res, 'Invalid user ID format', 400);
+      }
+    }
+    if (target_type === 'company' && target_value) {
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!uuidRegex.test(target_value)) {
+        return sendError(res, 'Invalid company ID format', 400);
+      }
+    }
+
     const payload = {
       title,
       message,
@@ -787,7 +829,7 @@ exports.generateOtp = async (req, res) => {
       .maybeSingle();
 
     // Generate 6-digit OTP
-    const otp_code = String(Math.floor(100000 + Math.random() * 900000));
+    const otp_code = String(crypto.randomInt(100000, 999999));
     const expires_at = new Date(Date.now() + 10 * 60 * 1000).toISOString(); // 10 minutes
 
     // Delete any existing unused OTPs for this email
@@ -858,8 +900,8 @@ exports.generateOtp = async (req, res) => {
 exports.listAllProjects = async (req, res) => {
   try {
     const { search = '', status = '', geo_verified = '', page = 1, limit = 30 } = req.query;
-    const from = (Number(page) - 1) * Number(limit);
-    const to = from + Number(limit) - 1;
+    const { page: p, limit: l, from, to } = getPagination({ page, limit });
+    const safeSearch = sanitizeSearch(search);
 
     let query = supabase
       .from('projects')
@@ -873,7 +915,7 @@ exports.listAllProjects = async (req, res) => {
       .order('created_at', { ascending: false })
       .range(from, to);
 
-    if (search) query = query.or(`name.ilike.%${search}%,city.ilike.%${search}%,state.ilike.%${search}%`);
+    if (safeSearch) query = query.or(`name.ilike.%${safeSearch}%,city.ilike.%${safeSearch}%,state.ilike.%${safeSearch}%`);
     if (status) query = query.eq('status', status);
     if (geo_verified === 'true') query = query.eq('geo_verified', true);
     if (geo_verified === 'false') query = query.eq('geo_verified', false);
@@ -1115,9 +1157,14 @@ exports.approveDecommission = async (req, res) => {
 
     if (updateErr) throw updateErr;
 
-    // Notify the project owner
-    const { sendDecommissionApproved } = require('../services/notificationService');
-    sendDecommissionApproved(updated.requester, updated.project).catch(console.error);
+    // Notify the project owner (non-blocking, errors logged)
+    sendDecommissionApproved(updated.requester, updated.project).catch((err) => {
+      logger.error('Failed to send decommission approval notification', {
+        userId: updated.requester?.id,
+        projectId: updated.project?.id,
+        message: err.message
+      });
+    });
 
     return sendSuccess(res, updated, 'Decommission approved');
   } catch (error) {
@@ -1138,10 +1185,17 @@ exports.getEnvironmentMode = async (req, res) => {
       .eq('key', 'environment_mode')
       .maybeSingle();
 
+    let parsedValue = {};
+    try {
+      parsedValue = typeof data?.value === 'string' ? JSON.parse(data.value) : (data?.value || {});
+    } catch (e) {
+      parsedValue = {};
+    }
+
     return sendSuccess(res, {
-      mode: data?.value?.mode || 'test',
-      switched_at: data?.value?.switched_at || null,
-      switched_by: data?.value?.switched_by || null,
+      mode: parsedValue.mode || 'test',
+      switched_at: parsedValue.switched_at || null,
+      switched_by: parsedValue.switched_by || null,
       updated_at: data?.updated_at || null,
     });
   } catch (error) {
