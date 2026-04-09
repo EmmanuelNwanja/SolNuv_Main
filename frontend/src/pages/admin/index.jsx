@@ -53,6 +53,7 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
   const [bulkStatus, setBulkStatus] = useState('');
   const [bulkBusy, setBulkBusy] = useState(false);
   const [search, setSearch] = useState('');
+  const [showPendingOnly, setShowPendingOnly] = useState(false);
   const [paystackPlans, setPaystackPlans] = useState([]);
   const [promoCodes, setPromoCodes] = useState([]);
   const [finance, setFinance] = useState(null);
@@ -127,6 +128,8 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
   const [verificationLoading, setVerificationLoading] = useState(false);
   const [verificationAction, setVerificationAction] = useState(null); // { id, action: 'verify' | 'reject' }
   const [verificationRejectReason, setVerificationRejectReason] = useState('');
+  const [usersVerificationAction, setUsersVerificationAction] = useState(null); // { id, action: 'verify' | 'reject' }
+  const [usersVerificationRejectReasons, setUsersVerificationRejectReasons] = useState({});
 
   useEffect(() => {
     setActiveTab(forcedTab);
@@ -246,8 +249,11 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
 
   const filteredUsers = useMemo(() => users.filter((u) => {
     const hay = `${u.first_name || ''} ${u.last_name || ''} ${u.email || ''}`.toLowerCase();
-    return hay.includes(search.toLowerCase());
-  }), [users, search]);
+    const matchesSearch = hay.includes(search.toLowerCase());
+    if (!matchesSearch) return false;
+    if (!showPendingOnly) return true;
+    return u.verification_status === 'pending' || u.verification_status === 'pending_admin_review';
+  }), [users, search, showPendingOnly]);
 
   async function refreshPromo() {
     const { data } = await adminAPI.listPromoCodes();
@@ -358,34 +364,87 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
     }
   }
 
-  async function handleVerifyUser(userId) {
-    setVerificationAction({ id: userId, action: 'verify' });
-    try {
-      await adminAPI.verifyUser(userId);
-      toast.success('User verified successfully');
-      setVerificationAction(null);
+  function setUserVerificationState(userId, nextStatus, rejectionReason = null) {
+    setUsers((prev) => prev.map((item) => {
+      if (item.id !== userId) return item;
+      return {
+        ...item,
+        verification_status: nextStatus,
+        verification_rejection_reason: rejectionReason,
+      };
+    }));
+
+    setManagingUser((prev) => {
+      if (!prev || prev.id !== userId) return prev;
+      return {
+        ...prev,
+        verification_status: nextStatus,
+        verification_rejection_reason: rejectionReason,
+      };
+    });
+  }
+
+  async function refreshVerificationRequestsIfLoaded() {
+    if (activeTab === 'verification' || verificationRequests.length > 0) {
       await loadVerificationRequests();
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to verify user');
-      setVerificationAction(null);
     }
   }
 
-  async function handleRejectVerification(userId) {
-    if (!verificationRejectReason.trim()) {
+  async function handleVerifyUser(userId, source = 'verification') {
+    if (source === 'users') {
+      setUsersVerificationAction({ id: userId, action: 'verify' });
+    } else {
+      setVerificationAction({ id: userId, action: 'verify' });
+    }
+
+    try {
+      await adminAPI.verifyUser(userId);
+      setUserVerificationState(userId, 'verified', null);
+      toast.success('User verified successfully');
+      await refreshVerificationRequestsIfLoaded();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to verify user');
+    } finally {
+      if (source === 'users') {
+        setUsersVerificationAction(null);
+      } else {
+        setVerificationAction(null);
+      }
+    }
+  }
+
+  async function handleRejectVerification(userId, options = {}) {
+    const source = options.source || 'verification';
+    const reason = (options.reason ?? verificationRejectReason).trim();
+
+    if (!reason) {
       toast.error('Rejection reason is required');
       return;
     }
-    setVerificationAction({ id: userId, action: 'reject' });
+
+    if (source === 'users') {
+      setUsersVerificationAction({ id: userId, action: 'reject' });
+    } else {
+      setVerificationAction({ id: userId, action: 'reject' });
+    }
+
     try {
-      await adminAPI.rejectVerification(userId, verificationRejectReason);
+      await adminAPI.rejectVerification(userId, reason);
+      setUserVerificationState(userId, 'rejected', reason);
       toast.success('Verification rejected');
-      setVerificationAction(null);
+      if (source === 'users') {
+        setUsersVerificationRejectReasons((prev) => ({ ...prev, [userId]: '' }));
+      }
       setVerificationRejectReason('');
-      await loadVerificationRequests();
+      await refreshVerificationRequestsIfLoaded();
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to reject verification');
-      setVerificationAction(null);
+    } finally {
+      if (source === 'users') {
+        setUsersVerificationAction(null);
+      } else {
+        setVerificationAction(null);
+      }
     }
   }
 
@@ -516,12 +575,25 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
       {activeTab === 'users' && (
         <div className="space-y-4">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-2">
-            <input
-              className="input max-w-sm"
-              placeholder="Search by name or email"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 w-full sm:w-auto">
+              <input
+                className="input max-w-sm"
+                placeholder="Search by name or email"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPendingOnly((prev) => !prev)}
+                className={`text-xs sm:text-sm px-3 py-2 rounded-xl border font-semibold transition-colors ${
+                  showPendingOnly
+                    ? 'border-amber-300 bg-amber-50 text-amber-700'
+                    : 'border-slate-300 text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                {showPendingOnly ? 'Showing Pending Only' : 'Show Pending Only'}
+              </button>
+            </div>
             <span className="text-xs text-slate-400">{filteredUsers.length} users</span>
           </div>
 
@@ -530,6 +602,9 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
               const isManaging = managingUser?.id === u.id;
               const plan = u.companies?.subscription_plan || 'free';
               const isVerified = u.verification_status === 'verified';
+              const isPendingVerification = u.verification_status === 'pending' || u.verification_status === 'pending_admin_review';
+              const canModerateVerification = platformAdminRole === 'super_admin' || platformAdminRole === 'operations';
+              const isUsersVerificationActionBusy = usersVerificationAction?.id === u.id;
               return (
                 <div key={u.id} className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
                   {/* User row */}
@@ -558,38 +633,93 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
                         {' • '}{u.companies?.max_team_members || 1} seat{(u.companies?.max_team_members || 1) !== 1 ? 's' : ''}
                       </p>
                     </div>
-                    <button
-                      onClick={() => {
-                        if (isManaging) {
-                          setManagingUser(null);
-                          setMgmtAction(null);
-                        } else {
-                          setManagingUser(u);
-                          setMgmtPlan(u.companies?.subscription_plan || 'free');
-                          setMgmtInterval(u.companies?.subscription_interval || 'monthly');
-                          setMgmtMaxTeam(u.companies?.max_team_members || 1);
-                          setMgmtSuspendReason('');
-                          setMgmtDeleteReason('');
-                          setMgmtDeleteConfirm('');
-                          setMgmtAction(null);
-                          setMgmtPayChannel('');
-                          setMgmtBankRef('');
-                          setMgmtBankDate('');
-                          setMgmtBankTime('');
-                          setMgmtCouponCode('');
-                          setMgmtCouponValue('');
-                          setMgmtCouponType('flat');
-                          setMgmtAmountReceived('');
-                          setMgmtUpgradeReason('');
-                        }
-                      }}
-                      className={`text-sm px-4 py-2 rounded-xl font-semibold border transition-all whitespace-nowrap ${
-                        isManaging ? 'border-forest-900 bg-forest-900 text-white' : 'border-slate-300 text-slate-700 hover:border-forest-700 hover:text-forest-900'
-                      }`}
-                    >
-                      {isManaging ? 'Close' : 'Manage'}
-                    </button>
+                    <div className="flex items-center gap-2 flex-wrap sm:justify-end">
+                      {canModerateVerification && isPendingVerification && (
+                        <>
+                          <button
+                            onClick={() => handleVerifyUser(u.id, 'users')}
+                            disabled={isUsersVerificationActionBusy}
+                            className="text-xs sm:text-sm px-3 py-2 rounded-xl font-semibold bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-60"
+                          >
+                            {isUsersVerificationActionBusy && usersVerificationAction?.action === 'verify' ? 'Verifying...' : 'Verify'}
+                          </button>
+                          <button
+                            onClick={() => {
+                              setUsersVerificationAction({ id: u.id, action: 'reject' });
+                              setUsersVerificationRejectReasons((prev) => ({ ...prev, [u.id]: prev[u.id] || '' }));
+                            }}
+                            disabled={isUsersVerificationActionBusy && usersVerificationAction?.action === 'verify'}
+                            className="text-xs sm:text-sm px-3 py-2 rounded-xl font-semibold border border-red-300 text-red-600 hover:bg-red-50 disabled:opacity-60"
+                          >
+                            Reject
+                          </button>
+                        </>
+                      )}
+
+                      <button
+                        onClick={() => {
+                          if (isManaging) {
+                            setManagingUser(null);
+                            setMgmtAction(null);
+                          } else {
+                            setManagingUser(u);
+                            setMgmtPlan(u.companies?.subscription_plan || 'free');
+                            setMgmtInterval(u.companies?.subscription_interval || 'monthly');
+                            setMgmtMaxTeam(u.companies?.max_team_members || 1);
+                            setMgmtSuspendReason('');
+                            setMgmtDeleteReason('');
+                            setMgmtDeleteConfirm('');
+                            setMgmtAction(null);
+                            setMgmtPayChannel('');
+                            setMgmtBankRef('');
+                            setMgmtBankDate('');
+                            setMgmtBankTime('');
+                            setMgmtCouponCode('');
+                            setMgmtCouponValue('');
+                            setMgmtCouponType('flat');
+                            setMgmtAmountReceived('');
+                            setMgmtUpgradeReason('');
+                          }
+                        }}
+                        className={`text-sm px-4 py-2 rounded-xl font-semibold border transition-all whitespace-nowrap ${
+                          isManaging ? 'border-forest-900 bg-forest-900 text-white' : 'border-slate-300 text-slate-700 hover:border-forest-700 hover:text-forest-900'
+                        }`}
+                      >
+                        {isManaging ? 'Close' : 'Manage'}
+                      </button>
+                    </div>
                   </div>
+
+                  {canModerateVerification && isPendingVerification && usersVerificationAction?.id === u.id && usersVerificationAction.action === 'reject' && (
+                    <div className="px-4 pb-4 border-t border-slate-100 bg-white">
+                      <label className="label text-xs">Rejection Reason *</label>
+                      <textarea
+                        className="input text-sm min-h-[72px]"
+                        placeholder="Explain why the verification was rejected..."
+                        value={usersVerificationRejectReasons[u.id] || ''}
+                        onChange={(e) => setUsersVerificationRejectReasons((prev) => ({ ...prev, [u.id]: e.target.value }))}
+                      />
+                      <div className="mt-2 flex items-center gap-2">
+                        <button
+                          onClick={() => handleRejectVerification(u.id, { source: 'users', reason: usersVerificationRejectReasons[u.id] || '' })}
+                          disabled={isUsersVerificationActionBusy || !(usersVerificationRejectReasons[u.id] || '').trim()}
+                          className="text-xs sm:text-sm px-3 py-2 rounded-xl font-semibold bg-red-600 text-white hover:bg-red-700 disabled:opacity-60"
+                        >
+                          {isUsersVerificationActionBusy ? 'Rejecting...' : 'Confirm Reject'}
+                        </button>
+                        <button
+                          onClick={() => {
+                            setUsersVerificationAction(null);
+                            setUsersVerificationRejectReasons((prev) => ({ ...prev, [u.id]: '' }));
+                          }}
+                          disabled={isUsersVerificationActionBusy}
+                          className="text-xs sm:text-sm px-3 py-2 rounded-xl font-semibold border border-slate-300 text-slate-700 hover:bg-slate-50"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Inline management panel */}
                   {isManaging && (
