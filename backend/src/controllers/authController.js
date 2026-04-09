@@ -85,11 +85,13 @@ exports.createOrUpdateProfile = async (req, res) => {
       .maybeSingle();
     
     // Legacy user fallback: find by email and link supabase_uid
+    // Use ilike for case-insensitive match and trim for whitespace
     if (!preCheckUser) {
+      const normalizedEmail = supabaseUser.email.toLowerCase().trim();
       const { data: legacyUser } = await supabase
         .from('users')
         .select('id, company_id')
-        .eq('email', supabaseUser.email.toLowerCase())
+        .ilike('email', normalizedEmail)
         .maybeSingle();
       
       if (legacyUser) {
@@ -98,7 +100,7 @@ exports.createOrUpdateProfile = async (req, res) => {
           .from('users')
           .update({ supabase_uid: supabaseUser.id })
           .eq('id', legacyUser.id);
-        preCheckUser = legacyUser;
+        preCheckUser = { ...legacyUser, supabase_uid: supabaseUser.id };
       }
     }
 

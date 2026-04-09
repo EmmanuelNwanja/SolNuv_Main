@@ -56,11 +56,13 @@ async function requireAuth(req, res, next) {
     }
 
     // Legacy user fallback: find by email and link supabase_uid
+    // Use ilike for case-insensitive match and trim for whitespace
     if (!dbUser && user.email) {
+      const normalizedEmail = user.email.toLowerCase().trim();
       const { data: legacyUser, error: legacyError } = await supabase
         .from('users')
         .select('*, companies:companies!users_company_id_fkey(*)')
-        .eq('email', user.email.toLowerCase())
+        .ilike('email', normalizedEmail)
         .maybeSingle();
 
       if (!legacyError && legacyUser) {
