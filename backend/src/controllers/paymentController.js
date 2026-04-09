@@ -776,8 +776,17 @@ exports.submitBankTransfer = async (req, res) => {
         return sendError(res, 'Receipt upload failed. Please try again.', 500);
       }
 
-      const { data: urlData } = supabase.storage.from('payment-proofs').getPublicUrl(filePath);
-      proof_url = urlData?.publicUrl || null;
+      let proof_url = null;
+      try {
+        const { data: urlData } = supabase.storage.from('payment-proofs').getPublicUrl(filePath);
+        proof_url = urlData?.publicUrl || null;
+      } catch (urlErr) {
+        logger.warn('submitBankTransfer: failed to get public URL for uploaded receipt', {
+          error: urlErr.message,
+          filePath,
+          user_id: req.user.id,
+        });
+      }
     }
 
     const { data, error } = await supabase
