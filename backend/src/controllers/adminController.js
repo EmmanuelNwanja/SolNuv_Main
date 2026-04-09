@@ -1875,11 +1875,15 @@ exports.verifyDirectPayment = async (req, res) => {
       const expiresAt = new Date(now);
       expiresAt.setMonth(expiresAt.getMonth() + (submission.billing_interval === 'annual' ? 12 : 1));
 
+      const graceUntil = new Date(expiresAt);
+      graceUntil.setDate(graceUntil.getDate() + 7);
+
       await supabase.from('companies').update({
         subscription_plan: submission.plan_id,
         subscription_interval: submission.billing_interval,
         subscription_started_at: now.toISOString(),
         subscription_expires_at: expiresAt.toISOString(),
+        subscription_grace_until: graceUntil.toISOString(),
         subscription_auto_renew: false,
         verified_at: now.toISOString(),
         verified_by: req.user.id,
