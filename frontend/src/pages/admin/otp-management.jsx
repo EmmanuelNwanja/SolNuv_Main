@@ -60,10 +60,20 @@ export default function OtpManagement() {
       }, ...prev]);
       setGenerateForm({ email: '', phone: '' });
     } catch (err) {
+      // Enhanced error logging for debugging
+      // eslint-disable-next-line no-console
+      console.error('OTP Generation Error:', {
+        error: err,
+        response: err?.response,
+        status: err?.response?.status,
+        data: err?.response?.data,
+        message: err?.message,
+      });
       const timeoutLike = err?.code === 'ECONNABORTED' || /timeout/i.test(String(err?.message || ''));
-      toast.error(timeoutLike
+      let errorMsg = timeoutLike
         ? 'Request timed out while waking server. Please try again in a few seconds.'
-        : (err.response?.data?.message || 'Failed to generate OTP'));
+        : (err.response?.data?.message || err.message || 'Failed to generate OTP');
+      toast.error(`OTP Error: ${errorMsg} (Status: ${err?.response?.status || 'N/A'})`);
     } finally {
       setGeneratingOtp(false);
     }
