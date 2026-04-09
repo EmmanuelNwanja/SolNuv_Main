@@ -69,7 +69,13 @@ async function requireAuth(req, res, next) {
           .from('users')
           .update({ supabase_uid: user.id })
           .eq('id', legacyUser.id);
-        dbUser = legacyUser;
+        // Re-fetch to get updated data with supabase_uid
+        const { data: updatedUser } = await supabase
+          .from('users')
+          .select('*, companies:companies!users_company_id_fkey(*)')
+          .eq('id', legacyUser.id)
+          .single();
+        dbUser = updatedUser || { ...legacyUser, supabase_uid: user.id };
       }
     }
 
