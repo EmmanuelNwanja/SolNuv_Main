@@ -84,13 +84,10 @@ exports.createOrUpdateProfile = async (req, res) => {
       .eq('supabase_uid', supabaseUser.id)
       .maybeSingle();
     
-    console.log('[createOrUpdateProfile] preCheckUser by supabase_uid:', preCheckUser?.id || 'not found');
-    
     // Legacy user fallback: find by email and link supabase_uid
     // Use ilike for case-insensitive match and trim for whitespace
     if (!preCheckUser) {
       const normalizedEmail = supabaseUser.email.toLowerCase().trim();
-      console.log('[createOrUpdateProfile] Looking for legacy user with email:', normalizedEmail);
       
       const { data: legacyUser } = await supabase
         .from('users')
@@ -98,18 +95,13 @@ exports.createOrUpdateProfile = async (req, res) => {
         .ilike('email', normalizedEmail)
         .maybeSingle();
       
-      console.log('[createOrUpdateProfile] Legacy user found:', legacyUser?.id || 'not found');
-      
       if (legacyUser) {
         // Link supabase_uid to existing legacy user
-        const { error: linkError } = await supabase
+        await supabase
           .from('users')
           .update({ supabase_uid: supabaseUser.id })
           .eq('id', legacyUser.id);
-        
-        console.log('[createOrUpdateProfile] Link supabase_uid result:', linkError || 'success');
         preCheckUser = { ...legacyUser, supabase_uid: supabaseUser.id };
-        console.log('[createOrUpdateProfile] preCheckUser after legacy fallback:', preCheckUser);
       }
     }
 
@@ -222,8 +214,6 @@ exports.createOrUpdateProfile = async (req, res) => {
     let user;
 
     if (existingUser) {
-      console.log('[createOrUpdateProfile] Updating existing user:', existingUser.id, 'is_onboarded will be set to true');
-      
       const resolvedSlug = await ensureUniquePublicSlug(
         public_slug || brand_name || `${first_name}-${last_name || ''}`,
         existingUser.id
@@ -253,8 +243,6 @@ exports.createOrUpdateProfile = async (req, res) => {
         .select('*, companies:companies!users_company_id_fkey(*)')
         .single();
 
-      console.log('[createOrUpdateProfile] Update result:', updatedUser ? `success, is_onboarded=${updatedUser.is_onboarded}` : 'failed', error);
-      
       if (error) throw error;
       user = updatedUser;
     } else {
@@ -263,8 +251,6 @@ exports.createOrUpdateProfile = async (req, res) => {
       );
 
       // Create new profile
-      console.log('[createOrUpdateProfile] No existing user found, creating new user');
-      
       const { data: newUser, error } = await supabase
         .from('users')
         .insert({
@@ -289,8 +275,6 @@ exports.createOrUpdateProfile = async (req, res) => {
         .select('*, companies:companies!users_company_id_fkey(*)')
         .single();
 
-      console.log('[createOrUpdateProfile] Create result:', newUser ? `success, is_onboarded=${newUser.is_onboarded}` : 'failed', error);
-      
       if (error) throw error;
       user = newUser;
 
@@ -311,11 +295,7 @@ exports.createOrUpdateProfile = async (req, res) => {
  */
 exports.getMe = async (req, res) => {
   try {
-    console.log('[getMe] req.isNewUser:', req.isNewUser, 'req.user:', req.user?.id, 'email:', req.supabaseUser?.email);
-    
     if (req.isNewUser || !req.user) {
-      // Return Supabase user data for onboarding
-      console.log('[getMe] Returning is_onboarded: false for new/incomplete user');
       return sendSuccess(res, {
         supabase_uid: req.supabaseUser?.id,
         email: req.supabaseUser?.email,
@@ -323,8 +303,6 @@ exports.getMe = async (req, res) => {
         is_onboarded: false,
       });
     }
-    
-    console.log('[getMe] User found:', req.user.id, 'is_onboarded:', req.user.is_onboarded);
 
     // Get fresh data with related info
     const { data: user, error } = await supabase

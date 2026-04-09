@@ -70,6 +70,17 @@ self.addEventListener('fetch', (event) => {
   const isApiRequest = isSameOrigin && url.pathname.startsWith('/api');
   const isNavigation = req.mode === 'navigate';
   const isNextDataRequest = isSameOrigin && url.pathname.startsWith('/_next/data/');
+  
+  // Auth routes should NEVER be intercepted - they must always come from network
+  const isAuthRoute = isSameOrigin && (
+    url.pathname.startsWith('/login') ||
+    url.pathname.startsWith('/register') ||
+    url.pathname.startsWith('/reset-password') ||
+    url.pathname.startsWith('/onboarding') ||
+    url.pathname === '/auth/callback'
+  );
+
+  // Protected routes should always come from the network
   const isProtectedRoute = isSameOrigin && (
     url.pathname.startsWith('/dashboard') ||
     url.pathname.startsWith('/admin') ||
@@ -83,9 +94,8 @@ self.addEventListener('fetch', (event) => {
     url.pathname === '/notifications'
   );
 
-  // Never intercept cross-origin, API requests, Next.js data payloads, or protected routes.
-  // Those should always come from the network to avoid stale authenticated app state.
-  if (!isSameOrigin || isApiRequest || isNextDataRequest || isProtectedRoute) return;
+  // Never intercept cross-origin, API requests, Next.js data payloads, or auth/protected routes.
+  if (!isSameOrigin || isApiRequest || isNextDataRequest || isProtectedRoute || isAuthRoute) return;
 
   if (isNavigation) {
     event.respondWith(networkFirst(req));
