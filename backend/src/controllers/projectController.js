@@ -13,6 +13,7 @@ const { verifyCoordinatesAgainstAddress, verifyDeviceGPS } = require('../service
 const logger = require('../utils/logger');
 const QRCode = require('qrcode');
 const { v4: uuidv4 } = require('uuid');
+const { validateUUIDParam } = require('../utils/validation');
 
 // ---------------------------------------------------------------------------
 // Capacity helpers
@@ -381,6 +382,7 @@ exports.createProject = async (req, res) => {
 exports.getProject = async (req, res) => {
   try {
     const { id } = req.params;
+    validateUUIDParam(id, 'project ID');
 
     let query = supabase
       .from('projects')

@@ -5,6 +5,7 @@
 
 const { sendSuccess, sendError } = require('../utils/responseHelper');
 const logger = require('../utils/logger');
+const { validateUUIDParam, sanitizeString } = require('../utils/validation');
 const { calculatePanelValue, calculateBatteryValue, getSilverPrice } = require('../services/silverService');
 const { calculateDecommissionDate } = require('../services/degradationService');
 const { generateCableComplianceCertificate } = require('../services/pdfService');
@@ -861,6 +862,7 @@ exports.getSavedCalculations = async (req, res) => {
 exports.getSavedCalculation = async (req, res) => {
   try {
     const { id } = req.params;
+    validateUUIDParam(id, 'calculation ID');
     const userId = req.user?.id;
 
     const { data, error } = await supabase
