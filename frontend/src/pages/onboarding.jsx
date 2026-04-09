@@ -277,19 +277,9 @@ export default function Onboarding() {
                 <button onClick={() => { if (validateCurrentStep()) setStep(s => s + 1); }} className="btn-primary flex items-center gap-2">
                   Continue <RiArrowRightLine />
                 </button>
-              try {
-                const { data } = await authAPI.saveProfile(form);
-                localStorage.removeItem('solnuv_pending_onboarding');
-                redirectedRef.current = true; // block the already-onboarded useEffect redirect
-
-                // Update profile directly from response to avoid race condition
-                if (data?.data) {
-                  setProfile(data.data);
-                }
-
-                // Always refresh profile from backend to guarantee latest onboarding state
-                await refreshProfile();
-
-                toast.success('Profile saved! Welcome to SolNuv \ud83c\udf1e');
-                router.push('/plans?welcome=1');
-}
+              ) : (
+                <button onClick={handleSubmit} disabled={submitting} className="btn-primary flex items-center gap-2">
+                  {submitting ? 'Saving...' : 'Complete Setup'}
+                  {!submitting && <RiCheckLine />}
+                </button>
+              )}
