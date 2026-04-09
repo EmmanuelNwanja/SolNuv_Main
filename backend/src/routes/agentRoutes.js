@@ -6,16 +6,17 @@ const { requireAuth } = require('../middlewares/authMiddleware');
 const { requireAdmin, requireAdminRole } = require('../middlewares/adminMiddleware');
 const { validateAgentAccess, agentRateLimiter } = require('../middlewares/agentMiddleware');
 const { requirePlan } = require('../middlewares/subscriptionMiddleware');
+const { requireVerified } = require('../middlewares/verificationMiddleware');
 const { attachEnvironment } = require('../middlewares/environmentMiddleware');
 
 // ── User endpoints (all require auth) ────────────────────────────────────────
 
 router.get('/instances',       requireAuth, attachEnvironment,                                   agentController.getInstances);
-router.post('/chat',           requireAuth, attachEnvironment, requirePlan('basic'), validateAgentAccess, agentRateLimiter, agentController.chat);
+router.post('/chat',           requireAuth, attachEnvironment, requirePlan('basic'), requireVerified, validateAgentAccess, agentRateLimiter, agentController.chat);
 router.get('/conversations',   requireAuth, attachEnvironment,                                   agentController.getConversations);
 router.get('/conversations/:id/messages', requireAuth, attachEnvironment,                        agentController.getMessages);
 router.patch('/conversations/:id/close',  requireAuth, attachEnvironment,                        agentController.closeConversation);
-router.post('/tasks',          requireAuth, attachEnvironment, requirePlan('elite'), validateAgentAccess, agentController.createTask);
+router.post('/tasks',          requireAuth, attachEnvironment, requirePlan('elite'), requireVerified, validateAgentAccess, agentController.createTask);
 router.get('/tasks',           requireAuth, attachEnvironment,                                   agentController.getTasks);
 router.get('/tasks/:id',       requireAuth, attachEnvironment,                                   agentController.getTaskDetail);
 

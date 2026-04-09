@@ -4,6 +4,7 @@ const router = express.Router();
 const calculatorController = require('../controllers/calculatorController');
 const { optionalAuth, requireAuth } = require('../middlewares/authMiddleware');
 const { trackCalculatorUsage, getCalculatorUsage } = require('../middlewares/usageMiddleware');
+const { requireVerified } = require('../middlewares/verificationMiddleware');
 
 // Usage summary endpoint (requires auth)
 router.get('/usage', optionalAuth, getCalculatorUsage);
@@ -33,19 +34,19 @@ router.get('/market-prices', calculatorController.getMarketPrices);
 // Custom brand submission — requires authentication
 router.post('/brands/submit', requireAuth, calculatorController.submitBrand);
 
-// Saved calculations — requires authentication
-router.post('/saved',              requireAuth, calculatorController.saveCalculation);
-router.get('/saved',               requireAuth, calculatorController.getSavedCalculations);
-router.get('/saved/project/:projectId', requireAuth, calculatorController.getProjectCalculations);
-router.get('/saved/:id',          requireAuth, calculatorController.getSavedCalculation);
-router.delete('/saved/:id',        requireAuth, calculatorController.deleteSavedCalculation);
-router.post('/saved/:id/export-pdf', requireAuth, calculatorController.exportCalculationPdf);
+// Saved calculations — requires authentication + verification
+router.post('/saved',              requireAuth, requireVerified, calculatorController.saveCalculation);
+router.get('/saved',               requireAuth, requireVerified, calculatorController.getSavedCalculations);
+router.get('/saved/project/:projectId', requireAuth, requireVerified, calculatorController.getProjectCalculations);
+router.get('/saved/:id',          requireAuth, requireVerified, calculatorController.getSavedCalculation);
+router.delete('/saved/:id',        requireAuth, requireVerified, calculatorController.deleteSavedCalculation);
+router.post('/saved/:id/export-pdf', requireAuth, requireVerified, calculatorController.exportCalculationPdf);
 
-// Cost estimates — requires authentication
-router.post('/cost-estimate',           requireAuth, calculatorController.calculateCostEstimate);
-router.post('/cost-estimate/save',      requireAuth, calculatorController.saveCostEstimate);
-router.get('/cost-estimates/saved',     requireAuth, calculatorController.getSavedCostEstimates);
-router.get('/cost-estimates/project/:projectId', requireAuth, calculatorController.getProjectCostEstimates);
-router.delete('/cost-estimates/:id',    requireAuth, calculatorController.deleteCostEstimate);
+// Cost estimates — requires authentication + verification
+router.post('/cost-estimate',           requireAuth, requireVerified, calculatorController.calculateCostEstimate);
+router.post('/cost-estimate/save',      requireAuth, requireVerified, calculatorController.saveCostEstimate);
+router.get('/cost-estimates/saved',     requireAuth, requireVerified, calculatorController.getSavedCostEstimates);
+router.get('/cost-estimates/project/:projectId', requireAuth, requireVerified, calculatorController.getProjectCostEstimates);
+router.delete('/cost-estimates/:id',    requireAuth, requireVerified, calculatorController.deleteCostEstimate);
 
 module.exports = router;

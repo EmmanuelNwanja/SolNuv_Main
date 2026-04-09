@@ -78,7 +78,7 @@ exports.listUsers = async (req, res) => {
     const { page: p, limit: l, from, to } = getPagination({ page, limit });
     const safeSearch = sanitizeSearch(search);
 
-    const baseSelect = 'id, first_name, last_name, email, role, is_active, created_at, company_id';
+    const baseSelect = 'id, first_name, last_name, email, role, is_active, created_at, company_id, verification_status';
     const enrichedSelect = `${baseSelect}, companies:companies!users_company_id_fkey(name, subscription_plan, subscription_expires_at, subscription_interval, max_team_members, verified_at), admin_users:admin_users!admin_users_user_id_fkey(role, is_active)`;
 
     let query = supabase

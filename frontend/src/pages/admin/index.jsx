@@ -529,7 +529,7 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
             {filteredUsers.map((u) => {
               const isManaging = managingUser?.id === u.id;
               const plan = u.companies?.subscription_plan || 'free';
-              const isVerified = !!u.companies?.verified_at;
+              const isVerified = u.verification_status === 'verified';
               return (
                 <div key={u.id} className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
                   {/* User row */}
@@ -546,7 +546,10 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
                         }`}>
                           {!u.is_active ? 'Suspended' : plan === 'free' ? 'Basic' : plan.toUpperCase()}
                         </span>
-                        {isVerified && <span className="text-[11px] px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium">✓ Verified</span>}
+                        {u.verification_status === 'verified' && <span className="text-[11px] px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium">✓ Verified</span>}
+                        {(u.verification_status === 'pending' || u.verification_status === 'pending_admin_review') && <span className="text-[11px] px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700 font-medium">⏳ Pending</span>}
+                        {u.verification_status === 'rejected' && <span className="text-[11px] px-2 py-0.5 rounded-full bg-red-100 text-red-700 font-medium">✗ Rejected</span>}
+                        {u.verification_status === 'unverified' && <span className="text-[11px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-medium">○ Unverified</span>}
                       </div>
                       <p className="text-xs text-slate-500 mt-0.5">{u.email}</p>
                       <p className="text-xs text-slate-400 mt-0.5">

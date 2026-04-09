@@ -3,11 +3,26 @@ const express = require('express');
 const router = express.Router();
 const projectController = require('../controllers/projectController');
 const { requireAuth, requireProfile, optionalAuth } = require('../middlewares/authMiddleware');
+const { requireVerified } = require('../middlewares/verificationMiddleware');
 
 router.get('/verify/:qrCode', projectController.verifyByQR); // public
 router.get('/battery-ledger/:qrCode', projectController.getBatteryLedgerByQr); // public QR ledger
 router.post('/battery-ledger/:qrCode/log', optionalAuth, projectController.addBatteryHealthLogByQr); // public-friendly log submit
 router.use(requireAuth, requireProfile);
+
+router.use('/saved', requireVerified); // Require verification for saved calculations
+router.post('/', requireVerified); // Require verification to create projects
+router.put('/:id', requireVerified);
+router.delete('/:id', requireVerified);
+router.post('/:id/geo-verify', requireVerified);
+router.post('/:id/recovery', requireVerified);
+router.post('/:id/proposal-scenario', requireVerified);
+router.post('/:id/battery-assets', requireVerified);
+router.post('/:id/battery-assets/:assetId/logs', requireVerified);
+router.post('/:id/cable-compliance', requireVerified);
+router.post('/:id/equipment', requireVerified);
+router.put('/:id/equipment/:equipmentId', requireVerified);
+router.delete('/:id/equipment/:equipmentId', requireVerified);
 
 router.get('/', projectController.getProjects);
 router.post('/', projectController.createProject);

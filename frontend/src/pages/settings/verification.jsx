@@ -189,6 +189,19 @@ export default function VerificationSettings() {
                     <div className="mt-3 p-3 bg-white rounded-lg border border-red-200">
                       <p className="text-xs font-medium text-red-700 mb-1">Rejection Reason:</p>
                       <p className="text-sm text-red-800">{profile.verification_rejection_reason}</p>
+                      <button
+                        onClick={() => {
+                          const cards = document.querySelectorAll('.card');
+                          cards.forEach(card => {
+                            if (card.querySelector('.btn-primary')) {
+                              card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            }
+                          });
+                        }}
+                        className="mt-3 text-xs text-red-700 underline hover:no-underline"
+                      >
+                        Click to submit new verification
+                      </button>
                     </div>
                   )}
                   {isPending && (
@@ -213,6 +226,21 @@ export default function VerificationSettings() {
                     <p className="text-sm text-green-700">All platform tools and features are available.</p>
                   </div>
                 </div>
+                {profile?.verified_at && (
+                  <div className="mt-4 pt-4 border-t border-green-200">
+                    <p className="text-xs text-green-700">
+                      <span className="font-medium">Verified on:</span>{' '}
+                      {new Date(profile.verified_at).toLocaleDateString('en-NG', {
+                        year: 'numeric', month: 'long', day: 'numeric'
+                      })}
+                    </p>
+                    {profile.business_type !== 'solo' && (
+                      <p className="text-xs text-green-700 mt-1">
+                        Your CAC document has been reviewed and approved.
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
             ) : isPending ? (
               <div className="card">
