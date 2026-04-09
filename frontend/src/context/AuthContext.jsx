@@ -230,6 +230,8 @@ export function AuthProvider({ children }) {
     // Without this reset, a call from Settings after saving profile could be
     // silently dropped if the auth system's initial fetch hasn't fully settled.
     profileFetchInFlight.current = false;
+    // Small delay to ensure backend has persisted the change
+    await new Promise(resolve => setTimeout(resolve, 500));
     await fetchProfile();
   }
 
