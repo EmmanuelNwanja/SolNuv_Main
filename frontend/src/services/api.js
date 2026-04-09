@@ -138,6 +138,10 @@ export const authAPI = {
   getTeam: () => api.get('/auth/team'),
   getNotifications: (markRead = false) => api.get('/auth/notifications', { params: markRead ? { mark_read: 'true' } : {} }),
   signup: (data) => api.post('/auth/signup', data),
+  // Verification
+  getVerificationStatus: () => api.get('/auth/verification-status'),
+  requestVerification: (data) => api.post('/auth/verification-request', data),
+  cancelVerificationRequest: () => api.delete('/auth/verification-request'),
 };
 
 // ==============================
@@ -264,6 +268,10 @@ export const adminAPI = {
   upsertAdmin: (data) => api.post('/admin/admins', data),
   getOtps: () => api.get('/admin/otps', { timeout: 20000 }),
   generateOtp: (data) => api.post('/admin/otps', data, { timeout: 20000 }),
+  // User verification
+  listVerificationRequests: (params) => api.get('/admin/verification-requests', { params }),
+  verifyUser: (id) => api.patch(`/admin/users/${id}/verify`),
+  rejectVerification: (id, reason) => api.patch(`/admin/users/${id}/reject-verification`, { reason }),
   listAllProjects: (params) => api.get('/admin/projects', { params }),
   adminBulkUpdateProjects: (projectIds, update) => api.patch('/admin/projects/bulk', { project_ids: projectIds, update }),
   adminUpdateProject: (id, data) => api.patch(`/admin/projects/${id}`, data),

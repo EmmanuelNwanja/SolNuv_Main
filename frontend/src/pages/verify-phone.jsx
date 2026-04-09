@@ -1,168 +1,30 @@
-import Head from 'next/head';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '../context/AuthContext';
-import { authAPI } from '../services/api';
-import { supabase } from '../utils/supabase';
-import { RiShieldCheckLine, RiSmartphoneLine } from 'react-icons/ri';
-import toast from 'react-hot-toast';
 
 export default function VerifyPhone() {
-  const { session, loading, profileResolved, isOnboarded, isPlatformAdmin } = useAuth();
+  const { session, loading, isPlatformAdmin } = useAuth();
   const router = useRouter();
-  const [phone, setPhone] = useState('');
-  const [otp, setOtp] = useState('');
-  const [sending, setSending] = useState(false);
-  const [verifying, setVerifying] = useState(false);
-  const [sent, setSent] = useState(false);
 
   useEffect(() => {
-    if (!loading && !session) router.replace('/login');
-  }, [session, loading, router]);
-
-  useEffect(() => {
-    if (!session?.user) return;
-    if (!profileResolved) return;
-    const fromStorage = (() => {
-      try {
-        const pending = JSON.parse(localStorage.getItem('solnuv_pending_onboarding') || '{}');
-        return pending?.phone || '';
-      } catch {
-        return '';
+    if (!loading) {
+      if (!session) {
+        router.replace('/login');
+      } else if (isPlatformAdmin) {
+        router.replace('/admin');
+      } else {
+        router.replace('/dashboard');
       }
-    })();
-
-    setPhone(fromStorage || session.user.user_metadata?.phone || '');
-
-    // Platform admins never need phone verification — go straight to /admin
-    if (isPlatformAdmin) {
-      router.replace('/admin');
-      return;
     }
-
-    // Already-onboarded regular users skip phone verification too
-    if (isOnboarded) {
-      router.replace('/dashboard');
-      return;
-    }
-
-    // New users who already verified their phone move on to onboarding
-    if (session.user.user_metadata?.phone_verified) {
-      router.replace('/onboarding');
-    }
-  }, [session?.user, profileResolved, isOnboarded, isPlatformAdmin, router]);
-
-  async function sendOtp() {
-    if (!phone.trim()) {
-      toast.error('Phone number is required');
-      return;
-    }
-
-    setSending(true);
-    try {
-      await authAPI.requestPhoneVerificationOtp({ phone, channel: 'sms' });
-      setSent(true);
-      toast.success('OTP sent to your phone');
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to send OTP');
-    } finally {
-      setSending(false);
-    }
-  }
-
-  async function verifyOtp(e) {
-    e.preventDefault();
-    if (!phone.trim()) {
-      toast.error('Phone number is required');
-      return;
-    }
-    if (!otp.trim()) {
-      toast.error('Enter the OTP code');
-      return;
-    }
-
-    setVerifying(true);
-    try {
-      const timeoutError = Object.assign(new Error('Verification request timed out'), { code: 'VERIFY_TIMEOUT' });
-      await Promise.race([
-        authAPI.verifyPhoneVerificationOtp({ phone, otp }),
-        new Promise((_, reject) => setTimeout(() => reject(timeoutError), 15000)),
-      ]);
-
-      // Ensure the client-side session immediately reflects phone_verified.
-      // This prevents redirect loops when backend metadata propagation is delayed.
-      const existingMeta = session?.user?.user_metadata || {};
-      await supabase.auth.updateUser({
-        data: {
-          ...existingMeta,
-          phone: phone.trim(),
-          phone_verified: true,
-          phone_verified_at: new Date().toISOString(),
-        },
-      });
-
-      toast.success('Phone verified successfully');
-      router.replace('/onboarding');
-    } catch (err) {
-      const timeoutLike = err?.code === 'VERIFY_TIMEOUT' || err?.code === 'ECONNABORTED';
-      toast.error(timeoutLike
-        ? 'Verification timed out. Please try again in a few seconds.'
-        : (err.response?.data?.message || 'OTP verification failed'));
-    } finally {
-      setVerifying(false);
-    }
-  }
+  }, [session, loading, isPlatformAdmin, router]);
 
   return (
-    <>
-      <Head><title>Verify Phone — SolNuv</title></Head>
-      <div className="auth-shell">
-        <div className="auth-wrap auth-card">
-          <div className="text-center mb-6">
-            <div className="w-12 h-12 bg-forest-900 rounded-2xl flex items-center justify-center mx-auto mb-3">
-              <RiShieldCheckLine className="text-amber-400 text-2xl" />
-            </div>
-            <h1 className="font-display font-bold text-forest-900 text-2xl">Verify your phone</h1>
-            <p className="text-slate-500 text-sm mt-1">Required before completing onboarding</p>
-          </div>
-
-          <form onSubmit={verifyOtp} className="space-y-4">
-            <div>
-              <label className="label">Phone Number</label>
-              <input
-                type="tel"
-                className="input"
-                placeholder="+234 801 234 5678"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                required
-              />
-            </div>
-
-            <button type="button" onClick={sendOtp} disabled={sending} className="btn-outline w-full flex items-center justify-center gap-2">
-              <RiSmartphoneLine /> {sending ? 'Sending OTP...' : (sent ? 'Resend OTP' : 'Send OTP')}
-            </button>
-            {sent && <p className="text-xs text-slate-500">The code expires in 10 minutes. If it expires, request a new OTP.</p>}
-
-            <div>
-              <label className="label">OTP Code</label>
-              <input
-                type="text"
-                className="input"
-                placeholder="Enter 6-digit code"
-                value={otp}
-                onChange={(e) => setOtp(e.target.value)}
-                maxLength={6}
-                required
-              />
-            </div>
-
-            <button type="submit" disabled={verifying || !otp.trim()} className="btn-primary w-full">
-              {verifying ? 'Verifying...' : 'Verify Phone'}
-            </button>
-          </form>
+    <div className="auth-shell">
+      <div className="auth-wrap">
+        <div className="text-center">
+          <div className="w-8 h-8 border-4 border-forest-900 border-t-transparent rounded-full animate-spin mx-auto" />
         </div>
       </div>
-    </>
+    </div>
   );
 }

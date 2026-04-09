@@ -248,6 +248,7 @@ exports.createOrUpdateProfile = async (req, res) => {
           public_bio: public_bio || null,
           is_public_profile: typeof is_public_profile === 'boolean' ? is_public_profile : true,
           is_onboarded: true,
+          verification_status: 'unverified',
         })
         .select('*, companies:companies!users_company_id_fkey(*)')
         .single();
@@ -889,5 +890,164 @@ exports.signup = async (req, res) => {
   } catch (err) {
     logger.error('Signup error', { message: err.message, stack: err.stack });
     return sendError(res, 'An unexpected error occurred', 500);
+  }
+};
+
+/**
+ * GET /api/auth/verification-status
+ * Get current user's verification status and documents
+ */
+exports.getVerificationStatus = async (req, res) => {
+  try {
+    if (!req.user) {
+      return sendError(res, 'User profile not found', 404);
+    }
+
+    const { data: user } = await supabase
+      .from('users')
+      .select('verification_status, verification_requested_at, verified_at, verified_by, verification_notes, verification_rejection_reason')
+      .eq('id', req.user.id)
+      .single();
+
+    const { data: documents } = await supabase
+      .from('verification_documents')
+      .select('id, document_type, file_url, original_filename, uploaded_at')
+      .eq('user_id', req.user.id);
+
+    return sendSuccess(res, {
+      ...user,
+      documents: documents || [],
+    });
+  } catch (error) {
+    logger.error('Failed to get verification status', { user_id: req.user?.id, message: error.message });
+    return sendError(res, 'Failed to get verification status', 500);
+  }
+};
+
+/**
+ * POST /api/auth/verification-request
+ * Request verification (solo: self-attestation, company: CAC upload)
+ */
+exports.requestVerification = async (req, res) => {
+  try {
+    if (!req.user) {
+      return sendError(res, 'User profile not found', 404);
+    }
+
+    const { notes, document_url, document_type, original_filename } = req.body;
+
+    const userId = req.user.id;
+    const businessType = req.user.business_type;
+
+    // Check current status
+    const { data: currentUser } = await supabase
+      .from('users')
+      .select('verification_status, business_type')
+      .eq('id', userId)
+      .single();
+
+    if (currentUser?.verification_status === 'verified') {
+      return sendError(res, 'Your account is already verified', 400);
+    }
+
+    if (currentUser?.verification_status === 'pending' || currentUser?.verification_status === 'pending_admin_review') {
+      return sendError(res, 'Verification request already pending. Please wait for admin review.', 400);
+    }
+
+    // Solo users: self-attestation (no document required)
+    // Company users: CAC document required
+    if (businessType === 'registered') {
+      if (!document_url) {
+        return sendError(res, 'CAC certificate document is required for company verification', 400);
+      }
+
+      // Store verification document
+      await supabase.from('verification_documents').insert({
+        user_id: userId,
+        document_type: 'cac_certificate',
+        file_url: document_url,
+        original_filename: original_filename || 'cac_certificate',
+      });
+    } else {
+      // Solo users: create self-attestation record
+      await supabase.from('verification_documents').insert({
+        user_id: userId,
+        document_type: 'solo_attestation',
+        file_url: null,
+        original_filename: null,
+      });
+    }
+
+    // Update user verification status
+    const newStatus = businessType === 'registered' ? 'pending_admin_review' : 'pending';
+    const { error: updateError } = await supabase
+      .from('users')
+      .update({
+        verification_status: newStatus,
+        verification_requested_at: new Date().toISOString(),
+        verification_notes: notes || null,
+        verification_rejection_reason: null,
+      })
+      .eq('id', userId);
+
+    if (updateError) throw updateError;
+
+    // Notify admins of new verification request
+    const { notifyAdminsOfVerificationRequest } = require('../services/notificationService');
+    await notifyAdminsOfVerificationRequest(req.user, businessType === 'registered' ? 'company' : 'solo');
+
+    return sendSuccess(res, {
+      verification_status: newStatus,
+      message: businessType === 'registered' 
+        ? 'Verification request submitted. Admin will review your CAC document.' 
+        : 'Self-attestation submitted. Your account will be verified shortly.',
+    });
+  } catch (error) {
+    logger.error('Failed to request verification', { user_id: req.user?.id, message: error.message });
+    return sendError(res, 'Failed to submit verification request', 500);
+  }
+};
+
+/**
+ * DELETE /api/auth/verification-request
+ * Cancel pending verification request
+ */
+exports.cancelVerificationRequest = async (req, res) => {
+  try {
+    if (!req.user) {
+      return sendError(res, 'User profile not found', 404);
+    }
+
+    const { data: currentUser } = await supabase
+      .from('users')
+      .select('verification_status')
+      .eq('id', req.user.id)
+      .single();
+
+    if (!['pending', 'pending_admin_review', 'rejected'].includes(currentUser?.verification_status)) {
+      return sendError(res, 'No pending verification request to cancel', 400);
+    }
+
+    // Delete verification documents
+    await supabase
+      .from('verification_documents')
+      .delete()
+      .eq('user_id', req.user.id);
+
+    // Reset verification status
+    await supabase
+      .from('users')
+      .update({
+        verification_status: 'unverified',
+        verification_requested_at: null,
+        verification_notes: null,
+        verification_rejection_reason: null,
+      })
+      .eq('id', req.user.id);
+
+    return sendSuccess(res, { message: 'Verification request cancelled' });
+  } catch (error) {
+    logger.error('Failed to cancel verification request', { user_id: req.user?.id, message: error.message });
+    return sendError(res, 'Failed to cancel verification request', 500);
   }
 };

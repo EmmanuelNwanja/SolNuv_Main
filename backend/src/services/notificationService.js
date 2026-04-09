@@ -62,10 +62,58 @@ async function sendDecommissionApproved(user, project) {
   return sendSms({ to: phone, message, channel: 'generic' });
 }
 
+async function notifyAdminsOfVerificationRequest(user, type) {
+  const supabase = require('../config/database');
+  
+  const { data: admins } = await supabase
+    .from('admin_users')
+    .select('phone, email')
+    .in('role', ['super_admin', 'operations'])
+    .eq('is_active', true)
+    .limit(10);
+
+  if (!admins || admins.length === 0) return;
+
+  const userType = type === 'company' ? 'company' : 'solo';
+  const userName = user?.first_name || 'Unknown';
+  const userEmail = user?.email || '';
+  const message = `SolNuv Admin: New ${userType} user verification request from ${userName} (${userEmail}). Review at solnuv.com/admin/verification.`;
+
+  const results = await Promise.allSettled(
+    admins.filter(a => a.phone).map(a => sendSms({ to: a.phone, message, channel: 'generic' }))
+  );
+
+  const failures = results.filter(r => r.status === 'rejected');
+  if (failures.length > 0) {
+    logger.warn('Some admin SMS notifications failed for verification request', {
+      count: failures.length,
+      errors: failures.map(f => f.reason?.message || 'Unknown error'),
+    });
+  }
+}
+
+async function notifyUserOfVerificationStatus(user, status, reason = null) {
+  const phone = user?.phone;
+  if (!phone) return { success: false, reason: 'User phone missing' };
+
+  let message;
+  if (status === 'verified') {
+    message = `SolNuv: Your account has been verified! You now have full access to all platform tools. Welcome aboard!`;
+  } else if (status === 'rejected') {
+    message = `SolNuv: Your verification was rejected. Reason: ${reason || 'Please contact support'}. You can re-request verification from your settings.`;
+  } else {
+    return { success: true };
+  }
+
+  return sendSms({ to: phone, message, channel: 'generic' });
+}
+
 module.exports = {
   sendWelcomeNotification,
   sendPaymentConfirmation,
   sendRecoveryConfirmation,
   notifyAdminOfPickupRequest,
   sendDecommissionApproved,
+  notifyAdminsOfVerificationRequest,
+  notifyUserOfVerificationStatus,
 };

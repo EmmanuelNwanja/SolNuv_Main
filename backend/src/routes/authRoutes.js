@@ -14,6 +14,11 @@ router.post('/phone-verification/verify', requireAuth, authController.verifyPhon
 router.post('/profile', requireAuth, authController.createOrUpdateProfile);
 router.get('/me', requireAuth, authController.getMe);
 router.get('/profile-status', requireAuth, authController.getProfileStatus);
+
+// User verification
+router.get('/verification-status', requireAuth, authController.getVerificationStatus);
+router.post('/verification-request', requireAuth, authController.requestVerification);
+router.delete('/verification-request', requireAuth, authController.cancelVerificationRequest);
 router.post('/invite', requireAuth, requireProfile, checkTeamLimit, authController.inviteTeamMember);
 router.post('/accept-invite/:token', requireAuth, authController.acceptInvite);
 router.get('/accept-invite/:token', authController.acceptInvite); // public check

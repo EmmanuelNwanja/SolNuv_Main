@@ -48,7 +48,7 @@ export default function Register() {
 
   useEffect(() => {
     if (session && !loading && profileResolved) {
-      const dest = isPlatformAdmin ? '/admin' : (isOnboarded ? '/dashboard' : '/verify-phone');
+      const dest = isPlatformAdmin ? '/admin' : '/dashboard';
       router.replace(dest);
     }
   }, [session, loading, profileResolved, isOnboarded, isPlatformAdmin, router]);
@@ -163,7 +163,7 @@ export default function Register() {
           business_type: businessType,
         }));
         toast.success('Account created! Please check your email to confirm your account.');
-        router.push('/verify-phone');
+        router.push('/dashboard');
         return;
       }
       
@@ -171,8 +171,8 @@ export default function Register() {
         phone,
         business_type: businessType,
       }));
-      toast.success('Account created! Verify your phone to continue.');
-      router.push('/verify-phone');
+      toast.success('Account created! Complete your profile to continue.');
+      router.push('/dashboard');
     } catch (err) {
       toast.error('An unexpected error occurred. Please try again.');
       setSubmitting(false);

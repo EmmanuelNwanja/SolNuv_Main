@@ -250,6 +250,10 @@ export function AuthProvider({ children }) {
   const isPlatformAdmin = profile?.is_platform_admin === true;
   const platformAdminRole = profile?.platform_admin_role || null;
 
+  // Verification status
+  const verificationStatus = profile?.verification_status || 'unverified';
+  const isVerified = verificationStatus === 'verified';
+
   return (
     <AuthContext.Provider value={{
       user, profile, session, loading,
@@ -257,6 +261,7 @@ export function AuthProvider({ children }) {
       isOnboarded, plan, isPro, isElite, isBasic, isFree,
       isInGracePeriod, graceUntil,
       company, isPlatformAdmin, platformAdminRole,
+      verificationStatus, isVerified,
       signInWithGoogle, signInWithEmail, signUpWithEmail,
       signOut, refreshProfile,
     }}>

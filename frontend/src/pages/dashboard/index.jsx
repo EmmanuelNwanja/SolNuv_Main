@@ -8,10 +8,13 @@ import Layout, { getDashboardLayout } from '../../components/Layout';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { StatCard, UrgencyBadge, StatusBadge, CapacityBadge, EmptyState } from '../../components/ui/index';
 import { MotionSection } from '../../components/PageMotion';
+import VerificationPrompt from '../../components/VerificationPrompt';
+import toast from 'react-hot-toast';
 import {
   RiSunLine, RiRecycleLine, RiAlertLine, RiLeafLine,
   RiAddLine, RiTrophyLine, RiArrowRightLine, RiTimeLine, RiCloseLine,
-  RiArrowLeftSLine, RiArrowRightSLine, RiCalculatorLine, RiEyeLine, RiDownloadLine, RiDeleteBinLine, RiCheckLine
+  RiArrowLeftSLine, RiArrowRightSLine, RiCalculatorLine, RiEyeLine, RiDownloadLine, RiDeleteBinLine, RiCheckLine,
+  RiLockLine
 } from 'react-icons/ri';
 
 // Popup carousel — shows a campaign's ads in order, auto-advances every 6s,
@@ -255,7 +258,7 @@ function DashboardAd({ placement }) {
 }
 
 export default function Dashboard() {
-  const { profile, isOnboarded, plan, isPro } = useAuth();
+  const { profile, isOnboarded, plan, isPro, isVerified } = useAuth();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
@@ -265,6 +268,10 @@ export default function Dashboard() {
   const [exporting, setExporting] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const router = useRouter();
+
+  function handleLockedToolClick(toolName) {
+    toast.error(`Complete verification to access ${toolName}`);
+  }
 
   const CALC_LABELS_MAP = {
     panel: 'Panel Value', battery: 'Battery Value', degrad: 'Decommission Date',
@@ -465,6 +472,9 @@ export default function Dashboard() {
         </MotionSection>
       )}
 
+      {/* Verification Prompt */}
+      <VerificationPrompt />
+
       {/* Fleet Overview */}
       <MotionSection className="mb-8">
         <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-3">Fleet Overview</h2>
@@ -481,24 +491,47 @@ export default function Dashboard() {
         <MotionSection className="mb-8">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wider">Saved Calculations</h2>
-            <Link href="/calculator" className="text-sm text-emerald-600 hover:text-emerald-700 font-medium">View All →</Link>
+            {isVerified ? (
+              <Link href="/calculator" className="text-sm text-emerald-600 hover:text-emerald-700 font-medium">View All →</Link>
+            ) : (
+              <button onClick={() => handleLockedToolClick('Calculations')} className="text-sm text-slate-400 flex items-center gap-1">
+                <RiLockLine className="w-4 h-4" /> Locked
+              </button>
+            )}
           </div>
-          <Link href="/calculator" className="block card p-5 hover:shadow-md transition-shadow">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center">
-                  <span className="text-2xl">📊</span>
+          {isVerified ? (
+            <Link href="/calculator" className="block card p-5 hover:shadow-md transition-shadow">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center">
+                    <span className="text-2xl">📊</span>
+                  </div>
+                  <div>
+                    <p className="text-3xl font-display font-bold text-forest-900">{recentCalcs.length}+</p>
+                    <p className="text-sm text-slate-500">Saved calculations</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-3xl font-display font-bold text-forest-900">{recentCalcs.length}+</p>
-                  <p className="text-sm text-slate-500">Saved calculations</p>
+                <div className="flex items-center gap-2 text-forest-900 font-medium text-sm">
+                  View Calculations <RiArrowRightLine className="w-4 h-4" />
                 </div>
               </div>
-              <div className="flex items-center gap-2 text-forest-900 font-medium text-sm">
-                View Calculations <RiArrowRightLine className="w-4 h-4" />
+            </Link>
+          ) : (
+            <div className="block card p-5 bg-slate-50 opacity-75">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-slate-200 rounded-xl flex items-center justify-center">
+                    <RiLockLine className="text-2xl text-slate-400" />
+                  </div>
+                  <div>
+                    <p className="text-lg font-display font-bold text-slate-400">{recentCalcs.length}+</p>
+                    <p className="text-sm text-slate-400">Locked calculations</p>
+                  </div>
+                </div>
+                <p className="text-xs text-slate-400">Complete verification</p>
               </div>
             </div>
-          </Link>
+          )}
         </MotionSection>
       )}
 
@@ -584,21 +617,55 @@ export default function Dashboard() {
       <MotionSection className="mb-8">
         <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-3">Quick Actions</h2>
         <div className="grid sm:grid-cols-3 gap-4">
-        <Link href="/dashboard/feedback" className="card-hover">
-          <p className="text-xs text-slate-500">Client Reputation</p>
-          <p className="text-sm font-semibold text-forest-900 mt-1">Generate feedback links</p>
-          <p className="text-xs text-slate-400 mt-1">Collect ratings and showcase reviews</p>
-        </Link>
-        <Link href="/leaderboard" className="card-hover">
-          <p className="text-xs text-slate-500">Leaderboard</p>
-          <p className="text-sm font-semibold text-forest-900 mt-1">Track CO2 and rating rank</p>
-          <p className="text-xs text-slate-400 mt-1">Use filters to benchmark peers</p>
-        </Link>
-        <Link href="/calculator" className="card-hover">
-          <p className="text-xs text-slate-500">Engineering Tools</p>
-          <p className="text-sm font-semibold text-forest-900 mt-1">ROI, SoH, and cable sizing</p>
-          <p className="text-xs text-slate-400 mt-1">Export proposal and compliance PDFs</p>
-        </Link>
+        {isVerified ? (
+          <>
+            <Link href="/dashboard/feedback" className="card-hover">
+              <p className="text-xs text-slate-500">Client Reputation</p>
+              <p className="text-sm font-semibold text-forest-900 mt-1">Generate feedback links</p>
+              <p className="text-xs text-slate-400 mt-1">Collect ratings and showcase reviews</p>
+            </Link>
+            <Link href="/leaderboard" className="card-hover">
+              <p className="text-xs text-slate-500">Leaderboard</p>
+              <p className="text-sm font-semibold text-forest-900 mt-1">Track CO2 and rating rank</p>
+              <p className="text-xs text-slate-400 mt-1">Use filters to benchmark peers</p>
+            </Link>
+            <Link href="/calculator" className="card-hover">
+              <p className="text-xs text-slate-500">Engineering Tools</p>
+              <p className="text-sm font-semibold text-forest-900 mt-1">ROI, SoH, and cable sizing</p>
+              <p className="text-xs text-slate-400 mt-1">Export proposal and compliance PDFs</p>
+            </Link>
+          </>
+        ) : (
+          <>
+            <button onClick={() => handleLockedToolClick('Feedback Links')} className="card text-left opacity-75 hover:opacity-90">
+              <div className="flex items-center gap-2 text-slate-400 mb-2">
+                <RiLockLine className="w-4 h-4" />
+                <p className="text-xs">Locked</p>
+              </div>
+              <p className="text-xs text-slate-500">Client Reputation</p>
+              <p className="text-sm font-semibold text-forest-900 mt-1">Generate feedback links</p>
+              <p className="text-xs text-slate-400 mt-1">Complete verification to access</p>
+            </button>
+            <button onClick={() => handleLockedToolClick('Leaderboard')} className="card text-left opacity-75 hover:opacity-90">
+              <div className="flex items-center gap-2 text-slate-400 mb-2">
+                <RiLockLine className="w-4 h-4" />
+                <p className="text-xs">Locked</p>
+              </div>
+              <p className="text-xs text-slate-500">Leaderboard</p>
+              <p className="text-sm font-semibold text-forest-900 mt-1">Track CO2 and rating rank</p>
+              <p className="text-xs text-slate-400 mt-1">Complete verification to access</p>
+            </button>
+            <button onClick={() => handleLockedToolClick('Engineering Tools')} className="card text-left opacity-75 hover:opacity-90">
+              <div className="flex items-center gap-2 text-slate-400 mb-2">
+                <RiLockLine className="w-4 h-4" />
+                <p className="text-xs">Locked</p>
+              </div>
+              <p className="text-xs text-slate-500">Engineering Tools</p>
+              <p className="text-sm font-semibold text-forest-900 mt-1">ROI, SoH, and cable sizing</p>
+              <p className="text-xs text-slate-400 mt-1">Complete verification to access</p>
+            </button>
+          </>
+        )}
         {profile?.public_slug && (
           <a href={`/profile/${encodeURIComponent(profile.public_slug)}`} target="_blank" rel="noreferrer" className="card-hover">
             <p className="text-xs text-slate-500">Public Portfolio</p>

@@ -2156,3 +2156,180 @@ exports.getPublicSeoSettings = async (req, res) => {
     return sendError(res, 'Failed to load SEO settings', 500);
   }
 };
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// USER VERIFICATION ADMIN FUNCTIONS
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+/**
+ * GET /api/admin/verification-requests
+ * List all pending verification requests
+ */
+exports.listVerificationRequests = async (req, res) => {
+  try {
+    const { status = 'pending', page = 1, limit = 20 } = req.query;
+    const { from, to } = getPagination({ page, limit });
+
+    let query = supabase
+      .from('users')
+      .select(`
+        id, email, first_name, last_name, business_type, brand_name,
+        verification_status, verification_requested_at, verification_notes,
+        verification_rejection_reason, created_at,
+        companies(id, name, email)
+      `, { count: 'exact' })
+      .in('verification_status', status === 'pending' 
+        ? ['pending', 'pending_admin_review'] 
+        : [status])
+      .order('verification_requested_at', { ascending: false })
+      .range(from, to);
+
+    const { data, error, count } = await query;
+    if (error) throw error;
+
+    // Get verification documents for each user
+    const userIds = (data || []).map(u => u.id);
+    const { data: documents } = await supabase
+      .from('verification_documents')
+      .select('user_id, document_type, file_url, original_filename')
+      .in('user_id', userIds);
+
+    const docsByUser = {};
+    (documents || []).forEach(doc => {
+      if (!docsByUser[doc.user_id]) docsByUser[doc.user_id] = [];
+      docsByUser[doc.user_id].push(doc);
+    });
+
+    const enriched = (data || []).map(user => ({
+      ...user,
+      verification_documents: docsByUser[user.id] || [],
+    }));
+
+    return sendSuccess(res, {
+      requests: enriched,
+      total: count || 0,
+      page: Number(page),
+      limit: Number(limit),
+    });
+  } catch (error) {
+    logger.error('listVerificationRequests failed', { message: error.message });
+    return sendError(res, 'Failed to load verification requests', 500);
+  }
+};
+
+/**
+ * PATCH /api/admin/users/:id/verify
+ * Approve user verification
+ */
+exports.verifyUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const { data: user, error: fetchError } = await supabase
+      .from('users')
+      .select('id, email, first_name, verification_status')
+      .eq('id', id)
+      .single();
+
+    if (fetchError || !user) {
+      return sendError(res, 'User not found', 404);
+    }
+
+    if (user.verification_status === 'verified') {
+      return sendError(res, 'User is already verified', 400);
+    }
+
+    const { error: updateError } = await supabase
+      .from('users')
+      .update({
+        verification_status: 'verified',
+        verified_at: new Date().toISOString(),
+        verified_by: req.user.id,
+        verification_rejection_reason: null,
+      })
+      .eq('id', id);
+
+    if (updateError) throw updateError;
+
+    // Log activity
+    await logPlatformActivity({
+      actorUserId: req.user.id,
+      actorEmail: req.user.email,
+      action: 'admin.user.verified',
+      resourceType: 'users',
+      resourceId: id,
+      details: { user_email: user.email },
+    });
+
+    // Notify user
+    const { notifyUserOfVerificationStatus } = require('../services/notificationService');
+    await notifyUserOfVerificationStatus(user, 'verified');
+
+    return sendSuccess(res, { id, verification_status: 'verified' }, 'User verified successfully');
+  } catch (error) {
+    logger.error('verifyUser failed', { id: req.params?.id, message: error.message });
+    return sendError(res, 'Failed to verify user', 500);
+  }
+};
+
+/**
+ * PATCH /api/admin/users/:id/reject-verification
+ * Reject user verification with reason
+ */
+exports.rejectVerification = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body;
+
+    if (!reason?.trim()) {
+      return sendError(res, 'Rejection reason is required', 400);
+    }
+
+    const { data: user, error: fetchError } = await supabase
+      .from('users')
+      .select('id, email, first_name, verification_status')
+      .eq('id', id)
+      .single();
+
+    if (fetchError || !user) {
+      return sendError(res, 'User not found', 404);
+    }
+
+    if (user.verification_status === 'verified') {
+      return sendError(res, 'Cannot reject an already verified user', 400);
+    }
+
+    if (user.verification_status !== 'pending' && user.verification_status !== 'pending_admin_review') {
+      return sendError(res, 'No pending verification request to reject', 400);
+    }
+
+    const { error: updateError } = await supabase
+      .from('users')
+      .update({
+        verification_status: 'rejected',
+        verification_rejection_reason: reason.trim(),
+      })
+      .eq('id', id);
+
+    if (updateError) throw updateError;
+
+    // Log activity
+    await logPlatformActivity({
+      actorUserId: req.user.id,
+      actorEmail: req.user.email,
+      action: 'admin.user.verification_rejected',
+      resourceType: 'users',
+      resourceId: id,
+      details: { user_email: user.email, reason },
+    });
+
+    // Notify user
+    const { notifyUserOfVerificationStatus } = require('../services/notificationService');
+    await notifyUserOfVerificationStatus(user, 'rejected', reason.trim());
+
+    return sendSuccess(res, { id, verification_status: 'rejected' }, 'Verification rejected');
+  } catch (error) {
+    logger.error('rejectVerification failed', { id: req.params?.id, message: error.message });
+    return sendError(res, 'Failed to reject verification', 500);
+  }
+};

@@ -14,11 +14,13 @@ import {
   RiShieldCheckLine,
   RiSparkling2Line,
   RiTeamLine,
+  RiUserSearchLine,
 } from 'react-icons/ri';
 
 export const ADMIN_TABS = [
   { id: 'overview', label: 'Overview', path: '/admin', title: 'Admin Control Center - SolNuv' },
   { id: 'users', label: 'Users', path: '/admin/users', title: 'Admin Users - SolNuv' },
+  { id: 'verification', label: 'Verification', path: '/admin/verification', title: 'Verification Requests - SolNuv' },
   { id: 'projects', label: 'Projects', path: '/admin/projects', title: 'Admin Projects - SolNuv' },
   { id: 'paystack', label: 'Paystack Plans', path: '/admin/paystack', title: 'Admin Paystack Plans - SolNuv' },
   { id: 'promo', label: 'Promo Codes', path: '/admin/promo', title: 'Admin Promo Codes - SolNuv' },
@@ -120,6 +122,12 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
   const [rejectReason, setRejectReason] = useState('');
   const [rejectingId, setRejectingId] = useState(null);
 
+  // Verification state
+  const [verificationRequests, setVerificationRequests] = useState([]);
+  const [verificationLoading, setVerificationLoading] = useState(false);
+  const [verificationAction, setVerificationAction] = useState(null); // { id, action: 'verify' | 'reject' }
+  const [verificationRejectReason, setVerificationRejectReason] = useState('');
+
   useEffect(() => {
     setActiveTab(forcedTab);
   }, [forcedTab]);
@@ -133,6 +141,7 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
     const requestsByTab = {
       overview: [{ key: 'overview', request: adminAPI.getOverview() }],
       users: [{ key: 'users', request: adminAPI.listUsers({ page: 1, limit: 30 }) }],
+      verification: [{ key: 'verification', request: adminAPI.listVerificationRequests({ status: 'pending' }) }],
       projects: [{ key: 'projects', request: adminAPI.listAllProjects({ page: 1, limit: 100, search: projectSearch, status: projectStatusFilter, geo_verified: projectGeoFilter }) }],
       paystack: [{ key: 'paystack', request: adminAPI.listPaystackPlans() }],
       promo: [{ key: 'promo', request: adminAPI.listPromoCodes() }],
@@ -167,6 +176,7 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
           const payload = result.value?.data?.data;
           if (key === 'overview') setOverview(payload || null);
           if (key === 'users') setUsers(payload?.users || []);
+          if (key === 'verification') setVerificationRequests(payload?.requests || []);
           if (key === 'projects') setProjects(payload?.projects || []);
           if (key === 'paystack') setPaystackPlans(payload || []);
           if (key === 'promo') setPromoCodes(payload || []);
@@ -333,6 +343,49 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
       toast.error(err.response?.data?.message || 'Failed to update admin role');
     } finally {
       setAssigningAdminRole(false);
+    }
+  }
+
+  async function loadVerificationRequests() {
+    setVerificationLoading(true);
+    try {
+      const { data } = await adminAPI.listVerificationRequests({ status: 'pending' });
+      setVerificationRequests(data.data?.requests || []);
+    } catch (err) {
+      toast.error('Failed to load verification requests');
+    } finally {
+      setVerificationLoading(false);
+    }
+  }
+
+  async function handleVerifyUser(userId) {
+    setVerificationAction({ id: userId, action: 'verify' });
+    try {
+      await adminAPI.verifyUser(userId);
+      toast.success('User verified successfully');
+      setVerificationAction(null);
+      await loadVerificationRequests();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to verify user');
+      setVerificationAction(null);
+    }
+  }
+
+  async function handleRejectVerification(userId) {
+    if (!verificationRejectReason.trim()) {
+      toast.error('Rejection reason is required');
+      return;
+    }
+    setVerificationAction({ id: userId, action: 'reject' });
+    try {
+      await adminAPI.rejectVerification(userId, verificationRejectReason);
+      toast.success('Verification rejected');
+      setVerificationAction(null);
+      setVerificationRejectReason('');
+      await loadVerificationRequests();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to reject verification');
+      setVerificationAction(null);
     }
   }
 
@@ -816,6 +869,144 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
               );
             })}
           </div>
+        </div>
+      )}
+
+      {activeTab === 'verification' && (
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="font-semibold text-forest-900 text-xl">Verification Requests</h2>
+              <p className="text-sm text-slate-500">Review and approve user verification requests</p>
+            </div>
+            <button onClick={() => loadVerificationRequests()} disabled={verificationLoading} className="btn-outline text-sm">
+              {verificationLoading ? 'Loading...' : 'Refresh'}
+            </button>
+          </div>
+
+          {verificationLoading ? (
+            <div className="text-center py-12">
+              <div className="inline-block w-8 h-8 border-4 border-forest-900 border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : verificationRequests.length === 0 ? (
+            <div className="card text-center py-12">
+              <RiShieldCheckLine className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+              <p className="text-slate-500">No pending verification requests</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {verificationRequests.map((request) => (
+                <div key={request.id} className="card">
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center">
+                        <span className="text-lg">
+                          {request.business_type === 'registered' ? '🏢' : '👤'}
+                        </span>
+                      </div>
+                      <div>
+                        <p className="font-semibold text-forest-900">
+                          {request.first_name} {request.last_name || ''}
+                        </p>
+                        <p className="text-sm text-slate-500">{request.email}</p>
+                        <p className="text-xs text-slate-400">
+                          {request.business_type === 'registered' ? 'Registered Business' : 'Solo User'} • 
+                          Requested: {request.verification_requested_at 
+                            ? new Date(request.verification_requested_at).toLocaleDateString() 
+                            : 'Unknown'}
+                        </p>
+                      </div>
+                    </div>
+                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                      request.verification_status === 'pending_admin_review' 
+                        ? 'bg-amber-100 text-amber-700' 
+                        : 'bg-blue-100 text-blue-700'
+                    }`}>
+                      {request.verification_status === 'pending_admin_review' ? 'CAC Review Required' : 'Pending Review'}
+                    </span>
+                  </div>
+
+                  {request.verification_notes && (
+                    <div className="bg-slate-50 rounded-lg p-3 mb-4">
+                      <p className="text-xs font-medium text-slate-500 mb-1">User Notes:</p>
+                      <p className="text-sm text-slate-700">{request.verification_notes}</p>
+                    </div>
+                  )}
+
+                  {request.verification_documents?.length > 0 && request.verification_documents.map((doc, idx) => (
+                    <div key={doc.id || idx} className="bg-blue-50 rounded-lg p-3 mb-4">
+                      <p className="text-xs font-medium text-blue-700 mb-1">Document:</p>
+                      {doc.file_url ? (
+                        <a 
+                          href={doc.file_url} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-sm text-blue-700 underline"
+                        >
+                          View {doc.document_type === 'cac_certificate' ? 'CAC Certificate' : 'Document'}
+                        </a>
+                      ) : (
+                        <p className="text-sm text-blue-700">Self-attestation (no document)</p>
+                      )}
+                    </div>
+                  ))}
+
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => handleVerifyUser(request.id)}
+                      disabled={verificationAction?.id === request.id}
+                      className="btn-primary text-sm"
+                    >
+                      {verificationAction?.id === request.id && verificationAction.action === 'verify' 
+                        ? 'Verifying...' 
+                        : '✓ Approve'}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setVerificationAction({ id: request.id, action: 'reject' });
+                        setVerificationRejectReason('');
+                      }}
+                      disabled={verificationAction?.id === request.id}
+                      className="btn-outline text-sm text-red-600 border-red-300 hover:bg-red-50"
+                    >
+                      ✕ Reject
+                    </button>
+                  </div>
+
+                  {verificationAction?.id === request.id && verificationAction.action === 'reject' && (
+                    <div className="mt-4 pt-4 border-t border-slate-200">
+                      <label className="label">Rejection Reason *</label>
+                      <textarea
+                        value={verificationRejectReason}
+                        onChange={(e) => setVerificationRejectReason(e.target.value)}
+                        className="input mb-3"
+                        placeholder="Explain why the verification was rejected..."
+                        rows={3}
+                      />
+                      <div className="flex items-center gap-3">
+                        <button
+                          onClick={() => handleRejectVerification(request.id)}
+                          disabled={!verificationRejectReason.trim() || verificationAction?.id !== request.id}
+                          className="btn-primary text-sm bg-red-600 hover:bg-red-700"
+                        >
+                          Confirm Rejection
+                        </button>
+                        <button
+                          onClick={() => {
+                            setVerificationAction(null);
+                            setVerificationRejectReason('');
+                          }}
+                          className="btn-outline text-sm"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
