@@ -1,7 +1,6 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '../../utils/supabase';
-import { authAPI } from '../../services/api';
 import toast from 'react-hot-toast';
 import { FullPageLoader } from '../../components/ui/index';
 
@@ -38,45 +37,8 @@ export default function AuthCallback() {
         return;
       }
 
-      try {
-        const { data } = await authAPI.getMe();
-        const profile = data?.data;
-
-        // Admin users always go to /admin, skip onboarding check
-        if (profile?.is_platform_admin) {
-          router.replace('/admin');
-          return;
-        }
-
-        if (!profile?.is_onboarded) {
-          router.replace('/onboarding');
-          return;
-        }
-
-        router.replace('/dashboard');
-      } catch {
-        // Backend may be waking from cold start; refresh session token then retry once.
-        try {
-          // Ensure the Supabase token is fresh before retrying — avoids a scenario
-          // where the token expired between getSession() and getMe(), causing the
-          // retry to also fail with 401 and silently dropping the user to /login.
-          await supabase.auth.refreshSession();
-          await authAPI.wakeBackend();
-          const { data } = await authAPI.getMe();
-          const profile = data?.data;
-          if (profile?.is_platform_admin) {
-            router.replace('/admin');
-            return;
-          }
-          if (!profile?.is_onboarded) {
-            router.replace('/onboarding');
-            return;
-          }
-          router.replace('/dashboard');
-        } catch {
-          router.replace('/login');
-        }
-      }
+      // Session exists: hand off post-login route decision to centralized auth state guards.
+      router.replace('/login?post_auth=1');
     }
 
     resolveAuthRedirect();

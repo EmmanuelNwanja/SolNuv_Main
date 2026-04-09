@@ -61,11 +61,14 @@ async function requireAuth(req, res, next) {
     if (!dbUser && user.email) {
       const normalizedEmail = user.email.toLowerCase().trim();
       
-      const { data: legacyUser, error: legacyError } = await supabase
+      const { data: legacyUsers, error: legacyError } = await supabase
         .from('users')
         .select('*, companies:companies!users_company_id_fkey(*)')
         .ilike('email', normalizedEmail)
-        .maybeSingle();
+        .order('created_at', { ascending: true })
+        .limit(1);
+
+      const legacyUser = Array.isArray(legacyUsers) ? legacyUsers[0] : null;
 
       if (!legacyError && legacyUser) {
         // Security guard: only link if the Supabase account has a confirmed email.

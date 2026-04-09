@@ -296,6 +296,38 @@ exports.createOrUpdateProfile = async (req, res) => {
 exports.getMe = async (req, res) => {
   try {
     if (req.isNewUser || !req.user) {
+      // Defensive fallback for legacy rows: on fresh logins a user may be marked as
+      // new before their existing record is linked to supabase_uid.
+      const normalizedEmail = String(req.supabaseUser?.email || '').toLowerCase().trim();
+      if (normalizedEmail) {
+        const { data: legacyUsers, error: legacyError } = await supabase
+          .from('users')
+          .select('*, companies:companies!users_company_id_fkey(*)')
+          .ilike('email', normalizedEmail)
+          .order('created_at', { ascending: true })
+          .limit(1);
+
+        const legacyUser = !legacyError && Array.isArray(legacyUsers) ? legacyUsers[0] : null;
+        if (legacyUser) {
+          if (!legacyUser.supabase_uid && req.supabaseUser?.id) {
+            await supabase
+              .from('users')
+              .update({ supabase_uid: req.supabaseUser.id })
+              .eq('id', legacyUser.id);
+          }
+
+          const isOnboarded = !!(
+            legacyUser.is_onboarded ||
+            (legacyUser.first_name && String(legacyUser.first_name).trim() && legacyUser.user_type)
+          );
+
+          return sendSuccess(res, {
+            ...legacyUser,
+            is_onboarded: isOnboarded,
+          });
+        }
+      }
+
       return sendSuccess(res, {
         supabase_uid: req.supabaseUser?.id,
         email: req.supabaseUser?.email,
@@ -312,6 +344,12 @@ exports.getMe = async (req, res) => {
       .single();
 
     if (error) throw error;
+
+    // Keep onboarding truth stable for legacy rows with complete profile fields.
+    user.is_onboarded = !!(
+      user.is_onboarded ||
+      (user.first_name && String(user.first_name).trim() && user.user_type)
+    );
 
     // Compute effective subscription plan and grace state.
     // Hard cutoff = subscription_grace_until (7 days after expiry).

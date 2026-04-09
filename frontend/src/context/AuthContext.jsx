@@ -20,6 +20,7 @@ function getMatchingCachedProfile(sessionUser) {
   const sessionEmail = String(sessionUser.email || '').toLowerCase();
   const cachedEmail = String(cached.email || '').toLowerCase();
   if (sessionUser.id && cached.supabase_uid && sessionUser.id === cached.supabase_uid) return cached;
+  if (sessionUser.id && cached.supabase_uid && sessionUser.id !== cached.supabase_uid) return null;
   if (sessionEmail && cachedEmail && sessionEmail === cachedEmail) return cached;
   return null;
 }
@@ -60,6 +61,8 @@ export function AuthProvider({ children }) {
     const loadingSafetyTimer = setTimeout(() => {
       // Hard deadline: if auth hasn't resolved in 8s, unblock the UI.
       // Use cached profile so the user stays logged in during a slow cold-start.
+      // Do not finalize while a profile request is still actively in flight.
+      if (profileFetchInFlight.current) return;
       const cached = getMatchingCachedProfile(activeSessionUserRef.current);
       if (cached) {
         setProfile(prev => prev ?? cached);
