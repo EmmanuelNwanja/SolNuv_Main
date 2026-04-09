@@ -7,7 +7,7 @@ import { getDashboardLayout } from '../../../components/Layout';
 import { MotionSection } from '../../../components/PageMotion';
 import { useAuth } from '../../../context/AuthContext';
 import toast from 'react-hot-toast';
-import { RiArrowLeftLine, RiCalculatorLine, RiDownloadLine, RiDeleteLine, RiTimeLine, RiSunLine, RiBatteryLine, RiAlertLine, RiCheckLine } from 'react-icons/ri';
+import { RiArrowLeftLine, RiCalculatorLine, RiDownloadLine, RiDeleteBinLine, RiTimeLine, RiSunLine, RiBatteryLine, RiAlertLine, RiCheckLine } from 'react-icons/ri';
 
 const CALC_LABELS = {
   panel: 'Panel Value',
@@ -203,7 +203,7 @@ export default function ProjectCalculations() {
                               disabled={deleting === calc.id}
                               className="btn-outline text-sm px-3 py-1.5 text-red-600 hover:bg-red-50 flex items-center gap-1"
                             >
-                              <RiDeleteLine />
+                              <RiDeleteBinLine />
                             </button>
                           </div>
                         </div>
@@ -241,7 +241,7 @@ export default function ProjectCalculations() {
                           disabled={deleting === calc.id}
                           className="btn-outline text-sm px-3 py-1.5 text-red-600 hover:bg-red-50 flex items-center gap-1"
                         >
-                          <RiDeleteLine /> Remove
+                          <RiDeleteBinLine /> Remove
                         </button>
                       </div>
                     </div>
