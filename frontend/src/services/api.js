@@ -208,12 +208,18 @@ export const calculatorAPI = {
   getStates: () => api.get('/calculator/states'),
   getTechnologies: () => api.get('/calculator/technologies'),
   getUsage: () => api.get('/calculator/usage'),
+  getMarketPrices: () => api.get('/calculator/market-prices'),
   saveCalculation: (data) => api.post('/calculator/saved', data),
   getSavedCalculations: (params) => api.get('/calculator/saved', { params }),
   getSavedCalculation: (id) => api.get(`/calculator/saved/${id}`),
   deleteSavedCalculation: (id) => api.delete(`/calculator/saved/${id}`),
   getProjectCalculations: (projectId) => api.get(`/calculator/saved/project/${projectId}`),
   exportCalculationPdf: (id) => api.post(`/calculator/saved/${id}/export-pdf`),
+  calculateCostEstimate: (data) => api.post('/calculator/cost-estimate', data),
+  saveCostEstimate: (data) => api.post('/calculator/cost-estimate/save', data),
+  getSavedCostEstimates: (params) => api.get('/calculator/cost-estimates/saved', { params }),
+  getProjectCostEstimates: (projectId) => api.get(`/calculator/cost-estimates/project/${projectId}`),
+  deleteCostEstimate: (id) => api.delete(`/calculator/cost-estimates/${id}`),
 };
 
 export const engineeringAPI = {

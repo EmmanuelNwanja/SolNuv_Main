@@ -265,28 +265,9 @@ export default function SharedReport() {
           </div>
         </header>
 
-        <div className="max-w-7xl mx-auto flex" ref={reportRef}>
-          {/* Sidebar Navigation */}
-          <aside className="hidden lg:block w-64 flex-shrink-0 sticky top-24 h-[calc(100vh-6rem)] overflow-y-auto p-6">
-            <nav className="space-y-1">
-              {SECTIONS.map((section) => (
-                <button
-                  key={section.id}
-                  onClick={() => scrollToSection(section.id)}
-                  className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-all ${
-                    activeSection === section.id
-                      ? 'bg-[#10B981] text-white font-medium shadow-md'
-                      : 'text-gray-600 hover:bg-gray-200'
-                  }`}
-                >
-                  {section.label}
-                </button>
-              ))}
-            </nav>
-          </aside>
-
+        <div className="max-w-5xl mx-auto" ref={reportRef}>
           {/* Main Content */}
-          <main className="flex-1 px-6 py-8 space-y-8">
+          <main className="px-6 py-8 space-y-8">
             {/* Executive Summary */}
             {result?.executive_summary_text && (
               <section id="summary" ref={(el) => (sectionRefs.current['summary'] = el)} className="bg-gradient-to-r from-[#0D3B2E] to-[#166534] text-white rounded-2xl p-6 shadow-lg">
@@ -410,7 +391,7 @@ export default function SharedReport() {
             </section>
 
             {/* Battery System */}
-            {design?.bess_capacity_kwh > 0 && (
+            {(design?.bess_capacity_kwh > 0 || design?.bess_power_kw > 0 || batteries.length > 0) && (
               <section id="battery" ref={(el) => (sectionRefs.current['battery'] = el)} className="bg-white rounded-2xl shadow-sm border p-6">
                 <div className="flex items-center gap-3 mb-6 pb-4 border-b border-gray-200">
                   <div className="w-10 h-10 bg-[#10B981]/10 rounded-lg flex items-center justify-center">
@@ -422,13 +403,15 @@ export default function SharedReport() {
                   </div>
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="p-4 bg-gray-50 rounded-xl">
-                    <p className="text-xs text-gray-400 mb-1">Rated Capacity</p>
-                    <p className="text-lg font-semibold">{fmt(design?.bess_capacity_kwh)} kWh</p>
-                  </div>
+                  {design?.bess_capacity_kwh > 0 && (
+                    <div className="p-4 bg-gray-50 rounded-xl">
+                      <p className="text-xs text-gray-400 mb-1">Rated Capacity</p>
+                      <p className="text-lg font-semibold">{fmt(design?.bess_capacity_kwh)} kWh</p>
+                    </div>
+                  )}
                   <div className="p-4 bg-gray-50 rounded-xl">
                     <p className="text-xs text-gray-400 mb-1">Power Rating</p>
-                    <p className="text-lg font-semibold">{fmt(design?.bess_power_kw)} kW</p>
+                    <p className="text-lg font-semibold">{design?.bess_power_kw > 0 ? fmt(design?.bess_power_kw) + ' kW' : '—'}</p>
                   </div>
                   <div className="p-4 bg-gray-50 rounded-xl">
                     <p className="text-xs text-gray-400 mb-1">Chemistry</p>
@@ -438,22 +421,26 @@ export default function SharedReport() {
                     <p className="text-xs text-gray-400 mb-1">Round-Trip Efficiency</p>
                     <p className="text-lg font-semibold">{((design?.bess_round_trip_efficiency || 0.9) * 100).toFixed(0)}%</p>
                   </div>
-                  <div className="p-4 bg-gray-50 rounded-xl">
-                    <p className="text-xs text-gray-400 mb-1">Depth of Discharge</p>
-                    <p className="text-lg font-semibold">{design?.bess_dod_pct || 80}%</p>
-                  </div>
-                  <div className="p-4 bg-gray-50 rounded-xl">
-                    <p className="text-xs text-gray-400 mb-1">Dispatch Strategy</p>
-                    <p className="text-lg font-semibold capitalize">{(design?.bess_dispatch_strategy || 'self_consumption').replace(/_/g, ' ')}</p>
-                  </div>
-                  <div className="p-4 bg-gray-50 rounded-xl">
-                    <p className="text-xs text-gray-400 mb-1">Annual Throughput</p>
-                    <p className="text-lg font-semibold">{fmt(result?.battery_discharged_kwh)} kWh</p>
-                  </div>
-                  <div className="p-4 bg-gray-50 rounded-xl">
-                    <p className="text-xs text-gray-400 mb-1">Annual Cycles</p>
-                    <p className="text-lg font-semibold">{fmt(result?.battery_cycles_annual, 0)}</p>
-                  </div>
+                  {design?.bess_capacity_kwh > 0 && (
+                    <>
+                      <div className="p-4 bg-gray-50 rounded-xl">
+                        <p className="text-xs text-gray-400 mb-1">Depth of Discharge</p>
+                        <p className="text-lg font-semibold">{design?.bess_dod_pct || 80}%</p>
+                      </div>
+                      <div className="p-4 bg-gray-50 rounded-xl">
+                        <p className="text-xs text-gray-400 mb-1">Dispatch Strategy</p>
+                        <p className="text-lg font-semibold capitalize">{(design?.bess_dispatch_strategy || 'self_consumption').replace(/_/g, ' ')}</p>
+                      </div>
+                      <div className="p-4 bg-gray-50 rounded-xl">
+                        <p className="text-xs text-gray-400 mb-1">Annual Throughput</p>
+                        <p className="text-lg font-semibold">{fmt(result?.battery_discharged_kwh)} kWh</p>
+                      </div>
+                      <div className="p-4 bg-gray-50 rounded-xl">
+                        <p className="text-xs text-gray-400 mb-1">Annual Cycles</p>
+                        <p className="text-lg font-semibold">{fmt(result?.battery_cycles_annual, 0)}</p>
+                      </div>
+                    </>
+                  )}
                 </div>
                 {batteries.length > 0 && (
                   <div className="mt-6 pt-6 border-t">
@@ -462,7 +449,7 @@ export default function SharedReport() {
                       {batteries.map((b, i) => (
                         <div key={i} className="p-3 bg-[#10B981]/5 border border-[#10B981]/20 rounded-lg">
                           <p className="font-medium text-sm">{b.brand || b.manufacturer || 'Generic'}</p>
-                          <p className="text-xs text-gray-500 mt-1">{b.quantity || 1} × {b.rated_capacity_kwh ? b.rated_capacity_kwh + ' kWh' : '—'}</p>
+                          <p className="text-xs text-gray-500 mt-1">{b.quantity || 1} × {b.rated_capacity_kwh ? b.rated_capacity_kwh + ' kWh' : '—'}{b.rated_power_w ? ' / ' + (b.rated_power_w / 1000).toFixed(1) + ' kW' : ''}</p>
                         </div>
                       ))}
                     </div>

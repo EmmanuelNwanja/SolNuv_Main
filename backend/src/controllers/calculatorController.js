@@ -1011,3 +1011,398 @@ exports.exportCalculationPdf = async (req, res) => {
     return sendError(res, 'Failed to export PDF');
   }
 };
+
+// Dynamic market prices (can be updated via admin or external API)
+const MARKET_PRICES = {
+  panels: {
+    per_watt_ngn: 280,
+    brands: {
+      'JA Solar': 270, 'LONGi': 285, 'Canadian Solar': 290, 'Jinko': 275,
+      'Trina': 280, 'Risen': 278, 'LUXEN': 265, 'Generic': 260
+    },
+    last_updated: new Date().toISOString().split('T')[0]
+  },
+  batteries: {
+    lfp_per_kwh: 85000,
+    brands: {
+      'BYD': 90000, 'Pylontech': 80000, 'CATL': 85000, 'Growatt': 82000, 'Generic': 78000
+    },
+    last_updated: new Date().toISOString().split('T')[0]
+  },
+  inverters: {
+    hybrid_per_kw: 45000,
+    brands: {
+      'Huawei': 50000, 'Sungrow': 45000, 'GoodWe': 42000, 'Growatt': 40000, 'Generic': 38000
+    },
+    last_updated: new Date().toISOString().split('T')[0]
+  },
+  cables: {
+    copper_4mm_per_m: 150, copper_6mm_per_m: 200, copper_10mm_per_m: 320,
+    aluminum_16mm_per_m: 180, aluminum_25mm_per_m: 250,
+    last_updated: new Date().toISOString().split('T')[0]
+  },
+  mounts: {
+    ground_per_set: 3500, roof_per_kwp: 12000, carport_per_kwp: 18000,
+    last_updated: new Date().toISOString().split('T')[0]
+  },
+  labour_per_kwp: 15000,
+  miscellaneous_pct: 10
+};
+
+/**
+ * GET /api/calculator/market-prices
+ * Get current market prices for Nigeria
+ */
+exports.getMarketPrices = async (req, res) => {
+  try {
+    const { data } = await supabase
+      .from('platform_config')
+      .select('key, value')
+      .in('key', ['market_prices', 'market_prices_updated']);
+
+    let prices = { ...MARKET_PRICES };
+    const configData = data || [];
+
+    for (const row of configData) {
+      if (row.key === 'market_prices' && row.value) {
+        try {
+          const customPrices = typeof row.value === 'string' ? JSON.parse(row.value) : row.value;
+          prices = { ...MARKET_PRICES, ...customPrices };
+        } catch { /* use defaults */ }
+      }
+    }
+
+    return sendSuccess(res, prices);
+  } catch (err) {
+    return sendSuccess(res, MARKET_PRICES);
+  }
+};
+
+/**
+ * POST /api/calculator/cost-estimate
+ * Generate AI-powered cost estimate
+ */
+exports.calculateCostEstimate = async (req, res) => {
+  try {
+    const {
+      system_type = 'grid-tied',
+      pv_capacity_kwp = 10,
+      panel_watts = 550,
+      panel_cost_per_unit = null,
+      battery_included = false,
+      battery_capacity_kwh = 0,
+      battery_cost_per_kwh = null,
+      battery_sets = 1,
+      inverter_included = false,
+      inverter_power_kw = null,
+      inverter_cost_per_kw = null,
+      cable_included = false,
+      cable_length_m = 50,
+      cable_type = 'copper_4mm',
+      mount_type = 'roof',
+      custom_items = []
+    } = req.body;
+
+    const prices = { ...MARKET_PRICES };
+    const estimates = {};
+    const outputs = {};
+
+    // PV Panels calculation
+    const num_panels = Math.ceil((pv_capacity_kwp * 1000) / panel_watts);
+    const panel_cost = panel_cost_per_unit || (panel_watts * prices.panels.per_watt_ngn);
+    const total_panel_cost = num_panels * panel_cost;
+    estimates.panels = {
+      num_panels,
+      panel_watts,
+      cost_per_unit: panel_cost,
+      total_cost: total_panel_cost,
+      ai_recommendation: `Recommended panel size: ${panel_watts}W based on ${pv_capacity_kwp}kWp system. Total panels needed: ${num_panels}`
+    };
+    outputs.panels_cost = total_panel_cost;
+
+    // Battery calculation
+    if (battery_included && battery_capacity_kwh > 0) {
+      const battery_cost = battery_cost_per_kwh || prices.batteries.lfp_per_kwh;
+      const total_battery_cost = battery_capacity_kwh * battery_cost * battery_sets;
+      const usable_capacity = battery_capacity_kwh * 0.8; // 80% DoD
+      estimates.battery = {
+        capacity_kwh: battery_capacity_kwh,
+        usable_capacity_kwh: usable_capacity,
+        cost_per_kwh: battery_cost,
+        sets: battery_sets,
+        total_cost: total_battery_cost,
+        ai_recommendation: `Battery sizing: ${battery_capacity_kwh}kWh (${usable_capacity}kWh usable at 80% DoD). ${battery_sets} set(s) recommended for redundancy.`
+      };
+      outputs.battery_cost = total_battery_cost;
+      outputs.battery_capacity_kwh = battery_capacity_kwh;
+    }
+
+    // Inverter calculation
+    if (inverter_included) {
+      const inverter_size_kw = inverter_power_kw || Math.ceil(pv_capacity_kwp * 1.1);
+      const inverter_cost = inverter_cost_per_kw || prices.inverters.hybrid_per_kw;
+      const total_inverter_cost = inverter_size_kw * inverter_cost;
+      estimates.inverter = {
+        size_kw: inverter_size_kw,
+        cost_per_kw: inverter_cost,
+        total_cost: total_inverter_cost,
+        topology: system_type === 'off-grid' ? 'Off-grid' : 'Hybrid',
+        ai_recommendation: `Inverter sizing: ${inverter_size_kw}kW (110% of PV capacity for headroom). ${system_type === 'off-grid' ? 'Off-grid' : 'Hybrid'} inverter recommended.`
+      };
+      outputs.inverter_cost = total_inverter_cost;
+    }
+
+    // Cable calculation
+    if (cable_included) {
+      const cable_price_per_m = prices.cables[cable_type] || prices.cables.copper_4mm_per_m;
+      const total_cable_cost = cable_length_m * 2 * cable_price_per_m; // 2 for positive/negative
+      const cable_size_mm2 = parseInt(cable_type.replace(/[^0-9]/g, '')) || 4;
+      estimates.cable = {
+        length_m: cable_length_m,
+        cable_size_mm2,
+        cost_per_m: cable_price_per_m,
+        total_cost: total_cable_cost,
+        ai_recommendation: `Cable sizing: ${cable_size_mm2}mm² for ${cable_length_m}m run. Consider voltage drop for longer distances.`
+      };
+      outputs.cable_cost = total_cable_cost;
+    }
+
+    // Mount calculation
+    const mount_cost_per_kwp = prices.mounts[`${mount_type}_per_kwp`] || prices.mounts.ground_per_set;
+    const total_mount_cost = pv_capacity_kwp * mount_cost_per_kwp;
+    const num_mounts = Math.ceil(num_panels * 1.2 / 4); // ~4 panels per mount set
+    estimates.mounts = {
+      mount_type,
+      cost_per_kwp: mount_cost_per_kwp,
+      estimated_mount_sets: num_mounts,
+      total_cost: total_mount_cost,
+      ai_recommendation: `${mount_type === 'roof' ? 'Roof' : mount_type === 'ground' ? 'Ground' : 'Carport'} mounting system. ~${num_mounts} mounting sets needed.`
+    };
+    outputs.mount_cost = total_mount_cost;
+
+    // Labour and miscellaneous
+    const labour_cost = pv_capacity_kwp * prices.labour_per_kwp;
+    outputs.labour_cost = labour_cost;
+
+    const subtotal = (outputs.panels_cost || 0) + (outputs.battery_cost || 0) + (outputs.inverter_cost || 0) + (outputs.cable_cost || 0) + outputs.mount_cost + labour_cost;
+    const misc_pct = prices.miscellaneous_pct;
+    const misc_cost = subtotal * (misc_pct / 100);
+    outputs.miscellaneous_cost = misc_cost;
+    outputs.subtotal = subtotal;
+    outputs.total_cost_ngn = subtotal + misc_cost;
+    outputs.miscellaneous_pct = misc_pct;
+
+    // Custom items
+    let custom_items_total = 0;
+    if (Array.isArray(custom_items) && custom_items.length > 0) {
+      outputs.custom_items = custom_items.map(item => ({
+        name: item.name || 'Custom Item',
+        quantity: item.quantity || 1,
+        unit_cost: item.unit_cost || 0,
+        total: (item.quantity || 1) * (item.unit_cost || 0)
+      }));
+      custom_items_total = outputs.custom_items.reduce((sum, item) => sum + item.total, 0);
+      outputs.total_cost_ngn += custom_items_total;
+    }
+
+    outputs.inputs = {
+      system_type, pv_capacity_kwp, panel_watts, panel_cost_per_unit,
+      battery_included, battery_capacity_kwh, battery_cost_per_kwh, battery_sets,
+      inverter_included, inverter_power_kw, inverter_cost_per_kw,
+      cable_included, cable_length_m, cable_type, mount_type, custom_items
+    };
+
+    return sendSuccess(res, {
+      inputs: outputs.inputs,
+      ai_estimates: estimates,
+      outputs,
+      total_cost_ngn: outputs.total_cost_ngn,
+      market_prices: prices
+    });
+  } catch (err) {
+    logger.error('calculateCostEstimate error:', err);
+    return sendError(res, 'Failed to calculate cost estimate');
+  }
+};
+
+/**
+ * POST /api/calculator/cost-estimate/save
+ * Save a cost estimate to database
+ */
+exports.saveCostEstimate = async (req, res) => {
+  try {
+    const { project_id, estimate_name, inputs, ai_estimates, outputs, total_cost_ngn } = req.body;
+    const userId = req.user?.id;
+
+    if (!estimate_name) {
+      return sendError(res, 'Estimate name is required', 400);
+    }
+
+    if (!inputs || !outputs) {
+      return sendError(res, 'Estimate data is required', 400);
+    }
+
+    if (project_id) {
+      const { data: project } = await supabase
+        .from('projects')
+        .select('id, user_id')
+        .eq('id', project_id)
+        .maybeSingle();
+
+      if (!project) {
+        return sendError(res, 'Project not found', 404);
+      }
+
+      const hasAccess = project.user_id === userId || (req.user?.company_id && project.company_id === req.user.company_id);
+      if (!hasAccess) {
+        return sendError(res, 'Access denied to this project', 403);
+      }
+    }
+
+    const { data, error } = await supabase
+      .from('project_cost_estimates')
+      .insert({
+        user_id: userId,
+        project_id: project_id || null,
+        estimate_name,
+        inputs,
+        ai_estimates,
+        outputs,
+        total_cost_ngn
+      })
+      .select()
+      .single();
+
+    if (error) {
+      logger.error('saveCostEstimate error:', error);
+      return sendError(res, 'Failed to save estimate', 500);
+    }
+
+    return sendSuccess(res, data, 'Cost estimate saved successfully', 201);
+  } catch (err) {
+    logger.error('saveCostEstimate exception:', err);
+    return sendError(res, 'Failed to save cost estimate');
+  }
+};
+
+/**
+ * GET /api/calculator/cost-estimates/saved
+ * List user's saved cost estimates
+ */
+exports.getSavedCostEstimates = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return sendError(res, 'Authentication required', 401);
+    }
+
+    const { page = 1, limit = 20 } = req.query;
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+
+    const { data, error, count } = await supabase
+      .from('project_cost_estimates')
+      .select('*, projects(name, city, state)', { count: 'exact' })
+      .eq('user_id', userId)
+      .gte('expires_at', new Date().toISOString())
+      .order('created_at', { ascending: false })
+      .range(offset, offset + parseInt(limit) - 1);
+
+    if (error) {
+      logger.error('getSavedCostEstimates error:', error);
+      return sendError(res, 'Failed to fetch estimates', 500);
+    }
+
+    return sendSuccess(res, {
+      estimates: data || [],
+      total: count || 0,
+      page: parseInt(page),
+      limit: parseInt(limit)
+    });
+  } catch (err) {
+    logger.error('getSavedCostEstimates exception:', err);
+    return sendError(res, 'Failed to fetch estimates');
+  }
+};
+
+/**
+ * GET /api/calculator/cost-estimates/project/:projectId
+ * Get cost estimates for a project
+ */
+exports.getProjectCostEstimates = async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const userId = req.user?.id;
+
+    const { data: project } = await supabase
+      .from('projects')
+      .select('id, user_id, company_id')
+      .eq('id', projectId)
+      .maybeSingle();
+
+    if (!project) {
+      return sendError(res, 'Project not found', 404);
+    }
+
+    const hasAccess = project.user_id === userId || (req.user?.company_id && project.company_id === req.user.company_id);
+    if (!hasAccess) {
+      return sendError(res, 'Access denied', 403);
+    }
+
+    const { data, error } = await supabase
+      .from('project_cost_estimates')
+      .select('*')
+      .eq('project_id', projectId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      return sendError(res, 'Failed to fetch estimates', 500);
+    }
+
+    const active = data?.filter(c => new Date(c.expires_at) > new Date()) || [];
+    const expired = data?.filter(c => new Date(c.expires_at) <= new Date()) || [];
+
+    return sendSuccess(res, { active, expired });
+  } catch (err) {
+    logger.error('getProjectCostEstimates exception:', err);
+    return sendError(res, 'Failed to fetch estimates');
+  }
+};
+
+/**
+ * DELETE /api/calculator/cost-estimates/:id
+ * Delete a saved cost estimate
+ */
+exports.deleteCostEstimate = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user?.id;
+
+    const { data: existing } = await supabase
+      .from('project_cost_estimates')
+      .select('id, user_id')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (!existing) {
+      return sendError(res, 'Estimate not found', 404);
+    }
+
+    if (existing.user_id !== userId) {
+      return sendError(res, 'Access denied', 403);
+    }
+
+    const { error } = await supabase
+      .from('project_cost_estimates')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      return sendError(res, 'Failed to delete estimate', 500);
+    }
+
+    return sendSuccess(res, null, 'Estimate deleted');
+  } catch (err) {
+    logger.error('deleteCostEstimate exception:', err);
+    return sendError(res, 'Failed to delete estimate');
+  }
+};

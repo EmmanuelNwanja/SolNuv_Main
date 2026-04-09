@@ -7,7 +7,7 @@ import { MotionSection } from '../../components/PageMotion';
 import { useAuth } from '../../context/AuthContext';
 import CalculationPdfTemplate from '../../components/CalculationPdfTemplate';
 import toast from 'react-hot-toast';
-import { RiSaveLine, RiDownloadLine, RiAddLine, RiCloseLine, RiCheckLine } from 'react-icons/ri';
+import { RiSaveLine, RiDownloadLine, RiAddLine, RiCloseLine, RiCheckLine, RiCalculatorLine } from 'react-icons/ri';
 
 // Format number with thousand separators, allow decimals
 function formatWithCommas(value) {
@@ -1789,6 +1789,24 @@ export default function Calculator() {
             </div>
           </div>
         )}
+
+        {/* Cost Estimator Quick Access */}
+        <div className="mt-8 card p-6 bg-gradient-to-r from-amber-50 to-emerald-50 border border-amber-200">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center">
+                  <RiCalculatorLine className="w-5 h-5 text-amber-600" />
+                </div>
+                <h3 className="font-semibold text-forest-900">Project Cost Estimator</h3>
+              </div>
+              <p className="text-sm text-gray-600">AI-powered cost estimation with dynamic market prices. Get instant quotes for solar panels, batteries, inverters, cables, and mounts.</p>
+            </div>
+            <Link href="/calculator/cost-estimate" className="btn-primary flex-shrink-0 flex items-center gap-2">
+              Open Cost Estimator <RiArrowRightLine />
+            </Link>
+          </div>
+        </div>
 
         {/* CTA */}
         <div className="mt-8 bg-gradient-to-r from-forest-900 to-emerald-800 rounded-2xl p-6 text-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">

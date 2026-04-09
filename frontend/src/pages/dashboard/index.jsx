@@ -11,7 +11,7 @@ import { MotionSection } from '../../components/PageMotion';
 import {
   RiSunLine, RiRecycleLine, RiAlertLine, RiLeafLine,
   RiAddLine, RiTrophyLine, RiArrowRightLine, RiTimeLine, RiCloseLine,
-  RiArrowLeftSLine, RiArrowRightSLine, RiCalculatorLine
+  RiArrowLeftSLine, RiArrowRightSLine, RiCalculatorLine, RiEyeLine, RiDownloadLine, RiDeleteBinLine, RiCheckLine
 } from 'react-icons/ri';
 
 // Popup carousel — shows a campaign's ads in order, auto-advances every 6s,
@@ -261,7 +261,20 @@ export default function Dashboard() {
   const [loadError, setLoadError] = useState('');
   const [recentCalcs, setRecentCalcs] = useState([]);
   const [loadingCalcs, setLoadingCalcs] = useState(false);
+  const [selectedCalc, setSelectedCalc] = useState(null);
+  const [exporting, setExporting] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const router = useRouter();
+
+  const CALC_LABELS_MAP = {
+    panel: 'Panel Value', battery: 'Battery Value', degrad: 'Decommission Date',
+    roi: 'Hybrid ROI', soh: 'Battery SoH', cable: 'DC Cable Sizing',
+    motor: 'Motor Starting', gfm: 'GFM Selector', tdd: 'TDD Report',
+  };
+  const CALC_ICONS_MAPS = {
+    panel: '☀️', battery: '🔋', degrad: '📅', roi: '💼', soh: '🧪',
+    cable: '🧰', motor: '⚡', gfm: '🔋', tdd: '📋',
+  };
 
   function loadDashboard() {
     setLoading(true);
@@ -295,6 +308,60 @@ export default function Dashboard() {
       .then(r => setRecentCalcs(r.data.data?.calculations || []))
       .catch(() => setRecentCalcs([]))
       .finally(() => setLoadingCalcs(false));
+  }
+
+  async function handleExportPdf(calc) {
+    if (!calc) return;
+    setExporting(true);
+    try {
+      const { exportToPdf } = await import('../../utils/pdfExport');
+      const CalculationPdfTemplate = (await import('../../components/CalculationPdfTemplate')).default;
+      const tempDiv = document.createElement('div');
+      tempDiv.style.position = 'absolute';
+      tempDiv.style.left = '-9999px';
+      document.body.appendChild(tempDiv);
+
+      const React = await import('react');
+      const { createRoot } = await import('react-dom/client');
+      const root = createRoot(tempDiv);
+
+      root.render(
+        React.createElement(CalculationPdfTemplate, {
+          type: calc.calculator_type,
+          name: calc.name,
+          inputs: calc.input_params,
+          results: calc.result_data,
+          project: calc.project_id,
+          createdAt: calc.created_at,
+          expiresAt: calc.expires_at,
+        })
+      );
+
+      await new Promise(resolve => setTimeout(resolve, 500));
+      await exportToPdf(tempDiv, `SolNuv_${calc.calculator_type}_${calc.name.replace(/\s+/g, '_')}_${Date.now()}.pdf`);
+      toast.success('PDF exported successfully');
+      document.body.removeChild(tempDiv);
+    } catch (err) {
+      console.error('PDF export failed:', err);
+      toast.error('Failed to export PDF');
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  async function handleDeleteCalc(calc) {
+    if (!confirm('Delete this calculation? This cannot be undone.')) return;
+    setDeleting(true);
+    try {
+      await calculatorAPI.deleteSavedCalculation(calc.id);
+      toast.success('Calculation deleted');
+      setSelectedCalc(null);
+      loadRecentCalcs();
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Failed to delete calculation');
+    } finally {
+      setDeleting(false);
+    }
   }
 
   const displayName = profile?.first_name || 'there';
@@ -430,7 +497,7 @@ export default function Dashboard() {
                 cable: '🧰', motor: '⚡', gfm: '🔋', tdd: '📋',
               };
               return (
-                <div key={calc.id} className="card p-4 hover:shadow-md transition-shadow">
+                <div key={calc.id} className="card p-4 hover:shadow-md transition-shadow cursor-pointer" onClick={() => setSelectedCalc(calc)}>
                   <div className="flex items-start gap-3">
                     <div className="w-9 h-9 bg-emerald-100 rounded-lg flex items-center justify-center text-lg flex-shrink-0">
                       {CALC_ICONS[calc.calculator_type] || '📊'}
@@ -443,18 +510,99 @@ export default function Dashboard() {
                           {daysLeft}d left
                         </span>
                         {calc.project && (
-                          <Link href={`/projects/${calc.project_id}/calculations`} className="text-xs text-emerald-600 hover:underline">
-                            {calc.project.name} →
-                          </Link>
+                          <span className="text-xs text-emerald-600">
+                            {calc.project.name}
+                          </span>
                         )}
                       </div>
                     </div>
+                    <button className="p-1.5 hover:bg-emerald-50 rounded-lg text-emerald-600" onClick={e => { e.stopPropagation(); setSelectedCalc(calc); }}>
+                      <RiEyeLine className="w-4 h-4" />
+                    </button>
                   </div>
                 </div>
               );
             })}
           </div>
         </MotionSection>
+      )}
+
+      {/* Calculation Detail Modal */}
+      {selectedCalc && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setSelectedCalc(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="p-6 border-b border-gray-200 sticky top-0 bg-white rounded-t-2xl">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-emerald-100 rounded-lg flex items-center justify-center text-xl">
+                    {(CALC_ICONS_MAPS[selectedCalc.calculator_type]) || '📊'}
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-bold text-gray-900">{selectedCalc.name}</h2>
+                    <p className="text-sm text-gray-500">
+                      {(CALC_LABELS_MAP[selectedCalc.calculator_type]) || selectedCalc.calculator_type}
+                    </p>
+                  </div>
+                </div>
+                <button onClick={() => setSelectedCalc(null)} className="p-2 hover:bg-gray-100 rounded-lg">
+                  <RiCloseLine className="w-5 h-5 text-gray-500" />
+                </button>
+              </div>
+            </div>
+            <div className="p-6">
+              {selectedCalc.notes && (
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4">
+                  <p className="text-sm text-amber-800">{selectedCalc.notes}</p>
+                </div>
+              )}
+              
+              <div className="grid md:grid-cols-2 gap-4 mb-4">
+                <div className="bg-gray-50 rounded-xl p-4">
+                  <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2"><RiCalculatorLine className="w-4 h-4" /> Inputs</h4>
+                  <div className="space-y-1 text-sm">
+                    {Object.entries(selectedCalc.input_params || {}).slice(0, 8).map(([k, v]) => {
+                      if (v === undefined || v === null || v === '') return null;
+                      return (
+                        <div key={k} className="flex justify-between border-b border-gray-200 pb-1">
+                          <span className="text-gray-500 text-xs">{k.replace(/_/g, ' ')}</span>
+                          <span className="font-medium text-xs">{typeof v === 'number' ? v.toLocaleString() : String(v)}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div className="bg-emerald-50 rounded-xl p-4">
+                  <h4 className="text-sm font-semibold text-emerald-700 mb-3 flex items-center gap-2"><RiCheckLine className="w-4 h-4" /> Results</h4>
+                  <div className="space-y-1 text-sm">
+                    {Object.entries(selectedCalc.result_data || {}).slice(0, 8).map(([k, v]) => {
+                      if (v === undefined || v === null || typeof v === 'object') return null;
+                      return (
+                        <div key={k} className="flex justify-between border-b border-emerald-100 pb-1">
+                          <span className="text-emerald-600 text-xs">{k.replace(/_/g, ' ')}</span>
+                          <span className="font-bold text-emerald-800 text-xs">{typeof v === 'number' ? v.toLocaleString() : String(v)}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-4 border-t">
+                <button onClick={() => handleExportPdf(selectedCalc)} disabled={exporting} className="btn-outline flex-1 flex items-center justify-center gap-2">
+                  <RiDownloadLine /> {exporting ? 'Exporting...' : 'Export PDF'}
+                </button>
+                {selectedCalc.project_id && (
+                  <Link href={`/projects/${selectedCalc.project_id}/calculations`} className="btn-primary flex-1 text-center">
+                    View in Project →
+                  </Link>
+                )}
+                <button onClick={() => handleDeleteCalc(selectedCalc)} disabled={deleting} className="btn-outline px-4 text-red-600 hover:bg-red-50">
+                  <RiDeleteBinLine />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Quick Actions */}

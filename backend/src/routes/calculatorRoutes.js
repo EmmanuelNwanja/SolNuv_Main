@@ -28,6 +28,7 @@ router.get('/silver-price',  calculatorController.getSilverPrice);
 router.get('/brands',        calculatorController.getBrands);
 router.get('/states',        calculatorController.getStates);
 router.get('/technologies',  calculatorController.getTechnologies);
+router.get('/market-prices', calculatorController.getMarketPrices);
 
 // Custom brand submission — requires authentication
 router.post('/brands/submit', requireAuth, calculatorController.submitBrand);
@@ -39,5 +40,12 @@ router.get('/saved/project/:projectId', requireAuth, calculatorController.getPro
 router.get('/saved/:id',          requireAuth, calculatorController.getSavedCalculation);
 router.delete('/saved/:id',        requireAuth, calculatorController.deleteSavedCalculation);
 router.post('/saved/:id/export-pdf', requireAuth, calculatorController.exportCalculationPdf);
+
+// Cost estimates — requires authentication
+router.post('/cost-estimate',           requireAuth, calculatorController.calculateCostEstimate);
+router.post('/cost-estimate/save',      requireAuth, calculatorController.saveCostEstimate);
+router.get('/cost-estimates/saved',     requireAuth, calculatorController.getSavedCostEstimates);
+router.get('/cost-estimates/project/:projectId', requireAuth, calculatorController.getProjectCostEstimates);
+router.delete('/cost-estimates/:id',    requireAuth, calculatorController.deleteCostEstimate);
 
 module.exports = router;
