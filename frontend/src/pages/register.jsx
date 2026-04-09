@@ -119,12 +119,14 @@ export default function Register() {
         const errorMsg = error.message || '';
         const errorStatus = error.status || error.statusCode;
         
-        // Check for common Supabase errors
-        if (errorMsg.toLowerCase().includes('already registered') || 
+        // Check for duplicate email errors (409 Conflict)
+        if (errorStatus === 409 || 
+            errorMsg.toLowerCase().includes('already registered') || 
             errorMsg.toLowerCase().includes('already exists') || 
             errorMsg.toLowerCase().includes('already been registered') ||
-            errorMsg.toLowerCase().includes('user already registered')) {
-          toast.error('This email is already registered. Try signing in instead.');
+            errorMsg.toLowerCase().includes('user already registered') ||
+            errorMsg.toLowerCase().includes('existing login method')) {
+          toast.error('An account with this email already exists. Please sign in using your existing login method.');
           setSubmitting(false);
           return;
         }

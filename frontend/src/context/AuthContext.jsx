@@ -131,7 +131,7 @@ export function AuthProvider({ children }) {
     } catch (err) {
       const code = err?.response?.data?.code;
       if (code === 'PROFILE_INCOMPLETE') {
-        setProfile({ is_onboarded: false });
+        setProfile(prev => prev ? { ...prev, is_onboarded: false } : { is_onboarded: false });
         setProfileResolved(true);
         setWakingServer(false);
       } else {

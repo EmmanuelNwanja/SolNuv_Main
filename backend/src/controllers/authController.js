@@ -861,6 +861,7 @@ exports.signup = async (req, res) => {
       return sendError(res, 'Invalid Nigerian phone number format', 400);
     }
 
+    // Check if email exists in our users table (profile records)
     const { data: existingUser } = await supabase
       .from('users')
       .select('id')
@@ -869,6 +870,19 @@ exports.signup = async (req, res) => {
 
     if (existingUser) {
       return sendError(res, 'This email is already registered. Try signing in instead.', 409);
+    }
+
+    // Check if email exists in Supabase auth.users (might have Google account but no profile yet)
+    try {
+      const { data: existingAuthUser } = await supabase.auth.admin.findUserByEmail(email);
+      if (existingAuthUser) {
+        return sendError(res, 'An account with this email already exists. Please sign in using your existing login method.', 409);
+      }
+    } catch (authCheckError) {
+      // findUserByEmail throws if user not found, which is expected - continue signup
+      if (authCheckError.message !== 'User not found') {
+        logger.warn('Auth user lookup failed', { message: authCheckError.message });
+      }
     }
 
     const frontendUrl = process.env.FRONTEND_URL || 'https://solnuv.com';
@@ -896,7 +910,7 @@ exports.signup = async (req, res) => {
       }
       
       if (authError.message?.toLowerCase().includes('already') || authError.code === 'user_already_exists') {
-        return sendError(res, 'This email is already registered. Try signing in instead.', 409);
+        return sendError(res, 'An account with this email already exists. Please sign in using your existing login method.', 409);
       }
       
       return sendError(res, authError.message || 'Failed to create account', 500);
