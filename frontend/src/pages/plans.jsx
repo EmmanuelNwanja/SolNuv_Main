@@ -37,7 +37,10 @@ export default function Plans() {
   useEffect(() => {
     paymentsAPI.getPlans()
       .then(r => setPlans((r.data.data?.plans || []).filter(p => p.id !== 'free')))
-      .catch(() => {})
+      .catch((err) => {
+        console.error('Failed to load plans:', err);
+        toast.error('Failed to load pricing plans');
+      })
       .finally(() => setLoading(false));
   }, []);
 
