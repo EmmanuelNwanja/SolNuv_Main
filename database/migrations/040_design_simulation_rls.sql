@@ -33,13 +33,16 @@ ALTER TABLE simulation_results ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Users can view simulation results for their accessible projects"
   ON simulation_results FOR SELECT
   USING (
-    project_id IN (
-      SELECT id FROM projects
-      WHERE user_id IN (SELECT id FROM users WHERE supabase_uid = auth.uid())
-         OR company_id IN (
-              SELECT company_id FROM users
-              WHERE supabase_uid = auth.uid() AND company_id IS NOT NULL
-            )
+    project_design_id IN (
+      SELECT pd.id FROM project_designs pd
+      WHERE pd.project_id IN (
+        SELECT id FROM projects
+        WHERE user_id IN (SELECT id FROM users WHERE supabase_uid = auth.uid())
+           OR company_id IN (
+                SELECT company_id FROM users
+                WHERE supabase_uid = auth.uid() AND company_id IS NOT NULL
+              )
+      )
     )
   );
 
