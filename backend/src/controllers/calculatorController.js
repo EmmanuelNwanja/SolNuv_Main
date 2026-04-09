@@ -725,3 +725,289 @@ exports.getTechnologies = (req, res) => {
 
   return sendSuccess(res, { panel_technologies: panelTechs, battery_chemistries: batteryChems });
 };
+
+/**
+ * POST /api/calculator/saved
+ * Save a calculation result to a project (requires authentication)
+ */
+exports.saveCalculation = async (req, res) => {
+  try {
+    const { project_id, calculator_type, input_params, result_data, name, notes } = req.body;
+
+    if (!project_id) {
+      return sendError(res, 'Project ID is required', 400);
+    }
+
+    if (!calculator_type) {
+      return sendError(res, 'Calculator type is required', 400);
+    }
+
+    const validTypes = ['panel', 'battery', 'degrad', 'roi', 'soh', 'cable', 'motor', 'gfm', 'tdd'];
+    if (!validTypes.includes(calculator_type)) {
+      return sendError(res, 'Invalid calculator type', 400);
+    }
+
+    if (!input_params || typeof input_params !== 'object') {
+      return sendError(res, 'Input parameters are required', 400);
+    }
+
+    if (!result_data || typeof result_data !== 'object') {
+      return sendError(res, 'Result data is required', 400);
+    }
+
+    // Verify project ownership
+    const { data: project } = await supabase
+      .from('projects')
+      .select('id, user_id, company_id')
+      .eq('id', project_id)
+      .maybeSingle();
+
+    if (!project) {
+      return sendError(res, 'Project not found', 404);
+    }
+
+    // Check ownership
+    const userId = req.user?.id;
+    const companyId = req.user?.company_id;
+    const hasAccess = project.user_id === userId || (companyId && project.company_id === companyId);
+
+    if (!hasAccess) {
+      return sendError(res, 'Access denied to this project', 403);
+    }
+
+    const { data, error } = await supabase
+      .from('saved_calculations')
+      .insert({
+        user_id: userId,
+        project_id,
+        calculator_type,
+        input_params,
+        result_data,
+        name: name || `${calculator_type.charAt(0).toUpperCase() + calculator_type.slice(1)} Calculation`,
+        notes,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      logger.error('saveCalculation error:', error);
+      return sendError(res, 'Failed to save calculation', 500);
+    }
+
+    return sendSuccess(res, data, 'Calculation saved successfully', 201);
+  } catch (err) {
+    logger.error('saveCalculation exception:', err);
+    return sendError(res, 'Failed to save calculation');
+  }
+};
+
+/**
+ * GET /api/calculator/saved
+ * List user's saved calculations
+ */
+exports.getSavedCalculations = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return sendError(res, 'Authentication required', 401);
+    }
+
+    const { page = 1, limit = 20, project_id } = req.query;
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+
+    let query = supabase
+      .from('saved_calculations')
+      .select('*, projects(name, city, state)', { count: 'exact' })
+      .eq('user_id', userId)
+      .gte('expires_at', new Date().toISOString())
+      .order('created_at', { ascending: false })
+      .range(offset, offset + parseInt(limit) - 1);
+
+    if (project_id) {
+      query = query.eq('project_id', project_id);
+    }
+
+    const { data, error, count } = await query;
+
+    if (error) {
+      logger.error('getSavedCalculations error:', error);
+      return sendError(res, 'Failed to fetch calculations', 500);
+    }
+
+    // Also fetch expired calculations count
+    const { count: expiredCount } = await supabase
+      .from('saved_calculations')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .lt('expires_at', new Date().toISOString());
+
+    return sendSuccess(res, {
+      calculations: data || [],
+      total: count || 0,
+      expired_count: expiredCount || 0,
+      page: parseInt(page),
+      limit: parseInt(limit),
+    });
+  } catch (err) {
+    logger.error('getSavedCalculations exception:', err);
+    return sendError(res, 'Failed to fetch calculations');
+  }
+};
+
+/**
+ * GET /api/calculator/saved/:id
+ * Get a specific saved calculation
+ */
+exports.getSavedCalculation = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user?.id;
+
+    const { data, error } = await supabase
+      .from('saved_calculations')
+      .select('*, projects(name, city, state)')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (error) {
+      logger.error('getSavedCalculation error:', error);
+      return sendError(res, 'Failed to fetch calculation', 500);
+    }
+
+    if (!data) {
+      return sendError(res, 'Calculation not found', 404);
+    }
+
+    if (data.user_id !== userId) {
+      return sendError(res, 'Access denied', 403);
+    }
+
+    const isExpired = new Date(data.expires_at) < new Date();
+
+    return sendSuccess(res, { ...data, is_expired: isExpired });
+  } catch (err) {
+    logger.error('getSavedCalculation exception:', err);
+    return sendError(res, 'Failed to fetch calculation');
+  }
+};
+
+/**
+ * DELETE /api/calculator/saved/:id
+ * Delete a saved calculation
+ */
+exports.deleteSavedCalculation = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user?.id;
+
+    const { data: existing } = await supabase
+      .from('saved_calculations')
+      .select('id, user_id')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (!existing) {
+      return sendError(res, 'Calculation not found', 404);
+    }
+
+    if (existing.user_id !== userId) {
+      return sendError(res, 'Access denied', 403);
+    }
+
+    const { error } = await supabase
+      .from('saved_calculations')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      logger.error('deleteSavedCalculation error:', error);
+      return sendError(res, 'Failed to delete calculation', 500);
+    }
+
+    return sendSuccess(res, null, 'Calculation deleted');
+  } catch (err) {
+    logger.error('deleteSavedCalculation exception:', err);
+    return sendError(res, 'Failed to delete calculation');
+  }
+};
+
+/**
+ * GET /api/calculator/saved/project/:projectId
+ * Get all saved calculations for a specific project
+ */
+exports.getProjectCalculations = async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const userId = req.user?.id;
+
+    // Verify project access
+    const { data: project } = await supabase
+      .from('projects')
+      .select('id, user_id, company_id')
+      .eq('id', projectId)
+      .maybeSingle();
+
+    if (!project) {
+      return sendError(res, 'Project not found', 404);
+    }
+
+    const hasAccess = project.user_id === userId || (req.user?.company_id && project.company_id === req.user.company_id);
+    if (!hasAccess) {
+      return sendError(res, 'Access denied', 403);
+    }
+
+    const { data, error } = await supabase
+      .from('saved_calculations')
+      .select('*')
+      .eq('project_id', projectId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      logger.error('getProjectCalculations error:', error);
+      return sendError(res, 'Failed to fetch calculations', 500);
+    }
+
+    const active = data?.filter(c => new Date(c.expires_at) > new Date()) || [];
+    const expired = data?.filter(c => new Date(c.expires_at) <= new Date()) || [];
+
+    return sendSuccess(res, { active, expired });
+  } catch (err) {
+    logger.error('getProjectCalculations exception:', err);
+    return sendError(res, 'Failed to fetch calculations');
+  }
+};
+
+/**
+ * POST /api/calculator/saved/:id/export-pdf
+ * Export a saved calculation as PDF
+ */
+exports.exportCalculationPdf = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user?.id;
+
+    const { data, error } = await supabase
+      .from('saved_calculations')
+      .select('*, projects(name, city, state)')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (error || !data) {
+      return sendError(res, 'Calculation not found', 404);
+    }
+
+    if (data.user_id !== userId) {
+      return sendError(res, 'Access denied', 403);
+    }
+
+    if (new Date(data.expires_at) < new Date()) {
+      return sendError(res, 'This calculation has expired and cannot be exported', 410);
+    }
+
+    // Generate PDF using html2pdf on frontend - just return the data
+    return sendSuccess(res, { calculation: data });
+  } catch (err) {
+    logger.error('exportCalculationPdf exception:', err);
+    return sendError(res, 'Failed to export PDF');
+  }
+};

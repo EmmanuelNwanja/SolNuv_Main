@@ -32,4 +32,12 @@ router.get('/technologies',  calculatorController.getTechnologies);
 // Custom brand submission — requires authentication
 router.post('/brands/submit', requireAuth, calculatorController.submitBrand);
 
+// Saved calculations — requires authentication
+router.post('/saved',              requireAuth, calculatorController.saveCalculation);
+router.get('/saved',               requireAuth, calculatorController.getSavedCalculations);
+router.get('/saved/project/:projectId', requireAuth, calculatorController.getProjectCalculations);
+router.get('/saved/:id',          requireAuth, calculatorController.getSavedCalculation);
+router.delete('/saved/:id',        requireAuth, calculatorController.deleteSavedCalculation);
+router.post('/saved/:id/export-pdf', requireAuth, calculatorController.exportCalculationPdf);
+
 module.exports = router;

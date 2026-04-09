@@ -1,11 +1,13 @@
 import Head from 'next/head';
 import Link from 'next/link';
 import { useState, useEffect, useRef } from 'react';
-import { calculatorAPI, engineeringAPI } from '../../services/api';
+import { calculatorAPI, engineeringAPI, projectsAPI } from '../../services/api';
 import { getDashboardLayout } from '../../components/Layout';
 import { MotionSection } from '../../components/PageMotion';
 import { useAuth } from '../../context/AuthContext';
+import CalculationPdfTemplate from '../../components/CalculationPdfTemplate';
 import toast from 'react-hot-toast';
+import { RiSaveLine, RiDownloadLine, RiAddLine, RiCloseLine, RiCheckLine } from 'react-icons/ri';
 
 // Format number with thousand separators, allow decimals
 function formatWithCommas(value) {
@@ -56,6 +58,18 @@ const CLIMATE_ZONES = [
 
 function fmt(n) { return Math.round(n || 0).toLocaleString('en-NG'); }
 function pct(n) { return `${Math.round((n || 0) * 100)}%`; }
+
+const CALC_LABELS = {
+  panel: 'Panel Value',
+  battery: 'Battery Value',
+  degrad: 'Decommission Date',
+  roi: 'Hybrid ROI',
+  soh: 'Battery SoH',
+  cable: 'DC Cable Sizing',
+  motor: 'Motor Starting',
+  gfm: 'GFM Selector',
+  tdd: 'TDD Report',
+};
 
 export default function Calculator() {
   const { plan, isPro } = useAuth();
@@ -165,6 +179,17 @@ export default function Calculator() {
   });
   const [tddReport, setTddReport] = useState(null);
 
+  const [showSaveModal, setShowSaveModal] = useState(false);
+  const [savingCalc, setSavingCalc] = useState(false);
+  const [projects, setProjects] = useState([]);
+  const [selectedProject, setSelectedProject] = useState('');
+  const [newProjectName, setNewProjectName] = useState('');
+  const [calcName, setCalcName] = useState('');
+  const [calcNotes, setCalcNotes] = useState('');
+  const [currentCalcType, setCurrentCalcType] = useState('');
+  const [currentCalcInputs, setCurrentCalcInputs] = useState({});
+  const [currentCalcResults, setCurrentCalcResults] = useState(null);
+
   const CABLE_QUEUE_KEY = 'solnuv_cable_sync_queue_v1';
 
   useEffect(() => {
@@ -212,6 +237,101 @@ export default function Calculator() {
     window.addEventListener('online', flush);
     return () => window.removeEventListener('online', flush);
   }, []);
+
+  useEffect(() => {
+    if (showSaveModal) {
+      projectsAPI.list({ limit: 100 })
+        .then(r => setProjects(r.data.data || []))
+        .catch(() => setProjects([]));
+    }
+  }, [showSaveModal]);
+
+  function openSaveModal(type, inputs, results) {
+    setCurrentCalcType(type);
+    setCurrentCalcInputs(inputs);
+    setCurrentCalcResults(results);
+    setCalcName(`${CALC_LABELS[type] || type} - ${new Date().toLocaleDateString()}`);
+    setCalcNotes('');
+    setSelectedProject('');
+    setNewProjectName('');
+    setShowSaveModal(true);
+  }
+
+  async function handleSaveCalculation() {
+    if (!selectedProject && !newProjectName.trim()) {
+      toast.error('Please select or create a project');
+      return;
+    }
+
+    setSavingCalc(true);
+    try {
+      let projectId = selectedProject;
+
+      if (newProjectName.trim()) {
+        const { data: newProj } = await projectsAPI.create({ name: newProjectName.trim() });
+        projectId = newProj?.data?.id;
+        if (!projectId) throw new Error('Failed to create project');
+        setProjects(prev => [newProj.data, ...prev]);
+      }
+
+      await calculatorAPI.saveCalculation({
+        project_id: projectId,
+        calculator_type: currentCalcType,
+        input_params: currentCalcInputs,
+        result_data: currentCalcResults,
+        name: calcName,
+        notes: calcNotes,
+      });
+
+      toast.success('Calculation saved successfully!');
+      setShowSaveModal(false);
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Failed to save calculation');
+    } finally {
+      setSavingCalc(false);
+    }
+  }
+
+  async function exportCalcPdf(type, inputs, results) {
+    const templateRef = useRef(null);
+    const container = document.createElement('div');
+    container.innerHTML = `
+      <div style="display:none">
+        <div id="pdf-template-${type}"></div>
+      </div>
+    `;
+    document.body.appendChild(container);
+
+    try {
+      const { exportToPdf } = await import('../../utils/pdfExport');
+      const tempDiv = document.getElementById(`pdf-template-${type}`);
+      const React = await import('react');
+      const { createRoot } = await import('react-dom/client');
+      const root = createRoot(tempDiv);
+
+      await new Promise((resolve) => {
+        root.render(
+          React.createElement(CalculationPdfTemplate, {
+            type,
+            name: `${CALC_LABELS[type]} Result`,
+            inputs,
+            results,
+            createdAt: new Date().toISOString(),
+            expiresAt: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString(),
+          })
+        );
+        setTimeout(resolve, 100);
+      });
+
+      await exportToPdf(tempDiv, `SolNuv_${type}_Calculation_${Date.now()}.pdf`);
+      toast.success('PDF exported successfully');
+    } catch (err) {
+      console.error('PDF export failed:', err);
+      toast.error('Failed to export PDF');
+    } finally {
+      document.body.removeChild(container);
+    }
+  }
 
   function handleCalcError(err, fallbackMsg) {
     if (err?.response?.status === 429) {
@@ -758,6 +878,16 @@ export default function Calculator() {
                     <p>💵 Silver spot: ₦{fmt(panelResult.silver_price_ngn_per_gram)}/gram (${panelResult.silver_price_usd_per_gram}/g)</p>
                     <p>📐 New panel landed cost: ~₦{fmt(panelResult.panel_health?.remaining_watts * 0.28 * (panelResult.usd_to_ngn_rate || 1620))}/unit at {panelResult.panel_health?.remaining_watts}W</p>
                   </div>
+
+                  {/* Action buttons */}
+                  <div className="flex gap-3">
+                    <button onClick={() => exportCalcPdf('panel', panelForm, panelResult)} className="btn-outline flex-1 flex items-center justify-center gap-2">
+                      <RiDownloadLine /> Export PDF
+                    </button>
+                    <button onClick={() => openSaveModal('panel', panelForm, panelResult)} className="btn-primary flex-1 flex items-center justify-center gap-2">
+                      <RiSaveLine /> Save to Project
+                    </button>
+                  </div>
                 </>
               ) : (
                 <div className="card flex items-center justify-center h-64 text-slate-300">
@@ -842,9 +972,14 @@ export default function Calculator() {
                     <p className="text-xs text-slate-500">10-Year ROI</p>
                     <p className="text-2xl font-bold text-forest-900">{roiResult.investment_metrics?.ten_year_roi_pct}%</p>
                   </div>
-                  <button type="button" onClick={exportRoiPdf} className="btn-outline w-full">
-                    Export Proposal PDF
-                  </button>
+                  <div className="flex gap-3">
+                    <button type="button" onClick={exportRoiPdf} className="btn-outline flex-1 flex items-center justify-center gap-2">
+                      <RiDownloadLine /> Export PDF
+                    </button>
+                    <button type="button" onClick={() => openSaveModal('roi', roiForm, roiResult)} className="btn-primary flex-1 flex items-center justify-center gap-2">
+                      <RiSaveLine /> Save to Project
+                    </button>
+                  </div>
                 </>
               ) : (
                 <div className="card flex items-center justify-center h-64 text-slate-300">
@@ -959,6 +1094,14 @@ export default function Calculator() {
                   <div className="card">
                     <p className="text-xs text-slate-500">Warranty Risk Flag</p>
                     <p className="text-sm font-semibold text-forest-900 mt-1">{sohResult.warranty_assessment?.risk_flag?.replace(/_/g, ' ')}</p>
+                  </div>
+                  <div className="flex gap-3">
+                    <button onClick={() => exportCalcPdf('soh', sohForm, sohResult)} className="btn-outline flex-1 flex items-center justify-center gap-2">
+                      <RiDownloadLine /> Export PDF
+                    </button>
+                    <button onClick={() => openSaveModal('soh', sohForm, sohResult)} className="btn-primary flex-1 flex items-center justify-center gap-2">
+                      <RiSaveLine /> Save to Project
+                    </button>
                   </div>
                 </>
               ) : (
@@ -1197,6 +1340,14 @@ export default function Calculator() {
                   <p className="text-xs text-slate-400 bg-slate-50 rounded-xl p-3">
                     Note: {batteryResult.material_recycling?.note}
                   </p>
+                  <div className="flex gap-3">
+                    <button onClick={() => exportCalcPdf('battery', batteryForm, batteryResult)} className="btn-outline flex-1 flex items-center justify-center gap-2">
+                      <RiDownloadLine /> Export PDF
+                    </button>
+                    <button onClick={() => openSaveModal('battery', batteryForm, batteryResult)} className="btn-primary flex-1 flex items-center justify-center gap-2">
+                      <RiSaveLine /> Save to Project
+                    </button>
+                  </div>
                 </>
               ) : (
                 <div className="card flex items-center justify-center h-64 text-slate-300">
@@ -1331,6 +1482,14 @@ export default function Calculator() {
                       </div>
                     )}
                   </div>
+                  <div className="flex gap-3">
+                    <button onClick={() => exportCalcPdf('degrad', degradForm, degradResult)} className="btn-outline flex-1 flex items-center justify-center gap-2">
+                      <RiDownloadLine /> Export PDF
+                    </button>
+                    <button onClick={() => openSaveModal('degrad', degradForm, degradResult)} className="btn-primary flex-1 flex items-center justify-center gap-2">
+                      <RiSaveLine /> Save to Project
+                    </button>
+                  </div>
                 </>
               ) : (
                 <div className="card flex items-center justify-center h-64 text-slate-300">
@@ -1405,6 +1564,14 @@ export default function Calculator() {
                     <div className="card"><p className="text-xs text-slate-500">Voltage</p><p className="font-bold">{motorResult.calculations?.voltage_during_start_v} V</p></div>
                     <div className="card"><p className="text-xs text-slate-500">Dip</p><p className="font-bold text-amber-600">{motorResult.calculations?.voltage_dip_pct}%</p></div>
                     <div className="card"><p className="text-xs text-slate-500">Transient</p><p className="font-bold">{motorResult.calculations?.transient_capacity_kw} kW</p></div>
+                  </div>
+                  <div className="flex gap-3">
+                    <button onClick={() => exportCalcPdf('motor', motorForm, motorResult)} className="btn-outline flex-1 flex items-center justify-center gap-2">
+                      <RiDownloadLine /> Export PDF
+                    </button>
+                    <button onClick={() => openSaveModal('motor', motorForm, motorResult)} className="btn-primary flex-1 flex items-center justify-center gap-2">
+                      <RiSaveLine /> Save to Project
+                    </button>
                   </div>
                 </>
               )}
@@ -1497,6 +1664,14 @@ export default function Calculator() {
                   {gfmRecommendations.notes.map((n, i) => (
                     <p key={i} className="text-xs text-slate-600">• {n}</p>
                   ))}
+                  <div className="flex gap-3">
+                    <button onClick={() => exportCalcPdf('gfm', gfmForm, gfmRecommendations)} className="btn-outline flex-1 flex items-center justify-center gap-2">
+                      <RiDownloadLine /> Export PDF
+                    </button>
+                    <button onClick={() => openSaveModal('gfm', gfmForm, gfmRecommendations)} className="btn-primary flex-1 flex items-center justify-center gap-2">
+                      <RiSaveLine /> Save to Project
+                    </button>
+                  </div>
                 </>
               )}
               {!gfmRecommendations && (
@@ -1598,6 +1773,14 @@ export default function Calculator() {
                       <p key={i} className="text-sm text-slate-700 mb-1">• {r}</p>
                     ))}
                   </div>
+                  <div className="flex gap-3">
+                    <button onClick={() => exportCalcPdf('tdd', tddForm, tddReport)} className="btn-outline flex-1 flex items-center justify-center gap-2">
+                      <RiDownloadLine /> Export PDF
+                    </button>
+                    <button onClick={() => openSaveModal('tdd', tddForm, tddReport)} className="btn-primary flex-1 flex items-center justify-center gap-2">
+                      <RiSaveLine /> Save to Project
+                    </button>
+                  </div>
                 </>
               )}
               {!tddReport && (
@@ -1616,6 +1799,87 @@ export default function Calculator() {
           <Link href="/projects/add" className="btn-amber flex-shrink-0">Add a Project →</Link>
         </div>
       </div>
+
+      {/* Save Calculation Modal */}
+      {showSaveModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+            <div className="flex items-center justify-between p-4 border-b border-gray-200">
+              <h3 className="font-semibold text-lg">Save Calculation</h3>
+              <button onClick={() => setShowSaveModal(false)} className="p-1 hover:bg-gray-100 rounded-lg">
+                <RiCloseLine className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+            <div className="p-4 space-y-4">
+              <div>
+                <label className="label">Calculation Name</label>
+                <input
+                  type="text"
+                  className="input"
+                  value={calcName}
+                  onChange={e => setCalcName(e.target.value)}
+                  placeholder="Name for this calculation"
+                />
+              </div>
+
+              <div>
+                <label className="label">Project</label>
+                <select
+                  className="input"
+                  value={selectedProject}
+                  onChange={e => { setSelectedProject(e.target.value); setNewProjectName(''); }}
+                >
+                  <option value="">Select a project...</option>
+                  {projects.map(p => (
+                    <option key={p.id} value={p.id}>{p.name} ({p.city}, {p.state})</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <div className="flex-1 border-t border-gray-300" />
+                <span className="text-xs text-gray-400">or</span>
+                <div className="flex-1 border-t border-gray-300" />
+              </div>
+
+              <div>
+                <label className="label">Create New Project</label>
+                <input
+                  type="text"
+                  className="input"
+                  value={newProjectName}
+                  onChange={e => { setNewProjectName(e.target.value); setSelectedProject(''); }}
+                  placeholder="New project name"
+                  disabled={!!selectedProject}
+                />
+              </div>
+
+              <div>
+                <label className="label">Notes (optional)</label>
+                <textarea
+                  className="input"
+                  rows={3}
+                  value={calcNotes}
+                  onChange={e => setCalcNotes(e.target.value)}
+                  placeholder="Add any notes about this calculation..."
+                />
+              </div>
+
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                <p className="text-xs text-amber-800">
+                  <strong>Note:</strong> Saved calculations expire after 60 days from the date of saving.
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-3 p-4 border-t border-gray-200 bg-gray-50 rounded-b-2xl">
+              <button onClick={() => setShowSaveModal(false)} className="btn-outline flex-1">Cancel</button>
+              <button onClick={handleSaveCalculation} disabled={savingCalc} className="btn-primary flex-1 flex items-center justify-center gap-2">
+                {savingCalc ? 'Saving...' : <><RiSaveLine /> Save</>}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

@@ -193,9 +193,9 @@ export const reportsAPI = {
 // CALCULATOR (public)
 // ==============================
 export const calculatorAPI = {
-  panel: (data) => api.post('/calculator/panel', data),       // full: silver + second-life
-  silver: (data) => api.post('/calculator/silver', data),     // legacy compat
-  battery: (data) => api.post('/calculator/battery', data),   // full: recycling + second-life
+  panel: (data) => api.post('/calculator/panel', data),
+  silver: (data) => api.post('/calculator/silver', data),
+  battery: (data) => api.post('/calculator/battery', data),
   degradation: (data) => api.post('/calculator/degradation', data),
   roi: (data) => api.post('/calculator/roi', data),
   batterySoh: (data) => api.post('/calculator/battery-soh', data),
@@ -208,6 +208,12 @@ export const calculatorAPI = {
   getStates: () => api.get('/calculator/states'),
   getTechnologies: () => api.get('/calculator/technologies'),
   getUsage: () => api.get('/calculator/usage'),
+  saveCalculation: (data) => api.post('/calculator/saved', data),
+  getSavedCalculations: (params) => api.get('/calculator/saved', { params }),
+  getSavedCalculation: (id) => api.get(`/calculator/saved/${id}`),
+  deleteSavedCalculation: (id) => api.delete(`/calculator/saved/${id}`),
+  getProjectCalculations: (projectId) => api.get(`/calculator/saved/project/${projectId}`),
+  exportCalculationPdf: (id) => api.post(`/calculator/saved/${id}/export-pdf`),
 };
 
 export const engineeringAPI = {

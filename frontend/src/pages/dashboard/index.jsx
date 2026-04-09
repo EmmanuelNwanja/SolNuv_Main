@@ -3,15 +3,15 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '../../context/AuthContext';
-import { dashboardAPI, blogAPI } from '../../services/api';
+import { dashboardAPI, blogAPI, calculatorAPI } from '../../services/api';
 import Layout, { getDashboardLayout } from '../../components/Layout';
 import ProtectedRoute from '../../components/ProtectedRoute';
-import { StatCard, UrgencyBadge, StatusBadge, EmptyState } from '../../components/ui/index';
+import { StatCard, UrgencyBadge, StatusBadge, CapacityBadge, EmptyState } from '../../components/ui/index';
 import { MotionSection } from '../../components/PageMotion';
 import {
   RiSunLine, RiRecycleLine, RiAlertLine, RiLeafLine,
   RiAddLine, RiTrophyLine, RiArrowRightLine, RiTimeLine, RiCloseLine,
-  RiArrowLeftSLine, RiArrowRightSLine
+  RiArrowLeftSLine, RiArrowRightSLine, RiCalculatorLine
 } from 'react-icons/ri';
 
 // Popup carousel — shows a campaign's ads in order, auto-advances every 6s,
@@ -259,6 +259,8 @@ export default function Dashboard() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
+  const [recentCalcs, setRecentCalcs] = useState([]);
+  const [loadingCalcs, setLoadingCalcs] = useState(false);
   const router = useRouter();
 
   function loadDashboard() {
@@ -284,7 +286,16 @@ export default function Dashboard() {
     }
 
     loadDashboard();
+    loadRecentCalcs();
   }, [isOnboarded, router]);
+
+  function loadRecentCalcs() {
+    setLoadingCalcs(true);
+    calculatorAPI.getSavedCalculations({ limit: 5 })
+      .then(r => setRecentCalcs(r.data.data?.calculations || []))
+      .catch(() => setRecentCalcs([]))
+      .finally(() => setLoadingCalcs(false));
+  }
 
   const displayName = profile?.first_name || 'there';
   const hour = new Date().getHours();
@@ -397,6 +408,54 @@ export default function Dashboard() {
           <StatCard label="Recycled" value={stats.recycled || 0} sub="projects completed" icon={RiRecycleLine} color="slate" />
         </div>
       </MotionSection>
+
+      {/* Saved Calculations */}
+      {recentCalcs.length > 0 && (
+        <MotionSection className="mb-8">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wider">Recent Calculations</h2>
+            <Link href="/calculator" className="text-sm text-emerald-600 hover:text-emerald-700 font-medium">View All →</Link>
+          </div>
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {recentCalcs.map(calc => {
+              const daysLeft = Math.ceil((new Date(calc.expires_at) - new Date()) / (1000 * 60 * 60 * 24));
+              const isExpiringSoon = daysLeft <= 7;
+              const CALC_LABELS = {
+                panel: 'Panel Value', battery: 'Battery Value', degrad: 'Decommission Date',
+                roi: 'Hybrid ROI', soh: 'Battery SoH', cable: 'DC Cable Sizing',
+                motor: 'Motor Starting', gfm: 'GFM Selector', tdd: 'TDD Report',
+              };
+              const CALC_ICONS = {
+                panel: '☀️', battery: '🔋', degrad: '📅', roi: '💼', soh: '🧪',
+                cable: '🧰', motor: '⚡', gfm: '🔋', tdd: '📋',
+              };
+              return (
+                <div key={calc.id} className="card p-4 hover:shadow-md transition-shadow">
+                  <div className="flex items-start gap-3">
+                    <div className="w-9 h-9 bg-emerald-100 rounded-lg flex items-center justify-center text-lg flex-shrink-0">
+                      {CALC_ICONS[calc.calculator_type] || '📊'}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-sm text-gray-900 truncate">{calc.name}</p>
+                      <p className="text-xs text-gray-500">{CALC_LABELS[calc.calculator_type] || calc.calculator_type}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className={`text-xs ${isExpiringSoon ? 'text-amber-600 font-medium' : 'text-gray-400'}`}>
+                          {daysLeft}d left
+                        </span>
+                        {calc.project && (
+                          <Link href={`/projects/${calc.project_id}/calculations`} className="text-xs text-emerald-600 hover:underline">
+                            {calc.project.name} →
+                          </Link>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </MotionSection>
+      )}
 
       {/* Quick Actions */}
       <MotionSection className="mb-8">

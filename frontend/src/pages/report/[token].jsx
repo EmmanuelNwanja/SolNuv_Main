@@ -318,7 +318,7 @@ export default function SharedReport() {
                 </div>
                 <div className="p-6 text-center">
                   <p className="text-xs text-gray-400 uppercase tracking-wide mb-2">Payback Period</p>
-                  <p className="text-3xl font-bold text-[#0D3B2E]">{result?.simple_payback_years ? fmt(result.simple_payback_years, 1) : '—'}</p>
+                  <p className="text-3xl font-bold text-[#0D3B2E]">{result?.simple_payback_years ? fmt(result.simple_payback_years, 1) + ' yrs' : '—'}</p>
                 </div>
               </div>
               <div className="grid grid-cols-3 md:grid-cols-5 lg:grid-cols-6 divide-x divide-gray-100 bg-gray-50 border-t">
@@ -569,25 +569,6 @@ export default function SharedReport() {
                     <p className="text-xs text-gray-400 mb-1">Peak Demand (After Solar)</p>
                     <p className="text-xl font-bold text-green-600">{fmt(result.peak_demand_after_kw, 1)} kW</p>
                   </div>
-                </div>
-              )}
-
-              {/* Yearly Cost Projection Chart */}
-              {energyComp?.yearly_comparison && energyComp.yearly_comparison.length > 0 && (
-                <div className="mt-6 pt-6 border-t">
-                  <h3 className="text-base font-semibold text-[#0D3B2E] mb-4">Yearly Cost Projection</h3>
-                  <div className="h-80">
-                    <Line data={{
-                      labels: energyComp.yearly_comparison.map(y => `Yr ${y.year}`),
-                      datasets: [
-                        { label: 'Solar', data: energyComp.yearly_comparison.map(y => y.solar_cost), borderColor: BRAND.accent, backgroundColor: BRAND.accent + '22', fill: false, tension: 0.3, pointRadius: 0 },
-                        { label: 'Grid Only', data: energyComp.yearly_comparison.map(y => y.grid_cost), borderColor: BRAND.primary, borderDash: [5, 3], fill: false, tension: 0.3, pointRadius: 0 },
-                        { label: 'Diesel', data: energyComp.yearly_comparison.map(y => y.diesel_cost), borderColor: BRAND.amber, borderDash: [3, 3], fill: false, tension: 0.3, pointRadius: 0 },
-                        { label: 'Petrol', data: energyComp.yearly_comparison.map(y => y.petrol_cost), borderColor: BRAND.red, borderDash: [2, 2], fill: false, tension: 0.3, pointRadius: 0 },
-                      ],
-                    }} options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top' } }, scales: { y: { beginAtZero: true, ticks: { callback: v => `₦${(v / 1000000).toFixed(1)}M` } } } }} />
-                  </div>
-                  <p className="text-xs text-gray-400 mt-2 text-center">Annual cost comparison over project lifetime with escalation rates applied</p>
                 </div>
               )}
             </section>
