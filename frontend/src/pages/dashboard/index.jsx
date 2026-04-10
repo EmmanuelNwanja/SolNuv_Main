@@ -166,8 +166,8 @@ function PopupCampaign() {
           </div>
         )}
 
-        {/* Text + CTA */}
-        <div className="p-5 flex-shrink-0">
+        {/* Text + CTA — z-20 keeps this section above the z-10 invisible tap zones */}
+        <div className="relative z-20 p-5 flex-shrink-0">
           <div className="flex items-center justify-between mb-1">
             <span className="text-[10px] font-semibold uppercase tracking-widest text-amber-600">Sponsored</span>
             {total > 1 && (
@@ -186,14 +186,14 @@ function PopupCampaign() {
           <div className="mt-4 flex gap-3 justify-center">
             {ad.target_url && (
               <button
-                onClick={handleClick}
+                onClick={(e) => { e.stopPropagation(); handleClick(); }}
                 className="min-w-[120px] bg-forest-900 hover:bg-forest-800 text-white font-semibold py-2.5 px-5 rounded-xl text-sm transition-colors"
               >
                 Learn More
               </button>
             )}
             <button
-              onClick={handleClose}
+              onClick={(e) => { e.stopPropagation(); handleClose(); }}
               className="min-w-[120px] border border-slate-200 text-slate-600 hover:bg-slate-50 font-medium py-2.5 px-5 rounded-xl text-sm transition-colors"
             >
               Dismiss
