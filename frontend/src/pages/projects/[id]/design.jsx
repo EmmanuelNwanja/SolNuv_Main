@@ -691,7 +691,7 @@ export default function DesignWizard() {
                           toast.success('Device location captured!');
                         },
                         () => toast.error('Failed to get device location. Enable location permissions.'),
-                        { enableHighAccuracy: true, timeout: 15000 }
+                        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
                       );
                     }}
                     className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-emerald-300 text-sm font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 transition-colors w-full justify-center"

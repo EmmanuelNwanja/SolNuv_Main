@@ -149,15 +149,9 @@ async function reverseGeocode(lat, lon) {
 
 /**
  * Verify coordinates against a project address (state, city, address).
+ * Used for manual coordinate entry — distance from forward-geocoded address is primary.
  *
- * Strategy:
- * 1. Forward-geocode the project address → expected coordinates
- * 2. Calculate haversine distance between expected and actual
- * 3. Reverse-geocode the actual coordinates for additional context
- * 4. Cross-check state/city names for extra validation
- * 5. Return confidence score and details
- *
- * @param {number} actualLat - Coordinates to verify (device GPS or manual entry)
+ * @param {number} actualLat
  * @param {number} actualLon
  * @param {object} projectAddress - { state, city, address }
  * @returns {{ confidence_pct, distance_m, method, verified, details }}
@@ -165,7 +159,6 @@ async function reverseGeocode(lat, lon) {
 async function verifyCoordinatesAgainstAddress(actualLat, actualLon, projectAddress) {
   const { state, city, address } = projectAddress;
 
-  // Build address query — use most specific available
   const parts = [address, city, state].filter(Boolean);
   if (!parts.length) {
     return {
@@ -178,10 +171,9 @@ async function verifyCoordinatesAgainstAddress(actualLat, actualLon, projectAddr
   }
   const addressQuery = parts.join(', ');
 
-  // Forward geocode the project address
   const geocoded = await forwardGeocode(addressQuery);
   if (!geocoded) {
-    // Try with just city + state as fallback
+    // Fallback: city + state centroid only
     const fallback = await forwardGeocode([city, state].filter(Boolean).join(', '));
     if (!fallback) {
       return {
@@ -192,18 +184,35 @@ async function verifyCoordinatesAgainstAddress(actualLat, actualLon, projectAddr
         details: { error: 'Could not geocode project address', address_query: addressQuery },
       };
     }
-    // Use fallback but note it's less precise
+
     const distM = haversineMeters(actualLat, actualLon, fallback.lat, fallback.lon);
-    const conf = Math.max(distanceToConfidence(distM) - 10, 0); // penalty for imprecise geocode
+    let conf = distanceToConfidence(distM);
+
+    // Always run reverse-geocode for name boost, even in fallback path
+    const reversed = await reverseGeocode(actualLat, actualLon);
+    let stateMatch = false;
+    let cityMatch  = false;
+    if (reversed?.address) {
+      const revState = (reversed.address.state || reversed.address.region || '').toLowerCase();
+      const revCity  = (reversed.address.city || reversed.address.town || reversed.address.village || '').toLowerCase();
+      stateMatch = !!state && revState.includes(state.toLowerCase());
+      cityMatch  = !!city  && revCity.includes(city.toLowerCase());
+      if (stateMatch && cityMatch && conf < 70) conf = 70;
+      if (stateMatch && !cityMatch && conf < 50) conf = 50;
+    }
+
     return {
       confidence_pct: conf,
-      distance_m: Math.round(distM),
-      method: 'address_match',
-      verified: conf >= 70,
+      distance_m:     Math.round(distM),
+      method:         'address_match',
+      verified:       conf >= 85,
       details: {
         geocoded_address: [city, state].filter(Boolean).join(', '),
-        geocoded_coords: { lat: fallback.lat, lon: fallback.lon },
-        actual_coords: { lat: actualLat, lon: actualLon },
+        geocoded_coords:  { lat: fallback.lat, lon: fallback.lon },
+        actual_coords:    { lat: actualLat, lon: actualLon },
+        reverse_display:  reversed?.displayName || null,
+        state_match:      stateMatch,
+        city_match:       cityMatch,
         note: 'Geocoded from city/state only — full address not resolvable',
       },
     };
@@ -212,54 +221,141 @@ async function verifyCoordinatesAgainstAddress(actualLat, actualLon, projectAddr
   const distM = haversineMeters(actualLat, actualLon, geocoded.lat, geocoded.lon);
   let confidence = distanceToConfidence(distM);
 
-  // Reverse geocode actual coordinates for state/city cross-check
   const reversed = await reverseGeocode(actualLat, actualLon);
   let stateMatch = false;
-  let cityMatch = false;
+  let cityMatch  = false;
 
   if (reversed?.address) {
     const revState = (reversed.address.state || reversed.address.region || '').toLowerCase();
-    const revCity = (reversed.address.city || reversed.address.town || reversed.address.village || '').toLowerCase();
-    stateMatch = state && revState.includes(state.toLowerCase());
-    cityMatch = city && revCity.includes(city.toLowerCase());
-
-    // Boost confidence if state/city names match even with large distance (area is big)
+    const revCity  = (reversed.address.city || reversed.address.town || reversed.address.village || '').toLowerCase();
+    stateMatch = !!state && revState.includes(state.toLowerCase());
+    cityMatch  = !!city  && revCity.includes(city.toLowerCase());
+    // Boost for name match — stays below auto-verify for manual entries intentionally
     if (stateMatch && cityMatch && confidence < 70) confidence = 70;
     if (stateMatch && !cityMatch && confidence < 50) confidence = 50;
   }
 
-  const verified = confidence >= 85;
-
   return {
     confidence_pct: confidence,
-    distance_m: Math.round(distM),
-    method: 'address_match',
-    verified,
+    distance_m:     Math.round(distM),
+    method:         'address_match',
+    verified:       confidence >= 85,
     details: {
       geocoded_address: addressQuery,
-      geocoded_coords: { lat: geocoded.lat, lon: geocoded.lon },
+      geocoded_coords:  { lat: geocoded.lat, lon: geocoded.lon },
       geocoded_display: geocoded.displayName,
-      actual_coords: { lat: actualLat, lon: actualLon },
-      reverse_display: reversed?.displayName || null,
-      state_match: stateMatch,
-      city_match: cityMatch,
+      actual_coords:    { lat: actualLat, lon: actualLon },
+      reverse_display:  reversed?.displayName || null,
+      state_match:      stateMatch,
+      city_match:       cityMatch,
     },
   };
 }
 
 /**
  * Verify device GPS coordinates against project address.
- * Same as above but uses a higher confidence threshold (95% vicinity).
+ *
+ * For device GPS the user's reverse-geocoded location is the PRIMARY trust signal.
+ * Distance from the forward-geocoded address is a secondary refinement only.
+ *
+ * Rationale: In Africa, Nominatim often returns a city/LGA centroid that is
+ * 30–80 km from the actual installation site, making pure distance checks
+ * produce 0% confidence even when the user is standing at the project.
+ * Reverse-geocoding the device's GPS is reliable because the user is physically
+ * present at the location and OSM reverse lookup is accurate at point level.
+ *
+ * @param {number} deviceLat
+ * @param {number} deviceLon
+ * @param {object} projectAddress - { state, city, address }
+ * @param {number} [accuracyM]    - Device GPS accuracy radius in metres (from browser API)
  */
-async function verifyDeviceGPS(deviceLat, deviceLon, projectAddress) {
-  const result = await verifyCoordinatesAgainstAddress(deviceLat, deviceLon, projectAddress);
-  result.method = 'device_proximity';
-  // Device GPS is inherently more trustworthy — boost confidence for close matches
-  if (result.distance_m !== null && result.distance_m < 200) {
-    result.confidence_pct = Math.max(result.confidence_pct, 98);
-    result.verified = true;
+async function verifyDeviceGPS(deviceLat, deviceLon, projectAddress, accuracyM) {
+  const { state, city, address } = projectAddress;
+
+  // ── Step 1: Reverse-geocode the device's actual location (primary signal) ──
+  const reversed = await reverseGeocode(deviceLat, deviceLon);
+  let stateMatch = false;
+  let cityMatch  = false;
+
+  if (reversed?.address) {
+    const revState = (reversed.address.state || reversed.address.region || '').toLowerCase();
+    const revCity  = (
+      reversed.address.city    ||
+      reversed.address.town    ||
+      reversed.address.county  ||
+      reversed.address.village || ''
+    ).toLowerCase();
+    stateMatch = !!state && revState.includes(state.toLowerCase());
+    cityMatch  = !!city  && revCity.includes(city.toLowerCase());
   }
-  return result;
+
+  // ── Step 2: Forward-geocode project address → distance (secondary signal) ──
+  const addressQuery = [address, city, state].filter(Boolean).join(', ');
+  let geocoded       = await forwardGeocode(addressQuery);
+  let usedFallback   = false;
+  if (!geocoded && (city || state)) {
+    geocoded     = await forwardGeocode([city, state].filter(Boolean).join(', '));
+    usedFallback = true;
+  }
+
+  let distM        = null;
+  let effectiveDistM = null;
+  if (geocoded) {
+    distM = Math.round(haversineMeters(deviceLat, deviceLon, geocoded.lat, geocoded.lon));
+    // Subtract GPS accuracy radius so marginal cases aren't penalised unfairly
+    const gpsRadius = (accuracyM && accuracyM > 0) ? Math.min(accuracyM, 500) : 0;
+    effectiveDistM  = Math.max(0, distM - gpsRadius);
+  }
+
+  // ── Step 3: Score via reverse-geocode presence, refined by distance ──────
+  let confidence = 0;
+  let verified   = false;
+
+  if (stateMatch && cityMatch) {
+    // Device is physically in the correct city/state — strong presence signal.
+    // Large distM here usually means Nominatim returned a centroid, not a real failure.
+    if      (effectiveDistM !== null && effectiveDistM < 2_000)  { confidence = 95; }
+    else if (effectiveDistM !== null && effectiveDistM < 10_000) { confidence = 90; }
+    else                                                          { confidence = 88; }
+    verified = true;
+
+  } else if (stateMatch && !cityMatch) {
+    // Correct state, different city — could be Nominatim boundary misclassification
+    if (effectiveDistM !== null && effectiveDistM < 2_000) {
+      confidence = 78;   // below 85 — visible result but admin can override
+    } else {
+      confidence = 40;
+    }
+    verified = false;
+
+  } else {
+    // No reverse-geocode name match — fall back to raw distance only
+    if (effectiveDistM !== null) {
+      confidence = distanceToConfidence(effectiveDistM);
+      verified   = confidence >= 85;
+    } else {
+      confidence = 10;
+      verified   = false;
+    }
+  }
+
+  return {
+    confidence_pct: confidence,
+    distance_m:     distM,
+    method:         'device_proximity',
+    verified,
+    details: {
+      geocoded_address:      usedFallback ? [city, state].filter(Boolean).join(', ') : addressQuery,
+      geocoded_coords:       geocoded ? { lat: geocoded.lat, lon: geocoded.lon } : null,
+      geocoded_display:      geocoded?.displayName || null,
+      actual_coords:         { lat: deviceLat, lon: deviceLon },
+      reverse_display:       reversed?.displayName || null,
+      state_match:           stateMatch,
+      city_match:            cityMatch,
+      gps_accuracy_m:        accuracyM || null,
+      used_fallback_geocode: usedFallback,
+    },
+  };
 }
 
 module.exports = {

@@ -749,11 +749,17 @@ export default function ProjectDetail() {
                       if (!navigator.geolocation) { toast.error('Geolocation not supported'); return; }
                       navigator.geolocation.getCurrentPosition(
                         (pos) => {
-                          setEditForm((prev) => ({ ...prev, latitude: pos.coords.latitude.toFixed(6), longitude: pos.coords.longitude.toFixed(6), geo_source: 'device_gps' }));
+                          setEditForm((prev) => ({
+                            ...prev,
+                            latitude: pos.coords.latitude.toFixed(6),
+                            longitude: pos.coords.longitude.toFixed(6),
+                            geo_source: 'device_gps',
+                            gps_accuracy_m: Math.round(pos.coords.accuracy || 0),
+                          }));
                           toast.success('Device location captured!');
                         },
                         () => toast.error('Failed to get device location'),
-                        { enableHighAccuracy: true, timeout: 15000 }
+                        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
                       );
                     }}
                     className="text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-lg hover:bg-emerald-100 transition-colors"
@@ -769,6 +775,7 @@ export default function ProjectDetail() {
                             latitude: editForm.latitude,
                             longitude: editForm.longitude,
                             source: editForm.geo_source,
+                            accuracy_m: editForm.gps_accuracy_m || undefined,
                           });
                           const v = data.data;
                           if (v.verified) {
@@ -782,7 +789,7 @@ export default function ProjectDetail() {
                       }}
                       className="text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-200 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition-colors"
                     >
-                      🤖 Verify with AI
+                      📍 Verify Location
                     </button>
                   )}
                 </div>

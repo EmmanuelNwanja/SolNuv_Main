@@ -576,7 +576,7 @@ exports.deleteProject = async (req, res) => {
 exports.geoVerify = async (req, res) => {
   try {
     const { id } = req.params;
-    const { latitude, longitude, source } = req.body;
+    const { latitude, longitude, source, accuracy_m } = req.body;
 
     if (!latitude || !longitude) return sendError(res, 'latitude and longitude are required', 400);
     const lat = parseFloat(latitude);
@@ -602,8 +602,9 @@ exports.geoVerify = async (req, res) => {
 
     // Choose verification method based on source
     const isDeviceGPS = source === 'device_gps';
+    const accuracyM = (accuracy_m && !isNaN(parseFloat(accuracy_m))) ? parseFloat(accuracy_m) : null;
     const result = isDeviceGPS
-      ? await verifyDeviceGPS(lat, lon, projectAddress)
+      ? await verifyDeviceGPS(lat, lon, projectAddress, accuracyM)
       : await verifyCoordinatesAgainstAddress(lat, lon, projectAddress);
 
     const geoSource = isDeviceGPS ? 'device_gps' : (project.geo_source === 'image_exif' ? 'image_exif' : 'manual');
