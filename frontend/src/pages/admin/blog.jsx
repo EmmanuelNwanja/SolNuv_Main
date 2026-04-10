@@ -408,6 +408,16 @@ function BlogAdminPage() {
   const [campaignModal, setCampaignModal] = useState(null); // null | 'create' | campaign obj
   const [saving, setSaving] = useState(false);
   const [analytics, setAnalytics] = useState({});
+  const [adsAnalytics, setAdsAnalytics] = useState([]);
+  const [adsAnalyticsLoading, setAdsAnalyticsLoading] = useState(false);
+  const [adFilters, setAdFilters] = useState({
+    placement: '',
+    user_type: '',
+    sort_by: 'recent',
+    order: 'desc',
+    min_clicks: '',
+    min_ctr: '',
+  });
 
   const loadPosts = useCallback(async () => {
     setLoading(true);
@@ -540,6 +550,49 @@ function BlogAdminPage() {
     } catch {}
   }
 
+  const loadAdsAnalytics = useCallback(async () => {
+    if (tab !== 'ads') return;
+    setAdsAnalyticsLoading(true);
+    try {
+      const params = {
+        sort_by: adFilters.sort_by,
+        order: adFilters.order,
+        limit: 100,
+      };
+      if (adFilters.placement) params.placement = adFilters.placement;
+      if (adFilters.user_type) params.user_type = adFilters.user_type;
+      if (adFilters.min_clicks) params.min_clicks = Number(adFilters.min_clicks);
+      if (adFilters.min_ctr) params.min_ctr = Number(adFilters.min_ctr);
+
+      const { data } = await blogAPI.adminListAdsAnalytics(params);
+      setAdsAnalytics(data.data?.ads || []);
+    } catch {
+      toast.error('Failed to load ad analytics');
+    } finally {
+      setAdsAnalyticsLoading(false);
+    }
+  }, [adFilters, tab]);
+
+  useEffect(() => {
+    loadAdsAnalytics();
+  }, [loadAdsAnalytics]);
+
+  const analyticsByAdId = adsAnalytics.reduce((acc, item) => {
+    acc[item.ad_id] = item;
+    return acc;
+  }, {});
+
+  const adsById = ads.reduce((acc, ad) => {
+    acc[ad.id] = ad;
+    return acc;
+  }, {});
+
+  const orderedAds = adsAnalytics.length > 0
+    ? adsAnalytics.map((item) => adsById[item.ad_id]).filter(Boolean)
+    : ads;
+
+  const bestPerformingAd = adsAnalytics[0] || null;
+
   return (
     <>
       <Head><title>Blog & Ads Management - SolNuv Admin</title></Head>
@@ -622,9 +675,54 @@ function BlogAdminPage() {
           </div>
         ) : tab === 'ads' ? (
           <div className="space-y-3">
-            {ads.length === 0 && <p className="text-slate-400 text-sm py-8 text-center">No ads yet. Create your first ad.</p>}
-            {ads.map((ad) => {
-              const a = analytics[`ad_${ad.id}`];
+            <div className="bg-slate-900 border border-slate-800 rounded-xl p-3 space-y-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <select className="input !py-1.5 !text-xs !h-9" value={adFilters.placement} onChange={(e) => setAdFilters((f) => ({ ...f, placement: e.target.value }))}>
+                  <option value="">All placements</option>
+                  {PLACEMENTS.map((slot) => <option key={slot} value={slot}>{slot}</option>)}
+                </select>
+                <select className="input !py-1.5 !text-xs !h-9" value={adFilters.user_type} onChange={(e) => setAdFilters((f) => ({ ...f, user_type: e.target.value }))}>
+                  <option value="">All user types</option>
+                  <option value="guest">Guest</option>
+                  <option value="installer">Installer</option>
+                  <option value="manufacturer">Manufacturer</option>
+                  <option value="distributor">Distributor</option>
+                  <option value="collector">Collector</option>
+                  <option value="recycler">Recycler</option>
+                  <option value="unknown">Unknown</option>
+                </select>
+                <select className="input !py-1.5 !text-xs !h-9" value={adFilters.sort_by} onChange={(e) => setAdFilters((f) => ({ ...f, sort_by: e.target.value }))}>
+                  <option value="recent">Sort: Recent</option>
+                  <option value="ctr">Sort: CTR</option>
+                  <option value="clicks">Sort: Clicks</option>
+                  <option value="impressions">Sort: Impressions</option>
+                  <option value="unique_click_users">Sort: Unique Click Users</option>
+                </select>
+                <select className="input !py-1.5 !text-xs !h-9" value={adFilters.order} onChange={(e) => setAdFilters((f) => ({ ...f, order: e.target.value }))}>
+                  <option value="desc">Order: Desc</option>
+                  <option value="asc">Order: Asc</option>
+                </select>
+                <input className="input !py-1.5 !text-xs !h-9 max-w-[130px]" type="number" min="0" placeholder="Min clicks" value={adFilters.min_clicks} onChange={(e) => setAdFilters((f) => ({ ...f, min_clicks: e.target.value }))} />
+                <input className="input !py-1.5 !text-xs !h-9 max-w-[130px]" type="number" min="0" step="0.01" placeholder="Min CTR %" value={adFilters.min_ctr} onChange={(e) => setAdFilters((f) => ({ ...f, min_ctr: e.target.value }))} />
+                <button
+                  type="button"
+                  onClick={() => setAdFilters({ placement: '', user_type: '', sort_by: 'recent', order: 'desc', min_clicks: '', min_ctr: '' })}
+                  className="px-3 py-2 rounded-lg border border-slate-700 text-slate-300 text-xs hover:bg-slate-800"
+                >
+                  Reset
+                </button>
+              </div>
+              {bestPerformingAd && (
+                <div className="rounded-lg border border-emerald-800/50 bg-emerald-900/20 px-3 py-2 text-xs text-emerald-300">
+                  Best performing: <span className="font-semibold">{bestPerformingAd.title}</span> · CTR {bestPerformingAd.ctr}% · {bestPerformingAd.clicks} clicks
+                </div>
+              )}
+            </div>
+
+            {adsAnalyticsLoading && <p className="text-slate-400 text-xs">Refreshing analytics…</p>}
+            {orderedAds.length === 0 && <p className="text-slate-400 text-sm py-8 text-center">No ads match the selected filters.</p>}
+            {orderedAds.map((ad) => {
+              const a = analytics[`ad_${ad.id}`] || analyticsByAdId[ad.id];
               return (
                 <div key={ad.id} className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-wrap items-center gap-3">
                   {ad.image_url && (
@@ -641,10 +739,15 @@ function BlogAdminPage() {
                       </div>
                     )}
                     {a && (
-                      <div className="flex gap-3 mt-1">
+                      <div className="flex flex-wrap gap-3 mt-1">
                         <span className="flex items-center gap-1 text-xs text-amber-400"><RiEyeLine />{a.impressions} impr.</span>
                         <span className="flex items-center gap-1 text-xs text-emerald-400"><RiMouseLine />{a.clicks} clicks</span>
                         <span className="text-xs text-slate-400">CTR: {a.ctr}%</span>
+                        <span className="text-xs text-slate-400">Unique users: {a.unique_click_users || 0}</span>
+                        <span className="text-xs text-slate-400">Guests: {a.anonymous_clicks || 0}</span>
+                        {a.clicks_by_user_type && (
+                          <span className="text-xs text-slate-500">Types: {Object.entries(a.clicks_by_user_type).map(([k, v]) => `${k}:${v}`).join(' · ')}</span>
+                        )}
                       </div>
                     )}
                   </div>

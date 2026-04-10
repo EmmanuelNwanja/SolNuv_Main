@@ -9,6 +9,212 @@ function hashIp(ip) {
   return crypto.createHash('sha256').update(ip + process.env.IP_HASH_SALT || '').digest('hex').slice(0, 16);
 }
 
+function resolveTrackingUserId(req) {
+  return req.supabaseUser?.id || req.user?.supabase_uid || null;
+}
+
+function parsePositiveInt(value, fallback) {
+  const num = Number(value);
+  if (!Number.isFinite(num) || num <= 0) return fallback;
+  return Math.floor(num);
+}
+
+function parseNonNegativeFloat(value, fallback) {
+  const num = Number(value);
+  if (!Number.isFinite(num) || num < 0) return fallback;
+  return num;
+}
+
+function normalizeSortBy(value) {
+  const allowed = new Set(['ctr', 'clicks', 'impressions', 'unique_click_users', 'recent']);
+  return allowed.has(value) ? value : 'recent';
+}
+
+function normalizeSortOrder(value) {
+  return String(value || '').toLowerCase() === 'asc' ? 'asc' : 'desc';
+}
+
+function normalizeUserType(value) {
+  const normalized = String(value || '').toLowerCase().trim();
+  return normalized || null;
+}
+
+function normalizeAnalyticsFilters(query) {
+  return {
+    placement: query.placement ? String(query.placement).trim() : '',
+    sort_by: normalizeSortBy(String(query.sort_by || '').trim()),
+    order: normalizeSortOrder(query.order),
+    min_clicks: parsePositiveInt(query.min_clicks, 0),
+    min_ctr: parseNonNegativeFloat(query.min_ctr, 0),
+    user_type: normalizeUserType(query.user_type),
+    limit: Math.min(parsePositiveInt(query.limit, 20), 100),
+  };
+}
+
+async function fetchAllAdClicks(adId, maxRows = 20000) {
+  const rows = [];
+  const batchSize = 1000;
+  let from = 0;
+
+  while (rows.length < maxRows) {
+    const to = from + batchSize - 1;
+    const { data, error } = await supabase
+      .from('ad_clicks')
+      .select('id,user_id,page_path,clicked_at')
+      .eq('ad_id', adId)
+      .order('clicked_at', { ascending: false })
+      .range(from, to);
+
+    if (error) throw error;
+    if (!data?.length) break;
+
+    rows.push(...data);
+    if (data.length < batchSize) break;
+    from += batchSize;
+  }
+
+  return rows;
+}
+
+async function fetchUsersBySupabaseIds(ids) {
+  if (!ids.length) return new Map();
+
+  const { data, error } = await supabase
+    .from('users')
+    .select('supabase_uid,first_name,last_name,email,brand_name,user_type')
+    .in('supabase_uid', ids);
+
+  if (error) throw error;
+
+  return new Map((data || []).map((user) => [user.supabase_uid, user]));
+}
+
+function summarizeRecentPages(clickRows, recentPagesLimit) {
+  const counts = new Map();
+  for (const row of clickRows) {
+    if (!row.page_path) continue;
+    counts.set(row.page_path, (counts.get(row.page_path) || 0) + 1);
+  }
+
+  return [...counts.entries()]
+    .map(([page_path, clicks]) => ({ page_path, clicks }))
+    .sort((a, b) => b.clicks - a.clicks)
+    .slice(0, recentPagesLimit);
+}
+
+async function buildAdAnalytics(ad, options = {}) {
+  const recentUsersLimit = options.recentUsersLimit || 10;
+  const recentPagesLimit = options.recentPagesLimit || 5;
+
+  const adId = ad.id;
+  const [impressionsResult, totalClicksResult, clickRows] = await Promise.all([
+    supabase.from('ad_impressions').select('id', { count: 'exact', head: true }).eq('ad_id', adId),
+    supabase.from('ad_clicks').select('id', { count: 'exact', head: true }).eq('ad_id', adId),
+    fetchAllAdClicks(adId),
+  ]);
+
+  const impressions = impressionsResult.count || 0;
+  const clicks = totalClicksResult.count || 0;
+
+  const userIds = [...new Set(clickRows.map((row) => row.user_id).filter(Boolean))];
+  const usersBySupabaseId = await fetchUsersBySupabaseIds(userIds);
+
+  const clicksByUserType = {};
+  let anonymousClicks = 0;
+  const uniqueUsers = new Set();
+  const recentClickUsers = [];
+  const seenRecentUsers = new Set();
+
+  for (const row of clickRows) {
+    if (!row.user_id) {
+      anonymousClicks += 1;
+      clicksByUserType.guest = (clicksByUserType.guest || 0) + 1;
+      continue;
+    }
+
+    uniqueUsers.add(row.user_id);
+    const user = usersBySupabaseId.get(row.user_id) || null;
+    const userType = user?.user_type || 'unknown';
+    clicksByUserType[userType] = (clicksByUserType[userType] || 0) + 1;
+
+    if (!seenRecentUsers.has(row.user_id) && recentClickUsers.length < recentUsersLimit) {
+      seenRecentUsers.add(row.user_id);
+      recentClickUsers.push({
+        clicked_at: row.clicked_at,
+        user: user ? {
+          supabase_uid: user.supabase_uid,
+          first_name: user.first_name || null,
+          last_name: user.last_name || null,
+          email: user.email || null,
+          brand_name: user.brand_name || null,
+          user_type: user.user_type || null,
+        } : {
+          supabase_uid: row.user_id,
+          first_name: null,
+          last_name: null,
+          email: null,
+          brand_name: null,
+          user_type: 'unknown',
+        },
+      });
+    }
+  }
+
+  const uniqueClickUsers = uniqueUsers.size;
+  const ctrValue = impressions > 0 ? (clicks / impressions) * 100 : 0;
+
+  return {
+    ad_id: ad.id,
+    title: ad.title,
+    placement: ad.placement,
+    is_active: ad.is_active,
+    priority: ad.priority,
+    created_at: ad.created_at,
+    impressions,
+    clicks,
+    ctr: ctrValue.toFixed(2),
+    ctr_value: Number(ctrValue.toFixed(4)),
+    unique_click_users: uniqueClickUsers,
+    anonymous_clicks: anonymousClicks,
+    clicks_by_user_type: clicksByUserType,
+    recent_click_users: recentClickUsers,
+    recent_pages: summarizeRecentPages(clickRows, recentPagesLimit),
+    last_click_at: clickRows[0]?.clicked_at || null,
+  };
+}
+
+function sortAnalyticsRows(rows, sortBy, order) {
+  const direction = order === 'asc' ? 1 : -1;
+
+  return [...rows].sort((a, b) => {
+    let left;
+    let right;
+
+    if (sortBy === 'ctr') {
+      left = a.ctr_value;
+      right = b.ctr_value;
+    } else if (sortBy === 'clicks') {
+      left = a.clicks;
+      right = b.clicks;
+    } else if (sortBy === 'impressions') {
+      left = a.impressions;
+      right = b.impressions;
+    } else if (sortBy === 'unique_click_users') {
+      left = a.unique_click_users;
+      right = b.unique_click_users;
+    } else {
+      left = a.last_click_at ? new Date(a.last_click_at).getTime() : new Date(a.created_at || 0).getTime();
+      right = b.last_click_at ? new Date(b.last_click_at).getTime() : new Date(b.created_at || 0).getTime();
+    }
+
+    if (left === right) {
+      return (b.priority - a.priority) * direction;
+    }
+
+    return left > right ? direction : -direction;
+  });
+}
+
 // ── Public ────────────────────────────────────────────────────
 
 exports.listPosts = async (req, res) => {
@@ -293,7 +499,7 @@ exports.trackAdImpression = async (req, res) => {
     const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip;
     await supabase.from('ad_impressions').insert({
       ad_id: id,
-      user_id: req.user?.id || null,
+      user_id: resolveTrackingUserId(req),
       ip_hash: hashIp(ip),
       page_path: req.body.page_path || null,
     });
@@ -310,7 +516,7 @@ exports.trackAdClick = async (req, res) => {
     const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip;
     await supabase.from('ad_clicks').insert({
       ad_id: id,
-      user_id: req.user?.id || null,
+      user_id: resolveTrackingUserId(req),
       ip_hash: hashIp(ip),
       page_path: req.body.page_path || null,
     });
@@ -422,18 +628,60 @@ exports.adminDeleteAd = async (req, res) => {
 exports.adminGetAdAnalytics = async (req, res) => {
   try {
     const { id } = req.params;
-    const [impressions, clicks] = await Promise.all([
-      supabase.from('ad_impressions').select('*', { count: 'exact', head: true }).eq('ad_id', id),
-      supabase.from('ad_clicks').select('*', { count: 'exact', head: true }).eq('ad_id', id),
-    ]);
-    return sendSuccess(res, {
-      impressions: impressions.count || 0,
-      clicks: clicks.count || 0,
-      ctr: impressions.count ? ((clicks.count / impressions.count) * 100).toFixed(2) : '0.00',
-    });
+    const { data: ad, error } = await supabase
+      .from('ads')
+      .select('id,title,placement,is_active,priority,created_at')
+      .eq('id', id)
+      .single();
+
+    if (error || !ad) return sendError(res, 'Ad not found', 404);
+
+    const analytics = await buildAdAnalytics(ad, { recentUsersLimit: 20, recentPagesLimit: 10 });
+    return sendSuccess(res, analytics);
   } catch (error) {
     logger.error('adminGetAdAnalytics failed', { message: error.message });
     return sendError(res, 'Failed to get ad analytics', 500);
+  }
+};
+
+exports.adminListAdsAnalytics = async (req, res) => {
+  try {
+    const filters = normalizeAnalyticsFilters(req.query || {});
+
+    let query = supabase
+      .from('ads')
+      .select('id,title,placement,is_active,priority,created_at')
+      .order('created_at', { ascending: false })
+      .limit(filters.limit);
+
+    if (filters.placement) {
+      query = query.eq('placement', filters.placement);
+    }
+
+    const { data: ads, error } = await query;
+    if (error) throw error;
+
+    const analyticsRows = await Promise.all(
+      (ads || []).map((ad) => buildAdAnalytics(ad, { recentUsersLimit: 8, recentPagesLimit: 5 }))
+    );
+
+    let filteredRows = analyticsRows.filter((row) => row.clicks >= filters.min_clicks && row.ctr_value >= filters.min_ctr);
+
+    if (filters.user_type) {
+      filteredRows = filteredRows.filter((row) => (row.clicks_by_user_type?.[filters.user_type] || 0) > 0);
+    }
+
+    const sortedRows = sortAnalyticsRows(filteredRows, filters.sort_by, filters.order);
+
+    return sendSuccess(res, {
+      filters,
+      total_ads_analyzed: sortedRows.length,
+      best_performing_ad: sortedRows[0] || null,
+      ads: sortedRows,
+    });
+  } catch (error) {
+    logger.error('adminListAdsAnalytics failed', { message: error.message });
+    return sendError(res, 'Failed to list ad analytics', 500);
   }
 };
 

@@ -15,6 +15,14 @@ import { useEffect, useState } from 'react';
 import { RiArrowRightLine } from 'react-icons/ri';
 import { blogAPI } from '../../services/api';
 
+function normalizeTargetUrl(rawUrl) {
+  const value = String(rawUrl || '').trim();
+  if (!value) return '';
+  if (/^https?:\/\//i.test(value)) return value;
+  if (value.startsWith('//')) return `https:${value}`;
+  return `https://${value}`;
+}
+
 export default function AdSlot({ slot, page, limit, className = '' }) {
   const [ads, setAds] = useState([]);
   const effectiveLimit = limit ?? (slot === 'sidebar' ? 3 : 1);
@@ -38,7 +46,8 @@ export default function AdSlot({ slot, page, limit, className = '' }) {
   function handleClick(ad) {
     const path = typeof window !== 'undefined' ? window.location.pathname : '';
     blogAPI.trackAdClick(ad.id, path).catch(() => {});
-    if (ad.target_url) window.open(ad.target_url, '_blank', 'noopener,noreferrer');
+    const targetUrl = normalizeTargetUrl(ad.target_url);
+    if (targetUrl) window.open(targetUrl, '_blank', 'noopener,noreferrer');
   }
 
   // ── sidebar: vertical stack of ad cards ──────────────────────

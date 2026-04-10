@@ -17,12 +17,21 @@ import {
   RiLockLine
 } from 'react-icons/ri';
 
+function normalizeTargetUrl(rawUrl) {
+  const value = String(rawUrl || '').trim();
+  if (!value) return '';
+  if (/^https?:\/\//i.test(value)) return value;
+  if (value.startsWith('//')) return `https:${value}`;
+  return `https://${value}`;
+}
+
 // Popup carousel — shows a campaign's ads in order, auto-advances every 6s,
 // tracks impressions per ad. Triggers: on login (once/session) or on interval.
 function PopupCampaign() {
   const [campaign, setCampaign] = useState(null);
   const [adIndex, setAdIndex] = useState(0);
   const [progress, setProgress] = useState(0);
+  const [dismissedAdIds, setDismissedAdIds] = useState([]);
 
   useEffect(() => {
     blogAPI.getCampaignPopups()
@@ -50,6 +59,8 @@ function PopupCampaign() {
               try { localStorage.setItem(intervalKey, String(Date.now())); } catch {}
             }
             setCampaign(c);
+            setDismissedAdIds([]);
+            setAdIndex(0);
             return;
           }
         }
@@ -57,17 +68,29 @@ function PopupCampaign() {
       .catch(() => {});
   }, []);
 
+  const visibleAds = (campaign?.ads || []).filter((item) => !dismissedAdIds.includes(item.id));
+  const currentAd = visibleAds[adIndex];
+  const total = visibleAds.length;
+
   // Record impression whenever the visible ad changes
-  const currentAd = campaign?.ads?.[adIndex];
   useEffect(() => {
     if (currentAd) {
       blogAPI.trackAdImpression(currentAd.id, '/dashboard').catch(() => {});
     }
   }, [currentAd?.id]);
 
-  // Auto-advance with smooth progress bar (6 s per ad, loops)
   useEffect(() => {
     if (!campaign) return;
+    if (visibleAds.length === 0) {
+      setCampaign(null);
+      return;
+    }
+    setAdIndex((index) => index % visibleAds.length);
+  }, [campaign, visibleAds.length]);
+
+  // Auto-advance with smooth progress bar (6 s per ad, loops)
+  useEffect(() => {
+    if (!campaign || visibleAds.length <= 0) return;
     setProgress(0);
     let prog = 0;
     const tick = 50; // ms
@@ -76,29 +99,38 @@ function PopupCampaign() {
     const timer = setInterval(() => {
       prog += step;
       if (prog >= 100) {
-        setAdIndex((i) => (i + 1) % campaign.ads.length);
+        setAdIndex((i) => (i + 1) % visibleAds.length);
         prog = 0;
       }
       setProgress(prog);
     }, tick);
     return () => clearInterval(timer);
-  }, [campaign, adIndex]);
+  }, [campaign, adIndex, visibleAds.length]);
 
-  if (!campaign?.ads?.length) return null;
+  if (!visibleAds.length) return null;
 
-  const ad = campaign.ads[adIndex];
-  const total = campaign.ads.length;
+  const ad = currentAd;
   function goTo(i) { setAdIndex((i + total) % total); setProgress(0); }
-  function handleClose() { setCampaign(null); }
+  function handleCloseCampaign() { setCampaign(null); }
+  function handleDismissCurrent() {
+    if (!ad?.id) return;
+    setDismissedAdIds((prev) => {
+      if (prev.includes(ad.id)) return prev;
+      return [...prev, ad.id];
+    });
+    setProgress(0);
+  }
+
   function handleClick() {
     blogAPI.trackAdClick(ad.id, '/dashboard').catch(() => {});
-    if (ad.target_url) window.open(ad.target_url, '_blank', 'noopener,noreferrer');
+    const targetUrl = normalizeTargetUrl(ad.target_url);
+    if (targetUrl) window.open(targetUrl, '_blank', 'noopener,noreferrer');
   }
 
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 sm:p-6"
-      onClick={handleClose}
+      onClick={handleCloseCampaign}
     >
       <div
         className="relative bg-white rounded-3xl shadow-2xl w-full max-w-[72vw] sm:max-w-xs mx-auto flex flex-col"
@@ -107,7 +139,7 @@ function PopupCampaign() {
       >
         {/* Story-style progress bars */}
         <div className="absolute top-0 left-0 right-0 z-20 flex gap-1 p-2 pt-2.5">
-          {campaign.ads.map((_, i) => (
+          {visibleAds.map((_, i) => (
             <div key={i} className="flex-1 h-[3px] bg-white/30 rounded-full overflow-hidden">
               <div
                 className="h-full bg-white rounded-full"
@@ -128,7 +160,7 @@ function PopupCampaign() {
             </span>
           )}
           <button
-            onClick={handleClose}
+            onClick={handleCloseCampaign}
             className="bg-black/50 hover:bg-black/70 text-white rounded-full p-1.5 transition-colors"
             aria-label="Close"
           >
@@ -193,7 +225,7 @@ function PopupCampaign() {
               </button>
             )}
             <button
-              onClick={(e) => { e.stopPropagation(); handleClose(); }}
+                onClick={(e) => { e.stopPropagation(); handleDismissCurrent(); }}
               className="min-w-[120px] border border-slate-200 text-slate-600 hover:bg-slate-50 font-medium py-2.5 px-5 rounded-xl text-sm transition-colors"
             >
               Dismiss
@@ -221,6 +253,7 @@ function DashboardAd({ placement }) {
   }, [placement]);
 
   if (!ad) return null;
+  const targetUrl = normalizeTargetUrl(ad.target_url);
 
   function handleClick() {
     blogAPI.trackAdClick(ad.id, '/dashboard').catch(() => {});
@@ -228,7 +261,13 @@ function DashboardAd({ placement }) {
 
   if (placement === 'banner') {
     return (
-      <a href={ad.target_url} target="_blank" rel="noopener noreferrer" onClick={handleClick}
+      <a href={targetUrl || '#'} target="_blank" rel="noopener noreferrer" onClick={(e) => {
+        if (!targetUrl) {
+          e.preventDefault();
+          return;
+        }
+        handleClick();
+      }}
         className="block w-full rounded-2xl overflow-hidden border border-slate-200 hover:border-forest-900/30 transition-colors">
         {ad.image_url
           ? <img src={ad.image_url} alt={ad.title} className="w-full h-20 object-cover" />
@@ -245,7 +284,13 @@ function DashboardAd({ placement }) {
 
   // sidebar / in-feed card
   return (
-    <a href={ad.target_url} target="_blank" rel="noopener noreferrer" onClick={handleClick}
+    <a href={targetUrl || '#'} target="_blank" rel="noopener noreferrer" onClick={(e) => {
+      if (!targetUrl) {
+        e.preventDefault();
+        return;
+      }
+      handleClick();
+    }}
       className="block rounded-2xl border border-slate-200 hover:border-forest-900/30 transition-colors overflow-hidden">
       {ad.image_url && <img src={ad.image_url} alt={ad.title} className="w-full h-32 object-cover" />}
       <div className="p-4 bg-white">

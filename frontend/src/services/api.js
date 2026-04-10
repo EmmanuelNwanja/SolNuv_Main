@@ -345,6 +345,7 @@ export const blogAPI = {
   adminCreateAd: (data) => api.post('/blog/admin/ads', data),
   adminUpdateAd: (id, data) => api.patch(`/blog/admin/ads/${id}`, data),
   adminDeleteAd: (id) => api.delete(`/blog/admin/ads/${id}`),
+  adminListAdsAnalytics: (params) => api.get('/blog/admin/ads/analytics', { params }),
   adminGetAdAnalytics: (id) => api.get(`/blog/admin/ads/${id}/analytics`),
   // Admin campaigns
   adminListCampaigns: () => api.get('/blog/admin/campaigns'),
