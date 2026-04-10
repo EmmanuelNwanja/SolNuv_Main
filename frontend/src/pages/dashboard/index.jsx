@@ -101,8 +101,8 @@ function PopupCampaign() {
       onClick={handleClose}
     >
       <div
-        className="relative bg-white rounded-3xl shadow-2xl w-full max-w-[72vw] sm:max-w-xs mx-auto overflow-hidden flex flex-col"
-        style={{ maxHeight: '60vh' }}
+        className="relative bg-white rounded-3xl shadow-2xl w-full max-w-[72vw] sm:max-w-xs mx-auto flex flex-col"
+        style={{ maxHeight: '90dvh', overflowY: 'auto' }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Story-style progress bars */}
@@ -154,13 +154,13 @@ function PopupCampaign() {
 
         {/* 4:5 portrait image */}
         {ad.image_url ? (
-          <div className="w-full flex-shrink-0" style={{ aspectRatio: '4/5', maxHeight: '38vh' }}>
+          <div className="w-full flex-shrink-0" style={{ aspectRatio: '4/5', maxHeight: '50vh' }}>
             <img src={ad.image_url} alt={ad.title} className="w-full h-full object-cover" />
           </div>
         ) : (
           <div
             className="w-full flex-shrink-0 bg-gradient-to-br from-forest-900 to-emerald-700 flex items-center justify-center"
-            style={{ aspectRatio: '4/5', maxHeight: '38vh' }}
+            style={{ aspectRatio: '4/5', maxHeight: '50vh' }}
           >
             <span className="text-white/40 text-sm uppercase tracking-widest text-xs">Sponsored</span>
           </div>
