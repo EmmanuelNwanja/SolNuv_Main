@@ -4,6 +4,7 @@ const router = express.Router();
 const multer = require('multer');
 const paymentController = require('../controllers/paymentController');
 const { requireAuth, requireProfile } = require('../middlewares/authMiddleware');
+const { cachePolicies } = require('../middlewares/cacheControlMiddleware');
 
 const receiptUpload = multer({
   storage: multer.memoryStorage(),
@@ -15,7 +16,7 @@ const receiptUpload = multer({
 });
 
 // Public
-router.get('/plans', paymentController.getPlans);
+router.get('/plans', cachePolicies.short, paymentController.getPlans);
 router.post('/webhook', paymentController.handleWebhook);
 
 // Authenticated

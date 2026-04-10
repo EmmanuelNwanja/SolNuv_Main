@@ -5,6 +5,7 @@ const calculatorController = require('../controllers/calculatorController');
 const { optionalAuth, requireAuth } = require('../middlewares/authMiddleware');
 const { trackCalculatorUsage, getCalculatorUsage } = require('../middlewares/usageMiddleware');
 const { requireVerified } = require('../middlewares/verificationMiddleware');
+const { cachePolicies } = require('../middlewares/cacheControlMiddleware');
 
 // Usage summary endpoint (requires auth)
 router.get('/usage', optionalAuth, getCalculatorUsage);
@@ -25,11 +26,11 @@ router.post('/roi/pdf',           optionalAuth, calculatorController.exportRoiPd
 router.post('/cable-size/pdf',    optionalAuth, calculatorController.exportCableCertificatePdf);
 
 // Reference data (always public)
-router.get('/silver-price',  calculatorController.getSilverPrice);
-router.get('/brands',        calculatorController.getBrands);
-router.get('/states',        calculatorController.getStates);
-router.get('/technologies',  calculatorController.getTechnologies);
-router.get('/market-prices', calculatorController.getMarketPrices);
+router.get('/silver-price',  cachePolicies.short, calculatorController.getSilverPrice);
+router.get('/brands',        cachePolicies.medium, calculatorController.getBrands);
+router.get('/states',        cachePolicies.medium, calculatorController.getStates);
+router.get('/technologies',  cachePolicies.medium, calculatorController.getTechnologies);
+router.get('/market-prices', cachePolicies.short, calculatorController.getMarketPrices);
 
 // Custom brand submission — requires authentication
 router.post('/brands/submit', requireAuth, calculatorController.submitBrand);

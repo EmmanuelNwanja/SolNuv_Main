@@ -1,6 +1,7 @@
 // backend/src/routes/index.js
 const express = require('express');
 const router = express.Router();
+const { cachePolicies } = require('../middlewares/cacheControlMiddleware');
 
 router.use('/auth', require('./authRoutes'));
 router.use('/projects', require('./projectRoutes'));
@@ -21,9 +22,9 @@ router.use('/design-reports', require('./designReportRoutes'));
 
 // Public (unauthenticated) endpoints
 const adminController = require('../controllers/adminController');
-router.get('/public/seo', adminController.getPublicSeoSettings);
+router.get('/public/seo', cachePolicies.medium, adminController.getPublicSeoSettings);
 
-router.get('/health', (req, res) => res.json({
+router.get('/health', cachePolicies.noStore, (req, res) => res.json({
   status: 'ok',
   platform: 'SolNuv',
   version: '1.0.0',

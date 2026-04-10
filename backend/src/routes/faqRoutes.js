@@ -4,9 +4,10 @@ const router = express.Router();
 const faqController = require('../controllers/faqController');
 const { requireAuth } = require('../middlewares/authMiddleware');
 const { requireAdmin, requireAdminRole } = require('../middlewares/adminMiddleware');
+const { cachePolicies } = require('../middlewares/cacheControlMiddleware');
 
 // Public — no auth needed
-router.get('/', faqController.listFaqs);
+router.get('/', cachePolicies.medium, faqController.listFaqs);
 
 // Admin CRUD
 router.get('/admin', requireAuth, requireAdmin, requireAdminRole('super_admin', 'operations', 'analytics'), faqController.adminListFaqs);

@@ -2,6 +2,7 @@
   "private": true,
   "scripts": {
     "postinstall": "cd frontend && npm install --legacy-peer-deps",
-    "build": "cd frontend && npm run build"
+    "build": "cd frontend && npm run build",
+    "smoke:headers": "node scripts/smoke-check-headers.mjs"
   }
 }

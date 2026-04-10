@@ -4,15 +4,16 @@ const router = express.Router();
 const blogController = require('../controllers/blogController');
 const { requireAuth } = require('../middlewares/authMiddleware');
 const { requireAdmin, requireAdminRole } = require('../middlewares/adminMiddleware');
+const { cachePolicies } = require('../middlewares/cacheControlMiddleware');
 
 // Public
-router.get('/posts', blogController.listPosts);
-router.get('/posts/:slug', blogController.getPost);
+router.get('/posts', cachePolicies.short, blogController.listPosts);
+router.get('/posts/:slug', cachePolicies.short, blogController.getPost);
 router.post('/posts/:slug/click', blogController.trackLinkClick);
 
 // Public ads
-router.get('/ads', blogController.listAds);
-router.get('/ads/popup', blogController.getPopupAd);
+router.get('/ads', cachePolicies.short, blogController.listAds);
+router.get('/ads/popup', cachePolicies.short, blogController.getPopupAd);
 router.post('/ads/:id/impression', blogController.trackAdImpression);
 router.post('/ads/:id/click', blogController.trackAdClick);
 
@@ -30,7 +31,7 @@ router.delete('/admin/ads/:id', requireAuth, requireAdmin, requireAdminRole('sup
 router.get('/admin/ads/:id/analytics', requireAuth, requireAdmin, requireAdminRole('super_admin', 'operations', 'analytics'), blogController.adminGetAdAnalytics);
 
 // Popup campaigns (public fetch + admin CRUD)
-router.get('/campaigns/popup', blogController.getCampaignPopups);
+router.get('/campaigns/popup', cachePolicies.short, blogController.getCampaignPopups);
 router.get('/admin/campaigns', requireAuth, requireAdmin, requireAdminRole('super_admin', 'operations', 'analytics'), blogController.adminListCampaigns);
 router.post('/admin/campaigns', requireAuth, requireAdmin, requireAdminRole('super_admin', 'operations'), blogController.adminCreateCampaign);
 router.patch('/admin/campaigns/:id', requireAuth, requireAdmin, requireAdminRole('super_admin', 'operations'), blogController.adminUpdateCampaign);
