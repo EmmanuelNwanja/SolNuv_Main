@@ -4,6 +4,9 @@ const nextConfig = {
   compress: true,                    // gzip/brotli at the Next.js layer
   poweredByHeader: false,            // hide X-Powered-By
   productionBrowserSourceMaps: false, // smaller JS bundles in prod
+  env: {
+    NEXT_PUBLIC_APP_VERSION: process.env.VERCEL_GIT_COMMIT_SHA || process.env.GITHUB_SHA || 'local',
+  },
 
   images: {
     formats: ['image/avif', 'image/webp'], // serve AVIF first, WebP fallback
@@ -24,6 +27,13 @@ const nextConfig = {
 
   async headers() {
     return [
+      // ── Service worker should always be fetched fresh so update checks work reliably ──
+      {
+        source: '/sw.js',
+        headers: [
+          { key: 'Cache-Control', value: 'no-store, no-cache, must-revalidate, max-age=0' },
+        ],
+      },
       // ── Static assets (JS/CSS chunks hashed by Next.js — safe to cache forever) ──
       {
         source: '/_next/static/(.*)',
@@ -36,6 +46,20 @@ const nextConfig = {
         source: '/fonts/(.*)',
         headers: [
           { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
+        ],
+      },
+      // ── Next.js route data must revalidate to avoid stale post-deploy payloads ──
+      {
+        source: '/_next/data/(.*)',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=0, must-revalidate' },
+        ],
+      },
+      // ── HTML/navigation responses should revalidate on each visit ──
+      {
+        source: '/((?!_next/static|_next/data|fonts|icons|manifest.json|sw.js|favicon.ico|favicon.svg).*)',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=0, must-revalidate' },
         ],
       },
       // ── All pages — security headers ──

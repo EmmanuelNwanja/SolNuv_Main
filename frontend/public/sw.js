@@ -1,9 +1,16 @@
-const CACHE_NAME = 'solnuv-pwa-v4';
+const SW_VERSION = new URL(self.location.href).searchParams.get('v') || 'local';
+const CACHE_NAME = `solnuv-pwa-${SW_VERSION}`;
 const OFFLINE_URL = '/offline';
 const URLS_TO_CACHE = [
   '/offline',
   '/manifest.json',
 ];
+
+self.addEventListener('message', (event) => {
+  if (event?.data?.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+});
 
 function isCacheableStaticAsset(url) {
   return url.pathname.startsWith('/_next/static/') ||

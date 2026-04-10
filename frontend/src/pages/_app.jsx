@@ -1,7 +1,7 @@
 import { AuthProvider } from '../context/AuthContext';
 import { ThemeProvider } from '../context/ThemeContext';
 import { FloatingThemeToggle } from '../components/ThemeToggle';
-import { Toaster } from 'react-hot-toast';
+import { toast, Toaster } from 'react-hot-toast';
 import ErrorBoundary from '../components/ErrorBoundary';
 import { useEffect } from 'react';
 import { useRouter } from 'next/router';
@@ -38,12 +38,79 @@ function AppShell({ Component, pageProps }) {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    const buildVersion = process.env.NEXT_PUBLIC_APP_VERSION || 'local';
+    const shownVersionKey = 'snuv-update-toast-version';
+    let hasReloadedForUpdate = false;
+
+    function promptForUpdate(registration) {
+      try {
+        if (sessionStorage.getItem(shownVersionKey) === buildVersion) return;
+        sessionStorage.setItem(shownVersionKey, buildVersion);
+      } catch {
+        // Ignore storage failures in private mode and still show prompt.
+      }
+
+      toast((t) => (
+        <div style={{ display: 'grid', gap: '8px' }}>
+          <strong>New version available</strong>
+          <span style={{ fontSize: '13px' }}>Refresh to load the latest fixes and features.</span>
+          <button
+            type="button"
+            onClick={() => {
+              const waiting = registration?.waiting;
+              if (waiting) {
+                waiting.postMessage({ type: 'SKIP_WAITING' });
+              } else {
+                window.location.reload();
+              }
+              toast.dismiss(t.id);
+            }}
+            style={{
+              border: 'none',
+              borderRadius: '10px',
+              padding: '8px 10px',
+              background: '#0f766e',
+              color: '#fff',
+              fontWeight: 700,
+              cursor: 'pointer',
+            }}
+          >
+            Reload now
+          </button>
+        </div>
+      ), { duration: 12000, position: 'bottom-right' });
+    }
+
+    function watchInstallingWorker(worker, registration) {
+      if (!worker) return;
+      worker.addEventListener('statechange', () => {
+        if (worker.state === 'installed' && navigator.serviceWorker.controller) {
+          promptForUpdate(registration);
+        }
+      });
+    }
+
+    function onControllerChange() {
+      if (hasReloadedForUpdate) return;
+      hasReloadedForUpdate = true;
+      window.location.reload();
+    }
 
     // Service worker is production-only. In development, unregister old workers
     // so stale caches never mask code changes or auth/data bugs.
     if ('serviceWorker' in navigator) {
       if (process.env.NODE_ENV === 'production') {
-        navigator.serviceWorker.register('/sw.js').then((registration) => {
+        navigator.serviceWorker.addEventListener('controllerchange', onControllerChange);
+        navigator.serviceWorker.register(`/sw.js?v=${encodeURIComponent(buildVersion)}`).then((registration) => {
+          if (registration.waiting) {
+            promptForUpdate(registration);
+          }
+
+          registration.addEventListener('updatefound', () => {
+            watchInstallingWorker(registration.installing, registration);
+          });
+
+          watchInstallingWorker(registration.installing, registration);
           registration.update().catch(() => {});
         }).catch(() => {});
       } else {
@@ -66,7 +133,12 @@ function AppShell({ Component, pageProps }) {
     }
 
     window.addEventListener('solnuv:unauthorized', handleUnauthorized);
-    return () => window.removeEventListener('solnuv:unauthorized', handleUnauthorized);
+    return () => {
+      window.removeEventListener('solnuv:unauthorized', handleUnauthorized);
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.removeEventListener('controllerchange', onControllerChange);
+      }
+    };
   }, [router]);
 
   const getLayout = Component.getLayout || ((page) => page);
