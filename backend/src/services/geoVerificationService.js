@@ -91,6 +91,65 @@ function buildNominatimReverseUrl(params) {
   return `${NOMINATIM_BASE}/reverse?${query}`;
 }
 
+function normalizeLocationText(value) {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/local\s+government\s+area|lga/g, '')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function locationNameMatches(projectValue, candidates = []) {
+  const left = normalizeLocationText(projectValue);
+  if (!left) return false;
+
+  const leftTokens = new Set(left.split(' ').filter(t => t.length > 2));
+  for (const rawCandidate of candidates) {
+    const right = normalizeLocationText(rawCandidate);
+    if (!right) continue;
+
+    if (left === right || left.includes(right) || right.includes(left)) return true;
+
+    const rightTokens = new Set(right.split(' ').filter(t => t.length > 2));
+    if (!leftTokens.size || !rightTokens.size) continue;
+    let overlap = 0;
+    for (const token of leftTokens) {
+      if (rightTokens.has(token)) overlap += 1;
+    }
+    const minSize = Math.min(leftTokens.size, rightTokens.size);
+    if (minSize > 0 && (overlap / minSize) >= 0.6) return true;
+  }
+
+  return false;
+}
+
+function extractReverseAddressCandidates(address = {}) {
+  return {
+    states: [address.state, address.region, address.state_district].filter(Boolean),
+    cities: [
+      address.city,
+      address.town,
+      address.village,
+      address.county,
+      address.municipality,
+      address.city_district,
+      address.suburb,
+      address.neighbourhood,
+      address.hamlet,
+    ].filter(Boolean),
+    localHints: [
+      address.road,
+      address.neighbourhood,
+      address.suburb,
+      address.city_district,
+      address.quarter,
+      address.residential,
+      address.hamlet,
+    ].filter(Boolean),
+  };
+}
+
 /**
  * Forward geocode an address string → { lat, lon, displayName }
  * Uses Nominatim (OpenStreetMap) — free, no API key.
@@ -193,10 +252,9 @@ async function verifyCoordinatesAgainstAddress(actualLat, actualLon, projectAddr
     let stateMatch = false;
     let cityMatch  = false;
     if (reversed?.address) {
-      const revState = (reversed.address.state || reversed.address.region || '').toLowerCase();
-      const revCity  = (reversed.address.city || reversed.address.town || reversed.address.village || '').toLowerCase();
-      stateMatch = !!state && revState.includes(state.toLowerCase());
-      cityMatch  = !!city  && revCity.includes(city.toLowerCase());
+      const reverseCandidates = extractReverseAddressCandidates(reversed.address);
+      stateMatch = locationNameMatches(state, reverseCandidates.states);
+      cityMatch  = locationNameMatches(city, reverseCandidates.cities);
       if (stateMatch && cityMatch && conf < 70) conf = 70;
       if (stateMatch && !cityMatch && conf < 50) conf = 50;
     }
@@ -226,10 +284,9 @@ async function verifyCoordinatesAgainstAddress(actualLat, actualLon, projectAddr
   let cityMatch  = false;
 
   if (reversed?.address) {
-    const revState = (reversed.address.state || reversed.address.region || '').toLowerCase();
-    const revCity  = (reversed.address.city || reversed.address.town || reversed.address.village || '').toLowerCase();
-    stateMatch = !!state && revState.includes(state.toLowerCase());
-    cityMatch  = !!city  && revCity.includes(city.toLowerCase());
+    const reverseCandidates = extractReverseAddressCandidates(reversed.address);
+    stateMatch = locationNameMatches(state, reverseCandidates.states);
+    cityMatch  = locationNameMatches(city, reverseCandidates.cities);
     // Boost for name match — stays below auto-verify for manual entries intentionally
     if (stateMatch && cityMatch && confidence < 70) confidence = 70;
     if (stateMatch && !cityMatch && confidence < 50) confidence = 50;
@@ -276,17 +333,18 @@ async function verifyDeviceGPS(deviceLat, deviceLon, projectAddress, accuracyM) 
   const reversed = await reverseGeocode(deviceLat, deviceLon);
   let stateMatch = false;
   let cityMatch  = false;
+  let addressHintMatch = false;
 
   if (reversed?.address) {
-    const revState = (reversed.address.state || reversed.address.region || '').toLowerCase();
-    const revCity  = (
-      reversed.address.city    ||
-      reversed.address.town    ||
-      reversed.address.county  ||
-      reversed.address.village || ''
-    ).toLowerCase();
-    stateMatch = !!state && revState.includes(state.toLowerCase());
-    cityMatch  = !!city  && revCity.includes(city.toLowerCase());
+    const reverseCandidates = extractReverseAddressCandidates(reversed.address);
+    stateMatch = locationNameMatches(state, reverseCandidates.states);
+    cityMatch  = locationNameMatches(city, reverseCandidates.cities);
+
+    const projectAddressText = normalizeLocationText(address);
+    addressHintMatch = reverseCandidates.localHints.some((hint) => {
+      const normalizedHint = normalizeLocationText(hint);
+      return normalizedHint.length >= 4 && projectAddressText.includes(normalizedHint);
+    });
   }
 
   // ── Step 2: Forward-geocode project address → distance (secondary signal) ──
@@ -320,13 +378,20 @@ async function verifyDeviceGPS(deviceLat, deviceLon, projectAddress, accuracyM) 
     verified = true;
 
   } else if (stateMatch && !cityMatch) {
-    // Correct state, different city — could be Nominatim boundary misclassification
-    if (effectiveDistM !== null && effectiveDistM < 2_000) {
-      confidence = 78;   // below 85 — visible result but admin can override
+    // Correct state but city ambiguous — attempt a locality hint and distance blend.
+    if (addressHintMatch) {
+      confidence = 86;
+      verified = true;
+    } else if (effectiveDistM !== null && effectiveDistM < 3_000) {
+      confidence = 86;
+      verified = true;
+    } else if (effectiveDistM !== null && effectiveDistM < 10_000) {
+      confidence = 72;
+      verified = false;
     } else {
-      confidence = 40;
+      confidence = 55;
+      verified = false;
     }
-    verified = false;
 
   } else {
     // No reverse-geocode name match — fall back to raw distance only
@@ -352,6 +417,7 @@ async function verifyDeviceGPS(deviceLat, deviceLon, projectAddress, accuracyM) 
       reverse_display:       reversed?.displayName || null,
       state_match:           stateMatch,
       city_match:            cityMatch,
+      address_hint_match:    addressHintMatch,
       gps_accuracy_m:        accuracyM || null,
       used_fallback_geocode: usedFallback,
     },
