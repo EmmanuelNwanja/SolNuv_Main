@@ -4,15 +4,21 @@
  * Provides TMY (Typical Meteorological Year) hourly GHI, temperature, and wind data.
  */
 
-const axios = require('axios');
 const supabase = require('../config/database');
 const logger = require('../utils/logger');
+const {
+  createResilientHttpClient,
+  requestWithRetry,
+  isTransientNetworkError,
+  extractNetworkErrorMeta,
+} = require('../utils/httpClient');
 
 const NASA_POWER_BASE = 'https://power.larc.nasa.gov/api/temporal/climatology/point';
 const NASA_POWER_HOURLY = 'https://power.larc.nasa.gov/api/temporal/hourly/point';
 
 const HOURS_PER_YEAR = 8760;
 const CACHE_MAX_AGE_DAYS = 90;
+const solarHttp = createResilientHttpClient({ timeout: 30_000 });
 
 /**
  * Round lat/lon to nearest 0.5° for caching (NASA POWER grid resolution).
@@ -95,16 +101,18 @@ async function getCachedResource(latR, lonR) {
 async function fetchNASAPowerData(lat, lon) {
   try {
     // Fetch monthly climatology (long-term averages)
-    const response = await axios.get(NASA_POWER_BASE, {
-      params: {
-        parameters: 'ALLSKY_SFC_SW_DWN,T2M,WS2M,ALLSKY_SFC_SW_DWN_HR',
-        community: 'RE',
-        longitude: lon,
-        latitude: lat,
-        format: 'JSON',
-      },
-      timeout: 30000,
-    });
+    const response = await requestWithRetry(
+      () => solarHttp.get(NASA_POWER_BASE, {
+        params: {
+          parameters: 'ALLSKY_SFC_SW_DWN,T2M,WS2M,ALLSKY_SFC_SW_DWN_HR',
+          community: 'RE',
+          longitude: lon,
+          latitude: lat,
+          format: 'JSON',
+        },
+      }),
+      { retries: 2, shouldRetry: isTransientNetworkError }
+    );
 
     const params = response.data?.properties?.parameter;
     if (!params) throw new Error('No data returned from NASA POWER');
@@ -124,7 +132,12 @@ async function fetchNASAPowerData(lat, lon) {
 
     return { hourlyGhi, hourlyTemp, hourlyWind, annualGhiKwhM2 };
   } catch (err) {
-    logger.error('NASA POWER fetch failed, using fallback', { lat, lon, message: err.message });
+    logger.error('NASA POWER fetch failed, using fallback', {
+      lat,
+      lon,
+      message: err.message,
+      ...extractNetworkErrorMeta(err),
+    });
     return generateFallbackSolarData(lat);
   }
 }

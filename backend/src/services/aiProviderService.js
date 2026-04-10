@@ -7,9 +7,14 @@
 
 'use strict';
 
-const axios    = require('axios');
 const supabase = require('../config/database');
 const logger   = require('../utils/logger');
+const {
+  createResilientHttpClient,
+  requestWithRetry,
+  isTransientNetworkError,
+  extractNetworkErrorMeta,
+} = require('../utils/httpClient');
 
 // ─── DAILY BUDGET LIMITS PER TIER ────────────────────────────────────────────
 // Adjustable via platform_settings table (key: 'ai_token_budgets')
@@ -23,6 +28,7 @@ const DEFAULT_TIER_BUDGETS = {
 let _providerCache = null;
 let _providerCacheTs = 0;
 const CACHE_TTL_MS = 5 * 60 * 1000;
+const llmHttp = createResilientHttpClient({ timeout: 30_000 });
 
 // ─── PROVIDER CONFIG LOADER ──────────────────────────────────────────────────
 
@@ -141,10 +147,12 @@ async function callGemini(provider, messages, options = {}) {
 
   const url = `${provider.base_url}/models/${provider.model_id}:generateContent?key=${apiKey}`;
   const start = Date.now();
-  const response = await axios.post(url, body, {
-    timeout: 30_000,
-    headers: { 'Content-Type': 'application/json' },
-  });
+  const response = await requestWithRetry(
+    () => llmHttp.post(url, body, {
+      headers: { 'Content-Type': 'application/json' },
+    }),
+    { retries: 2, shouldRetry: isTransientNetworkError }
+  );
   const latency = Date.now() - start;
 
   const candidate = response.data.candidates?.[0];
@@ -181,13 +189,15 @@ async function callGroq(provider, messages, options = {}) {
 
   const url = `${provider.base_url}/chat/completions`;
   const start = Date.now();
-  const response = await axios.post(url, body, {
-    timeout: 30_000,
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`,
-    },
-  });
+  const response = await requestWithRetry(
+    () => llmHttp.post(url, body, {
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
+    }),
+    { retries: 2, shouldRetry: isTransientNetworkError }
+  );
   const latency = Date.now() - start;
 
   const choice = response.data.choices?.[0];
@@ -293,6 +303,7 @@ async function complete({
       logger.error(`AI provider ${provider.slug} error`, {
         status,
         message: err.message,
+        ...extractNetworkErrorMeta(err),
       });
       continue;
     }

@@ -6,9 +6,39 @@
 
 /* global fetch */
 const logger = require('../utils/logger');
+const { extractNetworkErrorMeta } = require('../utils/httpClient');
 
 const NOMINATIM_BASE = 'https://nominatim.openstreetmap.org';
 const USER_AGENT = 'SolNuv/1.0 (https://solnuv.com)';
+const NOMINATIM_TIMEOUT_MS = 10_000;
+const AbortControllerRef = globalThis.AbortController;
+
+async function fetchWithTimeout(url, options = {}, timeoutMs = NOMINATIM_TIMEOUT_MS) {
+  if (!AbortControllerRef) {
+    logger.warn('AbortController unavailable; using plain fetch for Nominatim');
+    return fetch(url, options);
+  }
+
+  const controller = new AbortControllerRef();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    return await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    });
+  } catch (err) {
+    logger.warn('Nominatim fetch failed', {
+      url,
+      timeoutMs,
+      message: err.message,
+      ...extractNetworkErrorMeta(err),
+    });
+    return null;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
 
 /**
  * Haversine distance between two {lat, lon} points in meters.
@@ -72,9 +102,10 @@ async function forwardGeocode(address) {
     limit: '1',
     addressdetails: '1',
   });
-  const res = await fetch(url, {
+  const res = await fetchWithTimeout(url, {
     headers: { 'User-Agent': USER_AGENT },
   });
+  if (!res) return null;
   if (!res.ok) {
     logger.warn('Nominatim forward geocode failed', { status: res.status });
     return null;
@@ -101,9 +132,10 @@ async function reverseGeocode(lat, lon) {
     addressdetails: '1',
     zoom: '18',
   });
-  const res = await fetch(url, {
+  const res = await fetchWithTimeout(url, {
     headers: { 'User-Agent': USER_AGENT },
   });
+  if (!res) return null;
   if (!res.ok) {
     logger.warn('Nominatim reverse geocode failed', { status: res.status });
     return null;

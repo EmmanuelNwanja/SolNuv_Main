@@ -1,35 +1,68 @@
 'use strict';
 
 const cron     = require('node-cron');
-const axios    = require('axios');
 const supabase = require('../config/database');
 const logger   = require('../utils/logger');
+const {
+  createResilientHttpClient,
+  requestWithRetry,
+  isTransientNetworkError,
+  extractNetworkErrorMeta,
+} = require('../utils/httpClient');
 const { sendDecommissionAlert } = require('./emailService');
 const { runInternalAgent, checkExpiredSubscriptions, seedAgentDefinitions } = require('./aiAgentService');
+
+const keepAliveHttp = createResilientHttpClient({ timeout: 30_000 });
 
 // ─── KEEP-ALIVE ──────────────────────────────────────────────────────────────
 // Render free-tier web services sleep after 15 minutes of inactivity.
 // This self-ping fires every 8 minutes so the process is never idle,
 // even when zero users are on the platform.
 function startKeepAlive() {
-  const selfUrl = (process.env.RENDER_EXTERNAL_URL || '').replace(/\/$/, '');
-  if (!selfUrl) {
-    logger.warn('Keep-alive: RENDER_EXTERNAL_URL not set — skipping (local dev mode)');
+  const mode = String(process.env.KEEP_ALIVE_MODE || 'auto').toLowerCase();
+  const isProduction = process.env.NODE_ENV === 'production';
+  if (mode === 'off' || (isProduction && mode === 'auto')) {
+    logger.info('Keep-alive disabled (production auto mode)');
     return;
   }
 
-  const pingUrl = `${selfUrl}/api/health`;
+  let baseUrl = '';
+  if (mode === 'local') {
+    const port = process.env.PORT || 5000;
+    baseUrl = `http://127.0.0.1:${port}`;
+  } else {
+    baseUrl = (process.env.RENDER_EXTERNAL_URL || '').replace(/\/$/, '');
+  }
+
+  if (!baseUrl) {
+    logger.warn('Keep-alive not configured. Set KEEP_ALIVE_MODE=local|external|off');
+    return;
+  }
+
+  const pingUrl = `${baseUrl}/api/health`;
+  let lastWarnTs = 0;
 
   setInterval(async () => {
     try {
-      await axios.get(pingUrl, { timeout: 30_000 });
+      await requestWithRetry(
+        () => keepAliveHttp.get(pingUrl),
+        { retries: 2, shouldRetry: isTransientNetworkError }
+      );
       logger.info(`Keep-alive ✓ ${pingUrl}`);
     } catch (err) {
-      logger.warn(`Keep-alive ping failed: ${err.message}`);
+      const now = Date.now();
+      if (now - lastWarnTs > 60_000) {
+        lastWarnTs = now;
+        logger.warn('Keep-alive ping failed', {
+          pingUrl,
+          message: err.message,
+          ...extractNetworkErrorMeta(err),
+        });
+      }
     }
   }, 8 * 60 * 1000); // every 8 minutes
 
-  logger.info(`⏱  Keep-alive active → ${pingUrl} (every 10 min)`);
+  logger.info(`Keep-alive active -> ${pingUrl} (every 8 min, mode=${mode})`);
 }
 
 // ─── LEADERBOARD REFRESH ─────────────────────────────────────────────────────
