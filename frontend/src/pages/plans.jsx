@@ -318,16 +318,18 @@ export default function Plans() {
                   </button>
 
                   <button
-                    onClick={() => { setPaymentMethod('paystack'); handlePaystackUpgrade(); }}
-                    disabled={!!upgrading}
-                    className="w-full flex items-start gap-4 border-2 border-slate-200 hover:border-forest-900 rounded-xl p-4 text-left transition-all group disabled:opacity-60"
+                    onClick={() => router.push('/payment-coming-soon')}
+                    className="w-full flex items-start gap-4 border-2 border-slate-200 hover:border-slate-300 rounded-xl p-4 text-left transition-all group opacity-75 cursor-pointer"
                   >
-                    <span className="mt-0.5 w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0 group-hover:bg-blue-100">
-                      <RiBankCardLine className="text-blue-600" size={20} />
+                    <span className="mt-0.5 w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
+                      <RiBankCardLine className="text-blue-400" size={20} />
                     </span>
                     <div>
-                      <span className="font-semibold text-slate-800">Paystack</span>
-                      <p className="text-xs text-slate-500 mt-0.5">Pay by card, bank transfer, or USSD via Paystack. Instant activation.</p>
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-slate-600">Paystack</span>
+                        <span className="text-xs bg-slate-100 text-slate-500 font-semibold px-2 py-0.5 rounded-full">Coming Soon</span>
+                      </div>
+                      <p className="text-xs text-slate-400 mt-0.5">Online card and USSD payment via Paystack. Currently unavailable — use Direct Bank Transfer.</p>
                     </div>
                   </button>
                 </div>

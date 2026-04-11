@@ -113,8 +113,28 @@ exports.listUsers = async (req, res) => {
 
     if (error) throw error;
 
+    // Attach verification documents to each user (same pattern as listVerificationRequests)
+    const userIds = (data || []).map(u => u.id);
+    let docsByUser = {};
+    if (userIds.length > 0) {
+      const { data: documents } = await supabase
+        .from('verification_documents')
+        .select('user_id, document_type, file_url, original_filename')
+        .in('user_id', userIds);
+
+      (documents || []).forEach(doc => {
+        if (!docsByUser[doc.user_id]) docsByUser[doc.user_id] = [];
+        docsByUser[doc.user_id].push(doc);
+      });
+    }
+
+    const enrichedUsers = (data || []).map(u => ({
+      ...u,
+      verification_documents: docsByUser[u.id] || [],
+    }));
+
     return sendSuccess(res, {
-      users: data || [],
+      users: enrichedUsers,
       total: count || 0,
       page: p,
       limit: l,

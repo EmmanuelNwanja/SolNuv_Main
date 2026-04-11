@@ -368,15 +368,15 @@ export default function VerificationSettings() {
                   <>
                     <li>1. Submit your self-attestation</li>
                     <li>2. Our team reviews your account</li>
-                    <li>3. Receive SMS notification when approved</li>
-                    <li>4. Full access unlocked immediately</li>
+                    <li>3. Receive verification status notification within 24hrs</li>
+                    <li>4. Access unlocked to activate plans and more.</li>
                   </>
                 ) : (
                   <>
                     <li>1. Upload your CAC certificate</li>
                     <li>2. Our team reviews the document</li>
-                    <li>3. Receive SMS notification when approved</li>
-                    <li>4. Full access unlocked upon approval</li>
+                    <li>3. Receive verification status notification within 24hrs</li>
+                    <li>4. Access unlocked to activate plans and more.</li>
                   </>
                 )}
               </ul>

@@ -69,10 +69,10 @@ function startKeepAlive() {
 async function refreshLeaderboard() {
   logger.info('Refreshing leaderboard cache...');
   try {
-    // Step 1: Get all users
+    // Step 1: Get all users (include verification_status for account-verified bonus)
     const { data: users, error: usersError } = await supabase
       .from('users')
-      .select('id, first_name, last_name, brand_name, company_id, companies(name)');
+      .select('id, first_name, last_name, brand_name, company_id, verification_status, companies(name)');
 
     if (usersError || !users) {
       logger.error('Leaderboard: failed to fetch users', usersError);
@@ -95,6 +95,32 @@ async function refreshLeaderboard() {
     if (projError || eqError) {
       logger.error('Leaderboard: failed to fetch projects/equipment');
       return { error: 'Failed to fetch projects' };
+    }
+
+    // Step 2b: Fetch new platform-activity signals (flat queries, keyed by user_id)
+    const { data: designRows } = await supabase
+      .from('project_designs')
+      .select('project_id, design_completed_at')
+      .not('design_completed_at', 'is', null);
+
+    const { data: aiConvRows } = await supabase
+      .from('ai_conversations')
+      .select('user_id')
+      .eq('status', 'completed');
+
+    const { data: savedCalcRows } = await supabase
+      .from('saved_calculations')
+      .select('user_id');
+
+    // Build lookup sets for quick counting inside the user loop
+    const completedDesignsByProject = new Set((designRows || []).map(d => d.project_id));
+    const aiConvByUser = {};
+    for (const row of (aiConvRows || [])) {
+      aiConvByUser[row.user_id] = (aiConvByUser[row.user_id] || 0) + 1;
+    }
+    const savedCalcByUser = {};
+    for (const row of (savedCalcRows || [])) {
+      savedCalcByUser[row.user_id] = (savedCalcByUser[row.user_id] || 0) + 1;
     }
 
     // Step 3: Build equipment map keyed by project_id
@@ -163,19 +189,47 @@ async function refreshLeaderboard() {
 
       const averageRating = totalFeedbacks > 0 ? (ratingSum / totalFeedbacks) : 0;
 
-      // Verification trust score: verified projects = 3pts each, unverified = 1pt each
-      const verifiedCount = userProjects.filter(p => p.geo_verified === true).length;
+      // Geo-verified project trust score
+      const verifiedCount   = userProjects.filter(p => p.geo_verified === true).length;
       const unverifiedCount = userProjects.length - verifiedCount;
-      const verificationTrustScore = (verifiedCount * 3) + (unverifiedCount * 1);
 
+      // Platform-activity signals
+      const userProjectIds     = userProjects.map(p => p.id);
+      const designsCompleted   = userProjectIds.filter(pid => completedDesignsByProject.has(pid)).length;
+      const aiConversations    = aiConvByUser[user.id] || 0;
+      const savedCalcs         = savedCalcByUser[user.id] || 0;
+      const accountIsVerified  = user.verification_status === 'verified';
+      const accountVerifiedBonus = accountIsVerified ? 15 : 0;
+
+      // ── Rebalanced impact formula ────────────────────────────────────────
+      // Lifecycle events (core platform value)
+      //   recycled    × 5  — highest-value outcome: material recovered + CO2 avoided
+      //   decommission × 3 — end-of-life managed correctly
+      //   active       × 2 — evidence of tracked, live deployment
+      // Material / environmental quality signals
+      //   silver       × 0.5  — actual material declared (vs 0.1 before)
+      //   co2          × 0.05 — carbon avoided; up 5× to make it meaningful
+      // Community trust
+      //   averageRating × 5  — reduced from 8 so it can't overwhelm project work
+      // Geo-verification trust
+      //   verifiedProjects × 5, unverified × 1  — stronger verified premium
+      // Platform engagement (new)
+      //   designsCompleted × 3, aiConversations × 1, savedCalcs × 0.5
+      // Account-level trust (new; one-time flat bonus)
+      //   accountVerifiedBonus = 15
       const impactScore =
-        (recycled.length * 3) +
-        (decommission.length * 2) +
-        (active.length * 1) +
-        (totalSilver * 0.1) +
-        (co2AvoidedKg * 0.01) +
-        (averageRating * 8) +
-        verificationTrustScore;
+        (recycled.length    * 5) +
+        (decommission.length * 3) +
+        (active.length       * 2) +
+        (totalSilver         * 0.5) +
+        (co2AvoidedKg        * 0.05) +
+        (averageRating       * 5) +
+        (verifiedCount       * 5) +
+        (unverifiedCount     * 1) +
+        (designsCompleted    * 3) +
+        (aiConversations     * 1) +
+        (savedCalcs          * 0.5) +
+        accountVerifiedBonus;
 
       // Only include users who have at least one project
       if (userProjects.length === 0) continue;
@@ -199,10 +253,14 @@ async function refreshLeaderboard() {
         co2_avoided_kg:        parseFloat(co2AvoidedKg.toFixed(2)),
         average_rating:        parseFloat(averageRating.toFixed(2)),
         total_feedbacks:       totalFeedbacks,
-        impact_score:              parseFloat(impactScore.toFixed(2)),
-        verified_projects_count:   verifiedCount,
-        unverified_projects_count: unverifiedCount,
-        updated_at:                new Date().toISOString(),
+        impact_score:                parseFloat(impactScore.toFixed(2)),
+        verified_projects_count:     verifiedCount,
+        unverified_projects_count:   unverifiedCount,
+        designs_completed_count:     designsCompleted,
+        ai_conversations_count:      aiConversations,
+        saved_calculations_count:    savedCalcs,
+        account_verified:            accountIsVerified,
+        updated_at:                  new Date().toISOString(),
       });
     }
 

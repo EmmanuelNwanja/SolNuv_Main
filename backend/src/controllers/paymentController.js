@@ -342,7 +342,15 @@ async function activateSubscription({
  * Initialize Paystack payment
  */
 exports.initializePayment = async (req, res) => {
-  try {
+  // Paystack payments are temporarily unavailable. All online card/USSD
+  // payment flows are gated at the frontend; this guard prevents any
+  // direct API calls from creating orphaned transactions or accounting errors.
+  return res.status(503).json({
+    success: false,
+    error: 'Paystack payments are not currently available. Please use Direct Bank Transfer or contact support at support@solnuv.com.',
+  });
+
+  try { // eslint-disable-line no-unreachable
     const { plan, billing_interval = 'monthly', promo_code = null, auto_renew = true } = req.body;
 
     if (!PAID_PLAN_IDS.includes(plan)) {
@@ -431,7 +439,14 @@ exports.initializePayment = async (req, res) => {
  * Verify payment after redirect
  */
 exports.verifyPayment = async (req, res) => {
-  try {
+  // Paystack payments are temporarily unavailable. Block verification
+  // of any new Paystack references to prevent unintended subscription activation.
+  return res.status(503).json({
+    success: false,
+    error: 'Paystack payment verification is not currently available. Please use Direct Bank Transfer or contact support at support@solnuv.com.',
+  });
+
+  try { // eslint-disable-line no-unreachable
     const { reference } = req.params;
 
     const response = await axios.get(

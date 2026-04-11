@@ -131,6 +131,17 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
   const [usersVerificationAction, setUsersVerificationAction] = useState(null); // { id, action: 'verify' | 'reject' }
   const [usersVerificationRejectReasons, setUsersVerificationRejectReasons] = useState({});
 
+  // Document viewer modal
+  const [docViewerUrl, setDocViewerUrl] = useState(null);
+  const [docViewerType, setDocViewerType] = useState('image'); // 'image' | 'pdf'
+
+  function openDocViewer(url) {
+    const ext = (url || '').split('?')[0].toLowerCase();
+    const isPdf = ext.endsWith('.pdf');
+    setDocViewerType(isPdf ? 'pdf' : 'image');
+    setDocViewerUrl(url);
+  }
+
   useEffect(() => {
     setActiveTab(forcedTab);
   }, [forcedTab]);
@@ -448,12 +459,59 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
     }
   }
 
+  function openDocViewer(url) {
+    const ext = (url || '').split('?')[0].toLowerCase();
+    const isPdf = ext.endsWith('.pdf');
+    setDocViewerType(isPdf ? 'pdf' : 'image');
+    setDocViewerUrl(url);
+  }
+
   if (loading || isPlatformAdmin === null) {
     return <div className="flex justify-center py-12"><LoadingSpinner size="lg" /></div>;
   }
 
   return (
     <AdminRoute>
+      {/* ── Document Viewer Modal ──────────────────────────────────────────────── */}
+      {docViewerUrl && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4" onClick={() => setDocViewerUrl(null)}>
+          <div className="relative bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200">
+              <p className="text-sm font-semibold text-slate-700">Document Preview</p>
+              <button
+                onClick={() => setDocViewerUrl(null)}
+                className="text-slate-400 hover:text-slate-700 text-xl leading-none px-1"
+                aria-label="Close preview"
+              >
+                ×
+              </button>
+            </div>
+            <div className="overflow-auto" style={{ maxHeight: 'calc(90vh - 52px)' }}>
+              {docViewerType === 'pdf' ? (
+                <iframe
+                  src={docViewerUrl}
+                  title="Document Preview"
+                  className="w-full"
+                  style={{ height: '75vh', border: 'none' }}
+                />
+              ) : (
+                <img
+                  src={docViewerUrl}
+                  alt="Document Preview"
+                  className="w-full object-contain"
+                  style={{ maxHeight: '75vh' }}
+                />
+              )}
+            </div>
+            <div className="px-4 py-2 border-t border-slate-100 flex justify-end">
+              <a href={docViewerUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 hover:underline">
+                Open in new tab ↗
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
+
       <Head><title>{activeMeta.title}</title></Head>
 
       <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-slate-800 to-emerald-900 p-6 sm:p-8 text-white mb-6">
@@ -952,6 +1010,34 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
                         )}
                       </div>
 
+                      {/* Verification Documents */}
+                      <div className="border-t border-slate-100 pt-4">
+                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Verification Documents</p>
+                        {u.verification_documents?.length > 0 ? (
+                          <div className="space-y-2">
+                            {u.verification_documents.map((doc, idx) => (
+                              <div key={doc.id || idx} className="flex items-center gap-3 bg-blue-50 rounded-lg px-3 py-2">
+                                <span className="text-xs text-blue-700 font-medium">
+                                  {doc.document_type === 'cac_certificate' ? 'CAC Certificate' : (doc.document_type || 'Document')}
+                                </span>
+                                {doc.file_url ? (
+                                  <button
+                                    onClick={() => openDocViewer(doc.file_url)}
+                                    className="text-xs text-blue-600 underline hover:text-blue-900 ml-auto"
+                                  >
+                                    View
+                                  </button>
+                                ) : (
+                                  <span className="text-xs text-slate-500 ml-auto italic">Self-attestation</span>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-sm text-slate-400 italic">No documents submitted</p>
+                        )}
+                      </div>
+
                       {/* Delete account */}
                       <div className="border-t border-red-100 pt-4">
                         <p className="text-xs font-semibold text-red-500 uppercase tracking-wide mb-3">Delete Account</p>
@@ -1070,14 +1156,12 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
                     <div key={doc.id || idx} className="bg-blue-50 rounded-lg p-3 mb-4">
                       <p className="text-xs font-medium text-blue-700 mb-1">Document:</p>
                       {doc.file_url ? (
-                        <a 
-                          href={doc.file_url} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className="text-sm text-blue-700 underline"
+                        <button
+                          onClick={() => openDocViewer(doc.file_url)}
+                          className="text-sm text-blue-700 underline hover:text-blue-900"
                         >
                           View {doc.document_type === 'cac_certificate' ? 'CAC Certificate' : 'Document'}
-                        </a>
+                        </button>
                       ) : (
                         <p className="text-sm text-blue-700">Self-attestation (no document)</p>
                       )}

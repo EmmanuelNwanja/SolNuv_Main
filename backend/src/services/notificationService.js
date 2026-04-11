@@ -1,5 +1,6 @@
 const { sendSms } = require('./termiiService');
 const logger = require('../utils/logger');
+const supabase = require('../config/database');
 
 async function sendWelcomeNotification(user) {
   const phone = user?.phone;
@@ -76,19 +77,43 @@ async function notifyAdminsOfVerificationRequest(user, type) {
 }
 
 async function notifyUserOfVerificationStatus(user, status, reason = null) {
+  if (status !== 'verified' && status !== 'rejected') return { success: true };
+
+  // ── In-platform notification ────────────────────────────────────────────
+  let notifTitle, notifMessage;
+  if (status === 'verified') {
+    notifTitle   = 'Account Verified';
+    notifMessage = 'Your account has been verified. You now have full access to activate plans and more.';
+  } else {
+    notifTitle   = 'Verification Update';
+    notifMessage = `Your verification was not approved. Reason: ${reason || 'Please contact support'}. You can re-request verification from your settings.`;
+  }
+
+  supabase
+    .from('notifications')
+    .insert({
+      user_id: user.id,
+      type:    'account_activity',
+      title:   notifTitle,
+      message: notifMessage,
+      data:    { status, ...(reason ? { rejection_reason: reason } : {}) },
+    })
+    .then(({ error }) => {
+      if (error) logger.warn('Failed to insert verification notification', { user_id: user?.id, error: error.message });
+    });
+
+  // ── SMS fallback (non-blocking) ─────────────────────────────────────────
   const phone = user?.phone;
   if (!phone) return { success: false, reason: 'User phone missing' };
 
-  let message;
+  let smsMessage;
   if (status === 'verified') {
-    message = `SolNuv: Your account has been verified! You now have full access to all platform tools. Welcome aboard!`;
-  } else if (status === 'rejected') {
-    message = `SolNuv: Your verification was rejected. Reason: ${reason || 'Please contact support'}. You can re-request verification from your settings.`;
+    smsMessage = `SolNuv: Your account has been verified! You now have full access to all platform tools. Welcome aboard!`;
   } else {
-    return { success: true };
+    smsMessage = `SolNuv: Your verification was rejected. Reason: ${reason || 'Please contact support'}. You can re-request verification from your settings.`;
   }
 
-  return sendSms({ to: phone, message, channel: 'generic' });
+  return sendSms({ to: phone, message: smsMessage, channel: 'generic' });
 }
 
 module.exports = {
