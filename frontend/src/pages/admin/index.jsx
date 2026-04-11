@@ -434,9 +434,9 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
     }
 
     if (source === 'users') {
-      setUsersVerificationAction({ id: userId, action: 'reject' });
+      setUsersVerificationAction({ id: userId, action: 'rejecting' });
     } else {
-      setVerificationAction({ id: userId, action: 'reject' });
+      setVerificationAction({ id: userId, action: 'rejecting' });
     }
 
     try {
@@ -662,7 +662,7 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
               const isVerified = u.verification_status === 'verified';
               const isPendingVerification = u.verification_status === 'pending' || u.verification_status === 'pending_admin_review';
               const canModerateVerification = platformAdminRole === 'super_admin' || platformAdminRole === 'operations';
-              const isUsersVerificationActionBusy = usersVerificationAction?.id === u.id;
+              const isUsersVerificationActionBusy = usersVerificationAction?.id === u.id && (usersVerificationAction?.action === 'verify' || usersVerificationAction?.action === 'rejecting');
               return (
                 <div key={u.id} className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
                   {/* User row */}
@@ -748,7 +748,7 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
                     </div>
                   </div>
 
-                  {canModerateVerification && isPendingVerification && usersVerificationAction?.id === u.id && usersVerificationAction.action === 'reject' && (
+                  {canModerateVerification && isPendingVerification && usersVerificationAction?.id === u.id && (usersVerificationAction.action === 'reject' || usersVerificationAction.action === 'rejecting') && (
                     <div className="px-4 pb-4 border-t border-slate-100 bg-white">
                       <label className="label text-xs">Rejection Reason *</label>
                       <textarea
@@ -756,21 +756,22 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
                         placeholder="Explain why the verification was rejected..."
                         value={usersVerificationRejectReasons[u.id] || ''}
                         onChange={(e) => setUsersVerificationRejectReasons((prev) => ({ ...prev, [u.id]: e.target.value }))}
+                        disabled={usersVerificationAction?.id === u.id && usersVerificationAction?.action === 'rejecting'}
                       />
                       <div className="mt-2 flex items-center gap-2">
                         <button
                           onClick={() => handleRejectVerification(u.id, { source: 'users', reason: usersVerificationRejectReasons[u.id] || '' })}
-                          disabled={isUsersVerificationActionBusy || !(usersVerificationRejectReasons[u.id] || '').trim()}
+                          disabled={(usersVerificationAction?.id === u.id && usersVerificationAction?.action === 'rejecting') || !(usersVerificationRejectReasons[u.id] || '').trim()}
                           className="text-xs sm:text-sm px-3 py-2 rounded-xl font-semibold bg-red-600 text-white hover:bg-red-700 disabled:opacity-60"
                         >
-                          {isUsersVerificationActionBusy ? 'Rejecting...' : 'Confirm Reject'}
+                          {usersVerificationAction?.id === u.id && usersVerificationAction?.action === 'rejecting' ? 'Rejecting...' : 'Confirm Reject'}
                         </button>
                         <button
                           onClick={() => {
                             setUsersVerificationAction(null);
                             setUsersVerificationRejectReasons((prev) => ({ ...prev, [u.id]: '' }));
                           }}
-                          disabled={isUsersVerificationActionBusy}
+                          disabled={usersVerificationAction?.id === u.id && usersVerificationAction?.action === 'rejecting'}
                           className="text-xs sm:text-sm px-3 py-2 rounded-xl font-semibold border border-slate-300 text-slate-700 hover:bg-slate-50"
                         >
                           Cancel
@@ -1115,7 +1116,7 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
           ) : (
             <div className="space-y-4">
               {verificationRequests.map((request) => {
-                const isVerificationActionBusy = verificationAction?.id === request.id;
+                const isVerificationActionBusy = verificationAction?.id === request.id && (verificationAction?.action === 'verify' || verificationAction?.action === 'rejecting');
                 return (
                 <div key={request.id} className="card">
                   <div className="flex items-start justify-between mb-4">
@@ -1192,7 +1193,7 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
                     </button>
                   </div>
 
-                  {isVerificationActionBusy && verificationAction.action === 'reject' && (
+                  {verificationAction?.id === request.id && (verificationAction?.action === 'reject' || verificationAction?.action === 'rejecting') && (
                     <div className="mt-4 pt-4 border-t border-slate-200">
                       <label className="label">Rejection Reason *</label>
                       <textarea
@@ -1201,22 +1202,22 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
                         className="input mb-3"
                         placeholder="Explain why the verification was rejected..."
                         rows={3}
-                        disabled={isVerificationActionBusy}
+                        disabled={verificationAction?.id === request.id && verificationAction?.action === 'rejecting'}
                       />
                       <div className="flex items-center gap-3">
                         <button
                           onClick={() => handleRejectVerification(request.id)}
-                          disabled={isVerificationActionBusy || !verificationRejectReason.trim()}
+                          disabled={(verificationAction?.id === request.id && verificationAction?.action === 'rejecting') || !verificationRejectReason.trim()}
                           className="btn-primary text-sm bg-red-600 hover:bg-red-700 disabled:opacity-60"
                         >
-                          {isVerificationActionBusy ? 'Rejecting...' : 'Confirm Rejection'}
+                          {verificationAction?.id === request.id && verificationAction?.action === 'rejecting' ? 'Rejecting...' : 'Confirm Rejection'}
                         </button>
                         <button
                           onClick={() => {
                             setVerificationAction(null);
                             setVerificationRejectReason('');
                           }}
-                          disabled={isVerificationActionBusy}
+                          disabled={verificationAction?.id === request.id && verificationAction?.action === 'rejecting'}
                           className="btn-outline text-sm disabled:opacity-60"
                         >
                           Cancel
