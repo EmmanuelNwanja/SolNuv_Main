@@ -1114,7 +1114,9 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
             </div>
           ) : (
             <div className="space-y-4">
-              {verificationRequests.map((request) => (
+              {verificationRequests.map((request) => {
+                const isVerificationActionBusy = verificationAction?.id === request.id;
+                return (
                 <div key={request.id} className="card">
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex items-center gap-3">
@@ -1171,10 +1173,10 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
                   <div className="flex items-center gap-3">
                     <button
                       onClick={() => handleVerifyUser(request.id)}
-                      disabled={verificationAction?.id === request.id}
+                      disabled={isVerificationActionBusy}
                       className="btn-primary text-sm"
                     >
-                      {verificationAction?.id === request.id && verificationAction.action === 'verify' 
+                      {isVerificationActionBusy && verificationAction.action === 'verify' 
                         ? 'Verifying...' 
                         : '✓ Approve'}
                     </button>
@@ -1183,14 +1185,14 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
                         setVerificationAction({ id: request.id, action: 'reject' });
                         setVerificationRejectReason('');
                       }}
-                      disabled={verificationAction?.id === request.id}
+                      disabled={isVerificationActionBusy}
                       className="btn-outline text-sm text-red-600 border-red-300 hover:bg-red-50"
                     >
                       ✕ Reject
                     </button>
                   </div>
 
-                  {verificationAction?.id === request.id && verificationAction.action === 'reject' && (
+                  {isVerificationActionBusy && verificationAction.action === 'reject' && (
                     <div className="mt-4 pt-4 border-t border-slate-200">
                       <label className="label">Rejection Reason *</label>
                       <textarea
@@ -1199,21 +1201,23 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
                         className="input mb-3"
                         placeholder="Explain why the verification was rejected..."
                         rows={3}
+                        disabled={isVerificationActionBusy}
                       />
                       <div className="flex items-center gap-3">
                         <button
                           onClick={() => handleRejectVerification(request.id)}
-                          disabled={!verificationRejectReason.trim() || verificationAction?.id !== request.id}
-                          className="btn-primary text-sm bg-red-600 hover:bg-red-700"
+                          disabled={isVerificationActionBusy || !verificationRejectReason.trim()}
+                          className="btn-primary text-sm bg-red-600 hover:bg-red-700 disabled:opacity-60"
                         >
-                          Confirm Rejection
+                          {isVerificationActionBusy ? 'Rejecting...' : 'Confirm Rejection'}
                         </button>
                         <button
                           onClick={() => {
                             setVerificationAction(null);
                             setVerificationRejectReason('');
                           }}
-                          className="btn-outline text-sm"
+                          disabled={isVerificationActionBusy}
+                          className="btn-outline text-sm disabled:opacity-60"
                         >
                           Cancel
                         </button>
@@ -1221,7 +1225,8 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
                     </div>
                   )}
                 </div>
-              ))}
+              );
+              })}
             </div>
           )}
         </div>
