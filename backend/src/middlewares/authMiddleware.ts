@@ -20,6 +20,16 @@ const supabasePublic = createClient(
   process.env.SUPABASE_ANON_KEY
 );
 
+async function attachCompanyFallback(userRow) {
+  if (!userRow || userRow.companies || !userRow.company_id) return userRow;
+  const { data: company } = await supabase
+    .from('companies')
+    .select('*')
+    .eq('id', userRow.company_id)
+    .maybeSingle();
+  return { ...userRow, companies: company || null };
+}
+
 /**
  * Require authenticated user
  */
@@ -64,7 +74,7 @@ async function requireAuth(req, res, next) {
         .single();
 
       if (!plainError && plainUser) {
-        dbUser = plainUser;
+        dbUser = await attachCompanyFallback(plainUser);
       }
     } else {
       dbUser = dbUserWithCompany;
@@ -139,7 +149,7 @@ async function requireAuth(req, res, next) {
           .eq('id', legacyUser.id)
           .single();
         
-        dbUser = updatedUser || { ...legacyUser, supabase_uid: user.id };
+        dbUser = updatedUser || await attachCompanyFallback({ ...legacyUser, supabase_uid: user.id });
       }
     }
 
@@ -241,8 +251,9 @@ async function optionalAuth(req, res, next) {
           .select('*')
           .eq('supabase_uid', user.id)
           .single();
-        req.user = plainUser;
-        req.company = null;
+        const hydratedUser = await attachCompanyFallback(plainUser);
+        req.user = hydratedUser;
+        req.company = hydratedUser?.companies || null;
       }
     }
   } catch (err) {

@@ -108,9 +108,9 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       )}
 
       <aside
-        className={`fixed top-0 left-0 h-full w-72 bg-slate-900 border-r border-slate-800 z-40 transform transition-transform duration-300 overflow-hidden min-h-0 ${
+        className={`fixed top-0 left-0 h-full w-72 bg-slate-900 border-r border-slate-800 z-40 transform transition-transform duration-300 overflow-hidden min-h-0 flex flex-col ${
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
-        } lg:translate-x-0 lg:static lg:flex lg:flex-col`}
+        } lg:translate-x-0 lg:static`}
       >
         <div className="h-16 px-5 border-b border-slate-800 flex items-center justify-between">
           <Link href="/admin" className="flex items-center gap-2">

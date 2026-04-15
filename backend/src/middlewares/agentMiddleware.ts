@@ -64,8 +64,8 @@ async function validateAgentAccess(req, res, next) {
   }
 
   // Plan check — free tier has no AI access
-  const userPlan = req.user?.companies?.subscription_plan || 'free';
-  if (isSubscriptionHardExpired(req.user?.companies)) {
+  const userPlan = req.user?.companies?.subscription_plan || req.user?.subscription_plan || 'free';
+  if (req.user?.companies && isSubscriptionHardExpired(req.user.companies)) {
     return sendError(res, 'Your subscription has expired. Please renew to access AI agents.', 402, {
       code: 'SUBSCRIPTION_EXPIRED',
       upgrade_url: 'https://solnuv.com/plans',
@@ -91,7 +91,7 @@ function agentRateLimiter(req, res, next) {
   const userId = req.user?.id;
   if (!userId) return next();
 
-  const plan = req.user?.companies?.subscription_plan || 'free';
+  const plan = req.user?.companies?.subscription_plan || req.user?.subscription_plan || 'free';
   const limit = RATE_LIMITS[plan] || RATE_LIMITS.free;
   const key = `ai:${userId}`;
 
