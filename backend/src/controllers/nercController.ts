@@ -52,6 +52,8 @@ type SubmissionDecisionBody = {
   regulator_message?: string | null;
 };
 
+type NercBand = 'under_100' | 'over_100';
+
 const DEFAULT_NERC_RULES = {
   permit_threshold_kw: 100,
   annual_reporting_threshold_kw: 1000,
@@ -70,6 +72,18 @@ function parsePositiveInt(value: unknown, fallback: number, max = 200) {
 function validateEnumFilter<T extends string>(value: unknown, allowlist: T[]) {
   if (typeof value !== 'string' || !value.trim()) return '';
   return allowlist.includes(value as T) ? (value as T) : null;
+}
+
+function projectBandLabel(capacityKw: number) {
+  return capacityKw < 100 ? 'under_100' : 'over_100';
+}
+
+function actionLabelForCapacity(capacityKw: number) {
+  return capacityKw < 100 ? 'Register Project with NERC' : 'Submit Compliance with NERC';
+}
+
+function pathwayLabelForCapacity(capacityKw: number) {
+  return capacityKw < 100 ? 'Registration' : 'Compliance Submission';
 }
 
 async function getNercRules() {
@@ -157,6 +171,32 @@ async function ensureRegulatoryProfile(
 
   if (error) throw error;
   return data;
+}
+
+async function getScopedProjects(req: AuthenticatedRequest, projectId?: UUID) {
+  const userId = req.user.id;
+  const companyId = req.user.company_id;
+  let query = supabase
+    .from('projects')
+    .select('id, name, state, city, installation_date, status, capacity_kw, total_system_size_kw, company_id, user_id, created_at, project_regulatory_profiles(declared_capacity_kw, regulatory_pathway, reporting_cadence)');
+
+  if (companyId) {
+    query = query.or(`company_id.eq.${companyId},and(user_id.eq.${userId},company_id.is.null)`);
+  } else {
+    query = query.eq('user_id', userId);
+  }
+  if (projectId) query = query.eq('id', projectId);
+  const { data, error } = await query.order('created_at', { ascending: false });
+  if (error) throw error;
+  return data || [];
+}
+
+function getEffectiveCapacity(project: any) {
+  const declared = Number(project?.project_regulatory_profiles?.declared_capacity_kw ?? 0);
+  const direct = Number(project?.capacity_kw ?? 0);
+  const total = Number(project?.total_system_size_kw ?? 0);
+  const value = declared || direct || total || 0;
+  return Number.isFinite(value) ? value : 0;
 }
 
 exports.getProjectRegulatoryProfile = async (
@@ -327,6 +367,260 @@ exports.createApplication = async (
   } catch (error) {
     logger.error('NERC create application failed', { projectId: req.params?.projectId, message: error.message });
     return sendError(res, 'Failed to create NERC application', 500);
+  }
+};
+
+exports.createAssistedApplicationRequest = async (
+  req: AuthenticatedRequest<{ projectId: UUID }>,
+  res: Response
+) => {
+  try {
+    const { projectId } = req.params;
+    const project = await getAccessibleProject(req, projectId);
+    if (!project) return sendError(res, 'Project not found', 404);
+
+    const profile = await ensureRegulatoryProfile(req, project);
+    const capacityKw = Number(profile?.declared_capacity_kw ?? project?.capacity_kw ?? 0);
+    const title = `${pathwayLabelForCapacity(capacityKw)} · SolNuv Assisted Request`;
+    const submittedAt = new Date();
+    const slaDueAt = addBusinessDays(submittedAt, 30).toISOString();
+
+    const { data, error } = await supabase
+      .from('nerc_applications')
+      .insert({
+        project_id: projectId,
+        regulatory_profile_id: profile.id,
+        application_type: profile.regulatory_pathway,
+        title,
+        application_payload: {
+          request_mode: 'solnuv_assisted',
+          nerc_portal_url: 'https://minigrid.nerc.gov.ng/',
+          user_note: req.body?.note || null,
+          capacity_kw: capacityKw,
+          pathway_action: actionLabelForCapacity(capacityKw),
+        },
+        checklist_payload: [],
+        status: 'submitted',
+        submitted_at: submittedAt.toISOString(),
+        sla_due_at: slaDueAt,
+        sla_breached: false,
+        submitted_by: req.user.id,
+      })
+      .select('*')
+      .single();
+    if (error) throw error;
+
+    await logPlatformActivity({
+      actorUserId: req.user.id,
+      actorEmail: req.user.email,
+      action: 'nerc.assisted_request.created',
+      resourceType: 'nerc_applications',
+      resourceId: data.id,
+      details: { project_id: projectId, capacity_kw: capacityKw, action: actionLabelForCapacity(capacityKw) },
+    });
+
+    return sendSuccess(res, data, 'SolNuv assisted NERC request submitted', 201);
+  } catch (error) {
+    logger.error('NERC assisted request failed', { projectId: req.params?.projectId, message: error.message });
+    return sendError(res, 'Failed to submit assisted request', 500);
+  }
+};
+
+exports.confirmPortalSubmission = async (
+  req: AuthenticatedRequest<{ projectId: UUID }>,
+  res: Response
+) => {
+  try {
+    const { projectId } = req.params;
+    const project = await getAccessibleProject(req, projectId);
+    if (!project) return sendError(res, 'Project not found', 404);
+
+    const profile = await ensureRegulatoryProfile(req, project);
+    const capacityKw = Number(profile?.declared_capacity_kw ?? project?.capacity_kw ?? 0);
+    const submittedAt = new Date();
+    const slaDueAt = addBusinessDays(submittedAt, 30).toISOString();
+
+    const { data: existing } = await supabase
+      .from('nerc_applications')
+      .select('id, status')
+      .eq('project_id', projectId)
+      .contains('application_payload', { request_mode: 'user_portal_confirmation' })
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (existing?.status === 'approved') {
+      return sendSuccess(res, existing, 'Project already marked as registered');
+    }
+
+    const payload = {
+      project_id: projectId,
+      regulatory_profile_id: profile.id,
+      application_type: profile.regulatory_pathway,
+      title: `${pathwayLabelForCapacity(capacityKw)} · User Portal Submission Confirmation`,
+      application_payload: {
+        request_mode: 'user_portal_confirmation',
+        nerc_portal_url: 'https://minigrid.nerc.gov.ng/',
+        capacity_kw: capacityKw,
+        user_confirmed_submission: true,
+        confirmed_at: submittedAt.toISOString(),
+      },
+      checklist_payload: [],
+      status: 'submitted',
+      submitted_at: submittedAt.toISOString(),
+      sla_due_at: slaDueAt,
+      sla_breached: false,
+      submitted_by: req.user.id,
+    };
+
+    let data;
+    if (existing?.id) {
+      const update = await supabase
+        .from('nerc_applications')
+        .update({
+          ...payload,
+          reviewed_at: null,
+          reviewed_by: null,
+          review_started_at: null,
+          approved_at: null,
+          rejected_at: null,
+          regulator_decision_note: null,
+        })
+        .eq('id', existing.id)
+        .select('*')
+        .single();
+      if (update.error) throw update.error;
+      data = update.data;
+    } else {
+      const insert = await supabase
+        .from('nerc_applications')
+        .insert(payload)
+        .select('*')
+        .single();
+      if (insert.error) throw insert.error;
+      data = insert.data;
+    }
+
+    await logPlatformActivity({
+      actorUserId: req.user.id,
+      actorEmail: req.user.email,
+      action: 'nerc.portal_submission.confirmed',
+      resourceType: 'nerc_applications',
+      resourceId: data.id,
+      details: { project_id: projectId, capacity_kw: capacityKw },
+    });
+
+    return sendSuccess(res, data, 'Portal submission confirmed');
+  } catch (error) {
+    logger.error('NERC portal confirmation failed', { projectId: req.params?.projectId, message: error.message });
+    return sendError(res, 'Failed to confirm portal submission', 500);
+  }
+};
+
+async function sendProjectsExport(res: Response, rows: any[], format: 'csv' | 'excel', filenamePrefix = 'SolNuv_NERC_Projects') {
+  const headers = [
+    'Project Name',
+    'Capacity (kW)',
+    'NERC Band',
+    'NERC Action',
+    'Regulatory Pathway',
+    'State',
+    'City',
+    'Installation Date',
+    'Status',
+  ];
+  const normalizedRows = rows.map((p) => {
+    const capacity = getEffectiveCapacity(p);
+    return {
+      project_name: p.name || '',
+      capacity_kw: Number(capacity.toFixed(2)),
+      nerc_band: projectBandLabel(capacity),
+      nerc_action: actionLabelForCapacity(capacity),
+      pathway: p?.project_regulatory_profiles?.regulatory_pathway || (capacity < 100 ? 'registration' : 'permit_required'),
+      state: p.state || '',
+      city: p.city || '',
+      installation_date: p.installation_date || '',
+      status: p.status || '',
+    };
+  });
+
+  if (format === 'excel') {
+    const ExcelJS = require('exceljs');
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('NERC Export');
+    worksheet.columns = headers.map((h) => ({ header: h, key: h, width: Math.max(18, h.length + 3) }));
+    normalizedRows.forEach((r) => worksheet.addRow({
+      'Project Name': r.project_name,
+      'Capacity (kW)': r.capacity_kw,
+      'NERC Band': r.nerc_band,
+      'NERC Action': r.nerc_action,
+      'Regulatory Pathway': r.pathway,
+      'State': r.state,
+      'City': r.city,
+      'Installation Date': r.installation_date,
+      'Status': r.status,
+    }));
+    worksheet.getRow(1).font = { bold: true };
+    worksheet.views = [{ state: 'frozen', ySplit: 1 }];
+    const buffer = await workbook.xlsx.writeBuffer();
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename=${filenamePrefix}.xlsx`);
+    return res.send(buffer);
+  }
+
+  const csvRows = [headers, ...normalizedRows.map((r) => [
+    r.project_name,
+    r.capacity_kw,
+    r.nerc_band,
+    r.nerc_action,
+    r.pathway,
+    r.state,
+    r.city,
+    r.installation_date,
+    r.status,
+  ])];
+  const csv = csvRows.map((row) => row.map((cell) => `"${String(cell ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
+  res.setHeader('Content-Type', 'text/csv');
+  res.setHeader('Content-Disposition', `attachment; filename=${filenamePrefix}.csv`);
+  return res.send(csv);
+}
+
+exports.exportProjectForNerc = async (
+  req: AuthenticatedRequest<{ projectId: UUID }, Record<string, never>, { format?: string }>,
+  res: Response
+) => {
+  try {
+    const fmt = String(req.query.format || 'csv').toLowerCase() === 'excel' ? 'excel' : 'csv';
+    const rows = await getScopedProjects(req, req.params.projectId);
+    if (!rows.length) return sendError(res, 'Project not found', 404);
+    return await sendProjectsExport(res, rows, fmt, `SolNuv_NERC_Project_${req.params.projectId}`);
+  } catch (error) {
+    logger.error('NERC project export failed', { projectId: req.params?.projectId, message: error.message });
+    return sendError(res, 'Failed to export project data', 500);
+  }
+};
+
+exports.exportProjectsForNerc = async (
+  req: AuthenticatedRequest<Record<string, never>, Record<string, never>, { format?: string; band?: NercBand }>,
+  res: Response
+) => {
+  try {
+    const fmt = String(req.query.format || 'csv').toLowerCase() === 'excel' ? 'excel' : 'csv';
+    const band = validateEnumFilter(req.query.band, ['under_100', 'over_100']) as NercBand | '' | null;
+    if (band === null) return sendError(res, 'Invalid band filter', 400);
+    const rows = await getScopedProjects(req);
+    const filtered = band
+      ? rows.filter((p) => band === 'under_100' ? getEffectiveCapacity(p) < 100 : getEffectiveCapacity(p) >= 100)
+      : rows;
+    return await sendProjectsExport(
+      res,
+      filtered,
+      fmt,
+      `SolNuv_NERC_Projects_${band || 'all'}`
+    );
+  } catch (error) {
+    logger.error('NERC bulk export failed', { userId: req.user?.id, message: error.message });
+    return sendError(res, 'Failed to export projects', 500);
   }
 };
 
@@ -671,6 +965,9 @@ exports.adminDecisionApplication = async (
     const validActions: NercAdminDecisionAction[] = ['start_review', 'changes_requested', 'approve', 'reject'];
     if (!validActions.includes(action)) {
       return sendError(res, 'action must be start_review, changes_requested, approve, or reject', 400);
+    }
+    if (['changes_requested', 'reject'].includes(action) && !String(regulator_decision_note || '').trim()) {
+      return sendError(res, 'regulator_decision_note is required for changes_requested or reject', 400);
     }
 
     const { data: existing, error: findError } = await supabase

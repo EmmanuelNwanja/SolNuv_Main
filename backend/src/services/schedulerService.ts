@@ -419,6 +419,75 @@ async function processNercComplianceDaily() {
   }
 }
 
+async function sendWeeklyNercRegistrationReminders() {
+  try {
+    const now = new Date();
+    const weekKey = `${now.getUTCFullYear()}-W${Math.ceil((((now.getTime() - Date.UTC(now.getUTCFullYear(), 0, 1)) / 86400000) + 1) / 7)}`;
+
+    const { data: projects, error: projectError } = await supabase
+      .from('projects')
+      .select('id, name, user_id, company_id, capacity_kw, status')
+      .in('status', ['draft', 'active', 'maintenance']);
+    if (projectError) throw projectError;
+    if (!projects || projects.length === 0) return;
+
+    const projectIds = projects.map((p) => p.id);
+    const { data: applications, error: appError } = await supabase
+      .from('nerc_applications')
+      .select('project_id, status')
+      .in('project_id', projectIds)
+      .in('status', ['submitted', 'in_review', 'approved']);
+    if (appError) throw appError;
+
+    const registeredProjectIds = new Set((applications || []).map((a) => a.project_id));
+    const unregistered = projects.filter((p) => !registeredProjectIds.has(p.id));
+    if (unregistered.length === 0) return;
+
+    const groupedByUser = new Map();
+    for (const project of unregistered) {
+      const arr = groupedByUser.get(project.user_id) || [];
+      arr.push(project);
+      groupedByUser.set(project.user_id, arr);
+    }
+
+    let sent = 0;
+    for (const [userId, userProjects] of groupedByUser.entries()) {
+      const { data: existing } = await supabase
+        .from('notifications')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('type', 'account_activity')
+        .contains('data', { nerc_week_key: weekKey })
+        .limit(1)
+        .maybeSingle();
+      if (existing?.id) continue;
+
+      const sample = userProjects.slice(0, 3).map((p) => p.name).join(', ');
+      const moreCount = Math.max(0, userProjects.length - 3);
+      const message = moreCount > 0
+        ? `You have ${userProjects.length} unregistered projects pending NERC action. Examples: ${sample}, and ${moreCount} more.`
+        : `You have ${userProjects.length} unregistered project(s) pending NERC action: ${sample}.`;
+
+      const { error: insertError } = await supabase.from('notifications').insert({
+        user_id: userId,
+        type: 'account_activity',
+        title: 'Weekly NERC Reminder',
+        message: `${message} Open the project Regulatory page to register with NERC or request SolNuv assisted filing.`,
+        data: {
+          nerc_week_key: weekKey,
+          project_ids: userProjects.map((p) => p.id),
+          reminder_type: 'weekly_nerc_registration',
+        },
+      });
+      if (!insertError) sent += 1;
+    }
+
+    logger.info('Weekly NERC registration reminders sent', { users_notified: sent, unregistered_projects: unregistered.length });
+  } catch (error) {
+    logger.error('Weekly NERC reminder job failed', { message: error.message });
+  }
+}
+
 // ─── SCHEDULER ENTRY POINT ───────────────────────────────────────────────────
 // Called by server.ts on startup. Schedules:
 //   • Daily 8AM WAT (07:00 UTC) — leaderboard refresh + decommission alerts
@@ -435,6 +504,12 @@ function startScheduler() {
     await processNercComplianceDaily();
     // Check for expired subscriptions & revoke agents
     await checkExpiredSubscriptions();
+  }, { timezone: 'UTC' });
+
+  // Weekly NERC reminder: Mondays 08:30 WAT (07:30 UTC)
+  cron.schedule('30 7 * * 1', async () => {
+    logger.info('Cron: Weekly NERC registration reminders');
+    await sendWeeklyNercRegistrationReminders();
   }, { timezone: 'UTC' });
 
   // AI Internal Agents — staggered schedules to stay within rate limits

@@ -4,6 +4,7 @@ const nercController = require('../controllers/nercController');
 const { requireAuth, requireProfile } = require('../middlewares/authMiddleware');
 const { requireVerified } = require('../middlewares/verificationMiddleware');
 const { requireAdmin, requireAdminRole } = require('../middlewares/adminMiddleware');
+const { requirePlan } = require('../middlewares/subscriptionMiddleware');
 
 router.use(requireAuth, requireProfile);
 
@@ -15,8 +16,14 @@ router.put('/projects/:projectId/profile', requireVerified, nercController.upser
 // Permit / registration lifecycle
 router.get('/projects/:projectId/applications', nercController.listProjectApplications);
 router.post('/projects/:projectId/applications', requireVerified, nercController.createApplication);
+router.post('/projects/:projectId/assisted-request', requirePlan('pro'), requireVerified, nercController.createAssistedApplicationRequest);
+router.post('/projects/:projectId/confirm-portal-submission', requireVerified, nercController.confirmPortalSubmission);
 router.patch('/applications/:applicationId', requireVerified, nercController.updateApplicationDraft);
 router.post('/applications/:applicationId/submit', requireVerified, nercController.submitApplication);
+
+// NERC submission exports
+router.get('/projects/:projectId/export', nercController.exportProjectForNerc);
+router.get('/export', nercController.exportProjectsForNerc);
 
 // Reporting cycles and submission events
 router.get('/reporting-cycles', nercController.listMyReportingCycles);

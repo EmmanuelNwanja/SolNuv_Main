@@ -278,6 +278,7 @@ export default function ProjectDetail() {
   const [editEquipForm, setEditEquipForm] = useState({ brand: '', model: '', size_watts: '', capacity_kwh: '', quantity: 1, condition: 'good', sourcing_info: '', panel_technology: null, battery_chemistry: null });
   const [equipmentSubmitting, setEquipmentSubmitting] = useState(false);
   const [triage, setTriage] = useState<any>(null);
+  const [nercRegistrationStatus, setNercRegistrationStatus] = useState<'unregistered' | 'self_confirmed' | 'assisted_pending' | 'in_review' | 'registered' | 'changes_requested' | 'rejected'>('unregistered');
   const [deleteEquipConfirm, setDeleteEquipConfirm] = useState(null);
   const [editForm, setEditForm] = useState({
     name: '',
@@ -334,6 +335,46 @@ export default function ProjectDetail() {
       .then((r) => setTriage(r.data.data || null))
       .catch(() => setTriage(null));
   }, [id]);
+
+  useEffect(() => {
+    if (!id) return;
+    nercAPI.listProjectApplications(id)
+      .then((r) => {
+        const apps = r.data?.data || [];
+        if (!apps.length) return setNercRegistrationStatus('unregistered');
+        const statuses = apps.map((a) => a.status);
+        const hasSelfConfirmedSubmitted = apps.some((a) => a.status === 'submitted' && a.application_payload?.request_mode === 'user_portal_confirmation');
+        const hasAssistedSubmitted = apps.some((a) => a.status === 'submitted' && a.application_payload?.request_mode === 'solnuv_assisted');
+        if (statuses.includes('approved')) return setNercRegistrationStatus('registered');
+        if (statuses.includes('in_review')) return setNercRegistrationStatus('in_review');
+        if (hasAssistedSubmitted) return setNercRegistrationStatus('assisted_pending');
+        if (hasSelfConfirmedSubmitted) return setNercRegistrationStatus('self_confirmed');
+        if (statuses.includes('changes_requested')) return setNercRegistrationStatus('changes_requested');
+        if (statuses.includes('rejected')) return setNercRegistrationStatus('rejected');
+        return setNercRegistrationStatus('unregistered');
+      })
+      .catch(() => setNercRegistrationStatus('unregistered'));
+  }, [id]);
+
+  function nercBadgeClass(status: 'unregistered' | 'self_confirmed' | 'assisted_pending' | 'in_review' | 'registered' | 'changes_requested' | 'rejected') {
+    if (status === 'registered') return 'text-emerald-700 border-emerald-200 bg-emerald-50';
+    if (status === 'in_review') return 'text-blue-700 border-blue-200 bg-blue-50';
+    if (status === 'assisted_pending') return 'text-indigo-700 border-indigo-200 bg-indigo-50';
+    if (status === 'self_confirmed') return 'text-cyan-700 border-cyan-200 bg-cyan-50';
+    if (status === 'changes_requested') return 'text-amber-700 border-amber-200 bg-amber-50';
+    if (status === 'rejected') return 'text-red-700 border-red-200 bg-red-50';
+    return 'text-slate-700 border-slate-200 bg-slate-50';
+  }
+
+  function nercBadgeText(status: 'unregistered' | 'self_confirmed' | 'assisted_pending' | 'in_review' | 'registered' | 'changes_requested' | 'rejected') {
+    if (status === 'registered') return 'NERC Registered';
+    if (status === 'in_review') return 'NERC In Review';
+    if (status === 'assisted_pending') return 'NERC Assisted Pending';
+    if (status === 'self_confirmed') return 'NERC Self-Submitted';
+    if (status === 'changes_requested') return 'NERC Changes Needed';
+    if (status === 'rejected') return 'NERC Rejected';
+    return 'NERC Unregistered';
+  }
 
   useEffect(() => {
     if (!id) return;
@@ -658,6 +699,9 @@ export default function ProjectDetail() {
                   <h1 className="font-display font-bold text-3xl">{project.name}</h1>
                   <StatusBadge status={project.status} />
                   {project.is_verified && <span className="badge badge-green">✓ Verified</span>}
+                  <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full border ${nercBadgeClass(nercRegistrationStatus)}`}>
+                    {nercBadgeText(nercRegistrationStatus)}
+                  </span>
                 </div>
                 {project.client_name && <p className="text-white/75 text-sm mt-1">Client: {project.client_name}</p>}
                 <p className="text-white/70 text-xs mt-2">{project.city}, {project.state}</p>

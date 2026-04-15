@@ -228,9 +228,23 @@ export const nercAPI = {
     api.get<NercApplicationListResponse>(`/nerc/projects/${projectId}/applications`),
   createApplication: (projectId: string, data: JsonRecord) =>
     api.post(`/nerc/projects/${projectId}/applications`, data),
+  createAssistedRequest: (projectId: string, data: JsonRecord = {}) =>
+    api.post(`/nerc/projects/${projectId}/assisted-request`, data),
+  confirmPortalSubmission: (projectId: string, data: JsonRecord = {}) =>
+    api.post(`/nerc/projects/${projectId}/confirm-portal-submission`, data),
   updateApplication: (applicationId: string, data: JsonRecord) =>
     api.patch(`/nerc/applications/${applicationId}`, data),
   submitApplication: (applicationId: string) => api.post(`/nerc/applications/${applicationId}/submit`),
+  exportProject: (projectId: string, format: "csv" | "excel" = "csv") =>
+    api.get(`/nerc/projects/${projectId}/export`, {
+      params: { format },
+      responseType: "blob",
+    }),
+  exportProjects: (band: "under_100" | "over_100", format: "csv" | "excel" = "csv") =>
+    api.get("/nerc/export", {
+      params: { band, format },
+      responseType: "blob",
+    }),
   listMyReportingCycles: (params?: JsonRecord) =>
     api.get<NercReportingCycleListResponse>("/nerc/reporting-cycles", { params }),
   listProjectReportingCycles: (projectId: string) =>

@@ -80,7 +80,18 @@ export default function NercAdminPage() {
   async function takeDecision(id: string, action: NercAdminDecisionAction) {
     setDecisionBusy(id + action);
     try {
-      await adminAPI.decideNercApplication(id, { action });
+      let regulator_decision_note = '';
+      if (action === 'reject' || action === 'changes_requested') {
+        regulator_decision_note = window.prompt('Provide a reason (e.g. insufficient project information):', '') || '';
+        if (!regulator_decision_note.trim()) {
+          toast.error('Reason is required for this action');
+          return;
+        }
+      }
+      await adminAPI.decideNercApplication(id, {
+        action,
+        regulator_decision_note: regulator_decision_note || undefined,
+      });
       toast.success('Decision saved');
       await load();
     } catch (error) {
@@ -135,7 +146,7 @@ export default function NercAdminPage() {
       <div className="max-w-screen-xl mx-auto p-6 space-y-6">
         <div>
           <h1 className="text-2xl font-display font-bold text-slate-900">NERC Compliance Queue</h1>
-          <p className="text-sm text-slate-500">Review permit/registration applications and monitor SLA + reporting cadence.</p>
+          <p className="text-sm text-slate-500">Review SolNuv assisted NERC requests and approve/reject with reason when needed.</p>
         </div>
 
         {loading ? <LoadingSpinner /> : (
@@ -194,9 +205,9 @@ export default function NercAdminPage() {
                       </p>
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      <button className="btn-outline text-sm" disabled={decisionBusy === `${app.id}start_review`} onClick={() => takeDecision(app.id, 'start_review')}>Start Review</button>
+                      <button className="btn-outline text-sm" disabled={decisionBusy === `${app.id}start_review`} onClick={() => takeDecision(app.id, 'start_review')}>Accept & Start Review</button>
                       <button className="btn-outline text-sm" disabled={decisionBusy === `${app.id}changes_requested`} onClick={() => takeDecision(app.id, 'changes_requested')}>Request Changes</button>
-                      <button className="btn-primary text-sm" disabled={decisionBusy === `${app.id}approve`} onClick={() => takeDecision(app.id, 'approve')}>Approve</button>
+                      <button className="btn-primary text-sm" disabled={decisionBusy === `${app.id}approve`} onClick={() => takeDecision(app.id, 'approve')}>Mark Registered</button>
                       <button className="btn-outline text-sm border-red-200 text-red-600 hover:bg-red-50" disabled={decisionBusy === `${app.id}reject`} onClick={() => takeDecision(app.id, 'reject')}>Reject</button>
                     </div>
                   </div>

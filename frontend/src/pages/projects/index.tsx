@@ -2,7 +2,7 @@ import Head from 'next/head';
 import Link from 'next/link';
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/router';
-import { projectsAPI, downloadBlob } from '../../services/api';
+import { projectsAPI, nercAPI, downloadBlob } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { getDashboardLayout } from '../../components/Layout';
 import { StatusBadge, UrgencyBadge, CapacityBadge, EmptyState, LoadingSpinner } from '../../components/ui/index';
@@ -46,6 +46,7 @@ export default function ProjectsList() {
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [exporting, setExporting] = useState(false);
+  const [nercStatusByProject, setNercStatusByProject] = useState<Record<string, 'unregistered' | 'self_confirmed' | 'assisted_pending' | 'in_review' | 'registered' | 'changes_requested' | 'rejected'>>({});
 
   const activeCount = projects.filter((p) => p.status === 'active').length;
   const maintenanceCount = projects.filter((p) => p.status === 'maintenance').length;
@@ -83,6 +84,60 @@ export default function ProjectsList() {
   }, [search, statusFilter, capacityFilter, verificationFilter, page, isOnboarded, router]);
 
   useEffect(() => { fetchProjects(); }, [fetchProjects]);
+
+  useEffect(() => {
+    if (!projects.length) {
+      setNercStatusByProject({});
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const entries = await Promise.all(
+        projects.map(async (project) => {
+          try {
+            const { data } = await nercAPI.listProjectApplications(project.id);
+            const apps = data?.data || [];
+            if (!apps.length) return [project.id, 'unregistered'] as const;
+            const statuses = apps.map((a) => a.status);
+            const hasSelfConfirmedSubmitted = apps.some((a) => a.status === 'submitted' && a.application_payload?.request_mode === 'user_portal_confirmation');
+            const hasAssistedSubmitted = apps.some((a) => a.status === 'submitted' && a.application_payload?.request_mode === 'solnuv_assisted');
+            if (statuses.includes('approved')) return [project.id, 'registered'] as const;
+            if (statuses.includes('in_review')) return [project.id, 'in_review'] as const;
+            if (hasAssistedSubmitted) return [project.id, 'assisted_pending'] as const;
+            if (hasSelfConfirmedSubmitted) return [project.id, 'self_confirmed'] as const;
+            if (statuses.includes('changes_requested')) return [project.id, 'changes_requested'] as const;
+            if (statuses.includes('rejected')) return [project.id, 'rejected'] as const;
+            return [project.id, 'unregistered'] as const;
+          } catch {
+            return [project.id, 'unregistered'] as const;
+          }
+        })
+      );
+      if (cancelled) return;
+      setNercStatusByProject(Object.fromEntries(entries));
+    })();
+    return () => { cancelled = true; };
+  }, [projects]);
+
+  function nercBadge(status?: 'unregistered' | 'self_confirmed' | 'assisted_pending' | 'in_review' | 'registered' | 'changes_requested' | 'rejected') {
+    if (status === 'registered') return 'text-emerald-700 border-emerald-200 bg-emerald-50';
+    if (status === 'in_review') return 'text-blue-700 border-blue-200 bg-blue-50';
+    if (status === 'assisted_pending') return 'text-indigo-700 border-indigo-200 bg-indigo-50';
+    if (status === 'self_confirmed') return 'text-cyan-700 border-cyan-200 bg-cyan-50';
+    if (status === 'changes_requested') return 'text-amber-700 border-amber-200 bg-amber-50';
+    if (status === 'rejected') return 'text-red-700 border-red-200 bg-red-50';
+    return 'text-slate-700 border-slate-200 bg-slate-50';
+  }
+
+  function nercBadgeLabel(status?: 'unregistered' | 'self_confirmed' | 'assisted_pending' | 'in_review' | 'registered' | 'changes_requested' | 'rejected') {
+    if (status === 'registered') return 'NERC Registered';
+    if (status === 'in_review') return 'NERC In Review';
+    if (status === 'assisted_pending') return 'NERC Assisted Pending';
+    if (status === 'self_confirmed') return 'NERC Self-Submitted';
+    if (status === 'changes_requested') return 'NERC Changes Needed';
+    if (status === 'rejected') return 'NERC Rejected';
+    return 'NERC Unregistered';
+  }
 
   async function handleExportCSV() {
     setExporting(true);
@@ -187,6 +242,9 @@ export default function ProjectsList() {
                     )}
                     <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${proj.geo_verified ? 'text-emerald-700 border-emerald-200 bg-emerald-50' : 'text-amber-700 border-amber-200 bg-amber-50'}`}>
                       {proj.geo_verified ? 'Verified' : 'Unverified'}
+                    </span>
+                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${nercBadge(nercStatusByProject[proj.id])}`}>
+                      {nercBadgeLabel(nercStatusByProject[proj.id])}
                     </span>
                   </div>
                 </div>

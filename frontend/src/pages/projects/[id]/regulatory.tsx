@@ -5,16 +5,16 @@ import { type FormEvent, useEffect, useState } from 'react';
 import type { AxiosError } from 'axios';
 import { getDashboardLayout } from '../../../components/Layout';
 import { LoadingSpinner } from '../../../components/ui/index';
-import { nercAPI } from '../../../services/api';
+import { downloadBlob, nercAPI } from '../../../services/api';
 import type {
   NercApplication,
   NercMiniGridType,
   NercProjectTriage,
-  NercReportingCycle,
   ProjectRegulatoryProfile,
 } from '../../../types/contracts';
 import { queryParamToString } from '../../../utils/nextRouter';
 import toast from 'react-hot-toast';
+import { useAuth } from '../../../context/AuthContext';
 
 type RegulatoryFormState = {
   mini_grid_type: NercMiniGridType;
@@ -29,13 +29,13 @@ function getApiErrorMessage(error: unknown, fallback: string): string {
 
 export default function ProjectRegulatoryPage() {
   const router = useRouter();
+  const { plan, isPro } = useAuth();
   const id = queryParamToString(router.query.id);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [submittingApp, setSubmittingApp] = useState<string | null>(null);
+  const [confirmingPortalSubmission, setConfirmingPortalSubmission] = useState(false);
   const [profile, setProfile] = useState<ProjectRegulatoryProfile | null>(null);
   const [applications, setApplications] = useState<NercApplication[]>([]);
-  const [cycles, setCycles] = useState<NercReportingCycle[]>([]);
   const [triage, setTriage] = useState<NercProjectTriage | null>(null);
   const [form, setForm] = useState<RegulatoryFormState>({
     mini_grid_type: 'interconnected',
@@ -47,15 +47,13 @@ export default function ProjectRegulatoryPage() {
     if (!id) return;
     setLoading(true);
     try {
-      const [profileRes, appRes, cycleRes] = await Promise.all([
+      const [profileRes, appRes] = await Promise.all([
         nercAPI.getProjectProfile(id),
         nercAPI.listProjectApplications(id),
-        nercAPI.listProjectReportingCycles(id),
       ]);
       const profileData = profileRes.data.data;
       setProfile(profileData);
       setApplications(appRes.data.data || []);
-      setCycles(cycleRes.data.data || []);
       try {
         const triageRes = await nercAPI.getProjectTriage(id);
         setTriage(triageRes.data.data || null);
@@ -100,26 +98,54 @@ export default function ProjectRegulatoryPage() {
     }
   }
 
-  async function createDraftWithReadinessCheck() {
-    if (!form.declared_capacity_kw || Number(form.declared_capacity_kw) <= 0) {
-      toast.error('Set declared capacity before creating a draft');
-      return;
-    }
-    await createDraftApplication();
-  }
-
-  async function submitApplication(appId: string) {
-    setSubmittingApp(appId);
+  async function requestSolNuvApply() {
     try {
-      await nercAPI.submitApplication(appId);
-      toast.success('Application submitted');
+      await nercAPI.createAssistedRequest(id, {});
+      toast.success('Request submitted to SolNuv Admin');
       await load();
     } catch (error) {
-      toast.error(getApiErrorMessage(error, 'Failed to submit application'));
-    } finally {
-      setSubmittingApp(null);
+      toast.error(getApiErrorMessage(error, 'Failed to submit assisted request'));
     }
   }
+
+  async function confirmPortalSubmission() {
+    setConfirmingPortalSubmission(true);
+    try {
+      await nercAPI.confirmPortalSubmission(id, {});
+      toast.success('Submission confirmation saved');
+      await load();
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, 'Failed to confirm submission'));
+    } finally {
+      setConfirmingPortalSubmission(false);
+    }
+  }
+
+  async function exportCurrentProject(format: 'csv' | 'excel') {
+    try {
+      const { data } = await nercAPI.exportProject(id, format);
+      downloadBlob(data, `SolNuv_NERC_Project_${id}.${format === 'excel' ? 'xlsx' : 'csv'}`);
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, 'Failed to export project data'));
+    }
+  }
+
+  async function exportBulkBand(format: 'csv' | 'excel') {
+    const band = (triage?.capacity_kw || form.declared_capacity_kw || 0) < 100 ? 'under_100' : 'over_100';
+    try {
+      const { data } = await nercAPI.exportProjects(band, format);
+      downloadBlob(data, `SolNuv_NERC_Projects_${band}.${format === 'excel' ? 'xlsx' : 'csv'}`);
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, 'Failed to export bulk project data'));
+    }
+  }
+
+  const effectiveCapacity = Number(triage?.capacity_kw || form.declared_capacity_kw || 0);
+  const isUnder100 = effectiveCapacity < 100;
+  const primaryNercCta = isUnder100 ? 'Register Project with NERC' : 'Submit Compliance with NERC';
+  const primaryNercMessage = isUnder100
+    ? 'Projects under 100kW follow a lighter registration path.'
+    : 'Projects above 100kW follow the full NERC compliance submission path.';
 
   if (loading) return <div className="flex justify-center py-16"><LoadingSpinner size="lg" /></div>;
 
@@ -130,7 +156,7 @@ export default function ProjectRegulatoryPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-display font-bold text-slate-900">NERC Regulatory Workspace</h1>
-            <p className="text-sm text-slate-500">NERC-R-001-2026 filing, pathway checks, and periodic reporting records.</p>
+            <p className="text-sm text-slate-500">Simplified NERC submission workflow with export + assisted filing request.</p>
           </div>
           <Link href={`/projects/${id}`} className="btn-outline text-sm">Back to Project</Link>
         </div>
@@ -143,7 +169,7 @@ export default function ProjectRegulatoryPage() {
           </div>
           {triage && (
             <p className="text-sm text-slate-600 mt-3">
-              Triage: <strong>{triage.regulatory_pathway.replace('_', ' ')}</strong> · {triage.capacity_kw.toFixed(2)} kW · reporting {triage.reporting_cadence}
+              Triage: <strong>{triage.regulatory_pathway.replace('_', ' ')}</strong> · {triage.capacity_kw.toFixed(2)} kW
               {triage.net_metering_eligible ? ` · Net metering band (${triage.net_metering_band_kw[0]}-${triage.net_metering_band_kw[1]} kW)` : ''}
             </p>
           )}
@@ -189,7 +215,7 @@ export default function ProjectRegulatoryPage() {
             </div>
             <div className="sm:col-span-2 flex flex-wrap gap-3 items-center">
               <button type="submit" className="btn-primary" disabled={saving}>{saving ? 'Saving...' : 'Save Profile'}</button>
-              <button type="button" className="btn-outline" onClick={createDraftWithReadinessCheck}>Create Draft + Readiness Check</button>
+              <button type="button" className="btn-outline" onClick={createDraftApplication}>Create Draft</button>
               <span className="text-xs rounded-full bg-slate-100 px-3 py-1">Pathway: {(profile?.regulatory_pathway || '-').replace('_', ' ')}</span>
               <span className="text-xs rounded-full bg-slate-100 px-3 py-1">Cadence: {profile?.reporting_cadence || '-'}</span>
             </div>
@@ -198,45 +224,66 @@ export default function ProjectRegulatoryPage() {
 
         <div className="card">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="font-semibold text-forest-900">Permit / Registration Applications</h2>
-            <button onClick={createDraftApplication} className="btn-outline text-sm">Create Draft</button>
+            <h2 className="font-semibold text-forest-900">NERC Submission Actions</h2>
           </div>
-          {applications.length === 0 ? (
-            <p className="text-sm text-slate-500">No applications yet.</p>
-          ) : (
+          <p className="text-sm text-slate-600 mb-4">{primaryNercMessage}</p>
+          <div className="flex flex-wrap gap-2 mb-4">
+            <a
+              href="https://minigrid.nerc.gov.ng/"
+              target="_blank"
+              rel="noreferrer"
+              className="btn-primary text-sm"
+            >
+              {primaryNercCta}
+            </a>
+            <button
+              className="btn-outline text-sm"
+              onClick={confirmPortalSubmission}
+              disabled={confirmingPortalSubmission}
+            >
+              {confirmingPortalSubmission ? 'Saving...' : 'Confirm Application Submitted'}
+            </button>
+            <button
+              className="btn-outline text-sm"
+              onClick={requestSolNuvApply}
+              disabled={!isPro}
+              title={!isPro ? 'Available on Pro plan and above' : undefined}
+            >
+              Let SolNuv Apply
+            </button>
+            {!isPro && (
+              <span className="text-xs text-slate-500 self-center">Upgrade from {plan} to Pro+ to enable assisted filing.</span>
+            )}
+          </div>
+          <p className="text-xs text-slate-500 mb-4">
+            SolNuv cannot automatically verify your status on NERC&apos;s portal. Use <strong>Confirm Application Submitted</strong> after submitting on NERC.
+          </p>
+
+          <div className="flex flex-wrap gap-2 mb-4">
+            <button className="btn-outline text-sm" onClick={() => exportCurrentProject('csv')}>Export Current Project CSV</button>
+            <button className="btn-outline text-sm" onClick={() => exportCurrentProject('excel')}>Export Current Project Excel</button>
+            <button className="btn-outline text-sm" onClick={() => exportBulkBand('csv')}>
+              Export {isUnder100 ? '<100kW' : '>100kW'} Bulk CSV
+            </button>
+            <button className="btn-outline text-sm" onClick={() => exportBulkBand('excel')}>
+              Export {isUnder100 ? '<100kW' : '>100kW'} Bulk Excel
+            </button>
+          </div>
+
+          {applications.length > 0 ? (
             <div className="space-y-2">
-              {applications.map((app) => (
-                <div key={app.id} className="rounded-xl border border-slate-200 p-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                  <div>
-                    <p className="text-sm font-semibold text-slate-800">{app.title}</p>
-                    <p className="text-xs text-slate-500">{app.application_type.replace('_', ' ')} · {app.status.replace('_', ' ')}</p>
-                  </div>
-                  {['draft', 'changes_requested'].includes(app.status) && (
-                    <button className="btn-primary text-sm" disabled={submittingApp === app.id} onClick={() => submitApplication(app.id)}>
-                      {submittingApp === app.id ? 'Submitting...' : 'Submit'}
-                    </button>
+              {applications.slice(0, 6).map((app) => (
+                <div key={app.id} className="rounded-xl border border-slate-200 p-3">
+                  <p className="text-sm font-semibold text-slate-800">{app.title}</p>
+                  <p className="text-xs text-slate-500">{app.application_type.replace('_', ' ')} · {app.status.replace('_', ' ')}</p>
+                  {app.regulator_decision_note && (
+                    <p className="text-xs text-amber-700 mt-1">Admin note: {app.regulator_decision_note}</p>
                   )}
                 </div>
               ))}
             </div>
-          )}
-        </div>
-
-        <div className="card">
-          <h2 className="font-semibold text-forest-900 mb-3">NERC Reporting Cycles</h2>
-          {cycles.length === 0 ? (
-            <p className="text-sm text-slate-500">No reporting cycles yet.</p>
           ) : (
-            <div className="space-y-2">
-              {cycles.map((cycle) => (
-                <div key={cycle.id} className="rounded-xl border border-slate-200 p-3">
-                  <p className="text-sm font-semibold text-slate-800">{cycle.cadence} cycle · {cycle.status}</p>
-                  <p className="text-xs text-slate-500">
-                    Period: {new Date(cycle.period_start).toLocaleDateString()} - {new Date(cycle.period_end).toLocaleDateString()} · Due: {new Date(cycle.due_date).toLocaleDateString()}
-                  </p>
-                </div>
-              ))}
-            </div>
+            <p className="text-sm text-slate-500">No assisted requests yet.</p>
           )}
         </div>
       </div>
