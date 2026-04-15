@@ -4,7 +4,8 @@
   "description": "SolNuv - Solar E-Waste Tracking & Compliance Platform API",
   "main": "src/server.ts",
   "scripts": {
-    "build": "npm run typecheck && node scripts/render-build.cjs",
+    "build": "npm run typecheck && npm run build:render && node scripts/render-build.cjs",
+    "build:render": "tsc --project tsconfig.json --noEmit false --outDir dist",
     "start": "tsx src/server.ts",
     "dev": "nodemon --exec tsx src/server.ts",
     "lint": "eslint src/**/*.{ts,tsx}",

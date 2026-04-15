@@ -7,7 +7,7 @@ const distIndex = path.join(distDir, 'index.js');
 fs.mkdirSync(distDir, { recursive: true });
 fs.writeFileSync(
   distIndex,
-  "require('tsx/cjs');\nrequire('../src/server.ts');\n",
+  "require('./src/server.js');\n",
   'utf8'
 );
 
