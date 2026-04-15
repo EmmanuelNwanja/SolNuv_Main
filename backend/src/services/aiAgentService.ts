@@ -327,6 +327,9 @@ async function executeChat({
 
   const company = user?.companies || null;
   const companyId = instance.company_id || user?.company_id || null;
+  const allowedContextTypes = new Set(['project', 'report', 'financial', 'support', 'internal', 'general']);
+  const defaultContextType = definition.tier === 'general' ? 'general' : 'support';
+  const safeContextType = allowedContextTypes.has(contextType) ? contextType : defaultContextType;
 
   // 3. Get or create conversation
   let convId = conversationId;
@@ -338,7 +341,7 @@ async function executeChat({
         user_id: userId,
         company_id: companyId,
         title: sanitiseUserInput(message).slice(0, 100),
-        context_type: contextType || (definition.tier === 'general' ? 'general' : 'support'),
+        context_type: safeContextType,
         context_resource_id: contextResourceId || null,
         environment,
       })
@@ -958,6 +961,15 @@ async function exportTrainingData(filters: Record<string, any> = {}) {
 async function getAdminHealthSnapshot() {
   const diagnostics = {
     definition_count: 0,
+    provider_readiness: {
+      total_active_providers: 0,
+      missing_api_keys: [],
+      ready_provider_slugs: [],
+    },
+    capability_coverage: {
+      agents_with_no_tools: [],
+      missing_capabilities: [],
+    },
     shared_instance_duplicates: {
       total_groups: 0,
       total_extra_instances: 0,
@@ -975,6 +987,58 @@ async function getAdminHealthSnapshot() {
   if (defErr) throw defErr;
   const activeDefinitions = (definitions || []).filter((d) => d.is_active);
   diagnostics.definition_count = activeDefinitions.length;
+
+  const { data: activeProviders, error: providerErr } = await supabase
+    .from('ai_providers')
+    .select('slug, api_key_env_var')
+    .eq('is_active', true);
+  if (providerErr) throw providerErr;
+
+  diagnostics.provider_readiness.total_active_providers = (activeProviders || []).length;
+  for (const provider of activeProviders || []) {
+    if (!provider?.api_key_env_var || !process.env[provider.api_key_env_var]) {
+      diagnostics.provider_readiness.missing_api_keys.push({
+        provider_slug: provider?.slug || null,
+        api_key_env_var: provider?.api_key_env_var || null,
+      });
+    } else if (provider?.slug) {
+      diagnostics.provider_readiness.ready_provider_slugs.push(provider.slug);
+    }
+  }
+
+  const allTools = Object.values(toolRegistry.TOOL_DEFINITIONS || {});
+  const hasCapabilityMatch = (agentCapability, toolCapability) => {
+    if (!agentCapability || !toolCapability) return false;
+    if (agentCapability.endsWith('.*')) {
+      return toolCapability.startsWith(agentCapability.slice(0, -2));
+    }
+    return toolCapability === agentCapability;
+  };
+
+  for (const def of activeDefinitions) {
+    const capabilities = Array.isArray(def.capabilities) ? def.capabilities : [];
+    const matchedTools = allTools.filter((tool) =>
+      capabilities.some((cap) => hasCapabilityMatch(cap, tool.capability))
+    );
+
+    if (capabilities.length > 0 && matchedTools.length === 0) {
+      diagnostics.capability_coverage.agents_with_no_tools.push({
+        definition_slug: def.slug,
+        tier: def.tier,
+        capabilities,
+      });
+    }
+
+    for (const cap of capabilities) {
+      const hasMatch = allTools.some((tool) => hasCapabilityMatch(cap, tool.capability));
+      if (!hasMatch) {
+        diagnostics.capability_coverage.missing_capabilities.push({
+          definition_slug: def.slug,
+          capability: cap,
+        });
+      }
+    }
+  }
 
   const { data: sharedInstances, error: sharedErr } = await supabase
     .from('ai_agent_instances')

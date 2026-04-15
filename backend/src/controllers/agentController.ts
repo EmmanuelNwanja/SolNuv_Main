@@ -856,7 +856,7 @@ exports.adminRunBlogWriter = async (req, res) => {
       userId,
       conversationId: null,
       message,
-      contextType: 'blog',
+      contextType: 'internal',
       environment: req.environment || 'live',
     });
 
