@@ -1006,7 +1006,11 @@ async function getAdminHealthSnapshot() {
     }
   }
 
-  const allTools = Object.values(toolRegistry.TOOL_DEFINITIONS || {});
+  const allTools = Object
+    .values(toolRegistry.TOOL_DEFINITIONS || {})
+    .filter((tool): tool is { capability: string } =>
+      Boolean(tool) && typeof (tool as { capability?: unknown }).capability === 'string'
+    );
   const hasCapabilityMatch = (agentCapability, toolCapability) => {
     if (!agentCapability || !toolCapability) return false;
     if (agentCapability.endsWith('.*')) {
@@ -1016,7 +1020,9 @@ async function getAdminHealthSnapshot() {
   };
 
   for (const def of activeDefinitions) {
-    const capabilities = Array.isArray(def.capabilities) ? def.capabilities : [];
+    const capabilities = Array.isArray(def.capabilities)
+      ? def.capabilities.filter((cap): cap is string => typeof cap === 'string')
+      : [];
     const matchedTools = allTools.filter((tool) =>
       capabilities.some((cap) => hasCapabilityMatch(cap, tool.capability))
     );
