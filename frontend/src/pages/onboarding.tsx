@@ -1,0 +1,313 @@
+import Head from 'next/head';
+import { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/router';
+import { useAuth } from '../context/AuthContext';
+import { authAPI } from '../services/api';
+import { RiSunLine, RiCheckLine, RiArrowRightLine, RiArrowLeftLine } from 'react-icons/ri';
+import toast from 'react-hot-toast';
+
+const NIGERIAN_STATES = ['Abia','Adamawa','Akwa Ibom','Anambra','Bauchi','Bayelsa','Benue','Borno','Cross River','Delta','Ebonyi','Edo','Ekiti','Enugu','FCT','Gombe','Imo','Jigawa','Kaduna','Kano','Katsina','Kebbi','Kogi','Kwara','Lagos','Nasarawa','Niger','Ogun','Ondo','Osun','Oyo','Plateau','Rivers','Sokoto','Taraba','Yobe','Zamfara'];
+
+function isValidNigerianPhone(phone) {
+  if (!phone) return false;
+  const cleaned = phone.replace(/\s/g, '');
+  return /^(\+?234|0)[789][01]\d{8}$/.test(cleaned);
+}
+
+export default function Onboarding() {
+  const { session, loading, setProfile, isOnboarded, isPlatformAdmin, profileResolved } = useAuth();
+  const router = useRouter();
+  const redirectedRef = useRef(false);
+  const [step, setStep] = useState(1);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
+
+  const [form, setForm] = useState({
+    first_name: '',
+    last_name: '',
+    phone: '',
+    user_type: 'installer',
+    business_type: 'solo',
+    brand_name: '',
+    company_name: '',
+    company_email: '',
+    company_address: '',
+    company_state: 'Lagos',
+    company_city: '',
+  });
+
+  // Restore step + form from sessionStorage on mount (useEffect not lazy initializer
+  // to avoid SSR/hydration mismatches — Next.js server always renders step=1 first).
+  useEffect(() => {
+    const savedStep = sessionStorage.getItem('solnuv_onboarding_step');
+    const savedForm = sessionStorage.getItem('solnuv_onboarding_form');
+    if (savedStep) {
+      const parsed = parseInt(savedStep, 10);
+      if (!isNaN(parsed) && parsed >= 1 && parsed <= 3) setStep(parsed);
+    }
+    if (savedForm) {
+      try {
+        const parsedForm = JSON.parse(savedForm);
+        setForm(prev => ({ ...prev, ...parsedForm }));
+      } catch {}
+    }
+  }, []);
+
+  // Single combined redirect effect — prevents race conditions from having multiple
+  // independent effects that can fire out of order and bounce the user between routes.
+  useEffect(() => {
+    if (loading) return;
+    if (!session) { router.replace('/login'); return; }
+    if (!profileResolved) return;
+    if (isPlatformAdmin) { router.replace('/admin'); return; }
+    if (isOnboarded && !redirectedRef.current) router.replace('/dashboard');
+  }, [loading, session, profileResolved, isPlatformAdmin, isOnboarded, router]);
+
+  useEffect(() => {
+    if (!session?.user) return;
+
+    let pending: Record<string, unknown> = {};
+    try {
+      pending = JSON.parse(localStorage.getItem('solnuv_pending_onboarding') || '{}') as Record<string, unknown>;
+    } catch {
+      pending = {};
+    }
+
+    setForm((prev) => ({
+      ...prev,
+      phone: prev.phone || String(pending.phone ?? '') || session.user.user_metadata?.phone || '',
+      business_type: prev.business_type || String(pending.business_type ?? '') || session.user.user_metadata?.business_type || 'solo',
+    }));
+  }, [session?.user]);
+
+  const update = (field, val) => setForm(f => ({ ...f, [field]: val }));
+  const isRegistered = form.business_type === 'registered';
+
+  // Persist step + form so browser refresh doesn't lose progress
+  useEffect(() => {
+    sessionStorage.setItem('solnuv_onboarding_step', String(step));
+  }, [step]);
+
+  useEffect(() => {
+    sessionStorage.setItem('solnuv_onboarding_form', JSON.stringify(form));
+  }, [form]);
+  const totalSteps = isRegistered ? 3 : 2;
+
+  function validateCurrentStep() {
+    if (step === 1) {
+      if (!form.user_type) {
+        toast.error('Please select your account type to continue');
+        return false;
+      }
+    }
+
+    if (step === 2) {
+      if (!form.first_name?.trim()) {
+        toast.error('Please enter your first name');
+        return false;
+      }
+      if (!form.phone?.trim()) {
+        toast.error('Phone number is required');
+        return false;
+      }
+      if (!isValidNigerianPhone(form.phone)) {
+        toast.error('Please enter a valid Nigerian phone number (e.g., 08012345678)');
+        return false;
+      }
+    }
+
+    if (step === 3 && isRegistered) {
+      if (!form.company_name?.trim()) {
+        toast.error('Company name is required');
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  async function handleSubmit() {
+    if (!form.first_name) { toast.error('Please enter your first name'); return; }
+    if (!form.phone) { toast.error('Phone number is required'); return; }
+    if (!isValidNigerianPhone(form.phone)) {
+      toast.error('Please enter a valid Nigerian phone number (e.g., 08012345678)');
+      return;
+    }
+    if (isRegistered && !form.company_name) { toast.error('Company name is required'); return; }
+    setSubmitting(true);
+    setSubmitError('');
+    try {
+      const { data } = await authAPI.saveProfile(form);
+      localStorage.removeItem('solnuv_pending_onboarding');
+      sessionStorage.removeItem('solnuv_onboarding_step');
+      sessionStorage.removeItem('solnuv_onboarding_form');
+      redirectedRef.current = true; // block the already-onboarded useEffect redirect
+      
+      // Update profile directly from response to avoid race condition
+      if (data?.data) {
+        setProfile(data.data);
+      }
+      
+      toast.success('Profile saved! Welcome to SolNuv 🌞');
+      router.push('/plans?welcome=1');
+    } catch (err) {
+      redirectedRef.current = false; // Reset on failure to allow retry
+      const msg = err.response?.data?.message || 'Failed to save profile. Please try again.';
+      setSubmitError(msg);
+      toast.error(msg);
+    } finally { setSubmitting(false); }
+  }
+
+  const stepLabels = ['Account Type', 'Your Details', isRegistered ? 'Company Details' : null].filter(Boolean);
+
+  return (
+    <>
+      <Head><title>Setup Your Account — SolNuv</title></Head>
+      <div className="auth-shell">
+        <div className="w-full max-w-lg relative z-10">
+          {/* Logo */}
+          <div className="text-center mb-8">
+            <div className="w-12 h-12 bg-forest-900 rounded-2xl flex items-center justify-center mx-auto mb-3">
+              <RiSunLine className="text-amber-400 text-2xl" />
+            </div>
+            <h1 className="font-display font-bold text-forest-900 text-2xl">Let's set up your account</h1>
+            <p className="text-slate-500 text-sm mt-1">Takes less than 2 minutes</p>
+          </div>
+
+          {/* Step indicators */}
+          <div className="flex items-center justify-center gap-2 mb-8">
+            {stepLabels.map((label, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <div className={`flex items-center gap-1.5 ${i + 1 === step ? 'text-forest-900' : i + 1 < step ? 'text-emerald-600' : 'text-slate-400'}`}>
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold border-2 ${i + 1 === step ? 'border-forest-900 bg-forest-900 text-white' : i + 1 < step ? 'border-emerald-500 bg-emerald-500 text-white' : 'border-slate-300'}`}>
+                    {i + 1 < step ? <RiCheckLine /> : i + 1}
+                  </div>
+                  <span className="text-xs font-medium hidden sm:block">{label}</span>
+                </div>
+                {i < stepLabels.length - 1 && <div className="w-8 h-0.5 bg-slate-200" />}
+              </div>
+            ))}
+          </div>
+
+          <div className="auth-card">
+            {submitError && (
+              <div className="mb-5 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                {submitError}
+              </div>
+            )}
+
+            {/* STEP 1: Account type */}
+            {step === 1 && (
+              <div className="space-y-5">
+                <div>
+                  <p className="label">What best describes your role?</p>
+                  <div className="grid grid-cols-3 gap-3 mt-2">
+                    {[
+                      { value: 'installer', label: 'Installer / Engineer', emoji: '🔧' },
+                      { value: 'epc', label: 'EPC Contractor', emoji: '🏗️' },
+                      { value: 'developer', label: 'Developer', emoji: '💻' },
+                    ].map(opt => (
+                      <button key={opt.value} type="button" onClick={() => update('user_type', opt.value)}
+                        className={`p-4 rounded-xl border-2 text-center transition-all ${form.user_type === opt.value ? 'border-forest-900 bg-forest-900/5' : 'border-slate-200 hover:border-slate-300'}`}>
+                        <span className="text-2xl block mb-1">{opt.emoji}</span>
+                        <span className="text-xs font-medium text-slate-700">{opt.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <p className="label">Business type</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    {[
+                      { value: 'solo', label: 'Solo / Unregistered', desc: 'Individual or informal business' },
+                      { value: 'registered', label: 'Registered Company', desc: 'CAC registered business' },
+                    ].map(opt => (
+                      <button key={opt.value} type="button" onClick={() => update('business_type', opt.value)}
+                        className={`p-4 rounded-xl border-2 text-left transition-all ${form.business_type === opt.value ? 'border-forest-900 bg-forest-900/5' : 'border-slate-200 hover:border-slate-300'}`}>
+                        <p className="font-semibold text-sm text-forest-900">{opt.label}</p>
+                        <p className="text-xs text-slate-500 mt-0.5">{opt.desc}</p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* STEP 2: Personal details */}
+            {step === 2 && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="label">First Name *</label>
+                    <input className="input" placeholder="Emeka" value={form.first_name} onChange={e => update('first_name', e.target.value)} required />
+                  </div>
+                  <div>
+                    <label className="label">Last Name</label>
+                    <input className="input" placeholder="Okonkwo" value={form.last_name} onChange={e => update('last_name', e.target.value)} />
+                  </div>
+                </div>
+                <div>
+                  <label className="label">Phone Number</label>
+                  <input className="input" type="tel" placeholder="+234 801 234 5678" value={form.phone} onChange={e => update('phone', e.target.value)} />
+                </div>
+                {!isRegistered && (
+                  <div>
+                    <label className="label">Brand / Business Name</label>
+                    <input className="input" placeholder="SunTech Solar Solutions" value={form.brand_name} onChange={e => update('brand_name', e.target.value)} />
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* STEP 3: Company details (registered only) */}
+            {step === 3 && isRegistered && (
+              <div className="space-y-4">
+                <div>
+                  <label className="label">Company Name *</label>
+                  <input className="input" placeholder="Sunbeam EPC Limited" value={form.company_name} onChange={e => update('company_name', e.target.value)} required />
+                </div>
+                <div>
+                  <label className="label">Company Email</label>
+                  <input className="input" type="email" placeholder="info@yourcompany.com" value={form.company_email} onChange={e => update('company_email', e.target.value)} />
+                </div>
+                <div>
+                  <label className="label">State</label>
+                  <select className="input" value={form.company_state} onChange={e => update('company_state', e.target.value)}>
+                    {NIGERIAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="label">City</label>
+                  <input className="input" placeholder="Ikeja" value={form.company_city} onChange={e => update('company_city', e.target.value)} />
+                </div>
+                <div>
+                  <label className="label">Address</label>
+                  <input className="input" placeholder="14 Adeola Odeku, Victoria Island" value={form.company_address} onChange={e => update('company_address', e.target.value)} />
+                </div>
+              </div>
+            )}
+
+            {/* Navigation */}
+            <div className="flex justify-between mt-8">
+              {step > 1 ? (
+                <button onClick={() => setStep(s => s - 1)} className="btn-ghost flex items-center gap-2">
+                  <RiArrowLeftLine /> Back
+                </button>
+              ) : <div />}
+              {step < totalSteps ? (
+                <button onClick={() => { if (validateCurrentStep()) setStep(s => s + 1); }} className="btn-primary flex items-center gap-2">
+                  Continue <RiArrowRightLine />
+                </button>
+              ) : (
+                <button onClick={handleSubmit} disabled={submitting} className="btn-primary flex items-center gap-2">
+                  {submitting ? 'Saving...' : 'Complete Setup'}
+                  {!submitting && <RiCheckLine />}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}

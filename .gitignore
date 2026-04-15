@@ -11,3 +11,7 @@ npm-debug.log*
 .vercel
 .netlify
 coverage/
+.vscode/
+
+.vercel
+.env*.local
