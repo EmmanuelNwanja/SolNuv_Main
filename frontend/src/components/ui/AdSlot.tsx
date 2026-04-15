@@ -53,7 +53,11 @@ export default function AdSlot({ slot, page, limit, className = "" }: AdSlotProp
         const path = typeof window !== 'undefined' ? window.location.pathname : '';
         data.forEach((ad) => blogAPI.trackAdImpression(ad.id, path).catch(() => {}));
       })
-      .catch(() => {});
+      .catch((err) => {
+        // Keep UX quiet for users, but retain diagnostics for operators.
+        console.warn('AdSlot failed to load ads', { slot, page, message: err?.message });
+        setAds([]);
+      });
   }, [slot, page, effectiveLimit]);
 
   if (!ads.length) return null;
@@ -70,12 +74,10 @@ export default function AdSlot({ slot, page, limit, className = "" }: AdSlotProp
     return (
       <div className={`space-y-4 ${className}`}>
         {ads.map((ad) => (
-          <div
+          <button
+            type="button"
             key={ad.id}
-            role="link"
-            tabIndex={0}
             onClick={() => handleClick(ad)}
-            onKeyDown={(e) => e.key === 'Enter' && handleClick(ad)}
             className="cursor-pointer rounded-xl border border-amber-200 bg-amber-50 dark:bg-slate-800 dark:border-slate-700 overflow-hidden hover:shadow-md transition-shadow"
             aria-label={`Advertisement: ${ad.title}`}
           >
@@ -105,7 +107,7 @@ export default function AdSlot({ slot, page, limit, className = "" }: AdSlotProp
                 </span>
               )}
             </div>
-          </div>
+          </button>
         ))}
       </div>
     );
@@ -116,11 +118,9 @@ export default function AdSlot({ slot, page, limit, className = "" }: AdSlotProp
   // ── banner: full-width leaderboard strip ──────────────────────
   if (slot === 'banner') {
     return (
-      <div
-        role="link"
-        tabIndex={0}
+      <button
+        type="button"
         onClick={() => handleClick(ad)}
-        onKeyDown={(e) => e.key === 'Enter' && handleClick(ad)}
         className={`cursor-pointer rounded-xl border border-amber-200/80 bg-gradient-to-r from-amber-50 via-white to-amber-50 dark:from-slate-800 dark:via-slate-900 dark:to-slate-800 dark:border-slate-700 flex items-center gap-4 px-5 py-4 hover:shadow-md transition-shadow ${className}`}
         aria-label={`Advertisement: ${ad.title}`}
       >
@@ -148,18 +148,16 @@ export default function AdSlot({ slot, page, limit, className = "" }: AdSlotProp
         <span className="flex-shrink-0 text-xs font-semibold text-amber-700 dark:text-amber-400 flex items-center gap-1 whitespace-nowrap">
           Learn more <RiArrowRightLine />
         </span>
-      </div>
+      </button>
     );
   }
 
   // ── in-feed: horizontal card between list items ───────────────
   if (slot === 'in-feed') {
     return (
-      <div
-        role="link"
-        tabIndex={0}
+      <button
+        type="button"
         onClick={() => handleClick(ad)}
-        onKeyDown={(e) => e.key === 'Enter' && handleClick(ad)}
         className={`cursor-pointer rounded-xl border border-amber-200/70 bg-gradient-to-br from-amber-50 to-white dark:from-slate-800 dark:to-slate-900 dark:border-slate-700 p-4 flex items-center gap-4 hover:shadow-md transition-shadow ${className}`}
         aria-label={`Advertisement: ${ad.title}`}
       >
@@ -187,18 +185,16 @@ export default function AdSlot({ slot, page, limit, className = "" }: AdSlotProp
             Learn more <RiArrowRightLine />
           </span>
         </div>
-      </div>
+      </button>
     );
   }
 
   // ── footer: compact full-width strip ─────────────────────────
   if (slot === 'footer') {
     return (
-      <div
-        role="link"
-        tabIndex={0}
+      <button
+        type="button"
         onClick={() => handleClick(ad)}
-        onKeyDown={(e) => e.key === 'Enter' && handleClick(ad)}
         className={`cursor-pointer rounded-xl border border-amber-100 dark:border-slate-700/80 bg-amber-50/60 dark:bg-slate-800/50 flex items-center gap-4 px-4 py-3 hover:shadow-sm transition-shadow ${className}`}
         aria-label={`Advertisement: ${ad.title}`}
       >
@@ -223,18 +219,16 @@ export default function AdSlot({ slot, page, limit, className = "" }: AdSlotProp
             Visit <RiArrowRightLine />
           </span>
         )}
-      </div>
+      </button>
     );
   }
 
   // ── inline: insert inside article content ─────────────────────
   if (slot === 'inline') {
     return (
-      <div
-        role="link"
-        tabIndex={0}
+      <button
+        type="button"
         onClick={() => handleClick(ad)}
-        onKeyDown={(e) => e.key === 'Enter' && handleClick(ad)}
         className={`cursor-pointer my-8 rounded-xl border border-amber-200 bg-gradient-to-br from-amber-50 to-white dark:from-slate-800 dark:to-slate-900 dark:border-slate-700 overflow-hidden hover:shadow-md transition-shadow ${className}`}
         aria-label={`Advertisement: ${ad.title}`}
       >
@@ -264,7 +258,7 @@ export default function AdSlot({ slot, page, limit, className = "" }: AdSlotProp
             </span>
           </div>
         </div>
-      </div>
+      </button>
     );
   }
 
