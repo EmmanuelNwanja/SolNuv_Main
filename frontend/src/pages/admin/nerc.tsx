@@ -1,23 +1,42 @@
 import Head from 'next/head';
 import { useEffect, useState } from 'react';
+import type { AxiosError } from 'axios';
 import { adminAPI } from '../../services/api';
 import { getAdminLayout } from '../../components/Layout';
 import AdminRoute from '../../components/AdminRoute';
 import { LoadingSpinner } from '../../components/ui/index';
+import type {
+  NercAdminDecisionAction,
+  NercApplicationWithProject,
+  NercApplicationStatus,
+  NercReportingCycleWithProject,
+} from '../../types/contracts';
 import toast from 'react-hot-toast';
 
-function fmtDate(value) {
+type NercSlaOverview = {
+  total: number;
+  pending_review: number;
+  sla_breached: number;
+  due_in_5_days: number;
+};
+
+function fmtDate(value?: string | null) {
   if (!value) return '—';
   return new Date(value).toLocaleDateString('en-NG', { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
+function getApiErrorMessage(error: unknown, fallback: string): string {
+  const err = error as AxiosError<{ message?: string }>;
+  return err.response?.data?.message ?? fallback;
+}
+
 export default function NercAdminPage() {
   const [loading, setLoading] = useState(true);
-  const [sla, setSla] = useState(null);
-  const [applications, setApplications] = useState([]);
-  const [cycles, setCycles] = useState([]);
-  const [statusFilter, setStatusFilter] = useState('');
-  const [decisionBusy, setDecisionBusy] = useState(null);
+  const [sla, setSla] = useState<NercSlaOverview | null>(null);
+  const [applications, setApplications] = useState<NercApplicationWithProject[]>([]);
+  const [cycles, setCycles] = useState<NercReportingCycleWithProject[]>([]);
+  const [statusFilter, setStatusFilter] = useState<NercApplicationStatus | ''>('');
+  const [decisionBusy, setDecisionBusy] = useState<string | null>(null);
 
   async function load() {
     setLoading(true);
@@ -39,14 +58,14 @@ export default function NercAdminPage() {
 
   useEffect(() => { load(); }, [statusFilter]);
 
-  async function takeDecision(id, action) {
+  async function takeDecision(id: string, action: NercAdminDecisionAction) {
     setDecisionBusy(id + action);
     try {
       await adminAPI.decideNercApplication(id, { action });
       toast.success('Decision saved');
-      load();
+      await load();
     } catch (error) {
-      toast.error(error?.response?.data?.message || 'Decision failed');
+      toast.error(getApiErrorMessage(error, 'Decision failed'));
     } finally {
       setDecisionBusy(null);
     }
@@ -85,7 +104,11 @@ export default function NercAdminPage() {
             <div className="card">
               <div className="flex items-center justify-between mb-3">
                 <h2 className="font-semibold text-forest-900">Application Review Queue</h2>
-                <select className="input max-w-[220px]" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+                <select
+                  className="input max-w-[220px]"
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter((e.target.value || '') as NercApplicationStatus | '')}
+                >
                   <option value="">All statuses</option>
                   <option value="submitted">submitted</option>
                   <option value="in_review">in_review</option>

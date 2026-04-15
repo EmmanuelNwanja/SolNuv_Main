@@ -1,23 +1,41 @@
 import Head from 'next/head';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
-import { useEffect, useState } from 'react';
+import { type FormEvent, useEffect, useState } from 'react';
+import type { AxiosError } from 'axios';
 import { getDashboardLayout } from '../../../components/Layout';
 import { LoadingSpinner } from '../../../components/ui/index';
 import { nercAPI } from '../../../services/api';
+import type {
+  NercApplication,
+  NercMiniGridType,
+  NercReportingCycle,
+  ProjectRegulatoryProfile,
+} from '../../../types/contracts';
 import { queryParamToString } from '../../../utils/nextRouter';
 import toast from 'react-hot-toast';
+
+type RegulatoryFormState = {
+  mini_grid_type: NercMiniGridType;
+  declared_capacity_kw: number;
+  notes: string;
+};
+
+function getApiErrorMessage(error: unknown, fallback: string): string {
+  const err = error as AxiosError<{ message?: string }>;
+  return err.response?.data?.message ?? fallback;
+}
 
 export default function ProjectRegulatoryPage() {
   const router = useRouter();
   const id = queryParamToString(router.query.id);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [submittingApp, setSubmittingApp] = useState(null);
-  const [profile, setProfile] = useState(null);
-  const [applications, setApplications] = useState([]);
-  const [cycles, setCycles] = useState([]);
-  const [form, setForm] = useState({
+  const [submittingApp, setSubmittingApp] = useState<string | null>(null);
+  const [profile, setProfile] = useState<ProjectRegulatoryProfile | null>(null);
+  const [applications, setApplications] = useState<NercApplication[]>([]);
+  const [cycles, setCycles] = useState<NercReportingCycle[]>([]);
+  const [form, setForm] = useState<RegulatoryFormState>({
     mini_grid_type: 'interconnected',
     declared_capacity_kw: 0,
     notes: '',
@@ -42,7 +60,7 @@ export default function ProjectRegulatoryPage() {
         notes: profileData?.notes || '',
       });
     } catch (error) {
-      toast.error(error?.response?.data?.message || 'Failed to load regulatory profile');
+      toast.error(getApiErrorMessage(error, 'Failed to load regulatory profile'));
     } finally {
       setLoading(false);
     }
@@ -50,7 +68,7 @@ export default function ProjectRegulatoryPage() {
 
   useEffect(() => { load(); }, [id]);
 
-  async function saveProfile(e) {
+  async function saveProfile(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setSaving(true);
     try {
@@ -58,7 +76,7 @@ export default function ProjectRegulatoryPage() {
       setProfile(data.data);
       toast.success('Regulatory profile updated');
     } catch (error) {
-      toast.error(error?.response?.data?.message || 'Failed to save profile');
+      toast.error(getApiErrorMessage(error, 'Failed to save profile'));
     } finally {
       setSaving(false);
     }
@@ -68,20 +86,20 @@ export default function ProjectRegulatoryPage() {
     try {
       await nercAPI.createApplication(id, {});
       toast.success('New application draft created');
-      load();
+      await load();
     } catch (error) {
-      toast.error(error?.response?.data?.message || 'Failed to create application');
+      toast.error(getApiErrorMessage(error, 'Failed to create application'));
     }
   }
 
-  async function submitApplication(appId) {
+  async function submitApplication(appId: string) {
     setSubmittingApp(appId);
     try {
       await nercAPI.submitApplication(appId);
       toast.success('Application submitted');
-      load();
+      await load();
     } catch (error) {
-      toast.error(error?.response?.data?.message || 'Failed to submit application');
+      toast.error(getApiErrorMessage(error, 'Failed to submit application'));
     } finally {
       setSubmittingApp(null);
     }
@@ -109,7 +127,12 @@ export default function ProjectRegulatoryPage() {
               <select
                 className="input"
                 value={form.mini_grid_type}
-                onChange={(e) => setForm((prev) => ({ ...prev, mini_grid_type: e.target.value }))}
+                  onChange={(e) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      mini_grid_type: e.target.value as NercMiniGridType,
+                    }))
+                  }
               >
                 <option value="isolated">Isolated</option>
                 <option value="interconnected">Interconnected</option>

@@ -5,6 +5,8 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  schedule:
+    - cron: '0 3 * * *'
 
 jobs:
   lint-and-test:
@@ -21,15 +23,24 @@ jobs:
 
       - name: Install backend deps
         working-directory: backend
-        run: npm install
+        run: npm ci
 
       - name: Lint backend
         working-directory: backend
         run: npm run lint --if-present
 
+      - name: Typecheck backend
+        working-directory: backend
+        run: npm run typecheck --if-present
+
+      - name: Run backend NERC smoke regression
+        if: ${{ vars.RUN_NERC_SMOKE == 'true' }}
+        working-directory: backend
+        run: npm run test:nerc-regression --if-present
+
       - name: Install frontend deps
         working-directory: frontend
-        run: npm install
+        run: npm ci
 
       - name: Build frontend
         working-directory: frontend
@@ -69,6 +80,6 @@ jobs:
     steps:
       - name: Run daily cron via API
         run: |
-          curl -X POST "${{ secrets.API_URL }}/api/cron/daily" \
+          curl --fail --show-error --silent --max-time 20 -X POST "${{ secrets.API_URL }}/api/cron/daily" \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
             -H "Content-Type: application/json"
