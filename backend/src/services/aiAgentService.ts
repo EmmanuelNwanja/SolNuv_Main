@@ -85,6 +85,58 @@ let _defCache = {};
 let _defCacheTs = 0;
 const DEF_CACHE_TTL = 2 * 60 * 1000;
 
+async function ensureSingletonNullCompanyInstance(definitionId) {
+  const { data: existing, error } = await supabase
+    .from('ai_agent_instances')
+    .select('id, is_active, created_at')
+    .eq('definition_id', definitionId)
+    .is('company_id', null)
+    .order('created_at', { ascending: true });
+
+  if (error) {
+    logger.warn('Failed to inspect shared agent instances', { definitionId, message: error.message });
+    return null;
+  }
+
+  if (!existing || existing.length === 0) {
+    const { data: created, error: createErr } = await supabase
+      .from('ai_agent_instances')
+      .insert({
+        definition_id: definitionId,
+        company_id: null,
+        is_active: true,
+      })
+      .select('id')
+      .single();
+
+    if (createErr) {
+      logger.warn('Failed to create shared agent instance', { definitionId, message: createErr.message });
+      return null;
+    }
+    return created?.id || null;
+  }
+
+  const keep = existing[0];
+  const duplicates = existing.slice(1).map((r) => r.id);
+
+  if (!keep.is_active) {
+    await supabase
+      .from('ai_agent_instances')
+      .update({ is_active: true })
+      .eq('id', keep.id);
+  }
+
+  if (duplicates.length > 0) {
+    await supabase
+      .from('ai_agent_instances')
+      .update({ is_active: false })
+      .in('id', duplicates);
+    logger.warn('Deactivated duplicate shared agent instances', { definitionId, deactivated: duplicates.length });
+  }
+
+  return keep.id;
+}
+
 function invalidateDefinitionCache(definitionId) {
   if (definitionId) {
     delete _defCache[definitionId];
@@ -125,72 +177,115 @@ async function getAgentInstance(instanceId) {
  * Idempotent — skips agents that already exist by slug.
  */
 async function seedAgentDefinitions() {
+  const summary = {
+    createdDefinitions: 0,
+    updatedDefinitions: 0,
+    createdSharedInstances: 0,
+    recoveredSharedInstances: 0,
+    failedDefinitions: 0,
+  };
+
   try {
     for (const seed of AGENT_SEEDS) {
       const { data: existing } = await supabase
         .from('ai_agent_definitions')
-        .select('id')
+        .select('id, is_active')
         .eq('slug', seed.slug)
         .maybeSingle();
 
-      if (existing) continue;
+      let definitionId = existing?.id || null;
+      if (!existing) {
+        const { data: created, error } = await supabase
+          .from('ai_agent_definitions')
+          .insert({
+            slug: seed.slug,
+            tier: seed.tier,
+            name: seed.name,
+            description: seed.description,
+            system_prompt: seed.system_prompt,
+            capabilities: seed.capabilities,
+            provider_slug: seed.provider_slug,
+            fallback_provider_slug: seed.fallback_provider_slug,
+            plan_minimum: seed.plan_minimum,
+            max_instances_per_company: seed.max_instances_per_company,
+            max_tokens_per_task: seed.max_tokens_per_task,
+            temperature: seed.temperature,
+            response_format: seed.response_format,
+          })
+          .select('id, slug, tier')
+          .single();
 
-      const { data: created, error } = await supabase
-        .from('ai_agent_definitions')
-        .insert({
-          slug: seed.slug,
-          tier: seed.tier,
-          name: seed.name,
-          description: seed.description,
-          system_prompt: seed.system_prompt,
-          capabilities: seed.capabilities,
-          provider_slug: seed.provider_slug,
-          fallback_provider_slug: seed.fallback_provider_slug,
-          plan_minimum: seed.plan_minimum,
-          max_instances_per_company: seed.max_instances_per_company,
-          max_tokens_per_task: seed.max_tokens_per_task,
-          temperature: seed.temperature,
-          response_format: seed.response_format,
-        })
-        .select('id, slug, tier')
-        .single();
+        if (error) {
+          summary.failedDefinitions += 1;
+          logger.warn(`Failed to seed agent definition: ${seed.slug}`, { message: error.message });
+          continue;
+        }
+        definitionId = created.id;
+        summary.createdDefinitions += 1;
+      } else {
+        const { error: updateErr } = await supabase
+          .from('ai_agent_definitions')
+          .update({
+            tier: seed.tier,
+            name: seed.name,
+            description: seed.description,
+            system_prompt: seed.system_prompt,
+            capabilities: seed.capabilities,
+            provider_slug: seed.provider_slug,
+            fallback_provider_slug: seed.fallback_provider_slug,
+            plan_minimum: seed.plan_minimum,
+            max_instances_per_company: seed.max_instances_per_company,
+            max_tokens_per_task: seed.max_tokens_per_task,
+            temperature: seed.temperature,
+            response_format: seed.response_format,
+            is_active: true,
+          })
+          .eq('id', existing.id);
 
-      if (error) {
-        logger.warn(`Failed to seed agent definition: ${seed.slug}`, { message: error.message });
-        continue;
+        if (updateErr) {
+          logger.warn(`Failed to refresh seeded definition: ${seed.slug}`, { message: updateErr.message });
+        } else {
+          summary.updatedDefinitions += 1;
+        }
       }
 
-      // Create internal agent instance (no company)
-      if (seed.tier === 'internal' && created) {
-        const { error: instErr } = await supabase.from('ai_agent_instances').insert({
-          definition_id: created.id,
-          company_id: null,
-          is_active: true,
-        });
-        if (instErr) logger.warn(`Internal instance already exists for ${seed.slug}`);
+      if (definitionId && seed.tier === 'internal') {
+        const before = await supabase
+          .from('ai_agent_instances')
+          .select('id', { count: 'exact', head: true })
+          .eq('definition_id', definitionId)
+          .is('company_id', null);
+        const instanceId = await ensureSingletonNullCompanyInstance(definitionId);
+        if (instanceId) {
+          if ((before.count || 0) === 0) summary.createdSharedInstances += 1;
+          else summary.recoveredSharedInstances += 1;
+        }
       }
-
-      logger.info(`Seeded agent definition: ${seed.slug} (${seed.tier})`);
     }
 
-    // Also seed a single shared general agent instance (company_id = null)
+    // Ensure a single shared general assistant exists (used by admin/system paths)
     const { data: generalDef } = await supabase
       .from('ai_agent_definitions')
       .select('id')
       .eq('slug', 'solnuv-assistant')
       .maybeSingle();
 
-    if (generalDef) {
-      const { error: genErr } = await supabase.from('ai_agent_instances').upsert({
-        definition_id: generalDef.id,
-        company_id: null,
-        is_active: true,
-      }, { onConflict: 'definition_id,company_id' });
-      if (genErr) logger.warn('General agent instance upsert failed', { message: genErr.message });
+    if (generalDef?.id) {
+      const before = await supabase
+        .from('ai_agent_instances')
+        .select('id', { count: 'exact', head: true })
+        .eq('definition_id', generalDef.id)
+        .is('company_id', null);
+      const instanceId = await ensureSingletonNullCompanyInstance(generalDef.id);
+      if (instanceId) {
+        if ((before.count || 0) === 0) summary.createdSharedInstances += 1;
+        else summary.recoveredSharedInstances += 1;
+      }
     }
   } catch (err) {
     logger.error('Agent seeding error', { message: err.message });
   }
+  return summary;
 }
 
 // ─── CHAT EXECUTION ──────────────────────────────────────────────────────────
@@ -579,13 +674,23 @@ async function assignAgentsOnSubscription(companyId, plan) {
     const companyName = company?.name?.trim() || null;
 
     // Get all active definitions that this plan can access
-    const { data: definitions } = await supabase
+    const { data: definitionsData } = await supabase
       .from('ai_agent_definitions')
       .select('id, slug, tier, plan_minimum, max_instances_per_company')
       .eq('is_active', true)
       .in('tier', ['customer', 'general']);
+    let definitions = definitionsData || [];
 
-    if (!definitions || definitions.length === 0) return;
+    if (definitions.length === 0) {
+      await seedAgentDefinitions();
+      const { data: reseededDefinitions } = await supabase
+        .from('ai_agent_definitions')
+        .select('id, slug, tier, plan_minimum, max_instances_per_company')
+        .eq('is_active', true)
+        .in('tier', ['customer', 'general']);
+      if (!reseededDefinitions || reseededDefinitions.length === 0) return;
+      definitions = reseededDefinitions;
+    }
 
     let assigned = 0;
     for (const def of definitions) {
@@ -706,7 +811,9 @@ async function runInternalAgent(agentSlug) {
       .eq('definition_id', definition.id)
       .is('company_id', null)
       .eq('is_active', true)
-      .maybeSingle();
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .single();
 
     if (!instance) {
       logger.warn(`No active instance for internal agent: ${agentSlug}`);
@@ -848,6 +955,110 @@ async function exportTrainingData(filters: Record<string, any> = {}) {
   return lines.join('\n');
 }
 
+async function getAdminHealthSnapshot() {
+  const diagnostics = {
+    definition_count: 0,
+    shared_instance_duplicates: {
+      total_groups: 0,
+      total_extra_instances: 0,
+      groups: [],
+    },
+    per_company_provisioning_gaps: {
+      companies_with_gaps: 0,
+      rows: [],
+    },
+  };
+
+  const { data: definitions, error: defErr } = await supabase
+    .from('ai_agent_definitions')
+    .select('id, slug, tier, plan_minimum, max_instances_per_company, is_active');
+  if (defErr) throw defErr;
+  const activeDefinitions = (definitions || []).filter((d) => d.is_active);
+  diagnostics.definition_count = activeDefinitions.length;
+
+  const { data: sharedInstances, error: sharedErr } = await supabase
+    .from('ai_agent_instances')
+    .select('id, definition_id, is_active')
+    .is('company_id', null);
+  if (sharedErr) throw sharedErr;
+
+  const sharedByDef = new Map();
+  for (const row of sharedInstances || []) {
+    const arr = sharedByDef.get(row.definition_id) || [];
+    arr.push(row);
+    sharedByDef.set(row.definition_id, arr);
+  }
+  for (const [definitionId, rows] of sharedByDef.entries()) {
+    if (rows.length <= 1) continue;
+    const def = activeDefinitions.find((d) => d.id === definitionId) || (definitions || []).find((d) => d.id === definitionId);
+    const extras = rows.length - 1;
+    diagnostics.shared_instance_duplicates.total_groups += 1;
+    diagnostics.shared_instance_duplicates.total_extra_instances += extras;
+    diagnostics.shared_instance_duplicates.groups.push({
+      definition_id: definitionId,
+      definition_slug: def?.slug || null,
+      total_instances: rows.length,
+      active_instances: rows.filter((r) => r.is_active).length,
+      extra_instances: extras,
+    });
+  }
+
+  const { data: companies, error: companyErr } = await supabase
+    .from('companies')
+    .select('id, name, subscription_plan');
+  if (companyErr) throw companyErr;
+
+  const { data: scopedInstances, error: instErr } = await supabase
+    .from('ai_agent_instances')
+    .select('company_id, definition_id, is_active')
+    .not('company_id', 'is', null);
+  if (instErr) throw instErr;
+
+  const companyInstanceMap = new Map();
+  for (const row of scopedInstances || []) {
+    if (!row.company_id) continue;
+    const key = row.company_id;
+    const arr = companyInstanceMap.get(key) || [];
+    arr.push(row);
+    companyInstanceMap.set(key, arr);
+  }
+
+  for (const company of companies || []) {
+    const plan = company.subscription_plan || 'free';
+    const planLevel = PLAN_HIERARCHY[plan] ?? 0;
+    const expected = activeDefinitions
+      .filter((d) => ['general', 'customer'].includes(d.tier))
+      .filter((d) => (PLAN_HIERARCHY[d.plan_minimum] ?? 0) <= planLevel)
+      .filter((d) => (d.max_instances_per_company || 0) > 0);
+
+    const companyRows = companyInstanceMap.get(company.id) || [];
+    const activeIds = new Set(
+      companyRows
+        .filter((r) => r.is_active)
+        .map((r) => r.definition_id)
+    );
+    const missing = expected
+      .filter((d) => !activeIds.has(d.id))
+      .map((d) => d.slug);
+
+    if (missing.length > 0) {
+      diagnostics.per_company_provisioning_gaps.rows.push({
+        company_id: company.id,
+        company_name: company.name || null,
+        subscription_plan: plan,
+        expected_definition_count: expected.length,
+        active_instance_count: activeIds.size,
+        missing_definition_slugs: missing,
+      });
+    }
+  }
+
+  diagnostics.per_company_provisioning_gaps.companies_with_gaps =
+    diagnostics.per_company_provisioning_gaps.rows.length;
+
+  return diagnostics;
+}
+
 
 module.exports = {
   executeChat,
@@ -859,5 +1070,6 @@ module.exports = {
   checkExpiredSubscriptions,
   seedAgentDefinitions,
   exportTrainingData,
+  getAdminHealthSnapshot,
   invalidateDefinitionCache,
 };

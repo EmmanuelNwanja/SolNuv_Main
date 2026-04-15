@@ -35,6 +35,7 @@ router.get('/admin/tasks',            requireAuth, requireAdmin, requireAdminRol
 router.get('/admin/escalations',      requireAuth, requireAdmin, requireAdminRole('super_admin', 'operations'), agentController.adminGetEscalations);
 router.patch('/admin/escalations/:id', requireAuth, requireAdmin, requireAdminRole('super_admin', 'operations'), agentController.adminResolveEscalation);
 router.get('/admin/usage',            requireAuth, requireAdmin, requireAdminRole('super_admin', 'finance'),    agentController.adminGetUsage);
+router.get('/admin/health',           requireAuth, requireAdmin, requireAdminRole('super_admin'),               agentController.adminHealth);
 router.get('/admin/training-export',  requireAuth, requireAdmin, requireAdminRole('super_admin'),               agentController.adminExportTraining);
 router.post('/admin/seed',            requireAuth, requireAdmin, requireAdminRole('super_admin'),               agentController.adminSeedDefinitions);
 router.post('/admin/run-blog-writer', requireAuth, requireAdmin, requireAdminRole('super_admin', 'operations'), agentController.adminRunBlogWriter);

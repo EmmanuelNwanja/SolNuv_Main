@@ -453,6 +453,7 @@ export const agentAPI = {
   adminResolveEscalation: (id: string, data: JsonRecord) =>
     api.patch(`/agent/admin/escalations/${id}`, data),
   adminGetUsage: (params?: JsonRecord) => api.get("/agent/admin/usage", { params }),
+  adminHealth: () => api.get("/agent/admin/health"),
   adminExportTraining: (params?: JsonRecord) =>
     api.get("/agent/admin/training-export", { params, responseType: "blob" }),
   adminSeed: () => api.post("/agent/admin/seed"),

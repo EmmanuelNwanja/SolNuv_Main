@@ -62,32 +62,48 @@ exports.getInstances = async (req, res) => {
     const userPlan = req.user?.companies?.subscription_plan || req.user.subscription_plan || 'free';
     const userPlanLevel = AGENT_PLAN_HIERARCHY[userPlan] ?? 0;
 
-    if (!companyId) {
-      return sendSuccess(res, []);
-    }
+    let instances = [];
+    let error = null;
 
-    // Fetch only company-specific instances (never shared null-company instances)
-    const { data, error } = await supabase
-      .from('ai_agent_instances')
-      .select('id, is_active, created_at, config_overrides, ai_agent_definitions(id, slug, name, description, tier, plan_minimum)')
-      .eq('company_id', companyId)
-      .eq('is_active', true);
+    if (companyId) {
+      const { data, error: fetchError } = await supabase
+        .from('ai_agent_instances')
+        .select('id, is_active, created_at, config_overrides, ai_agent_definitions(id, slug, name, description, tier, plan_minimum)')
+        .eq('company_id', companyId)
+        .eq('is_active', true);
+      instances = data || [];
+      error = fetchError;
+    }
 
     if (error) throw error;
 
-    // If no instances found, auto-provision the free agent for this company
-    if (!data || data.length === 0) {
+    // If no company-scoped instances found, auto-provision based on company plan.
+    if (companyId && instances.length === 0) {
       await agentService.assignAgentsOnSubscription(companyId, userPlan);
       const { data: provisioned } = await supabase
         .from('ai_agent_instances')
         .select('id, is_active, created_at, config_overrides, ai_agent_definitions(id, slug, name, description, tier, plan_minimum)')
         .eq('company_id', companyId)
         .eq('is_active', true);
-
-      return sendSuccess(res, filterUserFacingAgents(provisioned || [], userPlanLevel));
+      instances = provisioned || [];
     }
 
-    return sendSuccess(res, filterUserFacingAgents(data, userPlanLevel));
+    // Fallback for users without company linkage: expose the shared general assistant only.
+    if (!companyId || instances.length === 0) {
+      const { data: shared, error: sharedError } = await supabase
+        .from('ai_agent_instances')
+        .select('id, is_active, created_at, config_overrides, ai_agent_definitions(id, slug, name, description, tier, plan_minimum)')
+        .is('company_id', null)
+        .eq('is_active', true);
+      if (sharedError) throw sharedError;
+      if (!companyId) {
+        instances = shared || [];
+      } else {
+        instances = [...instances, ...(shared || [])];
+      }
+    }
+
+    return sendSuccess(res, filterUserFacingAgents(instances, userPlanLevel));
   } catch (err) {
     logger.error('Get agent instances error', { message: err.message });
     return sendError(res, 'Failed to fetch agents');
@@ -747,13 +763,28 @@ exports.adminExportTraining = async (req, res) => {
 };
 
 /**
+ * GET /api/agent/admin/health
+ * Quick AI health diagnostics for definitions, shared instance duplicates,
+ * and per-company provisioning gaps.
+ */
+exports.adminHealth = async (req, res) => {
+  try {
+    const snapshot = await agentService.getAdminHealthSnapshot();
+    return sendSuccess(res, snapshot);
+  } catch (err) {
+    logger.error('Admin AI health error', { message: err.message });
+    return sendError(res, 'Failed to fetch AI diagnostics');
+  }
+};
+
+/**
  * POST /api/agent/admin/seed
  * Re-seed agent definitions (idempotent).
  */
 exports.adminSeedDefinitions = async (req, res) => {
   try {
-    await agentService.seedAgentDefinitions();
-    return sendSuccess(res, null, 'Agent definitions seeded');
+    const result = await agentService.seedAgentDefinitions();
+    return sendSuccess(res, result, 'Agent definitions seeded');
   } catch (err) {
     logger.error('Admin seed error', { message: err.message });
     return sendError(res, 'Failed to seed definitions');
@@ -775,44 +806,33 @@ exports.adminRunBlogWriter = async (req, res) => {
       return sendError(res, 'A prompt is required (minimum 3 characters)', 400);
     }
 
-    // Find the seo-blog-writer internal instance (company_id IS NULL)
-    const { data: instance } = await supabase
-      .from('ai_agent_instances')
-      .select('id, ai_agent_definitions(id, slug, system_prompt, capabilities, provider_slug, fallback_provider_slug, temperature, max_tokens_per_task, response_format)')
+    // Resolve definition first, then fetch the canonical shared instance.
+    let agentInstanceId;
+    const { data: def } = await supabase
+      .from('ai_agent_definitions')
+      .select('id, slug')
+      .eq('slug', 'seo-blog-writer')
       .eq('is_active', true)
-      .is('company_id', null)
       .single();
 
-    // Fall back to definition lookup if no instance found
-    let agentInstanceId;
-    if (instance?.ai_agent_definitions?.slug === 'seo-blog-writer') {
-      agentInstanceId = instance.id;
-    } else {
-      // Search directly by slug
-      const { data: def } = await supabase
-        .from('ai_agent_definitions')
-        .select('id, slug')
-        .eq('slug', 'seo-blog-writer')
-        .eq('is_active', true)
-        .single();
-
-      if (!def) {
-        return sendError(res, 'SEO Blog Writer agent not found. Run agent seed first.', 404);
-      }
-
-      const { data: inst } = await supabase
-        .from('ai_agent_instances')
-        .select('id')
-        .eq('definition_id', def.id)
-        .eq('is_active', true)
-        .is('company_id', null)
-        .maybeSingle();
-
-      if (!inst) {
-        return sendError(res, 'SEO Blog Writer agent instance not found. Run agent seed first.', 404);
-      }
-      agentInstanceId = inst.id;
+    if (!def) {
+      return sendError(res, 'SEO Blog Writer agent not found. Run agent seed first.', 404);
     }
+
+    const { data: inst } = await supabase
+      .from('ai_agent_instances')
+      .select('id')
+      .eq('definition_id', def.id)
+      .eq('is_active', true)
+      .is('company_id', null)
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .single();
+
+    if (!inst) {
+      return sendError(res, 'SEO Blog Writer agent instance not found. Run agent seed first.', 404);
+    }
+    agentInstanceId = inst.id;
 
     // Build user message based on mode
     let message;

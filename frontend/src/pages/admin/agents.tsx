@@ -25,6 +25,32 @@ type AgentDefForm = {
   is_active?: boolean;
 };
 
+type AgentDiagnostics = {
+  definition_count: number;
+  shared_instance_duplicates?: {
+    total_groups: number;
+    total_extra_instances: number;
+    groups: Array<{
+      definition_id: string;
+      definition_slug: string | null;
+      total_instances: number;
+      active_instances: number;
+      extra_instances: number;
+    }>;
+  };
+  per_company_provisioning_gaps?: {
+    companies_with_gaps: number;
+    rows: Array<{
+      company_id: string;
+      company_name: string | null;
+      subscription_plan: string;
+      expected_definition_count: number;
+      active_instance_count: number;
+      missing_definition_slugs: string[];
+    }>;
+  };
+};
+
 const TABS = ['definitions', 'instances', 'tasks', 'escalations', 'usage'];
 const PLAN_OPTIONS = ['basic', 'pro', 'elite', 'enterprise'];
 const PROVIDER_OPTIONS = ['gemini', 'groq'];
@@ -346,6 +372,8 @@ function AgentsAdmin() {
   const [usage, setUsage] = useState(null);
   const [editDefId, setEditDefId] = useState(null);
   const [seeding, setSeeding] = useState(false);
+  const [diagnostics, setDiagnostics] = useState<AgentDiagnostics | null>(null);
+  const [runningDiagnostics, setRunningDiagnostics] = useState(false);
 
   useEffect(() => { loadTab(); }, [tab]);
 
@@ -435,6 +463,19 @@ function AgentsAdmin() {
     }
   };
 
+  const handleDiagnostics = async () => {
+    setRunningDiagnostics(true);
+    try {
+      const r = await agentAPI.adminHealth();
+      setDiagnostics(r.data?.data || null);
+      toast.success('Diagnostics updated');
+    } catch {
+      toast.error('Diagnostics failed');
+    } finally {
+      setRunningDiagnostics(false);
+    }
+  };
+
   const tierBadge = (tier) => {
     const colors = { internal: 'bg-amber-100 text-amber-700', customer: 'bg-emerald-100 text-emerald-700', general: 'bg-blue-100 text-blue-700' };
     return <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${colors[tier] || 'bg-slate-100 text-slate-600'}`}>{tier}</span>;
@@ -458,6 +499,9 @@ function AgentsAdmin() {
             </p>
           </div>
           <div className="flex gap-2">
+            <button onClick={handleDiagnostics} disabled={runningDiagnostics} className="text-xs bg-white/10 hover:bg-white/20 px-3 py-2 rounded-lg flex items-center gap-1.5 transition-colors disabled:opacity-60">
+              <RiBarChartBoxLine /> {runningDiagnostics ? 'Running...' : 'Run Diagnostics'}
+            </button>
             <button onClick={handleSeed} disabled={seeding} className="text-xs bg-white/10 hover:bg-white/20 px-3 py-2 rounded-lg flex items-center gap-1.5 transition-colors">
               <RiSeedlingLine /> {seeding ? 'Seeding...' : 'Seed'}
             </button>
@@ -479,6 +523,97 @@ function AgentsAdmin() {
           <button onClick={loadTab} className="ml-auto text-xs text-slate-500 hover:text-forest-900 flex items-center gap-1 transition-colors">
             <RiRefreshLine /> Refresh
           </button>
+        </div>
+      )}
+
+      {/* Diagnostics panel */}
+      {!editDefId && diagnostics && (
+        <div className="bg-white rounded-2xl border border-slate-100 p-4 sm:p-5 mb-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-slate-800">Agent Diagnostics</h2>
+            <span className="text-[11px] text-slate-400">Realtime snapshot</span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2.5">
+              <p className="text-[11px] text-slate-500">Definitions</p>
+              <p className="text-lg font-semibold text-slate-800">{diagnostics.definition_count || 0}</p>
+            </div>
+            <div className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2.5">
+              <p className="text-[11px] text-slate-500">Duplicate shared groups</p>
+              <p className="text-lg font-semibold text-slate-800">{diagnostics.shared_instance_duplicates?.total_groups || 0}</p>
+            </div>
+            <div className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2.5">
+              <p className="text-[11px] text-slate-500">Companies with gaps</p>
+              <p className="text-lg font-semibold text-slate-800">{diagnostics.per_company_provisioning_gaps?.companies_with_gaps || 0}</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+            <div className="rounded-xl border border-slate-100 overflow-hidden">
+              <div className="px-3 py-2 bg-slate-50 border-b border-slate-100">
+                <p className="text-xs font-medium text-slate-700">Shared Instance Duplicates</p>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead className="bg-white text-slate-500">
+                    <tr>
+                      <th className="px-3 py-2 text-left font-medium">Slug</th>
+                      <th className="px-3 py-2 text-right font-medium">Total</th>
+                      <th className="px-3 py-2 text-right font-medium">Active</th>
+                      <th className="px-3 py-2 text-right font-medium">Extra</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(diagnostics.shared_instance_duplicates?.groups || []).map((g) => (
+                      <tr key={g.definition_id} className="border-t border-slate-100">
+                        <td className="px-3 py-2 text-slate-700">{g.definition_slug || 'unknown'}</td>
+                        <td className="px-3 py-2 text-right text-slate-600">{g.total_instances}</td>
+                        <td className="px-3 py-2 text-right text-slate-600">{g.active_instances}</td>
+                        <td className="px-3 py-2 text-right text-amber-700 font-medium">{g.extra_instances}</td>
+                      </tr>
+                    ))}
+                    {(diagnostics.shared_instance_duplicates?.groups || []).length === 0 && (
+                      <tr>
+                        <td colSpan={4} className="px-3 py-3 text-center text-slate-400">No duplicate shared instances.</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-slate-100 overflow-hidden">
+              <div className="px-3 py-2 bg-slate-50 border-b border-slate-100">
+                <p className="text-xs font-medium text-slate-700">Provisioning Gaps by Company</p>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead className="bg-white text-slate-500">
+                    <tr>
+                      <th className="px-3 py-2 text-left font-medium">Company</th>
+                      <th className="px-3 py-2 text-left font-medium">Plan</th>
+                      <th className="px-3 py-2 text-right font-medium">Missing</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(diagnostics.per_company_provisioning_gaps?.rows || []).map((row) => (
+                      <tr key={row.company_id} className="border-t border-slate-100 align-top">
+                        <td className="px-3 py-2 text-slate-700">{row.company_name || row.company_id}</td>
+                        <td className="px-3 py-2 text-slate-600">{row.subscription_plan}</td>
+                        <td className="px-3 py-2 text-right text-red-600 font-medium">{row.missing_definition_slugs?.length || 0}</td>
+                      </tr>
+                    ))}
+                    {(diagnostics.per_company_provisioning_gaps?.rows || []).length === 0 && (
+                      <tr>
+                        <td colSpan={3} className="px-3 py-3 text-center text-slate-400">No provisioning gaps detected.</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
