@@ -10,8 +10,17 @@ ALTER TABLE companies ADD COLUMN IF NOT EXISTS subscription_grace_until TIMESTAM
 COMMENT ON COLUMN companies.subscription_grace_until IS
   'Soft-expiry end: paid features remain accessible until this date even after subscription_expires_at has passed. Set to subscription_expires_at + 7 days on each activation.';
 
--- 2a. Create a new enum type that includes 'basic'
-CREATE TYPE subscription_plan_new AS ENUM ('free', 'basic', 'pro', 'elite', 'enterprise');
+-- 2a. Create a new enum type that includes 'basic' (re-run safe)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_type
+    WHERE typname = 'subscription_plan_new'
+  ) THEN
+    CREATE TYPE subscription_plan_new AS ENUM ('free', 'basic', 'pro', 'elite', 'enterprise');
+  END IF;
+END $$;
 
 -- 2b. Drop the default so the cast isn't blocked by the typed default expression
 ALTER TABLE companies ALTER COLUMN subscription_plan DROP DEFAULT;
@@ -21,9 +30,20 @@ ALTER TABLE companies
   ALTER COLUMN subscription_plan TYPE subscription_plan_new
   USING subscription_plan::text::subscription_plan_new;
 
--- 2d. Drop the old type and rename the new one into its place
-DROP TYPE subscription_plan;
-ALTER TYPE subscription_plan_new RENAME TO subscription_plan;
+-- 2d. Drop the old type and rename the new one into its place (re-run safe)
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_type WHERE typname = 'subscription_plan') THEN
+    DROP TYPE subscription_plan;
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_type WHERE typname = 'subscription_plan_new') THEN
+    ALTER TYPE subscription_plan_new RENAME TO subscription_plan;
+  END IF;
+END $$;
 
 -- 2e. Restore the default using the now-renamed type
 ALTER TABLE companies ALTER COLUMN subscription_plan SET DEFAULT 'free';

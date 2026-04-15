@@ -1,5 +1,5 @@
 -- =====================================================
--- SolNuv Migration 025 - AI Geo Verification & Device GPS
+-- SolNuv Migration 049 - AI Geo Verification & Device GPS
 -- Adds device_gps geo_source option, confidence score,
 -- and verification metadata for AI-assisted verification.
 -- =====================================================
