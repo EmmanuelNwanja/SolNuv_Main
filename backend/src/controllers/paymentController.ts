@@ -797,8 +797,12 @@ exports.submitBankTransfer = async (req, res) => {
       proof_type = req.file.mimetype === 'application/pdf' ? 'pdf' : 'image';
       const filePath = `${req.user.id}/${Date.now()}-receipt.${ext}`;
 
-      // Ensure bucket exists (idempotent — won't fail if already exists)
-      await supabase.storage.createBucket('payment-proofs', { public: false }).catch(() => {});
+      // Ensure bucket exists (idempotent — ignore "already exists" style failures)
+      try {
+        await supabase.storage.createBucket('payment-proofs', { public: false });
+      } catch (_bucketErr) {
+        // Best effort only; upload below is the authoritative check.
+      }
 
       const { error: uploadErr } = await supabase.storage
         .from('payment-proofs')

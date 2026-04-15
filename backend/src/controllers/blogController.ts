@@ -257,12 +257,16 @@ exports.getPost = async (req, res) => {
 
     // Record read (fire-and-forget)
     const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip;
-    supabase.from('blog_post_reads').insert({
-      post_id: data.id,
-      user_id: req.user?.id || null,
-      ip_hash: hashIp(ip),
-      referrer: req.headers.referer || null,
-    }).then(() => {}).catch(() => {});
+    Promise.resolve(
+      supabase.from('blog_post_reads').insert({
+        post_id: data.id,
+        user_id: req.user?.id || null,
+        ip_hash: hashIp(ip),
+        referrer: req.headers.referer || null,
+      })
+    ).catch((readErr) => {
+      logger.warn('blog_post_reads insert failed', { message: readErr?.message });
+    });
 
     return sendSuccess(res, data);
   } catch (error) {

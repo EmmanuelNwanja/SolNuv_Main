@@ -33,6 +33,12 @@ function validateInput(input, schema) {
   return { valid: true };
 }
 
+function fireAndForget(operation, label) {
+  Promise.resolve(operation).catch((err) => {
+    logger.warn(`AI tool background operation failed: ${label}`, { message: err?.message });
+  });
+}
+
 // ─── PROJECT TOOLS ───────────────────────────────────────────────────────────
 
 defineTool('list_projects', 'projects.read',
@@ -314,13 +320,16 @@ defineTool('escalate_to_admin', 'notify.escalate',
     if (error) throw error;
 
     // Also insert an admin notification
-    await supabase.from('notifications').insert({
-      user_id: context.userId,
-      type: 'system',
-      title: `AI Escalation (${severity})`,
-      message: String(input.reason).slice(0, 500),
-      data: { escalation_id: data.id, agent_instance_id: context.agentInstanceId },
-    }).catch(() => {});
+    fireAndForget(
+      supabase.from('notifications').insert({
+        user_id: context.userId,
+        type: 'system',
+        title: `AI Escalation (${severity})`,
+        message: String(input.reason).slice(0, 500),
+        data: { escalation_id: data.id, agent_instance_id: context.agentInstanceId },
+      }),
+      'escalation_notification'
+    );
 
     return { escalated: true, escalation_id: data.id, severity };
   }
@@ -597,16 +606,19 @@ defineTool('update_tariff_rates', 'tariff.write',
     }
 
     // Log the update in audit
-    await supabase.from('audit_logs').insert({
-      user_id: null,
-      action: 'ai_tariff_rate_update',
-      details: {
-        tariff_id: tariff_structure_id,
-        tariff_name: tariff.tariff_name,
-        updates: results.filter(r => r.success).length,
-        failures: results.filter(r => !r.success).length,
-      },
-    }).catch(() => {});
+    fireAndForget(
+      supabase.from('audit_logs').insert({
+        user_id: null,
+        action: 'ai_tariff_rate_update',
+        details: {
+          tariff_id: tariff_structure_id,
+          tariff_name: tariff.tariff_name,
+          updates: results.filter(r => r.success).length,
+          failures: results.filter(r => !r.success).length,
+        },
+      }),
+      'tariff_rate_audit_log'
+    );
 
     return {
       tariff_name: tariff.tariff_name,
@@ -646,11 +658,14 @@ defineTool('update_calculator_bands', 'tariff.write',
     if (error) throw error;
 
     // Log the update
-    await supabase.from('audit_logs').insert({
-      user_id: null,
-      action: 'ai_calculator_band_update',
-      details: { bands, updated_count: updates.length },
-    }).catch(() => {});
+    fireAndForget(
+      supabase.from('audit_logs').insert({
+        user_id: null,
+        action: 'ai_calculator_band_update',
+        details: { bands, updated_count: updates.length },
+      }),
+      'calculator_band_audit_log'
+    );
 
     return {
       updated_bands: updates,
@@ -734,17 +749,20 @@ async function executeTool(toolName, input, context, agentCapabilities) {
   const executionMs = Date.now() - start;
 
   // Audit log (fire-and-forget)
-  supabase.from('ai_tool_executions').insert({
-    message_id: context.messageId || null,
-    task_id: context.taskId || null,
-    tool_name: toolName,
-    input_params: input || {},
-    output_summary: success
-      ? (typeof result === 'string' ? result.slice(0, 500) : JSON.stringify(result).slice(0, 500))
-      : result.error,
-    success,
-    execution_ms: executionMs,
-  }).catch(() => {});
+  fireAndForget(
+    supabase.from('ai_tool_executions').insert({
+      message_id: context.messageId || null,
+      task_id: context.taskId || null,
+      tool_name: toolName,
+      input_params: input || {},
+      output_summary: success
+        ? (typeof result === 'string' ? result.slice(0, 500) : JSON.stringify(result).slice(0, 500))
+        : result.error,
+      success,
+      execution_ms: executionMs,
+    }),
+    'tool_execution_audit'
+  );
 
   return result;
 }

@@ -83,7 +83,13 @@ async function renderHtmlToPdf(htmlContent, options: Record<string, any> = {}) {
     console.error('PDF generation failed:', pdfErr.message);
     throw new Error('Failed to generate PDF: ' + pdfErr.message);
   } finally {
-    if (page) await page.close().catch(() => {});
+    if (page) {
+      try {
+        await page.close();
+      } catch (_) {
+        // Ignore page close failures during cleanup.
+      }
+    }
   }
 }
 

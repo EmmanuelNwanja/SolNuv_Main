@@ -392,12 +392,19 @@ async function executeChat({
   const sanitised = sanitiseUserInput(message);
   messages.push({ role: 'user', content: `${USER_INPUT_PREFIX}\n${sanitised}\n${USER_INPUT_SUFFIX}` });
 
-  // Save user message
-  await supabase.from('ai_messages').insert({
-    conversation_id: convId,
-    role: 'user',
-    content: sanitised,
-  }).catch(err => logger.error('Failed to save AI message', { conversationId: convId, error: err.message }));
+  // Save user message (non-fatal if persistence fails)
+  try {
+    const { error: saveMsgErr } = await supabase.from('ai_messages').insert({
+      conversation_id: convId,
+      role: 'user',
+      content: sanitised,
+    });
+    if (saveMsgErr) {
+      logger.error('Failed to save AI message', { conversationId: convId, error: saveMsgErr.message });
+    }
+  } catch (err) {
+    logger.error('Failed to save AI message', { conversationId: convId, error: err.message });
+  }
 
   // 6. LLM call with tool-calling loop
   const toolContext = {
