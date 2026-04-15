@@ -1,9 +1,37 @@
 import Head from 'next/head';
 import { useRouter } from 'next/router';
-import { useEffect, useState } from 'react';
+import { type FormEvent, useEffect, useState } from 'react';
 import { projectsAPI } from '../../../services/api';
 import { LoadingSpinner } from '../../../components/ui/index';
 import toast from 'react-hot-toast';
+
+type BatteryAsset = {
+  id: string;
+  brand: string;
+  chemistry: string;
+  capacity_kwh: number;
+  quantity: number;
+  warranty_years?: number;
+  installation_date?: string;
+  projects?: { name?: string; city?: string; state?: string };
+};
+
+type BatteryHealthLog = {
+  id: string;
+  log_date: string;
+  estimated_soh_pct?: number | null;
+  measured_voltage?: number | null;
+  measured_capacity_kwh?: number | null;
+  avg_depth_of_discharge_pct?: number | null;
+  notes?: string | null;
+};
+
+type BatteryLedger = {
+  asset: BatteryAsset;
+  latest_log: BatteryHealthLog | null;
+  logs: BatteryHealthLog[];
+  write_auth?: { token: string; expires_in_seconds: number } | null;
+};
 
 export default function BatteryLedgerFieldPage() {
   const router = useRouter();
@@ -12,7 +40,7 @@ export default function BatteryLedgerFieldPage() {
 
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [ledger, setLedger] = useState(null);
+  const [ledger, setLedger] = useState<BatteryLedger | null>(null);
   const [logForm, setLogForm] = useState({
     log_date: new Date().toISOString().split('T')[0],
     measured_voltage: '',
@@ -32,7 +60,7 @@ export default function BatteryLedgerFieldPage() {
     try {
       const { data } = await projectsAPI.getBatteryLedgerByQr(qr);
       setLedger(data.data);
-    } catch (err) {
+    } catch (err: any) {
       toast.error(err.response?.data?.message || 'Failed to load battery ledger');
     } finally {
       setLoading(false);
@@ -43,7 +71,7 @@ export default function BatteryLedgerFieldPage() {
     loadLedger();
   }, [qr]);
 
-  async function submitLog(e) {
+  async function submitLog(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!qr) return;
 
@@ -51,6 +79,7 @@ export default function BatteryLedgerFieldPage() {
     try {
       await projectsAPI.addBatteryLogByQr(qr, {
         ...logForm,
+        write_token: ledger?.write_auth?.token || null,
         measured_voltage: logForm.measured_voltage ? Number(logForm.measured_voltage) : null,
         measured_capacity_kwh: logForm.measured_capacity_kwh ? Number(logForm.measured_capacity_kwh) : null,
         avg_depth_of_discharge_pct: logForm.avg_depth_of_discharge_pct ? Number(logForm.avg_depth_of_discharge_pct) : null,
@@ -62,7 +91,7 @@ export default function BatteryLedgerFieldPage() {
       toast.success('Battery health log submitted');
       setLogForm((f) => ({ ...f, notes: '', measured_voltage: '', measured_capacity_kwh: '' }));
       await loadLedger();
-    } catch (err) {
+    } catch (err: any) {
       toast.error(err.response?.data?.message || 'Failed to submit log');
     } finally {
       setSubmitting(false);

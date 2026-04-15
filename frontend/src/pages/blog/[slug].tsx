@@ -1,23 +1,57 @@
 import Head from 'next/head';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import type { RefObject } from 'react';
+import DOMPurify from 'dompurify';
 import {
   RiArrowLeftLine, RiCalendarLine, RiTimeLine, RiPriceTag3Line,
-  RiArrowRightLine, RiShareLine, RiExternalLinkLine,
+  RiArrowRightLine, RiShareLine,
 } from 'react-icons/ri';
 import { blogAPI } from '../../services/api';
 import { getPublicLayout } from '../../components/Layout';
 import AdSlot from '../../components/ui/AdSlot';
+import toast from 'react-hot-toast';
+
+type BlogPost = {
+  title: string;
+  excerpt?: string | null;
+  cover_image_url?: string | null;
+  category?: string | null;
+  published_at?: string | null;
+  read_time_mins?: number | null;
+  content?: string | null;
+  tags?: string[];
+};
+
+function sanitizeBlogHtml(content: string): string {
+  const input = String(content || '');
+  const domPurifyCandidate = DOMPurify as unknown as { sanitize?: (value: string, cfg?: unknown) => string };
+  if (typeof domPurifyCandidate?.sanitize === 'function') {
+    return domPurifyCandidate.sanitize(input, {
+      ALLOWED_TAGS: [
+        'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+        'p', 'br', 'hr', 'blockquote',
+        'ul', 'ol', 'li',
+        'strong', 'em', 'b', 'i', 'u', 'code', 'pre',
+        'a', 'span', 'div', 'img',
+      ],
+      ALLOWED_ATTR: ['href', 'target', 'rel', 'src', 'alt', 'title', 'class'],
+    });
+  }
+  // SSR-safe fallback if sanitize API is unavailable at build/runtime.
+  return input.replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, '');
+}
 
 // Intercepts outbound link clicks within rendered content
-function useOutboundLinkTracking(slug, containerRef) {
+function useOutboundLinkTracking(slug: string, containerRef: RefObject<HTMLDivElement | null>) {
   useEffect(() => {
     if (!containerRef.current || !slug) return;
     const container = containerRef.current;
 
-    function handleClick(e) {
-      const a = e.target.closest('a');
+    function handleClick(e: Event) {
+      const target = e.target as HTMLElement | null;
+      const a = target?.closest('a');
       if (!a) return;
       const href = a.getAttribute('href') || '';
       if (href.startsWith('http') || href.startsWith('//')) {
@@ -34,10 +68,13 @@ export default function BlogPostPage() {
   const router = useRouter();
   const slugRaw = router.query.slug;
   const slug = typeof slugRaw === "string" ? slugRaw : Array.isArray(slugRaw) ? slugRaw[0] : "";
-  const [post, setPost] = useState(null);
+  const [post, setPost] = useState<BlogPost | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const contentRef = useRef(null);
+  const sanitizedContent = useMemo(() => {
+    return sanitizeBlogHtml(post?.content || '');
+  }, [post?.content]);
 
   useOutboundLinkTracking(slug, contentRef);
 
@@ -69,9 +106,13 @@ export default function BlogPostPage() {
 
   function handleShare() {
     if (navigator.share) {
-      navigator.share({ title: post.title, url: window.location.href });
+      navigator.share({ title: post.title, url: window.location.href }).catch(() => {
+        toast.error('Unable to open native share dialog');
+      });
     } else {
-      navigator.clipboard.writeText(window.location.href);
+      navigator.clipboard.writeText(window.location.href)
+        .then(() => toast.success('Link copied to clipboard'))
+        .catch(() => toast.error('Unable to copy link'));
     }
   }
 
@@ -120,7 +161,7 @@ export default function BlogPostPage() {
             <div
               ref={contentRef}
               className="mt-8 prose prose-slate dark:prose-invert max-w-none prose-a:text-emerald-700 dark:prose-a:text-emerald-400 prose-headings:font-display"
-              dangerouslySetInnerHTML={{ __html: post.content }}
+              dangerouslySetInnerHTML={{ __html: sanitizedContent }}
             />
 
             {/* Inline ad — shown between content and tags */}

@@ -848,13 +848,24 @@ exports.getOtps = async (req, res) => {
 
     if (error) throw error;
 
-    // Map to frontend format and mask sensitive data
-    const mapped = (otps || []).map((otp: any) => ({
-      ...otp,
-      otp_code_masked: `${otp.otp_code.substring(0, 2)}****`, // Show only first 2 digits
-      phone_masked: `${otp.phone.substring(0, otp.phone.length - 4)}****`, // Hide last 4 digits
-      expires_in_minutes: Math.ceil((+new Date(otp.expires_at) - +new Date()) / 60000),
-    }));
+    // Never return raw OTP values from admin APIs.
+    const mapped = (otps || []).map((otp: any) => {
+      const otpPrefix = String(otp.otp_code || '').slice(0, 2) || '**';
+      const phone = String(otp.phone || '');
+      const phonePrefix = phone.length > 4 ? phone.slice(0, phone.length - 4) : '';
+      return {
+        id: otp.id,
+        email: otp.email,
+        phone_masked: `${phonePrefix}****`,
+        otp_code_masked: `${otpPrefix}****`,
+        channel: otp.channel,
+        expires_at: otp.expires_at,
+        used: otp.used,
+        attempts: otp.attempts,
+        created_at: otp.created_at,
+        expires_in_minutes: Math.ceil((+new Date(otp.expires_at) - +new Date()) / 60000),
+      };
+    });
 
     return sendSuccess(res, mapped);
   } catch (error) {
@@ -938,10 +949,10 @@ exports.generateOtp = async (req, res) => {
     return sendSuccess(res, {
       id: newOtp.id,
       email: newOtp.email,
-      phone: newOtp.phone,
-      otp_code: newOtp.otp_code,
+      phone_masked: `${String(newOtp.phone || '').slice(0, Math.max(0, String(newOtp.phone || '').length - 4))}****`,
+      otp_code_masked: `${String(newOtp.otp_code || '').slice(0, 2) || '**'}****`,
       expires_at: newOtp.expires_at,
-      message: 'OTP generated. Manually share with user if SMS delivery failed.',
+      message: 'OTP generated. Securely share the code directly with the user via approved channel.',
     }, 'OTP created', 201);
   } catch (error) {
     logger.error('admin.generateOtp error:', { message: error.message, stack: error.stack });

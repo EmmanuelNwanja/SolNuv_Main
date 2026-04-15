@@ -1,14 +1,26 @@
 import Head from 'next/head';
-import { useEffect, useState } from 'react';
+import { type FormEvent, useEffect, useState } from 'react';
 import { adminAPI, authAPI } from '../../services/api';
 import { getAdminLayout } from '../../components/Layout';
 import { RiCheckLine, RiCloseLine, RiFileCopyLine, RiRefreshLine, RiAddLine, RiShieldCheckLine, RiKeyLine, RiTimeLine } from 'react-icons/ri';
 import AdminRoute from '../../components/AdminRoute';
 import toast from 'react-hot-toast';
 
+type AdminOtp = {
+  id: string;
+  email: string;
+  phone_masked: string;
+  otp_code_masked: string;
+  channel: string;
+  expires_at: string;
+  expires_in_minutes: number;
+  used: boolean;
+  attempts: number;
+};
+
 export default function OtpManagement() {
   const [activeTab, setActiveTab] = useState('pending');
-  const [otps, setOtps] = useState([]);
+  const [otps, setOtps] = useState<AdminOtp[]>([]);
   const [loading, setLoading] = useState(true);
   const [generatingOtp, setGeneratingOtp] = useState(false);
 
@@ -27,14 +39,14 @@ export default function OtpManagement() {
       await authAPI.wakeBackend();
       const { data } = await adminAPI.getOtps();
       setOtps(data.data || []);
-    } catch (err) {
+    } catch (err: any) {
       toast.error(err.response?.data?.message || 'Failed to load OTPs');
     } finally {
       setLoading(false);
     }
   }
 
-  async function handleGenerateOtp(e) {
+  async function handleGenerateOtp(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!generateForm.email.trim()) { toast.error('Email is required'); return; }
     if (!generateForm.phone.trim()) { toast.error('Phone is required'); return; }
@@ -48,10 +60,8 @@ export default function OtpManagement() {
       setOtps(prev => [{
         id: data.data.id,
         email: data.data.email,
-        phone: data.data.phone,
-        otp_code: data.data.otp_code,
-        otp_code_masked: `${data.data.otp_code.substring(0, 2)}****`,
-        phone_masked: `${data.data.phone.substring(0, data.data.phone.length - 4)}****`,
+        otp_code_masked: data.data.otp_code_masked,
+        phone_masked: data.data.phone_masked,
         channel: 'admin_generated',
         expires_at: data.data.expires_at,
         expires_in_minutes: 10,
@@ -59,9 +69,8 @@ export default function OtpManagement() {
         attempts: 0,
       }, ...prev]);
       setGenerateForm({ email: '', phone: '' });
-    } catch (err) {
+    } catch (err: any) {
       // Enhanced error logging for debugging
-      // eslint-disable-next-line no-console
       console.error('OTP Generation Error:', {
         error: err,
         response: err?.response,
@@ -79,7 +88,7 @@ export default function OtpManagement() {
     }
   }
 
-  function copyToClipboard(text) {
+  function copyToClipboard(text: string) {
     navigator.clipboard.writeText(text);
     toast.success('Copied to clipboard!');
   }
@@ -161,20 +170,13 @@ export default function OtpManagement() {
                     {otps.map(otp => (
                       <tr key={otp.id} className="border-b border-slate-200 hover:bg-slate-50 transition-colors">
                         <td className="px-4 py-3 font-mono text-xs text-slate-700">{otp.email}</td>
-                        <td className="px-4 py-3 font-mono text-xs text-slate-500" title={otp.phone}>
+                        <td className="px-4 py-3 font-mono text-xs text-slate-500">
                           {otp.phone_masked}
                         </td>
                         <td className="px-4 py-3">
-                          <div className="flex items-center gap-2">
-                            <code className="bg-amber-50 text-amber-800 px-2 py-1 rounded font-semibold text-sm">
-                              {otp.otp_code}
-                            </code>
-                            <button onClick={() => copyToClipboard(otp.otp_code)}
-                              className="p-1.5 text-slate-400 hover:text-forest-900 hover:bg-forest-900/5 rounded transition-colors"
-                              title="Copy full OTP">
-                              <RiFileCopyLine />
-                            </button>
-                          </div>
+                          <code className="bg-amber-50 text-amber-800 px-2 py-1 rounded font-semibold text-sm">
+                            {otp.otp_code_masked}
+                          </code>
                         </td>
                         <td className="px-4 py-3 text-xs">
                           <span className={`px-2 py-1 rounded font-medium ${
@@ -196,9 +198,9 @@ export default function OtpManagement() {
                           {otp.attempts}
                         </td>
                         <td className="px-4 py-3 text-xs">
-                          <button onClick={() => copyToClipboard(`Email: ${otp.email}\nPhone: ${otp.phone}\nOTP: ${otp.otp_code}`)}
+                          <button onClick={() => copyToClipboard(`Email: ${otp.email}\nPhone: ${otp.phone_masked}\nOTP: ${otp.otp_code_masked}`)}
                             className="text-xs px-2 py-1 bg-forest-900 text-white rounded hover:bg-forest-800 transition-colors flex items-center gap-1">
-                            <RiFileCopyLine className="text-sm" /> Copy All
+                            <RiFileCopyLine className="text-sm" /> Copy Metadata
                           </button>
                         </td>
                       </tr>

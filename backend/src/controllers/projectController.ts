@@ -13,6 +13,7 @@ const { verifyCoordinatesAgainstAddress, verifyDeviceGPS } = require('../service
 const logger = require('../utils/logger');
 const QRCode = require('qrcode');
 const { v4: uuidv4 } = require('uuid');
+const jwt = require('jsonwebtoken');
 const { validateUUIDParam } = require('../utils/validation');
 
 // ---------------------------------------------------------------------------
@@ -52,6 +53,29 @@ function getCapacityCategory(kw) {
 
 const VALID_PROJECT_STATUSES = ['draft', 'active', 'maintenance', 'decommissioned', 'recycled', 'pending_recovery'];
 const EDITABLE_STAGES = ['draft', 'maintenance'];
+const BATTERY_QR_LOG_ACTION = 'battery_qr_log_submit';
+
+function signBatteryLedgerWriteToken(qrCode) {
+  const secret = process.env.JWT_SECRET;
+  if (!secret || !qrCode) return null;
+  const expiresInSeconds = 15 * 60;
+  return jwt.sign(
+    { action: BATTERY_QR_LOG_ACTION, qr_code: qrCode },
+    secret,
+    { expiresIn: expiresInSeconds }
+  );
+}
+
+function verifyBatteryLedgerWriteToken(token, qrCode) {
+  const secret = process.env.JWT_SECRET;
+  if (!secret || !token || !qrCode) return false;
+  try {
+    const decoded = jwt.verify(String(token), secret);
+    return decoded?.action === BATTERY_QR_LOG_ACTION && decoded?.qr_code === qrCode;
+  } catch (_err) {
+    return false;
+  }
+}
 
 // ---------------------------------------------------------------------------
 // History helper
@@ -83,6 +107,16 @@ async function createHistoryEntry(projectId, {
   } catch (err) {
     // History failures must never break the main request
     logger.warn('project_history insert failed', { project_id: projectId, message: err.message });
+  }
+}
+
+async function rollbackCreatedProject(projectId) {
+  if (!projectId) return;
+  try {
+    await supabase.from('equipment').delete().eq('project_id', projectId);
+    await supabase.from('projects').delete().eq('id', projectId);
+  } catch (cleanupErr) {
+    logger.error('createProject rollback failed', { project_id: projectId, message: cleanupErr.message });
   }
 }
 
@@ -190,6 +224,8 @@ exports.getProjects = async (req, res) => {
  * Create new project with equipment
  */
 exports.createProject = async (req, res) => {
+  let createdProjectId = null;
+  let coreWriteCommitted = false;
   try {
     const {
       name, client_name, description,
@@ -254,6 +290,7 @@ exports.createProject = async (req, res) => {
       .single();
 
     if (projectError) throw projectError;
+    createdProjectId = project.id;
 
     // Create equipment records
     const equipmentRecords = [];
@@ -339,7 +376,12 @@ exports.createProject = async (req, res) => {
     });
 
     // Update project with QR code
-    await supabase.from('projects').update({ qr_code_url: qrCodeDataUrl }).eq('id', project.id);
+    const { error: qrUpdateError } = await supabase
+      .from('projects')
+      .update({ qr_code_url: qrCodeDataUrl })
+      .eq('id', project.id);
+    if (qrUpdateError) throw qrUpdateError;
+    coreWriteCommitted = true;
 
     // Fetch complete project
     const { data: completeProject } = await supabase
@@ -370,6 +412,9 @@ exports.createProject = async (req, res) => {
       degradation_info: degradation,
     }, 'Project created successfully', 201);
   } catch (error) {
+    if (createdProjectId && !coreWriteCommitted) {
+      await rollbackCreatedProject(createdProjectId);
+    }
     console.error('createProject error:', error);
     return sendError(res, error.message || 'Failed to create project', 500);
   }
@@ -1572,6 +1617,7 @@ exports.getBatteryLedgerByQr = async (req, res) => {
       .limit(60);
 
     const latest = (logs || [])[0] || null;
+    const writeToken = signBatteryLedgerWriteToken(qrCode);
 
     return sendSuccess(res, {
       asset,
@@ -1580,6 +1626,10 @@ exports.getBatteryLedgerByQr = async (req, res) => {
       field_actions: {
         can_submit_log: true,
       },
+      write_auth: writeToken ? {
+        token: writeToken,
+        expires_in_seconds: 15 * 60,
+      } : null,
     });
   } catch (_error) {
     return sendError(res, 'Failed to load battery ledger', 500);
@@ -1607,6 +1657,21 @@ exports.addBatteryHealthLogByQr = async (req, res) => {
     } = req.body;
 
     if (!log_date) return sendError(res, 'log_date is required', 400);
+    if (technician_name && String(technician_name).trim().length > 120) {
+      return sendError(res, 'technician_name is too long', 400);
+    }
+    if (notes && String(notes).trim().length > 1200) {
+      return sendError(res, 'notes is too long', 400);
+    }
+
+    // Anonymous field submissions must include a short-lived QR write token.
+    if (!req.user?.id) {
+      const writeToken = req.headers['x-battery-log-token'] || req.body?.write_token;
+      const validToken = verifyBatteryLedgerWriteToken(writeToken, qrCode);
+      if (!validToken) {
+        return sendError(res, 'Valid battery log authorization token is required', 401);
+      }
+    }
 
     const { data: asset } = await supabase
       .from('battery_assets')

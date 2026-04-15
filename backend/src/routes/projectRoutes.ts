@@ -1,13 +1,22 @@
 // projectRoutes.js
 const express = require('express');
 const router = express.Router();
+const rateLimit = require('express-rate-limit');
 const projectController = require('../controllers/projectController');
 const { requireAuth, requireProfile, optionalAuth } = require('../middlewares/authMiddleware');
 const { requireVerified } = require('../middlewares/verificationMiddleware');
 
+const batteryLedgerLogLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  message: { success: false, message: 'Too many battery log submissions. Please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 router.get('/verify/:qrCode', projectController.verifyByQR); // public
 router.get('/battery-ledger/:qrCode', projectController.getBatteryLedgerByQr); // public QR ledger
-router.post('/battery-ledger/:qrCode/log', optionalAuth, projectController.addBatteryHealthLogByQr); // public-friendly log submit
+router.post('/battery-ledger/:qrCode/log', batteryLedgerLogLimiter, optionalAuth, projectController.addBatteryHealthLogByQr); // token-authorized write submit
 router.use(requireAuth, requireProfile);
 
 router.use('/saved', requireVerified); // Require verification for saved calculations
