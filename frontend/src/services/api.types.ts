@@ -3,6 +3,7 @@ import type {
   CalculationRecord,
   NercApplication,
   NercApplicationWithProject,
+  NercProjectTriage,
   ProjectRegulatoryProfile,
   NercReportingCycle,
   NercReportingCycleWithProject,
@@ -17,6 +18,7 @@ export type CalculationListResponse = ApiEnvelope<{ active: CalculationRecord[] 
 export type NercApplicationListResponse = ApiEnvelope<NercApplication[]>;
 export type NercReportingCycleListResponse = ApiEnvelope<NercReportingCycle[]>;
 export type NercProfileResponse = ApiEnvelope<ProjectRegulatoryProfile>;
+export type NercTriageResponse = ApiEnvelope<NercProjectTriage>;
 export type NercAdminApplicationsResponse = ApiEnvelope<{
   applications: NercApplicationWithProject[];
   total: number;

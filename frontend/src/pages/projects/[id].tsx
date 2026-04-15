@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useEffect, useState, type Dispatch, type FormEvent, type SetStateAction } from 'react';
 import { queryParamToString } from '../../utils/nextRouter';
-import { projectsAPI, reportsAPI, engineeringAPI, calculatorAPI, downloadBlob } from '../../services/api';
+import { projectsAPI, reportsAPI, engineeringAPI, calculatorAPI, nercAPI, downloadBlob } from '../../services/api';
 import type { JsonRecord } from '../../services/api';
 import { supabase } from '../../utils/supabase';
 import { useAuth } from '../../context/AuthContext';
@@ -36,6 +36,11 @@ const STAGE_LABELS = {
 };
 
 const NIGERIAN_STATES = ['Abia','Adamawa','Akwa Ibom','Anambra','Bauchi','Bayelsa','Benue','Borno','Cross River','Delta','Ebonyi','Edo','Ekiti','Enugu','FCT','Gombe','Imo','Jigawa','Kaduna','Kano','Katsina','Kebbi','Kogi','Kwara','Lagos','Nasarawa','Niger','Ogun','Ondo','Osun','Oyo','Plateau','Rivers','Sokoto','Taraba','Yobe','Zamfara'];
+
+function triageLabel(pathway?: string) {
+  if (pathway === 'permit_required') return 'Permit mode';
+  return 'Registration mode';
+}
 
 type EditEquipFormState = {
   brand: string;
@@ -272,6 +277,7 @@ export default function ProjectDetail() {
   const [addingEquipType, setAddingEquipType] = useState(null);
   const [editEquipForm, setEditEquipForm] = useState({ brand: '', model: '', size_watts: '', capacity_kwh: '', quantity: 1, condition: 'good', sourcing_info: '', panel_technology: null, battery_chemistry: null });
   const [equipmentSubmitting, setEquipmentSubmitting] = useState(false);
+  const [triage, setTriage] = useState<any>(null);
   const [deleteEquipConfirm, setDeleteEquipConfirm] = useState(null);
   const [editForm, setEditForm] = useState({
     name: '',
@@ -320,6 +326,13 @@ export default function ProjectDetail() {
         }
       })
       .finally(() => setLoading(false));
+  }, [id]);
+
+  useEffect(() => {
+    if (!id) return;
+    nercAPI.getProjectTriage(id)
+      .then((r) => setTriage(r.data.data || null))
+      .catch(() => setTriage(null));
   }, [id]);
 
   useEffect(() => {
@@ -1261,6 +1274,25 @@ export default function ProjectDetail() {
               className="btn-primary flex items-center justify-center gap-2 w-full text-sm py-3 bg-gradient-to-r from-forest-900 to-green-700 hover:from-green-800 hover:to-green-600">
               <RiSunLine /> Design Solar + BESS System
             </Link>
+
+            {triage && (
+              <div className="rounded-xl border border-forest-900/20 bg-forest-900/5 p-3">
+                <p className="text-xs uppercase tracking-wide text-slate-500">Compliance Next Step</p>
+                <p className="text-sm font-semibold text-forest-900 mt-1">
+                  {triageLabel(triage.regulatory_pathway)}
+                  {triage.net_metering_eligible ? ' · Net metering eligible' : ''}
+                </p>
+                <p className="text-xs text-slate-600 mt-1">
+                  {Number(triage.capacity_kw || 0).toFixed(2)} kW · Reporting {triage.reporting_cadence}
+                </p>
+                <Link
+                  href={`/projects/${project.id}/regulatory`}
+                  className="mt-2 inline-flex items-center justify-center rounded-lg bg-forest-900 text-white text-xs font-semibold px-3 py-1.5 hover:bg-forest-800 transition-colors"
+                >
+                  Continue Compliance Flow
+                </Link>
+              </div>
+            )}
 
             <Link
               href={`/projects/${project.id}/regulatory`}

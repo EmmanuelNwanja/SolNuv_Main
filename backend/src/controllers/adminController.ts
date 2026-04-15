@@ -25,6 +25,27 @@ function getPagination(query) {
   return { page, limit, from, to: from + limit - 1 };
 }
 
+function parseOptionalFilter(value) {
+  if (typeof value !== 'string') return '';
+  return value.trim();
+}
+
+function validateAllowlist(value, allowlist, fallback = '') {
+  const normalized = parseOptionalFilter(value);
+  if (!normalized) return fallback;
+  return allowlist.includes(normalized) ? normalized : null;
+}
+
+function logDbError(context, error, extra = {}) {
+  logger.error(context, {
+    ...extra,
+    message: error?.message,
+    code: error?.code,
+    details: error?.details,
+    hint: error?.hint,
+  });
+}
+
 exports.getOverview = async (req, res) => {
   try {
     const nowIso = new Date().toISOString();
@@ -59,6 +80,19 @@ exports.getOverview = async (req, res) => {
     ]);
 
     const revenue30d = (monthlyRevenue.data || []).reduce((sum, tx) => sum + Number(tx.amount_ngn || 0), 0);
+    if (usersCount.error || companiesCount.error || projectsCount.error || activeSubscriptions.error || monthlyRevenue.error || pendingPush.error || designsCount.error || simulationsCount.error) {
+      logger.warn('Admin overview partial dataset', {
+        admin_user_id: req.user?.id || null,
+        users_error: usersCount.error?.message || null,
+        companies_error: companiesCount.error?.message || null,
+        projects_error: projectsCount.error?.message || null,
+        subscriptions_error: activeSubscriptions.error?.message || null,
+        revenue_error: monthlyRevenue.error?.message || null,
+        push_error: pendingPush.error?.message || null,
+        designs_error: designsCount.error?.message || null,
+        simulations_error: simulationsCount.error?.message || null,
+      });
+    }
 
     return sendSuccess(res, {
       users: usersCount.count || 0,
@@ -790,6 +824,7 @@ exports.listAdmins = async (req, res) => {
     let error = enriched.error;
 
     if (error) {
+      logDbError('listAdmins enriched query failed; using fallback', error, { admin_user_id: req.user?.id || null });
       // Fallback for environments where FK names differ.
       const basic = await supabase
         .from('admin_users')
@@ -800,7 +835,10 @@ exports.listAdmins = async (req, res) => {
       error = basic.error;
     }
 
-    if (error) throw error;
+    if (error) {
+      logDbError('listAdmins fallback failed', error, { admin_user_id: req.user?.id || null });
+      throw error;
+    }
     return sendSuccess(res, data || []);
   } catch (error) {
     logger.error('Failed to load admins', { admin_user_id: req.user?.id || null, message: error.message });
@@ -969,8 +1007,12 @@ exports.listAllProjects = async (req, res) => {
     const { search = '', status = '', geo_verified = '', page = 1, limit = 30 } = req.query;
     const { page: p, limit: l, from, to } = getPagination({ page, limit });
     const safeSearch = sanitizeSearch(search);
+    const safeStatus = validateAllowlist(status, ['draft', 'active', 'maintenance', 'decommissioned', 'pending_recovery', 'recycled'], '');
+    const safeGeo = validateAllowlist(geo_verified, ['true', 'false'], '');
+    if (safeStatus === null) return sendError(res, 'Invalid status filter', 400);
+    if (safeGeo === null) return sendError(res, 'Invalid geo_verified filter', 400);
 
-    let query = supabase
+    const enrichedQuery = supabase
       .from('projects')
       .select(
         `id, name, state, city, address, status, geo_source, geo_verified, geo_verified_at,
@@ -982,13 +1024,33 @@ exports.listAllProjects = async (req, res) => {
       .order('created_at', { ascending: false })
       .range(from, to);
 
+    let query = enrichedQuery;
     if (safeSearch) query = query.or(`name.ilike.%${safeSearch}%,city.ilike.%${safeSearch}%,state.ilike.%${safeSearch}%`);
-    if (status) query = query.eq('status', status);
-    if (geo_verified === 'true') query = query.eq('geo_verified', true);
-    if (geo_verified === 'false') query = query.eq('geo_verified', false);
+    if (safeStatus) query = query.eq('status', safeStatus);
+    if (safeGeo === 'true') query = query.eq('geo_verified', true);
+    if (safeGeo === 'false') query = query.eq('geo_verified', false);
 
-    const { data, error, count } = await query;
-    if (error) throw error;
+    let { data, error, count } = await query;
+    if (error) {
+      logDbError('listAllProjects enriched query failed; using fallback', error, { admin_user_id: req.user?.id || null });
+      let fallback = supabase
+        .from('projects')
+        .select('id, name, state, city, address, status, geo_source, geo_verified, geo_verified_at, is_delisted, installation_date, created_at, total_system_size_kw, project_photo_url, user_id, company_id', { count: 'exact' })
+        .order('created_at', { ascending: false })
+        .range(from, to);
+      if (safeSearch) fallback = fallback.or(`name.ilike.%${safeSearch}%,city.ilike.%${safeSearch}%,state.ilike.%${safeSearch}%`);
+      if (safeStatus) fallback = fallback.eq('status', safeStatus);
+      if (safeGeo === 'true') fallback = fallback.eq('geo_verified', true);
+      if (safeGeo === 'false') fallback = fallback.eq('geo_verified', false);
+      const fb = await fallback;
+      data = fb.data;
+      error = fb.error;
+      count = fb.count;
+    }
+    if (error) {
+      logDbError('listAllProjects fallback failed', error, { admin_user_id: req.user?.id || null });
+      throw error;
+    }
 
     const enriched = (data || []).map((p) => {
       const owner = p.users || {};
@@ -1020,8 +1082,8 @@ exports.listAllProjects = async (req, res) => {
         created_at: p.created_at,
         total_system_size_kw: p.total_system_size_kw,
         project_photo_url: p.project_photo_url,
-        owner_id: owner.id || null,
-        company_id: p.companies?.id || null,
+        owner_id: owner.id || p.user_id || null,
+        company_id: p.companies?.id || p.company_id || null,
       };
     });
 
@@ -1933,6 +1995,8 @@ exports.updateBankTransferSettings = async (req, res) => {
 exports.listDirectPayments = async (req, res) => {
   try {
     const { status, page = 1, limit = 50 } = req.query;
+    const safeStatus = validateAllowlist(status, ['pending', 'verified', 'rejected'], '');
+    if (safeStatus === null) return sendError(res, 'Invalid status filter', 400);
     const offset = (Number(page) - 1) * Number(limit);
 
     let query = supabase
@@ -1945,25 +2009,29 @@ exports.listDirectPayments = async (req, res) => {
       .order('created_at', { ascending: false })
       .range(offset, offset + Number(limit) - 1);
 
-    if (status) query = query.eq('status', status);
+    if (safeStatus) query = query.eq('status', safeStatus);
 
     let { data, error, count } = await query;
 
     // Fallback without FK alias if schema name differs
     if (error) {
+      logDbError('listDirectPayments enriched query failed; using fallback', error, { admin_user_id: req.user?.id || null });
       let fallback = supabase
         .from('direct_payment_submissions')
         .select('*', { count: 'exact' })
         .order('created_at', { ascending: false })
         .range(offset, offset + Number(limit) - 1);
-      if (status) fallback = fallback.eq('status', status);
+      if (safeStatus) fallback = fallback.eq('status', safeStatus);
       const fb = await fallback;
       data = fb.data;
       count = fb.count;
       error = fb.error;
     }
 
-    if (error) throw error;
+    if (error) {
+      logDbError('listDirectPayments fallback failed', error, { admin_user_id: req.user?.id || null });
+      throw error;
+    }
     return sendSuccess(res, { submissions: data || [], total: count || 0, page: Number(page), limit: Number(limit) });
   } catch (error) {
     logger.error('Admin: listDirectPayments failed', { message: error.message });
@@ -2238,9 +2306,11 @@ exports.getPublicSeoSettings = async (req, res) => {
 exports.listVerificationRequests = async (req, res) => {
   try {
     const { status = 'pending', page = 1, limit = 20 } = req.query;
+    const safeStatus = validateAllowlist(status, ['pending', 'pending_admin_review', 'verified', 'rejected'], 'pending');
+    if (safeStatus === null) return sendError(res, 'Invalid status filter', 400);
     const { from, to } = getPagination({ page, limit });
 
-    let query = supabase
+    const enrichedQuery = supabase
       .from('users')
       .select(`
         id, email, first_name, last_name, business_type, brand_name,
@@ -2248,21 +2318,47 @@ exports.listVerificationRequests = async (req, res) => {
         verification_rejection_reason, created_at,
         companies(id, name, email)
       `, { count: 'exact' })
-      .in('verification_status', status === 'pending' 
+      .in('verification_status', safeStatus === 'pending'
         ? ['pending', 'pending_admin_review'] 
-        : [status])
+        : [safeStatus])
       .order('verification_requested_at', { ascending: false })
       .range(from, to);
 
-    const { data, error, count } = await query;
-    if (error) throw error;
+    let { data, error, count } = await enrichedQuery;
+    if (error) {
+      logDbError('listVerificationRequests enriched query failed; using fallback', error, { admin_user_id: req.user?.id || null });
+      let fallback = supabase
+        .from('users')
+        .select('id, email, first_name, last_name, business_type, brand_name, verification_status, verification_requested_at, verification_notes, verification_rejection_reason, created_at, company_id', { count: 'exact' })
+        .in('verification_status', safeStatus === 'pending'
+          ? ['pending', 'pending_admin_review']
+          : [safeStatus])
+        .order('verification_requested_at', { ascending: false })
+        .range(from, to);
+      const fb = await fallback;
+      data = fb.data;
+      error = fb.error;
+      count = fb.count;
+    }
+    if (error) {
+      logDbError('listVerificationRequests fallback failed', error, { admin_user_id: req.user?.id || null });
+      throw error;
+    }
 
     // Get verification documents for each user
     const userIds = (data || []).map(u => u.id);
-    const { data: documents } = await supabase
-      .from('verification_documents')
-      .select('user_id, document_type, file_url, original_filename')
-      .in('user_id', userIds);
+    let documents = [];
+    if (userIds.length > 0) {
+      const docsRes = await supabase
+        .from('verification_documents')
+        .select('user_id, document_type, file_url, original_filename')
+        .in('user_id', userIds);
+      if (docsRes.error) {
+        logDbError('listVerificationRequests documents query failed', docsRes.error, { admin_user_id: req.user?.id || null });
+      } else {
+        documents = docsRes.data || [];
+      }
+    }
 
     const docsByUser: AnyRow = {};
     (documents || []).forEach(doc => {

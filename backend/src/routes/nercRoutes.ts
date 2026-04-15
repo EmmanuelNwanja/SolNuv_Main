@@ -9,6 +9,7 @@ router.use(requireAuth, requireProfile);
 
 // Project regulatory profile
 router.get('/projects/:projectId/profile', nercController.getProjectRegulatoryProfile);
+router.get('/projects/:projectId/triage', nercController.getProjectTriage);
 router.put('/projects/:projectId/profile', requireVerified, nercController.upsertProjectRegulatoryProfile);
 
 // Permit / registration lifecycle
@@ -28,5 +29,8 @@ router.get('/admin/applications', requireAdmin, requireAdminRole('super_admin', 
 router.patch('/admin/applications/:applicationId/decision', requireAdmin, requireAdminRole('super_admin', 'operations'), nercController.adminDecisionApplication);
 router.get('/admin/sla-overview', requireAdmin, requireAdminRole('super_admin', 'operations', 'analytics'), nercController.adminSlaOverview);
 router.get('/admin/reporting-cycles', requireAdmin, requireAdminRole('super_admin', 'operations', 'analytics'), nercController.adminListReportingCycles);
+router.get('/admin/reporting-cycles/:cycleId/submissions', requireAdmin, requireAdminRole('super_admin', 'operations', 'analytics'), nercController.adminListCycleSubmissions);
+router.patch('/admin/submissions/:submissionId/decision', requireAdmin, requireAdminRole('super_admin', 'operations'), nercController.adminDecisionSubmission);
+router.patch('/admin/reporting-cycles/:cycleId/status', requireAdmin, requireAdminRole('super_admin', 'operations'), nercController.adminOverrideReportingCycleStatus);
 
 module.exports = router;

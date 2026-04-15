@@ -9,6 +9,7 @@ import { nercAPI } from '../../../services/api';
 import type {
   NercApplication,
   NercMiniGridType,
+  NercProjectTriage,
   NercReportingCycle,
   ProjectRegulatoryProfile,
 } from '../../../types/contracts';
@@ -35,6 +36,7 @@ export default function ProjectRegulatoryPage() {
   const [profile, setProfile] = useState<ProjectRegulatoryProfile | null>(null);
   const [applications, setApplications] = useState<NercApplication[]>([]);
   const [cycles, setCycles] = useState<NercReportingCycle[]>([]);
+  const [triage, setTriage] = useState<NercProjectTriage | null>(null);
   const [form, setForm] = useState<RegulatoryFormState>({
     mini_grid_type: 'interconnected',
     declared_capacity_kw: 0,
@@ -54,6 +56,12 @@ export default function ProjectRegulatoryPage() {
       setProfile(profileData);
       setApplications(appRes.data.data || []);
       setCycles(cycleRes.data.data || []);
+      try {
+        const triageRes = await nercAPI.getProjectTriage(id);
+        setTriage(triageRes.data.data || null);
+      } catch {
+        setTriage(null);
+      }
       setForm({
         mini_grid_type: profileData?.mini_grid_type || 'interconnected',
         declared_capacity_kw: Number(profileData?.declared_capacity_kw || 0),
@@ -92,6 +100,14 @@ export default function ProjectRegulatoryPage() {
     }
   }
 
+  async function createDraftWithReadinessCheck() {
+    if (!form.declared_capacity_kw || Number(form.declared_capacity_kw) <= 0) {
+      toast.error('Set declared capacity before creating a draft');
+      return;
+    }
+    await createDraftApplication();
+  }
+
   async function submitApplication(appId: string) {
     setSubmittingApp(appId);
     try {
@@ -117,6 +133,20 @@ export default function ProjectRegulatoryPage() {
             <p className="text-sm text-slate-500">NERC-R-001-2026 filing, pathway checks, and periodic reporting records.</p>
           </div>
           <Link href={`/projects/${id}`} className="btn-outline text-sm">Back to Project</Link>
+        </div>
+
+        <div className="card">
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <span className="rounded-full bg-forest-900 text-white px-3 py-1">1. Profile</span>
+            <span className="rounded-full bg-slate-100 text-slate-700 px-3 py-1">2. Application</span>
+            <span className="rounded-full bg-slate-100 text-slate-700 px-3 py-1">3. Reporting</span>
+          </div>
+          {triage && (
+            <p className="text-sm text-slate-600 mt-3">
+              Triage: <strong>{triage.regulatory_pathway.replace('_', ' ')}</strong> · {triage.capacity_kw.toFixed(2)} kW · reporting {triage.reporting_cadence}
+              {triage.net_metering_eligible ? ` · Net metering band (${triage.net_metering_band_kw[0]}-${triage.net_metering_band_kw[1]} kW)` : ''}
+            </p>
+          )}
         </div>
 
         <div className="card">
@@ -159,6 +189,7 @@ export default function ProjectRegulatoryPage() {
             </div>
             <div className="sm:col-span-2 flex flex-wrap gap-3 items-center">
               <button type="submit" className="btn-primary" disabled={saving}>{saving ? 'Saving...' : 'Save Profile'}</button>
+              <button type="button" className="btn-outline" onClick={createDraftWithReadinessCheck}>Create Draft + Readiness Check</button>
               <span className="text-xs rounded-full bg-slate-100 px-3 py-1">Pathway: {(profile?.regulatory_pathway || '-').replace('_', ' ')}</span>
               <span className="text-xs rounded-full bg-slate-100 px-3 py-1">Cadence: {profile?.reporting_cadence || '-'}</span>
             </div>

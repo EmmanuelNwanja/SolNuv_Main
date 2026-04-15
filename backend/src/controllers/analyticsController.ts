@@ -3,6 +3,20 @@ const supabase = require('../config/database');
 const { sendSuccess, sendError } = require('../utils/responseHelper');
 const logger = require('../utils/logger');
 
+function withOptional(result, label) {
+  if (result?.error) {
+    logger.warn('Analytics optional query failed', {
+      label,
+      message: result.error.message,
+      code: result.error.code,
+      details: result.error.details,
+      hint: result.error.hint,
+    });
+    return { ...result, data: [], count: 0, error: null };
+  }
+  return result;
+}
+
 exports.getFullAnalytics = async (req, res) => {
   try {
     const { from: fromDate, to: toDate } = req.query;
@@ -97,19 +111,48 @@ exports.getFullAnalytics = async (req, res) => {
       supabase.from('load_profiles').select('*', { count: 'exact', head: true }),
     ]);
 
+    const safeTotalReads = withOptional(totalReads, 'blog_post_reads.total');
+    const safeTotalLinkClicks = withOptional(totalLinkClicks, 'blog_link_clicks.total');
+    const safePostReadDetails = withOptional(postReadDetails, 'blog_post_reads.details');
+    const safePostClickDetails = withOptional(postClickDetails, 'blog_link_clicks.details');
+    const safeTotalPublishedPosts = withOptional(totalPublishedPosts, 'blog_posts.total_published');
+    const safePageViewsTotal = withOptional(pageViewsTotal, 'page_views.total');
+    const safePageViewsPerPath = withOptional(pageViewsPerPath, 'page_views.by_path');
+    const safeAvgPageDuration = withOptional(avgPageDuration, 'page_views.duration');
+    const safeAllTransactions = withOptional(allTransactions, 'subscription_transactions.all');
+    const safePaystackTx = withOptional(paystackTx, 'subscription_transactions.paystack');
+    const safeDirectTx = withOptional(directTx, 'subscription_transactions.direct');
+    const safeTotalUsers = withOptional(totalUsers, 'users.total');
+    const safeActiveUsersLast30 = withOptional(activeUsersLast30, 'users.active_last30');
+    const safeNewUsersLast30 = withOptional(newUsersLast30, 'users.new_last30');
+    const safeCalcUsageStats = withOptional(calcUsageStats, 'calculator_usage');
+    const safeTotalAdImpressions = withOptional(totalAdImpressions, 'ad_impressions');
+    const safeTotalAdClicks = withOptional(totalAdClicks, 'ad_clicks');
+    const safeAdBreakdown = withOptional(adBreakdown, 'ads.breakdown');
+    const safeTotalContacts = withOptional(totalContacts, 'contact_submissions.total');
+    const safeNewContacts = withOptional(newContacts, 'contact_submissions.new');
+    const safeTotalProjects = withOptional(totalProjects, 'projects.total');
+    const safeProjectsLast30 = withOptional(projectsLast30, 'projects.new');
+    const safeTotalDesigns = withOptional(totalDesigns, 'project_designs.total');
+    const safeDesignsInRange = withOptional(designsInRange, 'project_designs.range');
+    const safeTotalSimulations = withOptional(totalSimulations, 'simulation_results.total');
+    const safeSimulationsInRange = withOptional(simulationsInRange, 'simulation_results.range');
+    const safeTotalReportShares = withOptional(totalReportShares, 'report_shares.total');
+    const safeTotalLoadProfiles = withOptional(totalLoadProfiles, 'load_profiles.total');
+
     // ── Blog per-post reads aggregation ──────────────────────
     const readsByPost = {};
-    for (const r of (postReadDetails.data || [])) {
+    for (const r of (safePostReadDetails.data || [])) {
       readsByPost[r.post_id] = (readsByPost[r.post_id] || 0) + 1;
     }
     const clicksByPost = {};
-    for (const c of (postClickDetails.data || [])) {
+    for (const c of (safePostClickDetails.data || [])) {
       clicksByPost[c.post_id] = (clicksByPost[c.post_id] || 0) + 1;
     }
 
     // ── Page view per-path aggregation ────────────────────────
     const viewsByPath = {};
-    for (const pv of (pageViewsPerPath.data || [])) {
+    for (const pv of (safePageViewsPerPath.data || [])) {
       viewsByPath[pv.path] = (viewsByPath[pv.path] || 0) + 1;
     }
     const topPages = Object.entries(viewsByPath)
@@ -117,11 +160,11 @@ exports.getFullAnalytics = async (req, res) => {
       .slice(0, 20)
       .map(([path, views]) => ({ path, views }));
 
-    const durations = (avgPageDuration.data || []).map((r) => r.duration_s).filter(Boolean);
+    const durations = (safeAvgPageDuration.data || []).map((r) => r.duration_s).filter(Boolean);
     const avgDuration = durations.length ? Math.round(durations.reduce((s, d) => s + d, 0) / durations.length) : null;
 
     // ── Finance aggregation ────────────────────────────────────
-    const txData = allTransactions.data || [];
+    const txData = safeAllTransactions.data || [];
     const totalRevenue = txData.reduce((sum, t) => sum + Number(t.amount_ngn || 0), 0);
 
     const revenueByPlan = {};
@@ -143,7 +186,7 @@ exports.getFullAnalytics = async (req, res) => {
 
     // ── Calculator usage by type ───────────────────────────────
     const calcByType = {};
-    for (const c of (calcUsageStats.data || [])) {
+    for (const c of (safeCalcUsageStats.data || [])) {
       calcByType[c.calc_type] = (calcByType[c.calc_type] || 0) + Number(c.use_count || 0);
     }
 
@@ -151,15 +194,15 @@ exports.getFullAnalytics = async (req, res) => {
       range: { from: start, to: end },
 
       blog: {
-        total_published_posts: totalPublishedPosts.count || 0,
-        total_reads: totalReads.count || 0,
-        total_link_clicks: totalLinkClicks.count || 0,
+        total_published_posts: safeTotalPublishedPosts.count || 0,
+        total_reads: safeTotalReads.count || 0,
+        total_link_clicks: safeTotalLinkClicks.count || 0,
         reads_by_post: readsByPost,
         clicks_by_post: clicksByPost,
       },
 
       pages: {
-        total_views: pageViewsTotal.count || 0,
+        total_views: safePageViewsTotal.count || 0,
         top_pages: topPages,
         avg_session_duration_s: avgDuration,
       },
@@ -167,45 +210,45 @@ exports.getFullAnalytics = async (req, res) => {
       finance: {
         total_revenue_ngn: totalRevenue,
         total_transactions: txData.length,
-        paystack_transactions: paystackTx.count || 0,
-        direct_transactions: directTx.count || 0,
+        paystack_transactions: safePaystackTx.count || 0,
+        direct_transactions: safeDirectTx.count || 0,
         revenue_by_plan: revenueByPlan,
         top_company_revenue: topCompanyRevenue,
       },
 
       users: {
-        total_users: totalUsers.count || 0,
-        active_last_30d: activeUsersLast30.count || 0,
-        new_last_30d: newUsersLast30.count || 0,
+        total_users: safeTotalUsers.count || 0,
+        active_last_30d: safeActiveUsersLast30.count || 0,
+        new_last_30d: safeNewUsersLast30.count || 0,
         calculator_usage_by_type: calcByType,
       },
 
       ads: {
-        total_impressions: totalAdImpressions.count || 0,
-        total_clicks: totalAdClicks.count || 0,
-        overall_ctr: totalAdImpressions.count
-          ? ((totalAdClicks.count / totalAdImpressions.count) * 100).toFixed(2)
+        total_impressions: safeTotalAdImpressions.count || 0,
+        total_clicks: safeTotalAdClicks.count || 0,
+        overall_ctr: safeTotalAdImpressions.count
+          ? ((safeTotalAdClicks.count / safeTotalAdImpressions.count) * 100).toFixed(2)
           : '0.00',
-        active_ads: (adBreakdown.data || []).length,
+        active_ads: (safeAdBreakdown.data || []).length,
       },
 
       contact: {
-        total_submissions: totalContacts.count || 0,
-        new_in_range: newContacts.count || 0,
+        total_submissions: safeTotalContacts.count || 0,
+        new_in_range: safeNewContacts.count || 0,
       },
 
       projects: {
-        total_projects: totalProjects.count || 0,
-        new_in_range: projectsLast30.count || 0,
+        total_projects: safeTotalProjects.count || 0,
+        new_in_range: safeProjectsLast30.count || 0,
       },
 
       design: {
-        total_designs: totalDesigns.count || 0,
-        designs_in_range: designsInRange.count || 0,
-        total_simulations: totalSimulations.count || 0,
-        simulations_in_range: simulationsInRange.count || 0,
-        total_report_shares: totalReportShares.count || 0,
-        total_load_profiles: totalLoadProfiles.count || 0,
+        total_designs: safeTotalDesigns.count || 0,
+        designs_in_range: safeDesignsInRange.count || 0,
+        total_simulations: safeTotalSimulations.count || 0,
+        simulations_in_range: safeSimulationsInRange.count || 0,
+        total_report_shares: safeTotalReportShares.count || 0,
+        total_load_profiles: safeTotalLoadProfiles.count || 0,
       },
     });
   } catch (error) {

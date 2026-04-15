@@ -13,6 +13,7 @@ import type {
   NercAdminSlaOverviewResponse,
   NercApplicationListResponse,
   NercProfileResponse,
+  NercTriageResponse,
   NercReportingCycleListResponse,
 } from "./api.types";
 
@@ -219,6 +220,8 @@ export const reportsAPI = {
 export const nercAPI = {
   getProjectProfile: (projectId: string) =>
     api.get<NercProfileResponse>(`/nerc/projects/${projectId}/profile`),
+  getProjectTriage: (projectId: string) =>
+    api.get<NercTriageResponse>(`/nerc/projects/${projectId}/triage`),
   updateProjectProfile: (projectId: string, data: JsonRecord) =>
     api.put<NercProfileResponse>(`/nerc/projects/${projectId}/profile`, data),
   listProjectApplications: (projectId: string) =>
@@ -350,12 +353,18 @@ export const adminAPI = {
   listReportShares: (params?: JsonRecord) => api.get("/admin/design/report-shares", { params }),
   revokeReportShare: (id: string) => api.patch(`/admin/design/report-shares/${id}/revoke`),
   getDesignAdoption: () => api.get("/admin/design/adoption"),
-  getNercSlaOverview: () => api.get("/nerc/admin/sla-overview"),
-  listNercApplications: (params?: JsonRecord) => api.get("/nerc/admin/applications", { params }),
+  getNercSlaOverview: () => api.get("/admin/nerc/sla-overview"),
+  listNercApplications: (params?: JsonRecord) => api.get("/admin/nerc/applications", { params }),
   decideNercApplication: (id: string, data: JsonRecord) =>
-    api.patch(`/nerc/admin/applications/${id}/decision`, data),
+    api.patch(`/admin/nerc/applications/${id}/decision`, data),
   listNercReportingCycles: (params?: JsonRecord) =>
-    api.get("/nerc/admin/reporting-cycles", { params }),
+    api.get("/admin/nerc/reporting-cycles", { params }),
+  listNercCycleSubmissions: (cycleId: string) =>
+    api.get(`/admin/nerc/reporting-cycles/${cycleId}/submissions`),
+  decideNercSubmission: (submissionId: string, data: JsonRecord) =>
+    api.patch(`/admin/nerc/submissions/${submissionId}/decision`, data),
+  overrideNercCycleStatus: (cycleId: string, data: JsonRecord) =>
+    api.patch(`/admin/nerc/reporting-cycles/${cycleId}/status`, data),
   getAdminBankTransferSettings: () => api.get("/admin/payment-settings/bank-transfer"),
   updateBankTransferSettings: (data: JsonRecord) =>
     api.put("/admin/payment-settings/bank-transfer", data),

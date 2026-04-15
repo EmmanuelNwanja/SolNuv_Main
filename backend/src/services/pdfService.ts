@@ -65,6 +65,25 @@ function diamond(doc, cx, cy, size, color) {
     .restore();
 }
 
+function estimateEprMilestones(project: any = {}) {
+  const installDate = project.installation_date ? new Date(project.installation_date) : new Date();
+  const panelLifespanYears = 25;
+  const inverterLifespanYears = 12;
+  const batteryLifespanYears = 8;
+  const panelEol = new Date(installDate);
+  panelEol.setFullYear(panelEol.getFullYear() + panelLifespanYears);
+  const inverterEol = new Date(installDate);
+  inverterEol.setFullYear(inverterEol.getFullYear() + inverterLifespanYears);
+  const batteryEol = new Date(installDate);
+  batteryEol.setFullYear(batteryEol.getFullYear() + batteryLifespanYears);
+  return {
+    installDate,
+    panelEol,
+    inverterEol,
+    batteryEol,
+  };
+}
+
 /**
  * Render a branded page header bar.
  * Returns the Y position immediately after the header.
@@ -463,6 +482,23 @@ async function generateCradleToGraveCertificate(project, company, history = []) 
         doc.fillColor(brand.text).font('Helvetica').fontSize(8.5).text(String(value), L + 245, itemY, { width: contentW - 254 });
       });
       y += 210;
+
+      // Lifecycle + EPR hook block (required for final compliance export context)
+      const epr = estimateEprMilestones(project);
+      doc.rect(L, y, contentW, 94).fillAndStroke('#ECFDF5', '#A7F3D0');
+      doc.rect(L, y, 4, 94).fill(brand.accent);
+      doc.fillColor(brand.primary).fontSize(9).font('Helvetica-Bold')
+        .text('Decommissioning & E-Waste Management Plan (EPR Hook)', L + 12, y + 12);
+      doc.fillColor(brand.text).fontSize(7.8).font('Helvetica')
+        .text(
+          'This project is lifecycle-locked for EPR compliance. SolNuv will trigger decommission and formal recycling checkpoints for major components at the estimated windows below.',
+          L + 12, y + 28, { width: contentW - 24, align: 'justify' }
+        );
+      doc.fillColor(brand.muted).fontSize(7.6).font('Helvetica-Bold')
+        .text(`Battery EOL checkpoint: ${epr.batteryEol.toLocaleDateString('en-NG', { year: 'numeric', month: 'short' })}`, L + 12, y + 56)
+        .text(`Inverter EOL checkpoint: ${epr.inverterEol.toLocaleDateString('en-NG', { year: 'numeric', month: 'short' })}`, L + 12, y + 68)
+        .text(`Panel EOL checkpoint: ${epr.panelEol.toLocaleDateString('en-NG', { year: 'numeric', month: 'short' })}`, L + 12, y + 80);
+      y += 104;
 
       doc.fillColor(brand.primary).fontSize(9).font('Helvetica-Bold')
         .text(`Certificate No: ${certNumber}`, L, y, { align: 'center', width: contentW });

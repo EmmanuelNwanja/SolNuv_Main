@@ -23,6 +23,7 @@ export type NercAdminDecisionAction =
   | "changes_requested"
   | "approve"
   | "reject";
+export type NercSubmissionDecisionAction = "accept" | "reject" | "request_changes";
 
 export interface ApiListEnvelope<T> {
   success?: boolean;
@@ -192,6 +193,18 @@ export interface NercSubmissionEvent {
   created_at?: string;
 }
 
+export interface NercProjectTriage {
+  project_id: UUID;
+  capacity_kw: number;
+  regulatory_pathway: NercRegulatoryPathway;
+  reporting_cadence: NercReportingCadence;
+  net_metering_eligible: boolean;
+  net_metering_band_kw: [number, number];
+  injection_cap_pct: number;
+  next_primary_step: string;
+  regulation_version: string;
+}
+
 export interface ProjectRegulatoryProfile {
   id: UUID;
   project_id: UUID;
@@ -216,9 +229,15 @@ export interface NercApplicationWithProject extends NercApplication {
     id: UUID;
     name?: string | null;
     company_id?: UUID | null;
+    geo_verified?: boolean | null;
     companies?: {
       id?: UUID;
       name?: string | null;
+    } | null;
+    owner_context?: {
+      id?: UUID;
+      display_name?: string | null;
+      email?: string | null;
     } | null;
   } | null;
 }
@@ -228,9 +247,15 @@ export interface NercReportingCycleWithProject extends NercReportingCycle {
     id: UUID;
     name?: string | null;
     company_id?: UUID | null;
+    geo_verified?: boolean | null;
     companies?: {
       id?: UUID;
       name?: string | null;
+    } | null;
+    owner_context?: {
+      id?: UUID;
+      display_name?: string | null;
+      email?: string | null;
     } | null;
   } | null;
 }

@@ -15,8 +15,6 @@ const { sendSuccess, sendError } = require('../utils/responseHelper');
 const { logPlatformActivity } = require('../services/auditService');
 const {
   deriveRegulatoryProfile,
-  computeRegulatoryPathway,
-  computeReportingCadence,
   addBusinessDays,
 } = require('../services/nercComplianceService');
 const logger = require('../utils/logger');
@@ -48,6 +46,61 @@ type DecisionBody = {
   regulator_decision_note?: string | null;
 };
 
+type SubmissionDecisionBody = {
+  action: 'accept' | 'reject' | 'request_changes';
+  regulator_reference?: string | null;
+  regulator_message?: string | null;
+};
+
+const DEFAULT_NERC_RULES = {
+  permit_threshold_kw: 100,
+  annual_reporting_threshold_kw: 1000,
+  net_metering_min_kw: 50,
+  net_metering_max_kw: 5000,
+  net_metering_injection_cap_pct: 30,
+  regulation_version: 'NERC-R-001-2026',
+};
+
+function parsePositiveInt(value: unknown, fallback: number, max = 200) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
+  return Math.min(Math.floor(parsed), max);
+}
+
+function validateEnumFilter<T extends string>(value: unknown, allowlist: T[]) {
+  if (typeof value !== 'string' || !value.trim()) return '';
+  return allowlist.includes(value as T) ? (value as T) : null;
+}
+
+async function getNercRules() {
+  const { data, error } = await supabase
+    .from('nerc_rule_config')
+    .select('permit_threshold_kw, annual_reporting_threshold_kw, net_metering_min_kw, net_metering_max_kw, net_metering_injection_cap_pct, regulation_version')
+    .eq('is_active', true)
+    .order('updated_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    logger.warn('NERC rules table unavailable; using defaults', {
+      message: error.message,
+      code: error.code,
+      details: error.details,
+      hint: error.hint,
+    });
+    return DEFAULT_NERC_RULES;
+  }
+  if (!data) return DEFAULT_NERC_RULES;
+  return {
+    permit_threshold_kw: Number(data.permit_threshold_kw ?? DEFAULT_NERC_RULES.permit_threshold_kw),
+    annual_reporting_threshold_kw: Number(data.annual_reporting_threshold_kw ?? DEFAULT_NERC_RULES.annual_reporting_threshold_kw),
+    net_metering_min_kw: Number(data.net_metering_min_kw ?? DEFAULT_NERC_RULES.net_metering_min_kw),
+    net_metering_max_kw: Number(data.net_metering_max_kw ?? DEFAULT_NERC_RULES.net_metering_max_kw),
+    net_metering_injection_cap_pct: Number(data.net_metering_injection_cap_pct ?? DEFAULT_NERC_RULES.net_metering_injection_cap_pct),
+    regulation_version: data.regulation_version || DEFAULT_NERC_RULES.regulation_version,
+  };
+}
+
 async function getAccessibleProject(req: AuthenticatedRequest, projectId: UUID) {
   const userId = req.user.id;
   const companyId = req.user.company_id;
@@ -71,6 +124,7 @@ async function ensureRegulatoryProfile(
   req: AuthenticatedRequest,
   project: { id: UUID; capacity_kw?: number | null }
 ) {
+  const rules = await getNercRules();
   const { data: latestDesign } = await supabase
     .from('project_designs')
     .select('grid_topology')
@@ -80,12 +134,21 @@ async function ensureRegulatoryProfile(
     .maybeSingle();
 
   const derived = deriveRegulatoryProfile({ project, latestDesign });
+  const effectiveCapacity = Number(project?.capacity_kw ?? 0);
+  const pathway = effectiveCapacity > rules.permit_threshold_kw ? 'permit_required' : 'registration';
+  const cadence = effectiveCapacity >= rules.annual_reporting_threshold_kw ? 'quarterly' : 'annual';
 
   const { data, error } = await supabase
     .from('project_regulatory_profiles')
     .upsert({
       project_id: project.id,
       ...derived,
+      regulatory_pathway: pathway,
+      permit_required: pathway === 'permit_required',
+      reporting_cadence: cadence,
+      permit_threshold_kw: rules.permit_threshold_kw,
+      annual_reporting_threshold_kw: rules.annual_reporting_threshold_kw,
+      regulation_version: rules.regulation_version,
       created_by: req.user.id,
       is_active: true,
     }, { onConflict: 'project_id' })
@@ -113,22 +176,56 @@ exports.getProjectRegulatoryProfile = async (
   }
 };
 
+exports.getProjectTriage = async (
+  req: AuthenticatedRequest<{ projectId: UUID }>,
+  res: Response
+) => {
+  try {
+    const { projectId } = req.params;
+    const project = await getAccessibleProject(req, projectId);
+    if (!project) return sendError(res, 'Project not found', 404);
+
+    const profile = await ensureRegulatoryProfile(req, project);
+    const rules = await getNercRules();
+    const capacityKw = Number(profile?.declared_capacity_kw ?? project?.capacity_kw ?? 0);
+    const netMeteringEligible = capacityKw >= rules.net_metering_min_kw && capacityKw <= rules.net_metering_max_kw;
+    const nextPrimaryStep = profile.regulatory_pathway === 'permit_required'
+      ? 'open_permit_application'
+      : 'open_registration_application';
+
+    return sendSuccess(res, {
+      project_id: projectId,
+      capacity_kw: capacityKw,
+      regulatory_pathway: profile.regulatory_pathway,
+      reporting_cadence: profile.reporting_cadence,
+      net_metering_eligible: netMeteringEligible,
+      net_metering_band_kw: [rules.net_metering_min_kw, rules.net_metering_max_kw],
+      injection_cap_pct: rules.net_metering_injection_cap_pct,
+      next_primary_step: nextPrimaryStep,
+      regulation_version: profile.regulation_version || rules.regulation_version,
+    });
+  } catch (error) {
+    logger.error('NERC triage fetch failed', { projectId: req.params?.projectId, message: error.message });
+    return sendError(res, 'Failed to evaluate triage', 500);
+  }
+};
+
 exports.upsertProjectRegulatoryProfile = async (
   req: AuthenticatedRequest<{ projectId: UUID }, NercProfileUpsertBody>,
   res: Response
 ) => {
   try {
     const { projectId } = req.params;
-    // #region agent log
-    fetch('http://127.0.0.1:7567/ingest/e8cc33b1-e17f-4a70-9052-be1634f820ff',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'94cccd'},body:JSON.stringify({sessionId:'94cccd',runId:'pre-fix',hypothesisId:'H5',location:'backend/src/controllers/nercController.ts:123',message:'Upsert profile input envelope',data:{projectId,hasMiniGridType:typeof req.body?.mini_grid_type==='string',declaredCapacityType:typeof req.body?.declared_capacity_kw,hasPathway:typeof req.body?.regulatory_pathway==='string',hasCadence:typeof req.body?.reporting_cadence==='string'},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
+    const rules = await getNercRules();
     const project = await getAccessibleProject(req, projectId);
     if (!project) return sendError(res, 'Project not found', 404);
 
     const current = await ensureRegulatoryProfile(req, project);
     const capacity = Number(req.body?.declared_capacity_kw ?? current.declared_capacity_kw ?? project.capacity_kw ?? 0);
-    const pathway = req.body?.regulatory_pathway || computeRegulatoryPathway(capacity);
-    const cadence = req.body?.reporting_cadence || computeReportingCadence(capacity);
+    const derivedPathway = capacity > rules.permit_threshold_kw ? 'permit_required' : 'registration';
+    const derivedCadence = capacity >= rules.annual_reporting_threshold_kw ? 'quarterly' : 'annual';
+    const pathway = req.body?.regulatory_pathway || derivedPathway;
+    const cadence = req.body?.reporting_cadence || derivedCadence;
 
     const payload = {
       mini_grid_type: req.body?.mini_grid_type || current.mini_grid_type,
@@ -137,7 +234,9 @@ exports.upsertProjectRegulatoryProfile = async (
       permit_required: pathway === 'permit_required',
       reporting_cadence: cadence,
       notes: req.body?.notes ?? current.notes,
-      regulation_version: req.body?.regulation_version || current.regulation_version || 'NERC-R-001-2026',
+      permit_threshold_kw: rules.permit_threshold_kw,
+      annual_reporting_threshold_kw: rules.annual_reporting_threshold_kw,
+      regulation_version: req.body?.regulation_version || current.regulation_version || rules.regulation_version,
     };
 
     const { data, error } = await supabase
@@ -499,29 +598,62 @@ exports.adminListApplications = async (
   res: Response
 ) => {
   try {
-    const { status = '', page = 1, limit = 30 } = req.query;
-    const offset = (Number(page) - 1) * Number(limit);
+    const safeStatus = validateEnumFilter(req.query.status, ['draft', 'submitted', 'in_review', 'changes_requested', 'approved', 'rejected']);
+    if (safeStatus === null) return sendError(res, 'Invalid status filter', 400);
+    const page = parsePositiveInt(req.query.page, 1, 500);
+    const limit = parsePositiveInt(req.query.limit, 30, 100);
+    const offset = (page - 1) * limit;
 
     let query = supabase
       .from('nerc_applications')
       .select(`
         id, project_id, application_type, status, title, regulator_reference,
         submitted_at, review_started_at, reviewed_at, approved_at, rejected_at, sla_due_at, sla_breached, created_at,
-        projects!inner(id, name, company_id, companies(id, name))
+        projects!left(id, name, company_id, user_id, geo_verified, companies(id, name), users(id, first_name, last_name, email, brand_name))
       `, { count: 'exact' })
       .order('created_at', { ascending: false })
-      .range(offset, offset + Number(limit) - 1);
+      .range(offset, offset + limit - 1);
 
-    if (status) query = query.eq('status', status);
+    if (safeStatus) query = query.eq('status', safeStatus);
 
-    const { data, count, error } = await query;
-    if (error) throw error;
+    let { data, count, error } = await query;
+    if (error) {
+      logger.warn('NERC admin application query fallback triggered', {
+        message: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
+      });
+      let fallback = supabase
+        .from('nerc_applications')
+        .select('id, project_id, application_type, status, title, regulator_reference, submitted_at, review_started_at, reviewed_at, approved_at, rejected_at, sla_due_at, sla_breached, created_at', { count: 'exact' })
+        .order('created_at', { ascending: false })
+        .range(offset, offset + limit - 1);
+      if (safeStatus) fallback = fallback.eq('status', safeStatus);
+      const fb = await fallback;
+      if (fb.error) throw fb.error;
+      data = fb.data || [];
+      count = fb.count || 0;
+    }
 
     return sendSuccess(res, {
-      applications: data || [],
+      applications: (data || []).map((row: any) => {
+        const owner = row.projects?.users || null;
+        return {
+          ...row,
+          projects: row.projects ? {
+            ...row.projects,
+            owner_context: owner ? {
+              id: owner.id,
+              display_name: owner.brand_name || `${owner.first_name || ''} ${owner.last_name || ''}`.trim() || owner.email || 'Project owner',
+              email: owner.email || null,
+            } : null,
+          } : null,
+        };
+      }),
       total: count || 0,
-      page: Number(page),
-      limit: Number(limit),
+      page,
+      limit,
     });
   } catch (error) {
     logger.error('NERC admin list applications failed', { message: error.message });
@@ -637,30 +769,187 @@ exports.adminListReportingCycles = async (
   res: Response
 ) => {
   try {
-    const { status = '', page = 1, limit = 50 } = req.query;
-    const offset = (Number(page) - 1) * Number(limit);
+    const safeStatus = validateEnumFilter(req.query.status, ['pending', 'submitted', 'overdue']);
+    if (safeStatus === null) return sendError(res, 'Invalid status filter', 400);
+    const page = parsePositiveInt(req.query.page, 1, 500);
+    const limit = parsePositiveInt(req.query.limit, 50, 100);
+    const offset = (page - 1) * limit;
 
     let query = supabase
       .from('nerc_reporting_cycles')
       .select(`
         id, project_id, cadence, period_start, period_end, due_date, status, submitted_at, created_at,
-        projects!inner(id, name, company_id, companies(id, name))
+        projects!left(id, name, company_id, user_id, geo_verified, companies(id, name), users(id, first_name, last_name, email, brand_name))
       `, { count: 'exact' })
       .order('due_date', { ascending: false })
-      .range(offset, offset + Number(limit) - 1);
-    if (status) query = query.eq('status', status);
+      .range(offset, offset + limit - 1);
+    if (safeStatus) query = query.eq('status', safeStatus);
 
-    const { data, error, count } = await query;
-    if (error) throw error;
+    let { data, error, count } = await query;
+    if (error) {
+      logger.warn('NERC admin cycles query fallback triggered', {
+        message: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
+      });
+      let fallback = supabase
+        .from('nerc_reporting_cycles')
+        .select('id, project_id, cadence, period_start, period_end, due_date, status, submitted_at, created_at', { count: 'exact' })
+        .order('due_date', { ascending: false })
+        .range(offset, offset + limit - 1);
+      if (safeStatus) fallback = fallback.eq('status', safeStatus);
+      const fb = await fallback;
+      if (fb.error) throw fb.error;
+      data = fb.data || [];
+      count = fb.count || 0;
+    }
 
     return sendSuccess(res, {
-      cycles: data || [],
+      cycles: (data || []).map((cycle: any) => {
+        const owner = cycle.projects?.users || null;
+        return {
+          ...cycle,
+          projects: cycle.projects ? {
+            ...cycle.projects,
+            owner_context: owner ? {
+              id: owner.id,
+              display_name: owner.brand_name || `${owner.first_name || ''} ${owner.last_name || ''}`.trim() || owner.email || 'Project owner',
+              email: owner.email || null,
+            } : null,
+          } : null,
+        };
+      }),
       total: count || 0,
-      page: Number(page),
-      limit: Number(limit),
+      page,
+      limit,
     });
   } catch (error) {
     logger.error('NERC admin list cycles failed', { message: error.message });
     return sendError(res, 'Failed to load NERC reporting cycles', 500);
+  }
+};
+
+exports.adminListCycleSubmissions = async (
+  req: AuthenticatedRequest<{ cycleId: UUID }>,
+  res: Response
+) => {
+  try {
+    const { cycleId } = req.params;
+    const { data: cycle, error: cycleError } = await supabase
+      .from('nerc_reporting_cycles')
+      .select('id, project_id, status, due_date')
+      .eq('id', cycleId)
+      .maybeSingle();
+    if (cycleError) throw cycleError;
+    if (!cycle) return sendError(res, 'Reporting cycle not found', 404);
+
+    const { data, error } = await supabase
+      .from('nerc_submission_events')
+      .select('*')
+      .eq('reporting_cycle_id', cycleId)
+      .order('submitted_at', { ascending: false });
+    if (error) throw error;
+
+    return sendSuccess(res, { cycle, submissions: data || [] });
+  } catch (error) {
+    logger.error('NERC admin list cycle submissions failed', { cycleId: req.params?.cycleId, message: error.message });
+    return sendError(res, 'Failed to load cycle submissions', 500);
+  }
+};
+
+exports.adminDecisionSubmission = async (
+  req: AuthenticatedRequest<{ submissionId: UUID }, SubmissionDecisionBody>,
+  res: Response
+) => {
+  try {
+    const { submissionId } = req.params;
+    const { action, regulator_message, regulator_reference } = req.body || {};
+    if (!['accept', 'reject', 'request_changes'].includes(action)) {
+      return sendError(res, 'action must be accept, reject, or request_changes', 400);
+    }
+
+    const { data: existing, error: findError } = await supabase
+      .from('nerc_submission_events')
+      .select('id, reporting_cycle_id, project_id, submission_status')
+      .eq('id', submissionId)
+      .maybeSingle();
+    if (findError) throw findError;
+    if (!existing) return sendError(res, 'Submission event not found', 404);
+
+    const nextStatus = action === 'accept' ? 'accepted' : action === 'reject' ? 'rejected' : 'submitted';
+    const payload: any = {
+      submission_status: nextStatus,
+      regulator_message: regulator_message || null,
+      regulator_reference: regulator_reference || null,
+    };
+
+    const { data, error } = await supabase
+      .from('nerc_submission_events')
+      .update(payload)
+      .eq('id', submissionId)
+      .select('*')
+      .single();
+    if (error) throw error;
+
+    if (action === 'accept' || action === 'request_changes') {
+      await supabase
+        .from('nerc_reporting_cycles')
+        .update({
+          status: action === 'accept' ? 'submitted' : 'pending',
+          submitted_at: action === 'accept' ? (data.submitted_at || new Date().toISOString()) : null,
+        })
+        .eq('id', existing.reporting_cycle_id);
+    }
+
+    await logPlatformActivity({
+      actorUserId: req.user.id,
+      actorEmail: req.user.email,
+      action: `nerc.submission.${action}`,
+      resourceType: 'nerc_submission_events',
+      resourceId: submissionId,
+      details: { reporting_cycle_id: existing.reporting_cycle_id, new_status: nextStatus },
+    });
+
+    return sendSuccess(res, data, 'Submission decision saved');
+  } catch (error) {
+    logger.error('NERC admin submission decision failed', { submissionId: req.params?.submissionId, message: error.message });
+    return sendError(res, 'Failed to update submission decision', 500);
+  }
+};
+
+exports.adminOverrideReportingCycleStatus = async (
+  req: AuthenticatedRequest<{ cycleId: UUID }, { status?: 'pending' | 'submitted' | 'overdue' }>,
+  res: Response
+) => {
+  try {
+    const { cycleId } = req.params;
+    const nextStatus = validateEnumFilter(req.body?.status, ['pending', 'submitted', 'overdue']);
+    if (!nextStatus) return sendError(res, 'status must be pending, submitted, or overdue', 400);
+
+    const { data, error } = await supabase
+      .from('nerc_reporting_cycles')
+      .update({
+        status: nextStatus,
+        submitted_at: nextStatus === 'submitted' ? new Date().toISOString() : null,
+      })
+      .eq('id', cycleId)
+      .select('*')
+      .single();
+    if (error) throw error;
+
+    await logPlatformActivity({
+      actorUserId: req.user.id,
+      actorEmail: req.user.email,
+      action: 'nerc.reporting_cycle.status_override',
+      resourceType: 'nerc_reporting_cycles',
+      resourceId: cycleId,
+      details: { status: nextStatus },
+    });
+
+    return sendSuccess(res, data, 'Cycle status updated');
+  } catch (error) {
+    logger.error('NERC admin cycle status override failed', { cycleId: req.params?.cycleId, message: error.message });
+    return sendError(res, 'Failed to override cycle status', 500);
   }
 };

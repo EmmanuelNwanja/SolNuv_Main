@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const adminController = require('../controllers/adminController');
+const nercController = require('../controllers/nercController');
 const { requireAuth, requireProfile } = require('../middlewares/authMiddleware');
 const { requireAdmin, requireAdminRole } = require('../middlewares/adminMiddleware');
 const { attachEnvironment } = require('../middlewares/environmentMiddleware');
@@ -68,5 +69,14 @@ router.put('/payment-settings/bank-transfer', requireAdminRole('super_admin'), a
 router.get('/direct-payments', requireAdminRole('super_admin', 'finance', 'operations'), adminController.listDirectPayments);
 router.post('/direct-payments/:id/verify', requireAdminRole('super_admin', 'finance'), adminController.verifyDirectPayment);
 router.post('/direct-payments/:id/reject', requireAdminRole('super_admin', 'finance', 'operations'), adminController.rejectDirectPayment);
+
+// NERC admin compatibility aliases (/api/admin/* -> existing /api/nerc/admin/* handlers)
+router.get('/nerc/applications', requireAdminRole('super_admin', 'operations', 'analytics'), nercController.adminListApplications);
+router.patch('/nerc/applications/:applicationId/decision', requireAdminRole('super_admin', 'operations'), nercController.adminDecisionApplication);
+router.get('/nerc/sla-overview', requireAdminRole('super_admin', 'operations', 'analytics'), nercController.adminSlaOverview);
+router.get('/nerc/reporting-cycles', requireAdminRole('super_admin', 'operations', 'analytics'), nercController.adminListReportingCycles);
+router.get('/nerc/reporting-cycles/:cycleId/submissions', requireAdminRole('super_admin', 'operations', 'analytics'), nercController.adminListCycleSubmissions);
+router.patch('/nerc/submissions/:submissionId/decision', requireAdminRole('super_admin', 'operations'), nercController.adminDecisionSubmission);
+router.patch('/nerc/reporting-cycles/:cycleId/status', requireAdminRole('super_admin', 'operations'), nercController.adminOverrideReportingCycleStatus);
 
 module.exports = router;
