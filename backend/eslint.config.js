@@ -1,13 +1,18 @@
 module.exports = [
   {
-    files: ['src/**/*.{js,ts}'],
+    ignores: ['node_modules/**', 'dist/**'],
+  },
+  {
+    files: ['src/**/*.{js,ts,d.ts}'],
     ignores: ['src/templates/**'],
     languageOptions: {
+      parser: require('@typescript-eslint/parser'),
       ecmaVersion: 'latest',
-      sourceType: 'commonjs',
+      sourceType: 'module',
       globals: {
         process: 'readonly',
         module: 'readonly',
+        exports: 'readonly',
         require: 'readonly',
         console: 'readonly',
         __dirname: 'readonly',

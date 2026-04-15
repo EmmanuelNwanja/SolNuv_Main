@@ -8,7 +8,7 @@
     "dev": "nodemon --exec tsx src/server.ts",
     "lint": "eslint src/**/*.{ts,tsx}",
     "typecheck": "tsc --noEmit",
-    "test:nerc-regression": "node scripts/nerc-regression-smoke.js"
+    "test:nerc-regression": "tsx scripts/nerc-regression-smoke.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",
@@ -37,7 +37,10 @@
   "devDependencies": {
     "@types/express": "^5.0.3",
     "@types/node": "^24.7.2",
+    "@typescript-eslint/eslint-plugin": "^8.58.2",
+    "@typescript-eslint/parser": "^8.58.2",
     "eslint": "^9.0.0",
+    "globals": "^17.5.0",
     "nodemon": "^3.1.4",
     "ts-node": "^10.9.2",
     "tsx": "^4.21.0",

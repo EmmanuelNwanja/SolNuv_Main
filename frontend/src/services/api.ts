@@ -1,11 +1,20 @@
 import axios, {
   AxiosHeaders,
+  type AxiosError,
   type AxiosInstance,
   type AxiosResponse,
   type InternalAxiosRequestConfig,
 } from "axios";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "../utils/supabase";
+import type {
+  NercAdminApplicationsResponse,
+  NercAdminReportingCyclesResponse,
+  NercAdminSlaOverviewResponse,
+  NercApplicationListResponse,
+  NercProfileResponse,
+  NercReportingCycleListResponse,
+} from "./api.types";
 
 /** Generic JSON body for calculator/agent/etc. endpoints. */
 export type JsonRecord = Record<string, unknown>;
@@ -132,7 +141,7 @@ api.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {
 api.interceptors.response.use(
   (res: AxiosResponse) => res,
   async (error: unknown) => {
-    const err = error as { response?: { status?: number }; config?: { url?: string } };
+    const err = error as AxiosError;
     if (err.response?.status === 401 && typeof window !== "undefined") {
       window.dispatchEvent(
         new CustomEvent("solnuv:unauthorized", {
@@ -208,27 +217,32 @@ export const reportsAPI = {
 };
 
 export const nercAPI = {
-  getProjectProfile: (projectId: string) => api.get(`/nerc/projects/${projectId}/profile`),
+  getProjectProfile: (projectId: string) =>
+    api.get<NercProfileResponse>(`/nerc/projects/${projectId}/profile`),
   updateProjectProfile: (projectId: string, data: JsonRecord) =>
-    api.put(`/nerc/projects/${projectId}/profile`, data),
-  listProjectApplications: (projectId: string) => api.get(`/nerc/projects/${projectId}/applications`),
+    api.put<NercProfileResponse>(`/nerc/projects/${projectId}/profile`, data),
+  listProjectApplications: (projectId: string) =>
+    api.get<NercApplicationListResponse>(`/nerc/projects/${projectId}/applications`),
   createApplication: (projectId: string, data: JsonRecord) =>
     api.post(`/nerc/projects/${projectId}/applications`, data),
   updateApplication: (applicationId: string, data: JsonRecord) =>
     api.patch(`/nerc/applications/${applicationId}`, data),
   submitApplication: (applicationId: string) => api.post(`/nerc/applications/${applicationId}/submit`),
-  listMyReportingCycles: (params?: JsonRecord) => api.get("/nerc/reporting-cycles", { params }),
+  listMyReportingCycles: (params?: JsonRecord) =>
+    api.get<NercReportingCycleListResponse>("/nerc/reporting-cycles", { params }),
   listProjectReportingCycles: (projectId: string) =>
-    api.get(`/nerc/projects/${projectId}/reporting-cycles`),
+    api.get<NercReportingCycleListResponse>(`/nerc/projects/${projectId}/reporting-cycles`),
   createReportingCycle: (projectId: string, data: JsonRecord) =>
     api.post(`/nerc/projects/${projectId}/reporting-cycles`, data),
   submitReportingCycle: (cycleId: string, data: JsonRecord) =>
     api.post(`/nerc/reporting-cycles/${cycleId}/submissions`, data),
-  adminListApplications: (params?: JsonRecord) => api.get("/nerc/admin/applications", { params }),
+  adminListApplications: (params?: JsonRecord) =>
+    api.get<NercAdminApplicationsResponse>("/nerc/admin/applications", { params }),
   adminDecisionApplication: (applicationId: string, data: JsonRecord) =>
     api.patch(`/nerc/admin/applications/${applicationId}/decision`, data),
-  adminSlaOverview: () => api.get("/nerc/admin/sla-overview"),
-  adminListReportingCycles: (params?: JsonRecord) => api.get("/nerc/admin/reporting-cycles", { params }),
+  adminSlaOverview: () => api.get<NercAdminSlaOverviewResponse>("/nerc/admin/sla-overview"),
+  adminListReportingCycles: (params?: JsonRecord) =>
+    api.get<NercAdminReportingCyclesResponse>("/nerc/admin/reporting-cycles", { params }),
 };
 
 export const calculatorAPI = {

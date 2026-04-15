@@ -1,5 +1,15 @@
 'use strict';
 
+import type { Request, Response } from "express";
+import type {
+  NercAdminDecisionAction,
+  NercApplicationStatus,
+  NercReportingCycle,
+  NercSubmissionEvent,
+  ProjectRegulatoryProfile,
+  UUID,
+} from "../types/contracts";
+
 const supabase = require('../config/database');
 const { sendSuccess, sendError } = require('../utils/responseHelper');
 const { logPlatformActivity } = require('../services/auditService');
@@ -11,7 +21,34 @@ const {
 } = require('../services/nercComplianceService');
 const logger = require('../utils/logger');
 
-async function getAccessibleProject(req, projectId) {
+type AuthenticatedUser = {
+  id: UUID;
+  email?: string;
+  company_id?: UUID | null;
+};
+
+type AuthenticatedRequest<
+  P = Record<string, string>,
+  B = Record<string, unknown>,
+  Q = Record<string, string | number | boolean>
+> = Request<P, unknown, B, Q> & { user: AuthenticatedUser };
+
+type NercProfileUpsertBody = {
+  mini_grid_type?: ProjectRegulatoryProfile["mini_grid_type"];
+  declared_capacity_kw?: number | string;
+  regulatory_pathway?: ProjectRegulatoryProfile["regulatory_pathway"];
+  reporting_cadence?: ProjectRegulatoryProfile["reporting_cadence"];
+  notes?: string | null;
+  regulation_version?: string;
+};
+
+type DecisionBody = {
+  action: NercAdminDecisionAction;
+  regulator_reference?: string | null;
+  regulator_decision_note?: string | null;
+};
+
+async function getAccessibleProject(req: AuthenticatedRequest, projectId: UUID) {
   const userId = req.user.id;
   const companyId = req.user.company_id;
 
@@ -30,7 +67,10 @@ async function getAccessibleProject(req, projectId) {
   return data;
 }
 
-async function ensureRegulatoryProfile(req, project) {
+async function ensureRegulatoryProfile(
+  req: AuthenticatedRequest,
+  project: { id: UUID; capacity_kw?: number | null }
+) {
   const { data: latestDesign } = await supabase
     .from('project_designs')
     .select('grid_topology')
@@ -56,7 +96,10 @@ async function ensureRegulatoryProfile(req, project) {
   return data;
 }
 
-exports.getProjectRegulatoryProfile = async (req, res) => {
+exports.getProjectRegulatoryProfile = async (
+  req: AuthenticatedRequest<{ projectId: UUID }>,
+  res: Response
+) => {
   try {
     const { projectId } = req.params;
     const project = await getAccessibleProject(req, projectId);
@@ -70,9 +113,15 @@ exports.getProjectRegulatoryProfile = async (req, res) => {
   }
 };
 
-exports.upsertProjectRegulatoryProfile = async (req, res) => {
+exports.upsertProjectRegulatoryProfile = async (
+  req: AuthenticatedRequest<{ projectId: UUID }, NercProfileUpsertBody>,
+  res: Response
+) => {
   try {
     const { projectId } = req.params;
+    // #region agent log
+    fetch('http://127.0.0.1:7567/ingest/e8cc33b1-e17f-4a70-9052-be1634f820ff',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'94cccd'},body:JSON.stringify({sessionId:'94cccd',runId:'pre-fix',hypothesisId:'H5',location:'backend/src/controllers/nercController.ts:123',message:'Upsert profile input envelope',data:{projectId,hasMiniGridType:typeof req.body?.mini_grid_type==='string',declaredCapacityType:typeof req.body?.declared_capacity_kw,hasPathway:typeof req.body?.regulatory_pathway==='string',hasCadence:typeof req.body?.reporting_cadence==='string'},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     const project = await getAccessibleProject(req, projectId);
     if (!project) return sendError(res, 'Project not found', 404);
 
@@ -116,7 +165,10 @@ exports.upsertProjectRegulatoryProfile = async (req, res) => {
   }
 };
 
-exports.listProjectApplications = async (req, res) => {
+exports.listProjectApplications = async (
+  req: AuthenticatedRequest<{ projectId: UUID }>,
+  res: Response
+) => {
   try {
     const { projectId } = req.params;
     const project = await getAccessibleProject(req, projectId);
@@ -136,7 +188,10 @@ exports.listProjectApplications = async (req, res) => {
   }
 };
 
-exports.createApplication = async (req, res) => {
+exports.createApplication = async (
+  req: AuthenticatedRequest<{ projectId: UUID }>,
+  res: Response
+) => {
   try {
     const { projectId } = req.params;
     const project = await getAccessibleProject(req, projectId);
@@ -176,7 +231,10 @@ exports.createApplication = async (req, res) => {
   }
 };
 
-exports.updateApplicationDraft = async (req, res) => {
+exports.updateApplicationDraft = async (
+  req: AuthenticatedRequest<{ applicationId: UUID }>,
+  res: Response
+) => {
   try {
     const { applicationId } = req.params;
     const { data: existing, error: findError } = await supabase
@@ -213,7 +271,10 @@ exports.updateApplicationDraft = async (req, res) => {
   }
 };
 
-exports.submitApplication = async (req, res) => {
+exports.submitApplication = async (
+  req: AuthenticatedRequest<{ applicationId: UUID }>,
+  res: Response
+) => {
   try {
     const { applicationId } = req.params;
     const { data: existing, error: findError } = await supabase
@@ -254,7 +315,10 @@ exports.submitApplication = async (req, res) => {
   }
 };
 
-exports.listProjectReportingCycles = async (req, res) => {
+exports.listProjectReportingCycles = async (
+  req: AuthenticatedRequest<{ projectId: UUID }>,
+  res: Response
+) => {
   try {
     const { projectId } = req.params;
     const project = await getAccessibleProject(req, projectId);
@@ -267,7 +331,8 @@ exports.listProjectReportingCycles = async (req, res) => {
       .order('period_start', { ascending: false });
     if (error) throw error;
 
-    const cycleIds = (cycles || []).map((c) => c.id);
+    const cycleRows = (cycles || []) as NercReportingCycle[];
+    const cycleIds = cycleRows.map((c) => c.id);
     const { data: events } = cycleIds.length
       ? await supabase
         .from('nerc_submission_events')
@@ -276,13 +341,13 @@ exports.listProjectReportingCycles = async (req, res) => {
         .order('submitted_at', { ascending: false })
       : { data: [] };
 
-    const eventsByCycle = {};
-    (events || []).forEach((event) => {
+    const eventsByCycle: Record<UUID, NercSubmissionEvent[]> = {};
+    (events || []).forEach((event: NercSubmissionEvent) => {
       if (!eventsByCycle[event.reporting_cycle_id]) eventsByCycle[event.reporting_cycle_id] = [];
       eventsByCycle[event.reporting_cycle_id].push(event);
     });
 
-    const rows = (cycles || []).map((cycle) => ({
+    const rows = cycleRows.map((cycle) => ({
       ...cycle,
       submissions: eventsByCycle[cycle.id] || [],
     }));
@@ -294,7 +359,10 @@ exports.listProjectReportingCycles = async (req, res) => {
   }
 };
 
-exports.listMyReportingCycles = async (req, res) => {
+exports.listMyReportingCycles = async (
+  req: AuthenticatedRequest<Record<string, never>, Record<string, never>, { status?: string; limit?: number | string }>,
+  res: Response
+) => {
   try {
     const companyId = req.user.company_id;
     const userId = req.user.id;
@@ -323,9 +391,9 @@ exports.listMyReportingCycles = async (req, res) => {
     const { data: cycles, error } = await cycleQuery;
     if (error) throw error;
 
-    const projectMap = {};
-    (projects || []).forEach((p) => { projectMap[p.id] = p.name; });
-    const rows = (cycles || []).map((cycle) => ({
+    const projectMap: Record<UUID, string> = {};
+    (projects || []).forEach((p: { id: UUID; name: string }) => { projectMap[p.id] = p.name; });
+    const rows = ((cycles || []) as NercReportingCycle[]).map((cycle) => ({
       ...cycle,
       project_name: projectMap[cycle.project_id] || 'Unknown Project',
     }));
@@ -336,7 +404,10 @@ exports.listMyReportingCycles = async (req, res) => {
   }
 };
 
-exports.createReportingCycle = async (req, res) => {
+exports.createReportingCycle = async (
+  req: AuthenticatedRequest<{ projectId: UUID }>,
+  res: Response
+) => {
   try {
     const { projectId } = req.params;
     const project = await getAccessibleProject(req, projectId);
@@ -375,7 +446,10 @@ exports.createReportingCycle = async (req, res) => {
   }
 };
 
-exports.recordSubmissionEvent = async (req, res) => {
+exports.recordSubmissionEvent = async (
+  req: AuthenticatedRequest<{ cycleId: UUID }>,
+  res: Response
+) => {
   try {
     const { cycleId } = req.params;
     const { data: cycle, error: cycleError } = await supabase
@@ -420,7 +494,10 @@ exports.recordSubmissionEvent = async (req, res) => {
   }
 };
 
-exports.adminListApplications = async (req, res) => {
+exports.adminListApplications = async (
+  req: AuthenticatedRequest<Record<string, never>, Record<string, never>, { status?: NercApplicationStatus; page?: number | string; limit?: number | string }>,
+  res: Response
+) => {
   try {
     const { status = '', page = 1, limit = 30 } = req.query;
     const offset = (Number(page) - 1) * Number(limit);
@@ -452,11 +529,15 @@ exports.adminListApplications = async (req, res) => {
   }
 };
 
-exports.adminDecisionApplication = async (req, res) => {
+exports.adminDecisionApplication = async (
+  req: AuthenticatedRequest<{ applicationId: UUID }, DecisionBody>,
+  res: Response
+) => {
   try {
     const { applicationId } = req.params;
     const { action, regulator_reference, regulator_decision_note } = req.body || {};
-    if (!['start_review', 'changes_requested', 'approve', 'reject'].includes(action)) {
+    const validActions: NercAdminDecisionAction[] = ['start_review', 'changes_requested', 'approve', 'reject'];
+    if (!validActions.includes(action)) {
       return sendError(res, 'action must be start_review, changes_requested, approve, or reject', 400);
     }
 
@@ -470,7 +551,16 @@ exports.adminDecisionApplication = async (req, res) => {
     if (!existing) return sendError(res, 'Application not found', 404);
 
     const now = new Date().toISOString();
-    const updates: Record<string, any> = {
+    const updates: {
+      reviewed_by: UUID;
+      reviewed_at: string;
+      regulator_reference: string | null;
+      regulator_decision_note: string | null;
+      status?: NercApplicationStatus;
+      review_started_at?: string;
+      approved_at?: string;
+      rejected_at?: string;
+    } = {
       reviewed_by: req.user.id,
       reviewed_at: now,
       regulator_reference: regulator_reference || null,
@@ -515,7 +605,7 @@ exports.adminDecisionApplication = async (req, res) => {
   }
 };
 
-exports.adminSlaOverview = async (_req, res) => {
+exports.adminSlaOverview = async (_req: Request, res: Response) => {
   try {
     const nowIso = new Date().toISOString();
     const [all, pending, breached, dueSoon] = await Promise.all([
@@ -542,7 +632,10 @@ exports.adminSlaOverview = async (_req, res) => {
   }
 };
 
-exports.adminListReportingCycles = async (req, res) => {
+exports.adminListReportingCycles = async (
+  req: AuthenticatedRequest<Record<string, never>, Record<string, never>, { status?: string; page?: number | string; limit?: number | string }>,
+  res: Response
+) => {
   try {
     const { status = '', page = 1, limit = 50 } = req.query;
     const offset = (Number(page) - 1) * Number(limit);
