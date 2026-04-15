@@ -26,6 +26,8 @@ router.post('/panel',         optionalAuth, trackCalculatorUsage('panel'),      
 router.post('/silver',        optionalAuth,                                       calculatorController.calculateSilver);
 router.post('/battery',       optionalAuth, trackCalculatorUsage('battery'),     calculatorController.calculateBattery);
 router.post('/degradation',   degradationPreviewLimiter, optionalAuth, trackCalculatorUsage('degradation'), calculatorController.calculateDegradation);
+// Non-metered preview endpoint for project creation flow
+router.post('/degradation/preview', degradationPreviewLimiter, optionalAuth, calculatorController.calculateDegradation);
 router.post('/roi',           optionalAuth, trackCalculatorUsage('roi'),         calculatorController.calculateROI);
 router.post('/battery-soh',   optionalAuth, trackCalculatorUsage('battery-soh'), calculatorController.estimateBatterySoH);
 router.post('/cable-size',    optionalAuth, trackCalculatorUsage('cable-size'),  calculatorController.calculateCableSize);

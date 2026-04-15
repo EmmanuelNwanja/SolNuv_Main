@@ -253,6 +253,7 @@ export const calculatorAPI = {
   silver: (data: JsonRecord) => api.post("/calculator/silver", data),
   battery: (data: JsonRecord) => api.post("/calculator/battery", data),
   degradation: (data: JsonRecord) => api.post("/calculator/degradation", data),
+  degradationPreview: (data: JsonRecord) => api.post("/calculator/degradation/preview", data),
   roi: (data: JsonRecord) => api.post("/calculator/roi", data),
   batterySoh: (data: JsonRecord) => api.post("/calculator/battery-soh", data),
   cableSize: (data: JsonRecord) => api.post("/calculator/cable-size", data),

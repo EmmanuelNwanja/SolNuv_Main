@@ -396,7 +396,7 @@ export default function AddProject() {
     if (lastDegradationKeyRef.current === previewKey) return;
     if (Date.now() < degradationCooldownUntilRef.current) return;
     const timeout = setTimeout(() => {
-      calculatorAPI.degradation({ state: form.state, installation_date: form.installation_date })
+      calculatorAPI.degradationPreview({ state: form.state, installation_date: form.installation_date })
         .then(r => {
           lastDegradationKeyRef.current = previewKey;
           setDegradPreview(r.data.data);
