@@ -5,7 +5,7 @@
   "main": "src/server.ts",
   "scripts": {
     "build": "npm run typecheck && npm run build:render && node scripts/render-build.cjs",
-    "build:render": "tsc --project tsconfig.json --noEmit false --outDir dist",
+    "build:render": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\" && tsc --project tsconfig.build.json",
     "start": "tsx src/server.ts",
     "dev": "nodemon --exec tsx src/server.ts",
     "lint": "eslint src/**/*.{ts,tsx}",
