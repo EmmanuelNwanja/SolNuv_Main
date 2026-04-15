@@ -108,7 +108,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       )}
 
       <aside
-        className={`fixed top-0 left-0 h-full w-72 bg-slate-900 border-r border-slate-800 z-40 transform transition-transform duration-300 ${
+        className={`fixed top-0 left-0 h-full w-72 bg-slate-900 border-r border-slate-800 z-40 transform transition-transform duration-300 overflow-hidden min-h-0 ${
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         } lg:translate-x-0 lg:static lg:flex lg:flex-col`}
       >
@@ -127,7 +127,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           </button>
         </div>
 
-        <nav className="flex-1 p-3 space-y-3 overflow-y-auto">
+        <nav className="flex-1 min-h-0 p-3 space-y-3 overflow-y-auto overscroll-contain">
           {adminNavSections.map((section, si) => (
             <div key={si}>
               {section.label && (
