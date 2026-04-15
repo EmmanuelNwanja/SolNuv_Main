@@ -1,11 +1,20 @@
 // calculatorRoutes.js
 const express = require('express');
 const router = express.Router();
+const rateLimit = require('express-rate-limit');
 const calculatorController = require('../controllers/calculatorController');
 const { optionalAuth, requireAuth } = require('../middlewares/authMiddleware');
 const { trackCalculatorUsage, getCalculatorUsage } = require('../middlewares/usageMiddleware');
 const { requireVerified } = require('../middlewares/verificationMiddleware');
 const { cachePolicies } = require('../middlewares/cacheControlMiddleware');
+
+const degradationPreviewLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 120,
+  message: { success: false, message: 'Too many degradation preview requests. Please pause briefly.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 // Usage summary endpoint (requires auth)
 router.get('/usage', optionalAuth, getCalculatorUsage);
@@ -16,7 +25,7 @@ router.get('/usage', optionalAuth, getCalculatorUsage);
 router.post('/panel',         optionalAuth, trackCalculatorUsage('panel'),       calculatorController.calculatePanel);
 router.post('/silver',        optionalAuth,                                       calculatorController.calculateSilver);
 router.post('/battery',       optionalAuth, trackCalculatorUsage('battery'),     calculatorController.calculateBattery);
-router.post('/degradation',   optionalAuth, trackCalculatorUsage('degradation'), calculatorController.calculateDegradation);
+router.post('/degradation',   degradationPreviewLimiter, optionalAuth, trackCalculatorUsage('degradation'), calculatorController.calculateDegradation);
 router.post('/roi',           optionalAuth, trackCalculatorUsage('roi'),         calculatorController.calculateROI);
 router.post('/battery-soh',   optionalAuth, trackCalculatorUsage('battery-soh'), calculatorController.estimateBatterySoH);
 router.post('/cable-size',    optionalAuth, trackCalculatorUsage('cable-size'),  calculatorController.calculateCableSize);

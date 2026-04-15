@@ -71,6 +71,8 @@ const globalLimiter = rateLimit({
       '/api/faq/',
       '/api/contact/',
       '/api/analytics/pageview',
+      // calculator degradation is used as live preview during project drafting
+      '/api/calculator/degradation',
     ];
     return publicPaths.some(p => req.path.startsWith(p));
   },

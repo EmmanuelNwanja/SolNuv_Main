@@ -342,6 +342,11 @@ function mergeBrandOptions(apiRows = [], defaults = []) {
   return out;
 }
 
+function getApiErrorStatus(error: any): number | null {
+  const status = error?.response?.status;
+  return typeof status === 'number' ? status : null;
+}
+
 export default function AddProject() {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
@@ -358,6 +363,8 @@ export default function AddProject() {
   const [inverterBrands, setInverterBrands] = useState([]);
   const [degradPreview, setDegradPreview] = useState(null);
   const [silverPreview, setSilverPreview] = useState(null);
+  const lastDegradationKeyRef = useRef('');
+  const degradationCooldownUntilRef = useRef(0);
 
   const [form, setForm] = useState({
     name: '', client_name: '', description: '',
@@ -385,10 +392,22 @@ export default function AddProject() {
   // Live preview: degradation
   useEffect(() => {
     if (!form.state || !form.installation_date) return;
+    const previewKey = `${form.state}|${form.installation_date}`;
+    if (lastDegradationKeyRef.current === previewKey) return;
+    if (Date.now() < degradationCooldownUntilRef.current) return;
     const timeout = setTimeout(() => {
       calculatorAPI.degradation({ state: form.state, installation_date: form.installation_date })
-        .then(r => setDegradPreview(r.data.data)).catch(() => {});
-    }, 600);
+        .then(r => {
+          lastDegradationKeyRef.current = previewKey;
+          setDegradPreview(r.data.data);
+        })
+        .catch((err) => {
+          if (getApiErrorStatus(err) === 429) {
+            // Back off preview retries for a short window to avoid repeated throttling.
+            degradationCooldownUntilRef.current = Date.now() + 30_000;
+          }
+        });
+    }, 1200);
     return () => clearTimeout(timeout);
   }, [form.state, form.installation_date]);
 
