@@ -38,9 +38,10 @@ const allowedOrigins = [
 // Regex patterns for dynamic origins (Vercel preview deployments)
 const allowedOriginPatterns = [
   /^https:\/\/sol-nuv-main(-[a-z0-9]+)*(-emmanuelnwanja[^.]*)?\.vercel\.app$/,
+  /^https:\/\/([a-z0-9-]+\.)?solnuv\.com$/,
 ];
 
-app.use(cors({
+const corsOptions = {
   origin: (origin, callback) => {
     if (!origin) return callback(null, true); // non-browser / server-to-server
     if (allowedOrigins.includes(origin)) return callback(null, true);
@@ -51,7 +52,10 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   optionsSuccessStatus: 204,
-}));
+};
+
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 
 // ==============================
 // RATE LIMITING
