@@ -29,6 +29,8 @@ let _providerCache = null;
 let _providerCacheTs = 0;
 const CACHE_TTL_MS = 5 * 60 * 1000;
 const llmHttp = createResilientHttpClient({ timeout: 30_000 });
+const MAX_RATE_LIMIT_ROUNDS = 3;
+const RATE_LIMIT_BASE_BACKOFF_MS = 1200;
 
 // ─── PROVIDER CONFIG LOADER ──────────────────────────────────────────────────
 
@@ -269,44 +271,75 @@ async function complete({
 
   const options = { temperature, maxTokens, responseFormat };
   let lastError = null;
+  let sawAnyRateLimit = false;
 
-  for (const provider of ordered) {
-    try {
-      // Check API key is configured
-      if (!process.env[provider.api_key_env_var]) {
-        logger.warn(`AI provider ${provider.slug} skipped: missing ${provider.api_key_env_var}`);
+  const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+  for (let round = 0; round < MAX_RATE_LIMIT_ROUNDS; round++) {
+    let roundHadOnlyRateLimits = true;
+
+    for (const provider of ordered) {
+      try {
+        // Check API key is configured
+        if (!process.env[provider.api_key_env_var]) {
+          logger.warn(`AI provider ${provider.slug} skipped: missing ${provider.api_key_env_var}`);
+          roundHadOnlyRateLimits = false;
+          continue;
+        }
+
+        // Check budget
+        const exhausted = await isBudgetExhausted(tier, provider.slug, provider);
+        if (exhausted) {
+          logger.info(`AI budget exhausted for ${tier}/${provider.slug}, trying next`);
+          roundHadOnlyRateLimits = false;
+          continue;
+        }
+
+        // Call the provider
+        const result = await callProvider(provider, messages, options);
+
+        // Track usage (fire-and-forget)
+        incrementUsage(tier, provider.slug, result.tokensInput + result.tokensOutput)
+          .catch(err => logger.warn('Failed to track AI token usage', { message: err.message }));
+
+        return result;
+      } catch (err) {
+        lastError = err;
+        const status = err.response?.status;
+        if (status === 429) {
+          sawAnyRateLimit = true;
+          logger.warn(`AI provider ${provider.slug} rate-limited, trying fallback`, {
+            round: round + 1,
+            maxRounds: MAX_RATE_LIMIT_ROUNDS,
+          });
+          continue;
+        }
+
+        roundHadOnlyRateLimits = false;
+        logger.error(`AI provider ${provider.slug} error`, {
+          status,
+          message: err.message,
+          ...extractNetworkErrorMeta(err),
+        });
         continue;
       }
-
-      // Check budget
-      const exhausted = await isBudgetExhausted(tier, provider.slug, provider);
-      if (exhausted) {
-        logger.info(`AI budget exhausted for ${tier}/${provider.slug}, trying next`);
-        continue;
-      }
-
-      // Call the provider
-      const result = await callProvider(provider, messages, options);
-
-      // Track usage (fire-and-forget)
-      incrementUsage(tier, provider.slug, result.tokensInput + result.tokensOutput)
-        .catch(err => logger.warn('Failed to track AI token usage', { message: err.message }));
-
-      return result;
-    } catch (err) {
-      lastError = err;
-      const status = err.response?.status;
-      if (status === 429) {
-        logger.warn(`AI provider ${provider.slug} rate-limited, trying fallback`);
-        continue;
-      }
-      logger.error(`AI provider ${provider.slug} error`, {
-        status,
-        message: err.message,
-        ...extractNetworkErrorMeta(err),
-      });
-      continue;
     }
+
+    // If every provider in this round was rate-limited, back off and try another full pass.
+    if (roundHadOnlyRateLimits && round < MAX_RATE_LIMIT_ROUNDS - 1) {
+      const waitMs = RATE_LIMIT_BASE_BACKOFF_MS * (round + 1);
+      logger.warn('All AI providers rate-limited in current round, backing off before retry', {
+        round: round + 1,
+        waitMs,
+      });
+      await sleep(waitMs);
+    } else {
+      break;
+    }
+  }
+
+  if (sawAnyRateLimit) {
+    throw new Error('AI providers are temporarily rate-limited. Please retry in about one minute.');
   }
 
   throw new Error(
