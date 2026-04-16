@@ -3,6 +3,8 @@ const { sendError, sendSuccess } = require('../../utils/responseHelper');
 const { evaluateEscrowDecision } = require('../../services/v2/escrowPolicyEngine');
 const chainAdapter = require('../../services/v2/chainAdapterService');
 const custodianAdapter = require('../../services/v2/custodianAdapterService');
+const idempotencyService = require('../../services/v2/idempotencyService');
+const outboxService = require('../../services/v2/outboxService');
 
 exports.getHealth = async (_req, res) => {
   return sendSuccess(res, {
@@ -16,6 +18,20 @@ exports.getHealth = async (_req, res) => {
 
 exports.evaluateEscrow = async (req, res) => {
   try {
+    const idempotencyKey = req.headers['x-idempotency-key'];
+    const endpointKey = 'v2.escrow.decisions.evaluate';
+    if (idempotencyKey) {
+      const existing = await idempotencyService.getExisting(endpointKey, String(idempotencyKey));
+      if (existing) {
+        return sendSuccess(
+          res,
+          existing.response_payload || {},
+          'Idempotent replay: returning previously computed response',
+          200
+        );
+      }
+    }
+
     const {
       organization_id,
       project_id,
@@ -77,10 +93,24 @@ exports.evaluateEscrow = async (req, res) => {
 
     if (error) throw error;
 
-    return sendSuccess(res, {
+    const responsePayload = {
       decision: data,
       chain_attestation: anchor,
-    }, 'Escrow decision evaluated and attested', 201);
+    };
+
+    if (idempotencyKey) {
+      await idempotencyService.saveRecord({
+        endpointKey,
+        idempotencyKey: String(idempotencyKey),
+        payload: req.body || {},
+        responsePayload,
+        createdBy: req.user?.id || null,
+      });
+    }
+
+    await outboxService.enqueue('escrow.decision.created', data.id, responsePayload);
+
+    return sendSuccess(res, responsePayload, 'Escrow decision evaluated and attested', 201);
   } catch (error) {
     return sendError(res, error.message || 'Failed to evaluate escrow decision', 500);
   }
@@ -88,6 +118,20 @@ exports.evaluateEscrow = async (req, res) => {
 
 exports.executeCustodianRelease = async (req, res) => {
   try {
+    const idempotencyKey = req.headers['x-idempotency-key'];
+    const endpointKey = 'v2.escrow.executions.submit';
+    if (idempotencyKey) {
+      const existing = await idempotencyService.getExisting(endpointKey, String(idempotencyKey));
+      if (existing) {
+        return sendSuccess(
+          res,
+          existing.response_payload || {},
+          'Idempotent replay: returning previously submitted execution',
+          200
+        );
+      }
+    }
+
     const { decision_id } = req.body || {};
     if (!decision_id) return sendError(res, 'decision_id is required', 400);
 
@@ -114,8 +158,28 @@ exports.executeCustodianRelease = async (req, res) => {
       .single();
     if (error) throw error;
 
-    return sendSuccess(res, { decision, execution: data }, 'Custodian execution submitted', 201);
+    const responsePayload = { decision, execution: data };
+
+    if (idempotencyKey) {
+      await idempotencyService.saveRecord({
+        endpointKey,
+        idempotencyKey: String(idempotencyKey),
+        payload: req.body || {},
+        responsePayload,
+        createdBy: req.user?.id || null,
+      });
+    }
+
+    await outboxService.enqueue('escrow.execution.submitted', data.id, responsePayload);
+
+    return sendSuccess(res, responsePayload, 'Custodian execution submitted', 201);
   } catch (error) {
+    await outboxService.moveToDeadLetter(
+      'oracleController.executeCustodianRelease',
+      'escrow.execution.submitted',
+      req.body || {},
+      error.message || 'Unknown execution error'
+    ).catch(() => {});
     return sendError(res, error.message || 'Failed to execute custodian release', 500);
   }
 };

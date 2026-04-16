@@ -6,6 +6,7 @@ const supabase = require('../config/database');
 const { sendSuccess, sendError } = require('../utils/responseHelper');
 const { calculatePortfolioSilver, calculatePortfolioRecycleIncome } = require('../services/silverService');
 const logger = require('../utils/logger');
+const aiProvider = require('../services/aiProviderService');
 
 function normalizeSlug(value) {
   return String(value || '')
@@ -904,5 +905,104 @@ exports.getPublicProfile = async (req, res) => {
   } catch (error) {
     logger.error('Failed to load public profile', { slug: req.params?.slug || null, message: error.message });
     return sendError(res, 'Failed to load public profile', 500);
+  }
+};
+
+/**
+ * GET /api/dashboard/public/summary
+ * Public-safe aggregate platform summary for homepage display.
+ */
+exports.getPublicSummary = async (_req, res) => {
+  try {
+    const safeCount = async (tableName) => {
+      try {
+        const { count } = await supabase
+          .from(tableName)
+          .select('id', { count: 'exact', head: true });
+        return Number(count || 0);
+      } catch {
+        return 0;
+      }
+    };
+
+    const [
+      totalProjects,
+      totalRecoveredProjects,
+      totalCompanies,
+      totalUsers,
+      totalSimulationRuns,
+      totalSavedCalculations,
+      v2Orgs,
+      v2SerializedAssets,
+      v2LifecycleEvents,
+      v2EscrowDecisions,
+      activeProviders,
+      providerReady,
+      designAiFeedbackRows,
+      aiDefinitions,
+    ] = await Promise.all([
+      safeCount('projects'),
+      (async () => {
+        const { count } = await supabase
+          .from('projects')
+          .select('id', { count: 'exact', head: true })
+          .in('status', ['recycled', 'decommissioned']);
+        return Number(count || 0);
+      })(),
+      safeCount('companies'),
+      safeCount('users'),
+      safeCount('simulation_results'),
+      safeCount('saved_calculations'),
+      safeCount('v2_organizations'),
+      safeCount('v2_asset_units'),
+      safeCount('v2_asset_events'),
+      safeCount('v2_release_decisions'),
+      (async () => {
+        const providers = await aiProvider.loadProviders();
+        return providers.length;
+      })(),
+      aiProvider.isAvailable('general'),
+      (async () => {
+        const { count } = await supabase
+          .from('simulation_results')
+          .select('id', { count: 'exact', head: true })
+          .not('ai_expert_feedback', 'is', null);
+        return Number(count || 0);
+      })(),
+      (async () => {
+        const { count } = await supabase
+          .from('ai_agent_definitions')
+          .select('id', { count: 'exact', head: true })
+          .eq('is_active', true);
+        return Number(count || 0);
+      })(),
+    ]);
+
+    return sendSuccess(res, {
+      generated_at: new Date().toISOString(),
+      totals: {
+        projects: totalProjects,
+        recovered_projects: totalRecoveredProjects,
+        companies: totalCompanies,
+        users: totalUsers,
+        simulation_runs: totalSimulationRuns,
+        saved_calculations: totalSavedCalculations,
+      },
+      ai: {
+        active_agent_definitions: aiDefinitions,
+        active_provider_count: activeProviders,
+        provider_ready: providerReady,
+        design_feedback_generated_count: designAiFeedbackRows,
+      },
+      v2: {
+        organizations: v2Orgs,
+        serialized_assets: v2SerializedAssets,
+        lifecycle_events: v2LifecycleEvents,
+        escrow_decisions: v2EscrowDecisions,
+      },
+    }, 'Public summary retrieved');
+  } catch (error) {
+    logger.error('Failed to get public platform summary', { message: error.message });
+    return sendError(res, 'Failed to retrieve public summary', 500);
   }
 };

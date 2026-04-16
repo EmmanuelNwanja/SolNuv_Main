@@ -201,6 +201,7 @@ export const dashboardAPI = {
   get: () => api.get("/dashboard"),
   getImpact: () => api.get("/dashboard/impact"),
   getLeaderboard: (params?: JsonRecord) => api.get("/dashboard/leaderboard", { params }),
+  getPublicSummary: () => api.get("/dashboard/public/summary"),
   getFeedbackOverview: () => api.get("/dashboard/feedback"),
   createFeedbackLink: (projectId: string) => api.post(`/dashboard/feedback/link/${projectId}`),
   submitPublicFeedback: (token: string, data: JsonRecord) =>
@@ -516,6 +517,10 @@ export const loadProfileAPI = {
 
 export const simulationAPI = {
   run: (data: JsonRecord) => api.post("/simulation/run", data, { timeout: 120000 }),
+  getDesignConfig: (projectId: string) => api.get(`/simulation/${projectId}/design-config`),
+  getDesignVersions: (projectId: string) => api.get(`/simulation/${projectId}/design-versions`),
+  restoreDesignVersion: (projectId: string, resultId: string) =>
+    api.post(`/simulation/${projectId}/design-versions/${resultId}/restore`),
   getResults: (projectId: string) => api.get(`/simulation/${projectId}/results`),
   getHourlyFlows: (projectId: string, params?: JsonRecord) =>
     api.get(`/simulation/${projectId}/results/hourly`, { params }),

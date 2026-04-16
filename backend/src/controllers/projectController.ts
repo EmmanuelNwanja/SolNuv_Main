@@ -55,6 +55,15 @@ const VALID_PROJECT_STATUSES = ['draft', 'active', 'maintenance', 'decommissione
 const EDITABLE_STAGES = ['draft', 'maintenance'];
 const BATTERY_QR_LOG_ACTION = 'battery_qr_log_submit';
 
+function normalizeSerialNumbers(input) {
+  if (!Array.isArray(input)) return [];
+  const normalized = input
+    .map((value) => String(value || '').trim())
+    .filter(Boolean)
+    .map((value) => value.toUpperCase());
+  return [...new Set(normalized)];
+}
+
 function signBatteryLedgerWriteToken(qrCode) {
   const secret = process.env.JWT_SECRET;
   if (!secret || !qrCode) return null;
@@ -316,6 +325,7 @@ exports.createProject = async (req, res) => {
         degradation_factor: degradation.degradation_factor,
         sourcing_info: panel.sourcing_info || null,
         panel_technology: (panel.panel_technology && PANEL_TECHNOLOGIES[panel.panel_technology]) ? panel.panel_technology : null,
+        serial_numbers: normalizeSerialNumbers(panel.serial_numbers),
       });
     }
 
@@ -332,6 +342,7 @@ exports.createProject = async (req, res) => {
         condition: battery.condition || 'good',
         sourcing_info: battery.sourcing_info || null,
         battery_chemistry: battery.battery_chemistry || null,
+        serial_numbers: normalizeSerialNumbers(battery.serial_numbers),
       });
     }
 
@@ -347,6 +358,7 @@ exports.createProject = async (req, res) => {
         quantity: inverter.quantity,
         condition: inverter.condition || 'good',
         sourcing_info: inverter.sourcing_info || null,
+        serial_numbers: normalizeSerialNumbers(inverter.serial_numbers),
       });
     }
 
@@ -989,7 +1001,7 @@ exports.verifyByQR = async (req, res) => {
 exports.addEquipment = async (req, res) => {
   try {
     const { id } = req.params;
-    const { equipment_type, brand, model, size_watts, capacity_kwh, power_kw, quantity, condition, sourcing_info, panel_technology, battery_chemistry } = req.body;
+    const { equipment_type, brand, model, size_watts, capacity_kwh, power_kw, quantity, condition, sourcing_info, panel_technology, battery_chemistry, serial_numbers } = req.body;
 
     if (!equipment_type || !['panel', 'battery', 'inverter'].includes(equipment_type)) {
       return sendError(res, 'equipment_type must be panel, battery, or inverter', 400);
@@ -1018,6 +1030,7 @@ exports.addEquipment = async (req, res) => {
       quantity: Number(quantity),
       condition: condition || 'good',
       sourcing_info: sourcing_info || null,
+      serial_numbers: normalizeSerialNumbers(serial_numbers),
     };
 
     if (equipment_type === 'panel') {
@@ -1075,7 +1088,7 @@ exports.addEquipment = async (req, res) => {
 exports.updateEquipment = async (req, res) => {
   try {
     const { id, equipmentId } = req.params;
-    const { brand, model, size_watts, capacity_kwh, power_kw, quantity, condition, sourcing_info, panel_technology, battery_chemistry } = req.body;
+    const { brand, model, size_watts, capacity_kwh, power_kw, quantity, condition, sourcing_info, panel_technology, battery_chemistry, serial_numbers } = req.body;
 
     let projectQuery = supabase.from('projects').select('id, status, state, installation_date, user_id, company_id').eq('id', id);
     if (req.user.company_id) {
@@ -1098,6 +1111,7 @@ exports.updateEquipment = async (req, res) => {
     if (quantity !== undefined) updateData.quantity = Number(quantity);
     if (condition !== undefined) updateData.condition = condition;
     if (sourcing_info !== undefined) updateData.sourcing_info = sourcing_info || null;
+    if (serial_numbers !== undefined) updateData.serial_numbers = normalizeSerialNumbers(serial_numbers);
 
     if (existing.equipment_type === 'panel') {
       if (size_watts !== undefined) {

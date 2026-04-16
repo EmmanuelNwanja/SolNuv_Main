@@ -233,6 +233,145 @@ exports.runProjectSimulation = async (req, res) => {
 };
 
 /**
+ * GET /api/simulation/:projectId/design-config
+ * Return saved design payload for wizard prefill.
+ */
+exports.getDesignConfig = async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const project = await verifyProjectOwnership(projectId, req.user);
+    if (!project) return sendError(res, 'Project not found or access denied', 404);
+
+    const { data: design, error } = await supabase
+      .from('project_designs')
+      .select('*')
+      .eq('project_id', projectId)
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) throw error;
+    return sendSuccess(res, design || null, 'Design config retrieved');
+  } catch (err) {
+    logger.error('getDesignConfig error', { message: err.message });
+    return sendError(res, 'Failed to retrieve design config');
+  }
+};
+
+/**
+ * GET /api/simulation/:projectId/design-versions
+ * List simulation runs with restorable design snapshots.
+ */
+exports.getDesignVersions = async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const project = await verifyProjectOwnership(projectId, req.user);
+    if (!project) return sendError(res, 'Project not found or access denied', 404);
+
+    const { data: design } = await supabase
+      .from('project_designs')
+      .select('id')
+      .eq('project_id', projectId)
+      .maybeSingle();
+    if (!design) return sendSuccess(res, [], 'No design versions yet');
+
+    const { data, error } = await supabase
+      .from('simulation_results')
+      .select('id, run_at, annual_solar_gen_kwh, year1_savings, simple_payback_months, design_snapshot')
+      .eq('project_design_id', design.id)
+      .order('run_at', { ascending: false })
+      .limit(25);
+    if (error) throw error;
+
+    return sendSuccess(res, data || [], 'Design versions retrieved');
+  } catch (err) {
+    logger.error('getDesignVersions error', { message: err.message });
+    return sendError(res, 'Failed to retrieve design versions');
+  }
+};
+
+/**
+ * POST /api/simulation/:projectId/design-versions/:resultId/restore
+ * Restore project_designs config from a specific simulation result snapshot.
+ */
+exports.restoreDesignVersion = async (req, res) => {
+  try {
+    const { projectId, resultId } = req.params;
+    const project = await verifyProjectOwnership(projectId, req.user);
+    if (!project) return sendError(res, 'Project not found or access denied', 404);
+
+    const { data: design } = await supabase
+      .from('project_designs')
+      .select('id')
+      .eq('project_id', projectId)
+      .maybeSingle();
+    if (!design) return sendError(res, 'No project design found', 404);
+
+    const { data: result, error: resultErr } = await supabase
+      .from('simulation_results')
+      .select('id, project_design_id, design_snapshot')
+      .eq('id', resultId)
+      .eq('project_design_id', design.id)
+      .maybeSingle();
+    if (resultErr) throw resultErr;
+    if (!result) return sendError(res, 'Design version not found', 404);
+    if (!result.design_snapshot || typeof result.design_snapshot !== 'object') {
+      return sendError(res, 'Selected version has no restorable snapshot', 422);
+    }
+
+    const s = result.design_snapshot || {};
+    const updatePayload = {
+      tariff_structure_id: s.tariff_structure_id || null,
+      load_profile_id: s.load_profile_id || null,
+      location_lat: s.location_lat || null,
+      location_lon: s.location_lon || null,
+      pv_capacity_kwp: s.pv_capacity_kwp || null,
+      pv_technology: s.pv_technology || 'mono_perc',
+      pv_tilt_deg: s.pv_tilt_deg || 0,
+      pv_azimuth_deg: s.pv_azimuth_deg || 0,
+      pv_generation_source: s.pv_generation_source || 'calculated',
+      pv_system_losses_pct: s.pv_system_losses_pct || 14,
+      pv_degradation_annual_pct: s.pv_degradation_annual_pct || 0.5,
+      bess_capacity_kwh: s.bess_capacity_kwh || 0,
+      bess_chemistry: s.bess_chemistry || 'lfp',
+      bess_dispatch_strategy: s.bess_dispatch_strategy || 'self_consumption',
+      peak_shave_threshold_kw: s.peak_shave_threshold_kw || null,
+      bess_dod_pct: s.bess_dod_pct || 80,
+      bess_round_trip_eff_pct: s.bess_round_trip_eff_pct || 92,
+      capex_total: s.capex_total || 0,
+      om_annual: s.om_annual || 0,
+      discount_rate_pct: s.discount_rate_pct || 10,
+      tariff_escalation_pct: s.tariff_escalation_pct || 8,
+      financing_type: s.financing_type || 'cash',
+      loan_interest_rate_pct: s.loan_interest_rate_pct || 0,
+      loan_term_years: s.loan_term_years || 0,
+      analysis_period_years: s.analysis_period_years || 25,
+      grid_topology: s.grid_topology || 'grid_tied_bess',
+      installation_type: s.installation_type || 'rooftop_tilted',
+      autonomy_days: s.autonomy_days || 2,
+      backup_generator_kw: s.backup_generator_kw || null,
+      diesel_cost_per_litre: s.diesel_cost_per_litre || null,
+      grid_availability_pct: s.grid_availability_pct || 100,
+      grid_outage_hours_day: s.grid_outage_hours_day || null,
+      feed_in_tariff_per_kwh: s.feed_in_tariff_per_kwh || null,
+    };
+
+    const { data: restored, error: updateErr } = await supabase
+      .from('project_designs')
+      .update(updatePayload)
+      .eq('id', design.id)
+      .select('*')
+      .single();
+    if (updateErr) throw updateErr;
+
+    return sendSuccess(res, restored, 'Design version restored');
+  } catch (err) {
+    logger.error('restoreDesignVersion error', { message: err.message });
+    return sendError(res, 'Failed to restore design version');
+  }
+};
+
+/**
  * GET /api/simulation/:projectId/results
  * Get latest simulation results for a project.
  */

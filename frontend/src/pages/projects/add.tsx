@@ -52,16 +52,26 @@ const CONDITION_HELP = {
 
 const defaultPanel = () => ({
   brand: 'Jinko Solar', custom_brand: '', model: '', size_watts: 400, quantity: 1,
-  condition: 'good', sourcing_type: '', sourcing_info: {},
+  condition: 'good', sourcing_type: '', sourcing_info: {}, serial_numbers_text: '',
 });
 const defaultBattery = () => ({
   brand: 'Felicity', custom_brand: '', model: '', capacity_kwh: 2.4, quantity: 1,
-  condition: 'good', sourcing_type: '', sourcing_info: {},
+  condition: 'good', sourcing_type: '', sourcing_info: {}, serial_numbers_text: '',
 });
 const defaultInverter = () => ({
   brand: 'Growatt', custom_brand: '', model: '', power_kw: 5, quantity: 1,
-  condition: 'good', sourcing_type: '', sourcing_info: {},
+  condition: 'good', sourcing_type: '', sourcing_info: {}, serial_numbers_text: '',
 });
+
+function parseSerialNumbers(text) {
+  if (!text) return [];
+  const rows = String(text)
+    .split(/\r?\n|,/)
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .map((s) => s.toUpperCase());
+  return [...new Set(rows)];
+}
 
 // ---------------------------------------------------------------------------
 // BrandSearchSelect — searchable OEM brand picker with "Other" option
@@ -489,12 +499,13 @@ export default function AddProject() {
 
       // Resolve "Other" → custom_brand name, and attach sourcing_info
       function resolveEquipment(items) {
-        return items.map(({ custom_brand, sourcing_type, sourcing_info, ...rest }) => ({
+        return items.map(({ custom_brand, sourcing_type, sourcing_info, serial_numbers_text, ...rest }) => ({
           ...rest,
           brand: rest.brand === 'Other' ? (custom_brand?.trim() || 'Other') : rest.brand,
           sourcing_info: sourcing_type
             ? { type: sourcing_type, ...sourcing_info }
             : null,
+          serial_numbers: parseSerialNumbers(serial_numbers_text),
         }));
       }
       const resolvedPanels = resolveEquipment(panels);
@@ -880,6 +891,15 @@ export default function AddProject() {
                     onTypeChange={v => updatePanel(idx, 'sourcing_type', v)}
                     onInfoChange={(field, val) => updatePanelSourcing(idx, field, val)}
                   />
+                  <div className="mt-3">
+                    <label className="label text-xs">Serial Numbers (optional, one per line)</label>
+                    <textarea
+                      className="input text-sm min-h-[72px]"
+                      placeholder="SN-001&#10;SN-002"
+                      value={panel.serial_numbers_text || ''}
+                      onChange={(e) => updatePanel(idx, 'serial_numbers_text', e.target.value)}
+                    />
+                  </div>
                 </div>
               ))}
             </div>
@@ -965,6 +985,15 @@ export default function AddProject() {
                     onTypeChange={v => updateBattery(idx, 'sourcing_type', v)}
                     onInfoChange={(field, val) => updateBatterySourcing(idx, field, val)}
                   />
+                  <div className="mt-3">
+                    <label className="label text-xs">Serial Numbers (optional, one per line)</label>
+                    <textarea
+                      className="input text-sm min-h-[72px]"
+                      placeholder="BAT-001&#10;BAT-002"
+                      value={battery.serial_numbers_text || ''}
+                      onChange={(e) => updateBattery(idx, 'serial_numbers_text', e.target.value)}
+                    />
+                  </div>
                 </div>
               ))}
             </div>
@@ -1028,6 +1057,15 @@ export default function AddProject() {
                       onTypeChange={v => updateInverter(idx, 'sourcing_type', v)}
                       onInfoChange={(field, val) => updateInverterSourcing(idx, field, val)}
                     />
+                    <div className="mt-3">
+                      <label className="label text-xs">Serial Numbers (optional, one per line)</label>
+                      <textarea
+                        className="input text-sm min-h-[72px]"
+                        placeholder="INV-001&#10;INV-002"
+                        value={inverter.serial_numbers_text || ''}
+                        onChange={(e) => updateInverter(idx, 'serial_numbers_text', e.target.value)}
+                      />
+                    </div>
                   </div>
                 ))}
               </div>
