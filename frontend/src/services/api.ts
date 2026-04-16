@@ -171,6 +171,7 @@ export const authAPI = {
   getTeam: () => api.get("/auth/team"),
   getNotifications: (markRead = false) =>
     api.get("/auth/notifications", { params: markRead ? { mark_read: "true" } : {} }),
+  markNotificationRead: (id: string) => api.patch(`/auth/notifications/${id}/read`),
   signup: (data: JsonRecord) => api.post("/auth/signup", data),
   getVerificationStatus: () => api.get("/auth/verification-status"),
   requestVerification: (data: JsonRecord) => api.post("/auth/verification-request", data),

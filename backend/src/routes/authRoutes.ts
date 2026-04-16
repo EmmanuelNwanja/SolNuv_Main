@@ -24,5 +24,6 @@ router.post('/accept-invite/:token', requireAuth, authController.acceptInvite);
 router.get('/accept-invite/:token', authController.acceptInvite); // public check
 router.get('/team', requireAuth, requireProfile, authController.getTeamMembers);
 router.get('/notifications', requireAuth, requireProfile, authController.getNotifications);
+router.patch('/notifications/:id/read', requireAuth, requireProfile, authController.markNotificationRead);
 
 module.exports = router;

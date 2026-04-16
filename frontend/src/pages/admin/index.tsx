@@ -2,7 +2,7 @@ import Head from 'next/head';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/router';
-import { adminAPI } from '../../services/api';
+import { adminAPI, authAPI } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { getAdminLayout } from '../../components/Layout';
 import { LoadingSpinner } from '../../components/ui/index';
@@ -32,6 +32,7 @@ export const ADMIN_TABS = [
   { id: 'contact', label: 'Contact Inbox', path: '/admin/contact', title: 'Contact Inbox - SolNuv' },
   { id: 'analytics', label: 'Analytics', path: '/admin/analytics', title: 'Platform Analytics - SolNuv' },
   { id: 'pickup', label: 'Pickup Requests', path: '/admin/pickup', title: 'Pickup Requests - SolNuv' },
+  { id: 'operational-alerts', label: 'Operational Alerts', path: '/admin/alerts', title: 'Operational Alerts - SolNuv' },
   { id: 'agents', label: 'AI Agents', path: '/admin/agents', title: 'AI Agents - SolNuv' },
   { id: 'design', label: 'Design & Modelling', path: '/admin/design', title: 'Design & Modelling - SolNuv' },
   { id: 'v2-oracle', label: 'V2 Oracle', path: '/admin/v2-oracle', title: 'V2 Oracle Console - SolNuv' },
@@ -63,6 +64,9 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
   const [admins, setAdmins] = useState([]);
   const [recoveryRequests, setRecoveryRequests] = useState([]);
   const [pickupApprovingId, setPickupApprovingId] = useState(null);
+  const [operationalAlerts, setOperationalAlerts] = useState([]);
+  const [alertBusyId, setAlertBusyId] = useState(null);
+  const [alertRejectReasons, setAlertRejectReasons] = useState({});
 
   // User management panel state
   const [managingUser, setManagingUser] = useState(null);
@@ -166,6 +170,12 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
       logs: [{ key: 'logs', request: adminAPI.getActivityLogs() }],
       admins: [{ key: 'admins', request: adminAPI.listAdmins() }],
       pickup: [{ key: 'pickup', request: adminAPI.listRecoveryRequests({ status: 'requested' }) }],
+      'operational-alerts': [
+        { key: 'operationalAlerts', request: authAPI.getNotifications() },
+        { key: 'pickup', request: adminAPI.listRecoveryRequests({ status: 'requested' }) },
+        { key: 'verification', request: adminAPI.listVerificationRequests({ status: 'pending' }) },
+        { key: 'directPayments', request: adminAPI.listDirectPayments({ status: 'pending' }) },
+      ],
       'direct-payments': [
         { key: 'directPayments', request: adminAPI.listDirectPayments() },
         { key: 'bankTransferSettings', request: adminAPI.getAdminBankTransferSettings() },
@@ -200,6 +210,7 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
           if (key === 'logs') setLogs(payload || []);
           if (key === 'admins') setAdmins(payload || []);
           if (key === 'pickup') setRecoveryRequests(payload?.requests || []);
+          if (key === 'operationalAlerts') setOperationalAlerts(payload || []);
           if (key === 'directPayments') setDirectPayments(payload?.submissions || []);
           if (key === 'bankTransferSettings') setBankTransferSettings(s => ({ ...s, ...(payload || {}) }));
         });
@@ -272,6 +283,18 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
     if (!showPendingOnly) return true;
     return u.verification_status === 'pending' || u.verification_status === 'pending_admin_review';
   }), [users, search, showPendingOnly]);
+
+  const operationalAlertItems = useMemo(() => {
+    const allowedSources = new Set([
+      'pickup_request',
+      'verification_request',
+      'direct_payment_submitted',
+    ]);
+    return (operationalAlerts || []).filter((n) => {
+      const src = n?.data?.source;
+      return allowedSources.has(src);
+    });
+  }, [operationalAlerts]);
 
   async function refreshPromo() {
     const { data } = await adminAPI.listPromoCodes();
@@ -469,6 +492,74 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
     }
   }
 
+  async function handleMarkAlertRead(notificationId) {
+    if (!notificationId) return;
+    try {
+      await authAPI.markNotificationRead(notificationId);
+      setOperationalAlerts((prev) => prev.map((item) => (
+        item.id === notificationId ? { ...item, is_read: true } : item
+      )));
+    } catch {
+      toast.error('Failed to mark alert as read');
+    }
+  }
+
+  async function handleOperationalAlertAction(alert) {
+    const source = alert?.data?.source;
+    const notificationId = alert?.id;
+    const alertKey = `${notificationId || 'x'}:${source || 'unknown'}`;
+    setAlertBusyId(alertKey);
+    try {
+      if (source === 'pickup_request') {
+        const requestId = alert?.data?.recovery_request_id;
+        if (!requestId) throw new Error('Missing recovery request reference');
+        await adminAPI.approveDecommission(requestId, {});
+        setRecoveryRequests((prev) => prev.map((r) => (
+          r.id === requestId ? { ...r, decommission_approved: true, status: 'approved' } : r
+        )));
+        toast.success('Pickup request approved');
+      } else if (source === 'verification_request') {
+        const userId = alert?.data?.requested_user_id;
+        if (!userId) throw new Error('Missing user reference');
+        await adminAPI.verifyUser(userId);
+        setVerificationRequests((prev) => prev.filter((u) => u.id !== userId));
+        toast.success('Verification approved');
+      } else if (source === 'direct_payment_submitted') {
+        router.push('/admin/direct-payments');
+      }
+      if (notificationId) await handleMarkAlertRead(notificationId);
+    } catch (err) {
+      toast.error(err?.response?.data?.message || err?.message || 'Failed to process alert action');
+    } finally {
+      setAlertBusyId(null);
+    }
+  }
+
+  async function handleOperationalRejectVerification(alert) {
+    const source = alert?.data?.source;
+    if (source !== 'verification_request') return;
+    const notificationId = alert?.id;
+    const userId = alert?.data?.requested_user_id;
+    const reason = String(alertRejectReasons[notificationId] || '').trim();
+    if (!reason) {
+      toast.error('Rejection reason is required');
+      return;
+    }
+    const alertKey = `${notificationId || 'x'}:reject`;
+    setAlertBusyId(alertKey);
+    try {
+      await adminAPI.rejectVerification(userId, reason);
+      setVerificationRequests((prev) => prev.filter((u) => u.id !== userId));
+      setAlertRejectReasons((prev) => ({ ...prev, [notificationId]: '' }));
+      if (notificationId) await handleMarkAlertRead(notificationId);
+      toast.success('Verification rejected');
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Failed to reject verification');
+    } finally {
+      setAlertBusyId(null);
+    }
+  }
+
   if (loading || isPlatformAdmin === null) {
     return <div className="flex justify-center py-12"><LoadingSpinner size="lg" /></div>;
   }
@@ -601,6 +692,9 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
             <div className="card border-l-4 border-l-rose-500"><p className="text-xs text-slate-500">Queued Push Notifications</p><p className="text-3xl font-bold text-amber-700 mt-1">{overview.queued_push_notifications}</p><p className="text-xs text-slate-400 mt-1">Messages waiting for delivery</p></div>
             <div className="card border-l-4 border-l-orange-500"><p className="text-xs text-slate-500">Solar Designs</p><p className="text-3xl font-bold text-forest-900 mt-1">{overview.designs || 0}</p><p className="text-xs text-slate-400 mt-1">Design configurations created</p></div>
             <div className="card border-l-4 border-l-teal-500"><p className="text-xs text-slate-500">Simulations Run</p><p className="text-3xl font-bold text-forest-900 mt-1">{overview.simulations || 0}</p><p className="text-xs text-slate-400 mt-1">Full energy + financial simulations</p></div>
+            <div className="card border-l-4 border-l-fuchsia-500"><p className="text-xs text-slate-500">Pending Pickup Requests</p><p className="text-3xl font-bold text-fuchsia-700 mt-1">{overview.pending_pickup_requests || 0}</p><p className="text-xs text-slate-400 mt-1">Awaiting decommission approval</p></div>
+            <div className="card border-l-4 border-l-yellow-500"><p className="text-xs text-slate-500">Pending Verification</p><p className="text-3xl font-bold text-yellow-700 mt-1">{overview.pending_verification_requests || 0}</p><p className="text-xs text-slate-400 mt-1">Users waiting for admin review</p></div>
+            <div className="card border-l-4 border-l-sky-500"><p className="text-xs text-slate-500">Pending Direct Payments</p><p className="text-3xl font-bold text-sky-700 mt-1">{overview.pending_direct_payments || 0}</p><p className="text-xs text-slate-400 mt-1">Transfer submissions to review</p></div>
           </div>
 
           <div className="grid lg:grid-cols-3 gap-4">
@@ -618,11 +712,11 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
               <p className="mt-4 inline-flex items-center text-sm font-semibold text-forest-900">Open finance <RiArrowRightUpLine className="ml-1" /></p>
             </Link>
 
-            <Link href="/admin/push" className="card hover:-translate-y-0.5 transition-transform group">
-              <p className="text-xs uppercase tracking-wide text-slate-500">Comms Studio</p>
-              <p className="text-base font-semibold text-slate-800 mt-1">Targeted announcement dispatch</p>
-              <p className="text-sm text-slate-500 mt-2">Send precision notifications by plan, company, or user.</p>
-              <p className="mt-4 inline-flex items-center text-sm font-semibold text-forest-900">Open notifications <RiArrowRightUpLine className="ml-1" /></p>
+            <Link href="/admin/pickup" className="card hover:-translate-y-0.5 transition-transform group">
+              <p className="text-xs uppercase tracking-wide text-slate-500">Operations Queue</p>
+              <p className="text-base font-semibold text-slate-800 mt-1">Manage pickup and decommission flow</p>
+              <p className="text-sm text-slate-500 mt-2">Approve pending pickup requests and unlock project decommissioning.</p>
+              <p className="mt-4 inline-flex items-center text-sm font-semibold text-forest-900">Open pickup requests <RiArrowRightUpLine className="ml-1" /></p>
             </Link>
           </div>
 
@@ -1712,6 +1806,115 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {activeTab === 'operational-alerts' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-bold text-forest-900">Operational Alerts</h2>
+            <button
+              className="btn-ghost text-sm"
+              onClick={async () => {
+                const [alertsRes, pickupRes, verifyRes, paymentsRes] = await Promise.all([
+                  authAPI.getNotifications(),
+                  adminAPI.listRecoveryRequests({ status: 'requested' }),
+                  adminAPI.listVerificationRequests({ status: 'pending' }),
+                  adminAPI.listDirectPayments({ status: 'pending' }),
+                ]);
+                setOperationalAlerts(alertsRes?.data?.data || []);
+                setRecoveryRequests(pickupRes?.data?.data?.requests || []);
+                setVerificationRequests(verifyRes?.data?.data?.requests || []);
+                setDirectPayments(paymentsRes?.data?.data?.submissions || []);
+              }}
+            >
+              Refresh
+            </button>
+          </div>
+
+          {operationalAlertItems.length === 0 ? (
+            <p className="text-slate-500 text-sm">No operational alerts yet.</p>
+          ) : (
+            <div className="space-y-3">
+              {operationalAlertItems.map((alert) => {
+                const source = alert?.data?.source;
+                const alertKey = `${alert.id || 'x'}:${source || 'unknown'}`;
+                const rejectKey = `${alert.id || 'x'}:reject`;
+                return (
+                  <div key={alert.id} className="bg-white border border-slate-200 rounded-2xl p-5 space-y-3">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <p className="font-semibold text-slate-800">{alert.title}</p>
+                        <p className="text-sm text-slate-600 mt-0.5">{alert.message}</p>
+                        <p className="text-xs text-slate-400 mt-1">{new Date(alert.created_at).toLocaleString('en-NG')}</p>
+                      </div>
+                      <div className="flex flex-col items-end gap-1">
+                        <span className={`text-xs px-2 py-1 rounded-lg font-medium ${alert.is_read ? 'bg-slate-100 text-slate-600' : 'bg-amber-100 text-amber-700'}`}>
+                          {alert.is_read ? 'Read' : 'Unread'}
+                        </span>
+                        <button className="text-xs text-forest-700 hover:underline" onClick={() => handleMarkAlertRead(alert.id)}>
+                          Mark Read
+                        </button>
+                      </div>
+                    </div>
+
+                    {source === 'verification_request' && (
+                      <div className="flex flex-col gap-2">
+                        <input
+                          className="input text-sm"
+                          placeholder="Rejection reason (optional if approving)"
+                          value={alertRejectReasons[alert.id] || ''}
+                          onChange={(e) => setAlertRejectReasons((prev) => ({ ...prev, [alert.id]: e.target.value }))}
+                        />
+                        <div className="flex gap-2">
+                          <button
+                            className="btn-primary text-sm"
+                            disabled={alertBusyId === alertKey}
+                            onClick={() => handleOperationalAlertAction(alert)}
+                          >
+                            {alertBusyId === alertKey ? 'Processing...' : 'Approve Verification'}
+                          </button>
+                          <button
+                            className="btn-ghost text-sm"
+                            disabled={alertBusyId === rejectKey}
+                            onClick={() => handleOperationalRejectVerification(alert)}
+                          >
+                            {alertBusyId === rejectKey ? 'Processing...' : 'Reject Verification'}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {source === 'pickup_request' && (
+                      <div className="flex gap-2">
+                        <button
+                          className="btn-primary text-sm"
+                          disabled={alertBusyId === alertKey}
+                          onClick={() => handleOperationalAlertAction(alert)}
+                        >
+                          {alertBusyId === alertKey ? 'Processing...' : 'Approve Pickup/Decommission'}
+                        </button>
+                        <button className="btn-ghost text-sm" onClick={() => router.push('/admin/pickup')}>
+                          Open Pickup Queue
+                        </button>
+                      </div>
+                    )}
+
+                    {source === 'direct_payment_submitted' && (
+                      <div className="flex gap-2">
+                        <button className="btn-primary text-sm" onClick={() => router.push('/admin/direct-payments')}>
+                          Open Direct Payments Queue
+                        </button>
+                        <button className="btn-ghost text-sm" onClick={() => handleMarkAlertRead(alert.id)}>
+                          Mark Handled
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 
