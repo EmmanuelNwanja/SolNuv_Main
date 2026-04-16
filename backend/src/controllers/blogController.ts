@@ -422,7 +422,7 @@ exports.listAds = async (req, res) => {
 
     let query = supabase
       .from('ads')
-      .select('id,title,image_url,target_url,body_text,placement,priority,page_contexts')
+      .select('id,title,image_url,target_url,body_text,placement,priority,page_contexts,in_article_after_paragraph')
       .eq('is_active', true)
       .or(`start_date.is.null,start_date.lte.${today}`)
       .or(`end_date.is.null,end_date.gte.${today}`)
@@ -547,13 +547,20 @@ exports.adminListAds = async (req, res) => {
   }
 };
 
+function clampInArticleParagraph(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 2;
+  return Math.min(500, Math.max(1, Math.floor(n)));
+}
+
 exports.adminCreateAd = async (req, res) => {
   try {
-    const { title, image_url, target_url, body_text, placement, priority, start_date, end_date, is_active, max_total_views, max_unique_accounts, campaign_id, display_order, page_contexts } = req.body;
+    const { title, image_url, target_url, body_text, placement, priority, start_date, end_date, is_active, max_total_views, max_unique_accounts, campaign_id, display_order, page_contexts, in_article_after_paragraph } = req.body;
     if (!title) return sendError(res, 'title is required', 422);
 
     const effectivePlacement = placement || 'sidebar';
     const isPopup = effectivePlacement === 'popup';
+    const isInArticle = effectivePlacement === 'in-article';
     const effectivePageContexts = Array.isArray(page_contexts) && page_contexts.length > 0 ? page_contexts : ['all'];
 
     const { data, error } = await supabase
@@ -573,6 +580,7 @@ exports.adminCreateAd = async (req, res) => {
         ...(isPopup && { max_unique_accounts: max_unique_accounts ? Number(max_unique_accounts) : null }),
         campaign_id: campaign_id || null,
         display_order: Number(display_order) || 0,
+        ...(isInArticle && { in_article_after_paragraph: clampInArticleParagraph(in_article_after_paragraph) }),
         created_by: req.supabaseUser.id,
       })
       .select()
@@ -589,7 +597,7 @@ exports.adminCreateAd = async (req, res) => {
 exports.adminUpdateAd = async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, image_url, target_url, body_text, placement, priority, start_date, end_date, is_active, max_total_views, max_unique_accounts, campaign_id, display_order, page_contexts } = req.body;
+    const { title, image_url, target_url, body_text, placement, priority, start_date, end_date, is_active, max_total_views, max_unique_accounts, campaign_id, display_order, page_contexts, in_article_after_paragraph } = req.body;
     const isPopup = (placement || '') === 'popup';
     const updates = {
       ...(title !== undefined && { title }),
@@ -608,6 +616,11 @@ exports.adminUpdateAd = async (req, res) => {
       display_order: Number(display_order) || 0,
       updated_at: new Date().toISOString(),
     };
+    if (placement !== undefined && placement !== 'in-article') {
+      updates.in_article_after_paragraph = 2;
+    } else if (in_article_after_paragraph !== undefined) {
+      updates.in_article_after_paragraph = clampInArticleParagraph(in_article_after_paragraph);
+    }
     const { data, error } = await supabase.from('ads').update(updates).eq('id', id).select().single();
     if (error) throw error;
     return sendSuccess(res, data, 'Ad updated');
