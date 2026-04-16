@@ -293,7 +293,7 @@ async function activateSubscription({
     }
   }
 
-  await supabase.from('notifications').insert({
+  const { error: notificationError } = await supabase.from('notifications').insert({
     user_id: user.id,
     type: 'payment',
     title: `${plan.toUpperCase()} ${billingInterval === 'annual' ? 'Annual' : 'Monthly'} Plan Activated`,
@@ -306,6 +306,17 @@ async function activateSubscription({
       promo_code: promo?.code || null,
     },
   });
+  if (notificationError) {
+    logger.warn('Failed to insert payment notification', {
+      user_id: user.id,
+      company_id: company.id,
+      reference,
+      message: notificationError.message,
+      code: notificationError.code,
+      details: notificationError.details,
+      hint: notificationError.hint,
+    });
+  }
 
   await sendPaymentConfirmation(
     user,
