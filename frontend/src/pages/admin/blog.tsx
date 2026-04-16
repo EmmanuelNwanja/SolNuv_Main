@@ -17,14 +17,15 @@ const STATUS_COLORS = {
   archived: 'bg-red-900/30 text-red-400 border-red-800',
 };
 
-const PLACEMENTS = ['sidebar', 'banner', 'in-feed', 'footer', 'inline', 'popup'];
+const PLACEMENTS = ['sidebar', 'banner', 'in-feed', 'footer', 'inline', 'in-article', 'popup'];
 
 const PLACEMENT_DESCRIPTIONS = {
   sidebar:  'Right-column vertical card',
   banner:   'Full-width horizontal strip (below hero)',
   'in-feed':'Horizontal card between list items',
   footer:   'Compact strip at bottom of page',
-  inline:   'Card inserted inside article body',
+  inline:   'Card below the article body (after all paragraphs)',
+  'in-article': 'Inside the article after the Nth paragraph block (blog posts only)',
   popup:    'Overlay popup (login / interval triggered)',
 };
 
@@ -45,7 +46,7 @@ function emptyPost() {
 }
 
 function emptyAd() {
-  return { title: '', image_url: '', target_url: '', body_text: '', placement: 'sidebar', priority: 0, start_date: '', end_date: '', is_active: true, max_total_views: '', max_unique_accounts: '', campaign_id: '', display_order: 0, page_contexts: ['all'] };
+  return { title: '', image_url: '', target_url: '', body_text: '', placement: 'sidebar', priority: 0, start_date: '', end_date: '', is_active: true, max_total_views: '', max_unique_accounts: '', campaign_id: '', display_order: 0, page_contexts: ['all'], in_article_after_paragraph: 2 };
 }
 
 function emptyCampaign() {
@@ -209,7 +210,15 @@ function PostForm({ initial, onSave, onCancel, saving }) {
 }
 
 function AdForm({ initial, onSave, onCancel, saving, campaigns = [] }) {
-  const [form, setForm] = useState(initial ? { ...initial, page_contexts: initial.page_contexts || ['all'] } : emptyAd());
+  const [form, setForm] = useState(
+    initial
+      ? {
+          ...initial,
+          page_contexts: initial.page_contexts || ['all'],
+          in_article_after_paragraph: initial.in_article_after_paragraph ?? 2,
+        }
+      : emptyAd(),
+  );
   function set(key, value) { setForm((f) => ({ ...f, [key]: value })); }
 
   function toggleContext(id) {
@@ -265,6 +274,26 @@ function AdForm({ initial, onSave, onCancel, saving, campaigns = [] }) {
           </select>
         </div>
       </div>
+
+      {form.placement === 'in-article' && (
+        <div className="border border-emerald-800/40 rounded-xl p-4 bg-emerald-900/10 space-y-2">
+          <p className="text-xs font-semibold text-emerald-400 uppercase tracking-widest">In-article position</p>
+          <p className="text-[10px] text-slate-400">
+            Ad appears <strong className="text-slate-300">after</strong> this 1-based block index (paragraph, heading, or list block). Use <strong className="text-slate-300">Blog Post</strong> page target. If the index is larger than the number of blocks, the ad shows at the end of the article.
+          </p>
+          <div>
+            <label className="label">Insert after paragraph block #</label>
+            <input
+              className="input"
+              type="number"
+              min={1}
+              max={500}
+              value={form.in_article_after_paragraph ?? 2}
+              onChange={(e) => set('in_article_after_paragraph', Math.max(1, Math.min(500, Number(e.target.value) || 1)))}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Page targeting */}
       <div className="border border-slate-700 rounded-xl p-4 space-y-3 bg-slate-800/40">

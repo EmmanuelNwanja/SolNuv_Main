@@ -1,7 +1,7 @@
 import Head from 'next/head';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import type { RefObject } from 'react';
 import DOMPurify from 'dompurify';
 import {
@@ -11,6 +11,8 @@ import {
 import { blogAPI } from '../../services/api';
 import { getPublicLayout } from '../../components/Layout';
 import AdSlot from '../../components/ui/AdSlot';
+import InArticleAd from '../../components/ui/InArticleAd';
+import { loosenHtmlToParagraphs, splitTopLevelBlocks } from '../../utils/blogArticleHtml';
 import toast from 'react-hot-toast';
 
 type BlogPost = {
@@ -24,8 +26,18 @@ type BlogPost = {
   tags?: string[];
 };
 
+type InArticleAdRow = {
+  id: string;
+  title?: string;
+  image_url?: string;
+  body_text?: string;
+  target_url?: string;
+  priority?: number;
+  in_article_after_paragraph?: number;
+};
+
 function sanitizeBlogHtml(content: string): string {
-  const input = String(content || '');
+  const input = loosenHtmlToParagraphs(String(content || ''));
   const domPurifyCandidate = DOMPurify as unknown as { sanitize?: (value: string, cfg?: unknown) => string };
   if (typeof domPurifyCandidate?.sanitize === 'function') {
     return domPurifyCandidate.sanitize(input, {
@@ -35,6 +47,8 @@ function sanitizeBlogHtml(content: string): string {
         'ul', 'ol', 'li',
         'strong', 'em', 'b', 'i', 'u', 'code', 'pre',
         'a', 'span', 'div', 'img',
+        'section', 'article',
+        'table', 'thead', 'tbody', 'tr', 'th', 'td',
       ],
       ALLOWED_ATTR: ['href', 'target', 'rel', 'src', 'alt', 'title', 'class'],
     });
@@ -75,6 +89,25 @@ export default function BlogPostPage() {
   const sanitizedContent = useMemo(() => {
     return sanitizeBlogHtml(post?.content || '');
   }, [post?.content]);
+
+  const articleBlocks = useMemo(() => splitTopLevelBlocks(sanitizedContent), [sanitizedContent]);
+
+  const [inArticleAds, setInArticleAds] = useState<InArticleAdRow[]>([]);
+
+  useEffect(() => {
+    blogAPI
+      .listAds({ placement: 'in-article', page: 'blog_post', limit: 20 })
+      .then((r) => setInArticleAds((r.data.data || []) as InArticleAdRow[]))
+      .catch(() => setInArticleAds([]));
+  }, [slug]);
+
+  const sortedInArticleAds = useMemo(
+    () =>
+      [...inArticleAds].sort(
+        (a, b) => (Number(b.priority) || 0) - (Number(a.priority) || 0),
+      ),
+    [inArticleAds],
+  );
 
   useOutboundLinkTracking(slug, contentRef);
 
@@ -157,14 +190,46 @@ export default function BlogPostPage() {
               </button>
             </div>
 
-            {/* Content */}
+            {/* Content + in-article ads (within reading flow) */}
             <div
               ref={contentRef}
-              className="mt-8 prose prose-slate dark:prose-invert max-w-none prose-a:text-emerald-700 dark:prose-a:text-emerald-400 prose-headings:font-display"
-              dangerouslySetInnerHTML={{ __html: sanitizedContent }}
-            />
+              className="mt-8 prose prose-slate dark:prose-invert max-w-none prose-lg sm:prose-xl
+                prose-headings:font-display prose-headings:scroll-mt-24
+                prose-p:leading-relaxed prose-p:my-4
+                prose-h2:mt-10 prose-h2:mb-3 prose-h2:text-2xl prose-h2:font-bold
+                prose-h3:mt-8 prose-h3:mb-2 prose-h3:text-xl prose-h3:font-semibold
+                prose-ul:my-4 prose-ol:my-4 prose-li:my-1
+                prose-blockquote:border-emerald-600 prose-blockquote:text-slate-600 dark:prose-blockquote:text-slate-400
+                prose-a:text-emerald-700 dark:prose-a:text-emerald-400 prose-a:font-medium
+                prose-img:rounded-xl prose-img:shadow-sm
+                prose-hr:my-10
+                prose-table:text-sm prose-th:bg-slate-100 dark:prose-th:bg-slate-800"
+            >
+              {articleBlocks.map((block, i) => {
+                const afterIdx = i + 1;
+                const slotAds = sortedInArticleAds.filter(
+                  (ad) => Math.max(1, Number(ad.in_article_after_paragraph) || 2) === afterIdx,
+                );
+                return (
+                  <Fragment key={`blk-${i}`}>
+                    <div dangerouslySetInnerHTML={{ __html: block }} />
+                    {slotAds.map((ad) => (
+                      <InArticleAd key={ad.id} ad={ad} />
+                    ))}
+                  </Fragment>
+                );
+              })}
+              {sortedInArticleAds
+                .filter((ad) => {
+                  const n = Math.max(1, Number(ad.in_article_after_paragraph) || 2);
+                  return articleBlocks.length > 0 && n > articleBlocks.length;
+                })
+                .map((ad) => (
+                  <InArticleAd key={`trail-${ad.id}`} ad={ad} />
+                ))}
+            </div>
 
-            {/* Inline ad — shown between content and tags */}
+            {/* Inline ad — card below article body (separate from in-article placements) */}
             <AdSlot slot="inline" page="blog_post" />
 
             {/* Tags */}

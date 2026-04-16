@@ -2,7 +2,7 @@
  * AdSlot — universal ad display component.
  *
  * Props:
- *   slot  — placement type: 'sidebar' | 'banner' | 'in-feed' | 'footer' | 'inline' | 'popup'
+ *   slot  — placement type: 'sidebar' | 'banner' | 'in-feed' | 'footer' | 'inline' | 'in-article' | 'popup'
  *   page  — page context id: 'blog' | 'blog_post' | 'faq' | 'home' | 'contact' | etc.
  *           The backend will return ads that target this page OR target 'all'.
  *   limit — max ads to load (default 3 for sidebar, 1 for all others)
@@ -223,8 +223,8 @@ export default function AdSlot({ slot, page, limit, className = "" }: AdSlotProp
     );
   }
 
-  // ── inline: insert inside article content ─────────────────────
-  if (slot === 'inline') {
+  // ── inline / in-article: content-area card (in-article is normally injected via InArticleAd) ──
+  if (slot === 'inline' || slot === 'in-article') {
     return (
       <button
         type="button"
