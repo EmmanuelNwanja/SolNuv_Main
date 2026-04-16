@@ -29,6 +29,82 @@ const TOPOLOGY_LABEL: Record<string, string> = {
   hybrid: "Hybrid (Grid + Islanding)",
 };
 
+const INSTALLATION_META: Record<
+  string,
+  { label: string; mount: string; note: string; pvFill: string; pvStroke: string; tiltHint: string }
+> = {
+  rooftop_flat: {
+    label: "Rooftop (Flat)",
+    mount: "Ballasted/anchored roof frame",
+    note: "Check roof loading, ballast, and wind uplift.",
+    pvFill: "#FEFCE8",
+    pvStroke: "#D97706",
+    tiltHint: "Low-tilt rack (typically 5-15°)",
+  },
+  rooftop_tilted: {
+    label: "Rooftop (Tilted Rack)",
+    mount: "Tilted aluminium rack",
+    note: "Improves airflow and module temperature.",
+    pvFill: "#FEFCE8",
+    pvStroke: "#B45309",
+    tiltHint: "Tilt rack aligned to azimuth target",
+  },
+  ground_fixed: {
+    label: "Ground Mount (Fixed)",
+    mount: "Pile/concrete fixed-tilt structure",
+    note: "Allow row spacing for shading clearance.",
+    pvFill: "#ECFDF5",
+    pvStroke: "#059669",
+    tiltHint: "Fixed seasonal-optimized tilt",
+  },
+  ground_tracker: {
+    label: "Ground (Single-Axis Tracker)",
+    mount: "Single-axis tracker table",
+    note: "Requires tracker motor/control and O&M access.",
+    pvFill: "#E0F2FE",
+    pvStroke: "#0284C7",
+    tiltHint: "Tracking axis follows sun path",
+  },
+  carport: {
+    label: "Carport / Canopy",
+    mount: "Elevated canopy steel structure",
+    note: "Include drainage and vehicle clearance.",
+    pvFill: "#F3E8FF",
+    pvStroke: "#9333EA",
+    tiltHint: "Canopy pitch + drainage slope",
+  },
+  bipv: {
+    label: "BIPV (Building-Integrated)",
+    mount: "Façade/roof integrated modules",
+    note: "Coordinate weatherproofing and fire detailing.",
+    pvFill: "#FFF7ED",
+    pvStroke: "#EA580C",
+    tiltHint: "Architecture-constrained orientation",
+  },
+  floating: {
+    label: "Floating Solar",
+    mount: "HDPE float + mooring system",
+    note: "Add marine cabling and anchoring checks.",
+    pvFill: "#EFF6FF",
+    pvStroke: "#2563EB",
+    tiltHint: "Float tilt + mooring envelope",
+  },
+};
+
+function installationMeta(installationType: unknown) {
+  const key = typeof installationType === "string" ? installationType : "";
+  return (
+    INSTALLATION_META[key] ?? {
+      label: String(installationType || "Unspecified"),
+      mount: "Standard mounting structure",
+      note: "Validate mounting and BOS assumptions.",
+      pvFill: "#FEFCE8",
+      pvStroke: "#D97706",
+      tiltHint: "Tilt and azimuth per simulation inputs",
+    }
+  );
+}
+
 function fmt(n: unknown, d = 1) {
   if (n == null || Number.isNaN(Number(n))) return "—";
   return Number(n).toFixed(d);
@@ -171,20 +247,23 @@ function PVArrayBlock({
   kwp,
   panelTech,
   numStrings,
+  installationType,
 }: {
   cx: number;
   cy: number;
   kwp: unknown;
   panelTech: unknown;
   numStrings: number;
+  installationType?: unknown;
 }) {
   const w = 120,
     h = 80;
   const x = cx - w / 2,
     y = cy - h / 2;
   const techKey = typeof panelTech === "string" ? panelTech : "";
+  const installation = installationMeta(installationType);
   return (
-    <Box x={x} y={y} w={w} h={h} fill="#FEFCE8" stroke="#D97706">
+    <Box x={x} y={y} w={w} h={h} fill={installation.pvFill} stroke={installation.pvStroke}>
       {[0, 1, 2].map((i) => (
         <rect
           key={i}
@@ -194,7 +273,7 @@ function PVArrayBlock({
           height={16}
           rx={1}
           fill="#FCD34D"
-          stroke="#D97706"
+          stroke={installation.pvStroke}
           strokeWidth={1}
         />
       ))}
@@ -206,6 +285,20 @@ function PVArrayBlock({
         text={`${PV_TECH_SHORT[techKey] || String(panelTech ?? "")} · ${numStrings} string${numStrings > 1 ? "s" : ""}`}
         fill="#78716C"
       />
+    </Box>
+  );
+}
+
+function MountingBlock({ cx, cy, installationType }: { cx: number; cy: number; installationType?: unknown }) {
+  const w = 160;
+  const h = 48;
+  const x = cx - w / 2;
+  const y = cy - h / 2;
+  const installation = installationMeta(installationType);
+  return (
+    <Box x={x} y={y} w={w} h={h} fill="#F8FAFC" stroke="#64748B" rx={10}>
+      <Label x={cx} y={y + 19} text="Mounting / Civil BOS" bold size={10} fill="#334155" />
+      <SubLabel x={cx} y={y + 33} text={installation.mount} fill="#475569" />
     </Box>
   );
 }
@@ -369,7 +462,7 @@ function SectionTitle({ x, y, text }: { x: number; y: number; text: string }) {
 
 // ─── Topology schematic renderers ────────────────────────────────────────────
 
-function GridTiedSchematic({ design, annualKwh }: { design?: Record<string, unknown>; annualKwh?: unknown }) {
+function GridTiedSchematic({ design, annualKwh, installationType }: { design?: Record<string, unknown>; annualKwh?: unknown; installationType?: unknown }) {
   const pvKwp = design?.pv_capacity_kwp as number | undefined;
   const numStrings = Math.max(1, Math.ceil(((pvKwp ?? 0) * 1000) / 4000));
   const panelTech = design?.pv_technology;
@@ -393,7 +486,9 @@ function GridTiedSchematic({ design, annualKwh }: { design?: Record<string, unkn
       <SectionTitle x={xInv - 50} y={20} text="AC Side" />
       <line x1={xInv + 60} y1={24} x2={W} y2={24} stroke="#DBEAFE" strokeWidth={1.5} />
 
-      <PVArrayBlock cx={xPV} cy={midY} kwp={pvKwp} panelTech={panelTech} numStrings={numStrings} />
+      <MountingBlock cx={xPV} cy={64} installationType={installationType} />
+      <VArrow x={xPV} y1={88} y2={midY - 42} color="#64748B" label="" />
+      <PVArrayBlock cx={xPV} cy={midY} kwp={pvKwp} panelTech={panelTech} numStrings={numStrings} installationType={installationType} />
       <DCCombinerBlock cx={xComb} cy={midY} />
       <InverterBlock cx={xInv} cy={midY} topology="grid_tied" pvKwp={pvKwp} />
       <ACPanelBlock cx={xAC} cy={midY} />
@@ -416,7 +511,15 @@ function GridTiedSchematic({ design, annualKwh }: { design?: Record<string, unkn
   );
 }
 
-function GridTiedBessSchematic({ design, annualKwh }: { design?: Record<string, unknown>; annualKwh?: unknown }) {
+function GridTiedBessSchematic({
+  design,
+  annualKwh,
+  installationType,
+}: {
+  design?: Record<string, unknown>;
+  annualKwh?: unknown;
+  installationType?: unknown;
+}) {
   const pvKwp = design?.pv_capacity_kwp as number | undefined;
   const bessKwh = design?.bess_capacity_kwh as number | undefined;
   const bessKw = design?.bess_power_kw as number | undefined;
@@ -445,7 +548,9 @@ function GridTiedBessSchematic({ design, annualKwh }: { design?: Record<string, 
       <SectionTitle x={xInv - 55} y={20} text="AC Side" />
       <line x1={xInv + 65} y1={24} x2={W} y2={24} stroke="#DBEAFE" strokeWidth={1.5} />
 
-      <PVArrayBlock cx={xPV} cy={midY} kwp={pvKwp} panelTech={panelTech} numStrings={numStrings} />
+      <MountingBlock cx={xPV} cy={64} installationType={installationType} />
+      <VArrow x={xPV} y1={88} y2={midY - 42} color="#64748B" label="" />
+      <PVArrayBlock cx={xPV} cy={midY} kwp={pvKwp} panelTech={panelTech} numStrings={numStrings} installationType={installationType} />
       <DCCombinerBlock cx={xComb} cy={midY} />
       <InverterBlock cx={xInv} cy={midY} topology={topology} pvKwp={pvKwp} bessKw={bessKw} />
       <ACPanelBlock cx={xAC} cy={midY} />
@@ -474,7 +579,15 @@ function GridTiedBessSchematic({ design, annualKwh }: { design?: Record<string, 
   );
 }
 
-function OffGridSchematic({ design, annualKwh }: { design?: Record<string, unknown>; annualKwh?: unknown }) {
+function OffGridSchematic({
+  design,
+  annualKwh,
+  installationType,
+}: {
+  design?: Record<string, unknown>;
+  annualKwh?: unknown;
+  installationType?: unknown;
+}) {
   const pvKwp = design?.pv_capacity_kwp as number | undefined;
   const bessKwh = design?.bess_capacity_kwh as number | undefined;
   const bessKw = design?.bess_power_kw as number | undefined;
@@ -500,7 +613,9 @@ function OffGridSchematic({ design, annualKwh }: { design?: Record<string, unkno
       <SectionTitle x={xInv - 55} y={20} text="AC Output" />
       <line x1={xInv + 65} y1={24} x2={W} y2={24} stroke="#DBEAFE" strokeWidth={1.5} />
 
-      <PVArrayBlock cx={xPV} cy={midY} kwp={pvKwp} panelTech={panelTech} numStrings={numStrings} />
+      <MountingBlock cx={xPV} cy={64} installationType={installationType} />
+      <VArrow x={xPV} y1={88} y2={midY - 42} color="#64748B" label="" />
+      <PVArrayBlock cx={xPV} cy={midY} kwp={pvKwp} panelTech={panelTech} numStrings={numStrings} installationType={installationType} />
       <DCCombinerBlock cx={xComb} cy={midY} />
       <MPPTBlock cx={xMPPT} cy={midY} />
       <BatteryBlock cx={xBatt} cy={midY} kwh={bessKwh} kw={bessKw} chemistry={chemistry} />
@@ -529,6 +644,8 @@ export default function SolarSchematic({ design, result }: { design?: Record<str
   const topology = String(design?.grid_topology ?? "grid_tied");
   const annualKwh = result?.annual_load_kwh;
   const hasBess = Number(design?.bess_capacity_kwh ?? 0) > 0;
+  const installationType = String(design?.installation_type ?? "");
+  const installation = installationMeta(installationType);
 
   const pvKwp = Number(design?.pv_capacity_kwp ?? 0);
   const estimatedPanels = Math.ceil((pvKwp * 1000) / 400);
@@ -540,7 +657,9 @@ export default function SolarSchematic({ design, result }: { design?: Record<str
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-4 bg-forest-900 text-white rounded-xl">
         <div>
           <h3 className="font-semibold">System Schematic</h3>
-          <p className="text-xs text-green-300 mt-0.5">{TOPOLOGY_LABEL[topology] || topology}</p>
+          <p className="text-xs text-green-300 mt-0.5">
+            {TOPOLOGY_LABEL[topology] || topology} · {installation.label}
+          </p>
         </div>
         <div className="flex flex-wrap gap-2 text-xs text-green-200">
           <span className="bg-white/10 px-2 py-1 rounded">{fmt(pvKwp, 1)} kWp PV</span>
@@ -550,17 +669,18 @@ export default function SolarSchematic({ design, result }: { design?: Record<str
           <span className="bg-white/10 px-2 py-1 rounded">
             ~{numStrings} string{numStrings > 1 ? "s" : ""}
           </span>
+          <span className="bg-white/10 px-2 py-1 rounded">{installation.tiltHint}</span>
           <span className="bg-white/10 px-2 py-1 rounded">~{estimatedPanels} panels est.</span>
         </div>
       </div>
 
       <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl p-4 overflow-x-auto">
         {topology === "off_grid" ? (
-          <OffGridSchematic design={design} annualKwh={annualKwh} />
+          <OffGridSchematic design={design} annualKwh={annualKwh} installationType={installationType} />
         ) : topology === "grid_tied" && !hasBess ? (
-          <GridTiedSchematic design={design} annualKwh={annualKwh} />
+          <GridTiedSchematic design={design} annualKwh={annualKwh} installationType={installationType} />
         ) : (
-          <GridTiedBessSchematic design={design} annualKwh={annualKwh} />
+          <GridTiedBessSchematic design={design} annualKwh={annualKwh} installationType={installationType} />
         )}
       </div>
 
@@ -591,8 +711,13 @@ export default function SolarSchematic({ design, result }: { design?: Record<str
                 One fuse per string. 1000 V DC rated (NEC/IEC 62548)
               </td>
             </tr>
+            <tr className="bg-white dark:bg-gray-900">
+              <td className="px-4 py-2.5 font-medium text-slate-700">Mounting & Civil BOS</td>
+              <td className="px-4 py-2.5 text-gray-700 dark:text-gray-300">{installation.mount}</td>
+              <td className="px-4 py-2.5 text-gray-500 text-xs">{installation.note}</td>
+            </tr>
             {topology !== "off_grid" && (
-              <tr className="bg-white dark:bg-gray-900">
+              <tr className="bg-gray-50/50 dark:bg-gray-800/50">
                 <td className="px-4 py-2.5 font-medium text-blue-700">{hasBess ? "Hybrid Inverter" : "String Inverter"}</td>
                 <td className="px-4 py-2.5 text-gray-700 dark:text-gray-300">
                   {fmt(pvKwp, 1)} kW AC output
@@ -662,8 +787,9 @@ export default function SolarSchematic({ design, result }: { design?: Record<str
 
       <p className="text-xs text-gray-400 dark:text-gray-500 leading-relaxed px-1">
         ⚠ This schematic is a design-intent diagram generated from simulation parameters. Panel count (est. ~{estimatedPanels})
-        assumes 400 Wp average. Actual string configuration, cable sizing, and protection device ratings must be verified by a
-        qualified electrical engineer before installation. Compliant with NEC 2023, IEC 62548, and NERC grid connection guidelines.
+        assumes 400 Wp average and installation assumptions for "{installation.label}". Actual string configuration, cable sizing,
+        mounting checks, and protection device ratings must be verified by a qualified electrical engineer before installation.
+        Compliant with NEC 2023, IEC 62548, and NERC grid connection guidelines.
       </p>
     </div>
   );
