@@ -627,7 +627,17 @@ export default function AddProject() {
               </div>
               <div className="sm:col-span-2">
                 <label className="label">Address</label>
-                <input className="input" placeholder="Full street address (optional)" value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))} />
+                <input
+                  className="input"
+                  placeholder="Estate, street, plot/block — e.g. Victoria Garden City, Z124 Road 67"
+                  value={form.address}
+                  onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
+                />
+                <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
+                  Best results: match <strong className="text-slate-600">City</strong> to your LGA or locality (e.g. Eti-Osa, Ikeja), then add searchable detail — roads, estates, blocks/plots.
+                  Example: <span className="font-mono text-[11px] text-slate-700">Chevron Drive, estate gate B</span>.
+                  After saving the project, use device GPS at the site and verify so coordinates are checked against this text.
+                </p>
               </div>
             </div>
 

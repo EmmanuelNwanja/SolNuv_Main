@@ -915,7 +915,18 @@ export default function ProjectDetail() {
                 </div>
                 <div className="sm:col-span-2">
                   <label className="label">Address</label>
-                  <input className="input" value={editForm.address} onChange={(e) => setEditForm((prev) => ({ ...prev, address: e.target.value }))} />
+                  <input
+                    className="input"
+                    placeholder="Estate, street, plot/block — e.g. Victoria Garden City, Z124 Road 67, Lekki"
+                    value={editForm.address}
+                    onChange={(e) => setEditForm((prev) => ({ ...prev, address: e.target.value }))}
+                  />
+                  <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
+                    For verification, use <strong className="text-slate-600 dark:text-slate-400">State</strong> and{' '}
+                    <strong className="text-slate-600 dark:text-slate-400">City/LGA</strong> (e.g. Lagos / Eti-Osa) plus this line with landmarks OSM can match (estate name, road, block).
+                    Example: <span className="font-mono text-[11px] text-slate-700 dark:text-slate-300">Plot 12 Admiralty Way, Lekki Phase 1</span>.
+                    Save changes before <strong className="text-slate-600 dark:text-slate-400">Verify Location</strong> so the server uses the latest address.
+                  </p>
                 </div>
                 <div className="sm:col-span-2">
                   <label className="label">Description</label>
