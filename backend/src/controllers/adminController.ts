@@ -407,6 +407,38 @@ exports.updateUserVerification = async (req, res) => {
       }
     }
 
+    if (isPlanChange) {
+      const notificationTitle = company_plan === 'free'
+        ? 'Subscription Updated'
+        : `${String(company_plan).toUpperCase()} Plan Activated`;
+      const notificationMessage = company_plan === 'free'
+        ? 'Your subscription has been set to FREE by an admin update.'
+        : `Your ${String(company_plan).toUpperCase()} ${String(subscription_interval || 'monthly')} subscription is now active.`;
+      const { error: notifError } = await supabase.from('notifications').insert({
+        user_id: targetUser.id,
+        type: 'payment',
+        title: notificationTitle,
+        message: notificationMessage,
+        data: {
+          source: 'admin_plan_change',
+          previous_plan: previousPlan,
+          current_plan: company_plan,
+          subscription_interval: subscription_interval || null,
+          payment_channel: payment_channel || null,
+          amount_received: amount_received || null,
+          bank_reference: bank_reference || null,
+        },
+      });
+      if (notifError) {
+        logger.warn('Admin plan change notification insert failed', {
+          target_user_id: targetUser.id,
+          company_id: effectiveCompanyId,
+          message: notifError.message,
+          code: notifError.code,
+        });
+      }
+    }
+
     return sendSuccess(
       res,
       { user_id, company_id: effectiveCompanyId },
@@ -2188,6 +2220,28 @@ exports.verifyDirectPayment = async (req, res) => {
       );
     }
 
+    const { error: verifiedNotifError } = await supabase.from('notifications').insert({
+      user_id: targetUser?.id,
+      type: 'payment',
+      title: `${String(submission.plan_id).toUpperCase()} Plan Activated`,
+      message: `Your direct transfer was verified and your ${String(submission.plan_id).toUpperCase()} ${String(submission.billing_interval)} subscription is now active.`,
+      data: {
+        source: 'direct_payment_verified',
+        submission_id: id,
+        plan: submission.plan_id,
+        billing_interval: submission.billing_interval,
+        amount_ngn: submission.amount_ngn,
+      },
+    });
+    if (verifiedNotifError) {
+      logger.warn('Direct payment verified notification insert failed', {
+        submission_id: id,
+        target_user_id: targetUser?.id || null,
+        message: verifiedNotifError.message,
+        code: verifiedNotifError.code,
+      });
+    }
+
     await logPlatformActivity({
       actorUserId: req.user.id,
       actorEmail: req.user.email,
@@ -2236,6 +2290,25 @@ exports.rejectDirectPayment = async (req, res) => {
       .eq('id', id);
 
     if (updateErr) throw updateErr;
+
+    const { error: rejectedNotifError } = await supabase.from('notifications').insert({
+      user_id: submission.user_id,
+      type: 'account_activity',
+      title: 'Payment Submission Rejected',
+      message: `Your direct transfer submission was rejected. Reason: ${admin_note.trim()}.`,
+      data: {
+        source: 'direct_payment_rejected',
+        submission_id: id,
+      },
+    });
+    if (rejectedNotifError) {
+      logger.warn('Direct payment rejected notification insert failed', {
+        submission_id: id,
+        target_user_id: submission.user_id,
+        message: rejectedNotifError.message,
+        code: rejectedNotifError.code,
+      });
+    }
 
     await logPlatformActivity({
       actorUserId: req.user.id,

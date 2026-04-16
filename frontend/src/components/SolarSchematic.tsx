@@ -121,6 +121,7 @@ function Box({
   stroke = "#374151",
   rx = 8,
   children,
+  isometric = false,
 }: {
   x: number;
   y: number;
@@ -130,9 +131,36 @@ function Box({
   stroke?: string;
   rx?: number;
   children?: ReactNode;
+  isometric?: boolean;
 }) {
+  if (isometric) {
+    const dx = 10;
+    const dy = 8;
+    return (
+      <g>
+        <polygon
+          points={`${x},${y} ${x + dx},${y - dy} ${x + w + dx},${y - dy} ${x + w},${y}`}
+          fill="#FFFFFF"
+          opacity={0.55}
+          stroke={stroke}
+          strokeWidth={1}
+        />
+        <polygon
+          points={`${x + w},${y} ${x + w + dx},${y - dy} ${x + w + dx},${y + h - dy} ${x + w},${y + h}`}
+          fill="#000000"
+          opacity={0.06}
+          stroke={stroke}
+          strokeWidth={1}
+        />
+        <rect x={x + 1.5} y={y + 2} width={w} height={h} rx={rx} fill="#000" opacity={0.04} />
+        <rect x={x} y={y} width={w} height={h} rx={rx} fill={fill} stroke={stroke} strokeWidth={1.5} />
+        {children}
+      </g>
+    );
+  }
   return (
     <g>
+      <rect x={x + 1.5} y={y + 2} width={w} height={h} rx={rx} fill="#000" opacity={0.04} />
       <rect x={x} y={y} width={w} height={h} rx={rx} fill={fill} stroke={stroke} strokeWidth={1.5} />
       {children}
     </g>
@@ -263,7 +291,7 @@ function PVArrayBlock({
   const techKey = typeof panelTech === "string" ? panelTech : "";
   const installation = installationMeta(installationType);
   return (
-    <Box x={x} y={y} w={w} h={h} fill={installation.pvFill} stroke={installation.pvStroke}>
+    <Box x={x} y={y} w={w} h={h} fill={installation.pvFill} stroke={installation.pvStroke} isometric>
       {[0, 1, 2].map((i) => (
         <rect
           key={i}
@@ -296,7 +324,7 @@ function MountingBlock({ cx, cy, installationType }: { cx: number; cy: number; i
   const y = cy - h / 2;
   const installation = installationMeta(installationType);
   return (
-    <Box x={x} y={y} w={w} h={h} fill="#F8FAFC" stroke="#64748B" rx={10}>
+    <Box x={x} y={y} w={w} h={h} fill="#F8FAFC" stroke="#64748B" rx={10} isometric>
       <Label x={cx} y={y + 19} text="Mounting / Civil BOS" bold size={10} fill="#334155" />
       <SubLabel x={cx} y={y + 33} text={installation.mount} fill="#475569" />
     </Box>
@@ -309,7 +337,7 @@ function DCCombinerBlock({ cx, cy }: { cx: number; cy: number }) {
   const x = cx - w / 2,
     y = cy - h / 2;
   return (
-    <Box x={x} y={y} w={w} h={h} fill="#F0FDF4" stroke="#16A34A">
+    <Box x={x} y={y} w={w} h={h} fill="#F0FDF4" stroke="#16A34A" isometric>
       <Label x={cx} y={y + 24} text="DC Combiner" bold size={10} fill="#14532D" />
       <SubLabel x={cx} y={y + 38} text="+ String Fuses" fill="#166534" />
       <SubLabel x={cx} y={y + 51} text="+ Surge Arrester" fill="#166534" />
@@ -340,7 +368,7 @@ function InverterBlock({
   const sublabel = isHybrid ? `${fmt(pvKwp, 1)} kWp / ${fmt(bessKw ?? pvKwp, 1)} kW` : `${fmt(pvKwp, 1)} kW`;
   const sub2 = isOffGrid ? "DC → AC" : isHybrid ? "MPPT + BMS + ATS" : "MPPT · Grid-Tied";
   return (
-    <Box x={x} y={y} w={w} h={h} fill="#EFF6FF" stroke="#2563EB">
+    <Box x={x} y={y} w={w} h={h} fill="#EFF6FF" stroke="#2563EB" isometric>
       <text x={cx} y={y + 20} textAnchor="middle" fontSize={13} fill="#1D4ED8" fontFamily="system-ui">
         ⚡
       </text>
@@ -357,7 +385,7 @@ function MPPTBlock({ cx, cy }: { cx: number; cy: number }) {
   const x = cx - w / 2,
     y = cy - h / 2;
   return (
-    <Box x={x} y={y} w={w} h={h} fill="#F0FDF4" stroke="#16A34A">
+    <Box x={x} y={y} w={w} h={h} fill="#F0FDF4" stroke="#16A34A" isometric>
       <Label x={cx} y={y + 24} text="MPPT Charge" bold size={10} fill="#14532D" />
       <Label x={cx} y={y + 37} text="Controller" bold size={10} fill="#14532D" />
       <SubLabel x={cx} y={y + 52} text="DC-coupled" fill="#166534" />
@@ -383,7 +411,7 @@ function BatteryBlock({
   const x = cx - w / 2,
     y = cy - h / 2;
   return (
-    <Box x={x} y={y} w={w} h={h} fill="#F0FDF4" stroke="#16A34A">
+    <Box x={x} y={y} w={w} h={h} fill="#F0FDF4" stroke="#16A34A" isometric>
       <text x={cx} y={y + 20} textAnchor="middle" fontSize={13} fill="#15803D" fontFamily="system-ui">
         🔋
       </text>
@@ -400,7 +428,7 @@ function ACPanelBlock({ cx, cy }: { cx: number; cy: number }) {
   const x = cx - w / 2,
     y = cy - h / 2;
   return (
-    <Box x={x} y={y} w={w} h={h} fill="#FAF5FF" stroke="#7C3AED">
+    <Box x={x} y={y} w={w} h={h} fill="#FAF5FF" stroke="#7C3AED" isometric>
       <Label x={cx} y={y + 24} text="AC Distribution" bold size={10} fill="#4C1D95" />
       <Label x={cx} y={y + 37} text="Board (DB)" bold size={10} fill="#4C1D95" />
       <SubLabel x={cx} y={y + 52} text="MCBs + RCDs" fill="#6D28D9" />
@@ -414,7 +442,7 @@ function LoadBlock({ cx, cy, annualKwh }: { cx: number; cy: number; annualKwh?: 
   const x = cx - w / 2,
     y = cy - h / 2;
   return (
-    <Box x={x} y={y} w={w} h={h} fill="#F8FAFC" stroke="#475569">
+    <Box x={x} y={y} w={w} h={h} fill="#F8FAFC" stroke="#475569" isometric>
       <text x={cx} y={y + 20} textAnchor="middle" fontSize={13} fill="#334155" fontFamily="system-ui">
         🏭
       </text>
@@ -433,7 +461,7 @@ function GridBlock({ cx, cy, topology }: { cx: number; cy: number; topology: str
     y = cy - h / 2;
   const isHybrid = topology === "hybrid";
   return (
-    <Box x={x} y={y} w={w} h={h} fill="#FEF2F2" stroke="#DC2626">
+    <Box x={x} y={y} w={w} h={h} fill="#FEF2F2" stroke="#DC2626" isometric>
       <text x={cx} y={y + 20} textAnchor="middle" fontSize={13} fill="#DC2626" fontFamily="system-ui">
         ⚡
       </text>
@@ -480,14 +508,15 @@ function GridTiedSchematic({ design, annualKwh, installationType }: { design?: R
   const xGrid = 520;
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ maxWidth: W, display: "block" }}>
+    <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ maxWidth: W, display: "block", margin: "0 auto" }}>
+      <rect x={2} y={2} width={W - 4} height={H - 4} rx={14} fill="#FFFFFF" stroke="#E5E7EB" strokeWidth={1.2} />
       <SectionTitle x={10} y={20} text="DC Side" />
       <line x1={0} y1={24} x2={xInv - 60} y2={24} stroke="#D1FAE5" strokeWidth={1.5} />
       <SectionTitle x={xInv - 50} y={20} text="AC Side" />
       <line x1={xInv + 60} y1={24} x2={W} y2={24} stroke="#DBEAFE" strokeWidth={1.5} />
 
-      <MountingBlock cx={xPV} cy={64} installationType={installationType} />
-      <VArrow x={xPV} y1={88} y2={midY - 42} color="#64748B" label="" />
+      <MountingBlock cx={xPV} cy={76} installationType={installationType} />
+      <VArrow x={xPV} y1={100} y2={midY - 42} color="#64748B" label="" />
       <PVArrayBlock cx={xPV} cy={midY} kwp={pvKwp} panelTech={panelTech} numStrings={numStrings} installationType={installationType} />
       <DCCombinerBlock cx={xComb} cy={midY} />
       <InverterBlock cx={xInv} cy={midY} topology="grid_tied" pvKwp={pvKwp} />
@@ -542,14 +571,15 @@ function GridTiedBessSchematic({
     xGrid = 545;
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ maxWidth: W, display: "block" }}>
+    <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ maxWidth: W, display: "block", margin: "0 auto" }}>
+      <rect x={2} y={2} width={W - 4} height={H - 4} rx={14} fill="#FFFFFF" stroke="#E5E7EB" strokeWidth={1.2} />
       <SectionTitle x={10} y={20} text="DC Side" />
       <line x1={0} y1={24} x2={xInv - 65} y2={24} stroke="#D1FAE5" strokeWidth={1.5} />
       <SectionTitle x={xInv - 55} y={20} text="AC Side" />
       <line x1={xInv + 65} y1={24} x2={W} y2={24} stroke="#DBEAFE" strokeWidth={1.5} />
 
-      <MountingBlock cx={xPV} cy={64} installationType={installationType} />
-      <VArrow x={xPV} y1={88} y2={midY - 42} color="#64748B" label="" />
+      <MountingBlock cx={xPV} cy={76} installationType={installationType} />
+      <VArrow x={xPV} y1={100} y2={midY - 42} color="#64748B" label="" />
       <PVArrayBlock cx={xPV} cy={midY} kwp={pvKwp} panelTech={panelTech} numStrings={numStrings} installationType={installationType} />
       <DCCombinerBlock cx={xComb} cy={midY} />
       <InverterBlock cx={xInv} cy={midY} topology={topology} pvKwp={pvKwp} bessKw={bessKw} />
@@ -607,14 +637,15 @@ function OffGridSchematic({
     xLoad = 800;
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ maxWidth: W, display: "block" }}>
+    <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ maxWidth: W, display: "block", margin: "0 auto" }}>
+      <rect x={2} y={2} width={W - 4} height={H - 4} rx={14} fill="#FFFFFF" stroke="#E5E7EB" strokeWidth={1.2} />
       <SectionTitle x={10} y={20} text="DC Side (All components)" />
       <line x1={0} y1={24} x2={xInv - 65} y2={24} stroke="#D1FAE5" strokeWidth={1.5} />
       <SectionTitle x={xInv - 55} y={20} text="AC Output" />
       <line x1={xInv + 65} y1={24} x2={W} y2={24} stroke="#DBEAFE" strokeWidth={1.5} />
 
-      <MountingBlock cx={xPV} cy={64} installationType={installationType} />
-      <VArrow x={xPV} y1={88} y2={midY - 42} color="#64748B" label="" />
+      <MountingBlock cx={xPV} cy={76} installationType={installationType} />
+      <VArrow x={xPV} y1={100} y2={midY - 42} color="#64748B" label="" />
       <PVArrayBlock cx={xPV} cy={midY} kwp={pvKwp} panelTech={panelTech} numStrings={numStrings} installationType={installationType} />
       <DCCombinerBlock cx={xComb} cy={midY} />
       <MPPTBlock cx={xMPPT} cy={midY} />
@@ -647,8 +678,8 @@ export default function SolarSchematic({ design, result }: { design?: Record<str
   const installationType = String(design?.installation_type ?? "");
   const installation = installationMeta(installationType);
 
-  const pvKwp = Number(design?.pv_capacity_kwp ?? 0);
-  const estimatedPanels = Math.ceil((pvKwp * 1000) / 400);
+  const pvKwp = Math.max(0, Number(design?.pv_capacity_kwp ?? 0));
+  const estimatedPanels = Math.max(0, Math.ceil((pvKwp * 1000) / 400));
   const panelsPerString = 10;
   const numStrings = Math.max(1, Math.ceil(estimatedPanels / panelsPerString));
 

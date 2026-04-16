@@ -52,6 +52,17 @@ function fmt(n, d = 0) {
   return Number(n).toLocaleString('en', { minimumFractionDigits: d, maximumFractionDigits: d });
 }
 
+function safeNumber(value) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+function fmtOrNA(value, d = 0) {
+  const n = safeNumber(value);
+  if (n == null) return 'N/A';
+  return n.toLocaleString('en', { minimumFractionDigits: d, maximumFractionDigits: d });
+}
+
 function MetricCard({
   icon: Icon,
   label,
@@ -164,6 +175,7 @@ export default function ResultsDashboard() {
   if (!data) return null;
 
   const { project, design, result, tariff } = data;
+  const analysisYears = Number(design?.analysis_period_years || result?.analysis_period_years || 25);
   const monthly = result?.monthly_summary || [];
   const cashflow = result?.yearly_cashflow || [];
   const currency = tariff?.currency || 'NGN';
@@ -297,10 +309,13 @@ export default function ResultsDashboard() {
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
           <MetricCard label="Solar Fraction" value={result?.utilisation_pct != null ? fmt(result.utilisation_pct, 1) : '—'} unit="%" />
           <MetricCard label="Self-Consumption" value={result?.self_consumption_pct != null ? fmt(result.self_consumption_pct, 1) : '—'} unit="%" />
-          <MetricCard label={`NPV (${design?.analysis_period_years || 25}yr)`} value={`${currSym}${fmt(result?.npv_25yr)}`} unit="" />
-          <MetricCard label="IRR" value={result?.irr_pct != null ? fmt(result.irr_pct, 1) : '—'} unit="%" />
+          <MetricCard label={`NPV (${analysisYears}yr)`} value={`${currSym}${fmtOrNA(result?.npv_25yr)}`} unit="" />
+          <MetricCard label="IRR" value={result?.irr_pct != null ? fmt(result.irr_pct, 1) : 'N/A'} unit="%" />
           <MetricCard label="LCOE" value={result?.lcoe_normal != null ? `${currSym}${fmt(result.lcoe_normal, 2)}` : '—'} unit="/kWh" />
         </div>
+        <p className="text-xs text-slate-500 mb-6">
+          Financial metrics may show near-zero values when the selected horizon is short, CAPEX dominates early years, or cashflow stays negative over the analysis window.
+        </p>
 
         {/* Topology-specific metrics */}
         {(result?.grid_topology === 'off_grid' || result?.grid_topology === 'hybrid') && (
@@ -469,7 +484,7 @@ export default function ResultsDashboard() {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
                 <MetricCard icon={RiBatteryLine} label="Capacity" value={design.bess_capacity_kwh} unit="kWh" />
                 <MetricCard label="Annual Throughput" value={fmt(result?.battery_discharged_kwh)} unit="kWh" />
-                <MetricCard label="Annual Cycles" value={fmt(result?.battery_cycles_annual, 0)} unit="" />
+                <MetricCard label="Annual Cycles" value={fmtOrNA(result?.battery_cycles_annual, 0)} unit="" />
                 <MetricCard label="Peak Shave" value={result?.peak_shave_kw ? fmt(result.peak_shave_kw, 1) : '—'} unit="kW" />
               </div>
               <div className="card p-5">
@@ -491,9 +506,19 @@ export default function ResultsDashboard() {
                           <td className="px-3 py-2 font-medium">{MONTHS[i]}</td>
                           <td className="px-3 py-2 text-right">{fmt(m.battery_charged_kwh)}</td>
                           <td className="px-3 py-2 text-right">{fmt(m.battery_discharged_kwh)}</td>
-                          <td className="px-3 py-2 text-right">{fmt(m.bess_cycles, 1)}</td>
                           <td className="px-3 py-2 text-right">
-                            {m.bess_avg_soc != null ? (Number(m.bess_avg_soc) * 100).toFixed(1) + '%' : '—'}
+                            {m.bess_cycles != null
+                              ? fmt(m.bess_cycles, 1)
+                              : m.battery_cycles != null
+                                ? fmt(m.battery_cycles, 1)
+                                : 'N/A'}
+                          </td>
+                          <td className="px-3 py-2 text-right">
+                            {m.bess_avg_soc != null
+                              ? (Number(m.bess_avg_soc) * 100).toFixed(1) + '%'
+                              : m.battery_avg_soc != null
+                                ? (Number(m.battery_avg_soc) * 100).toFixed(1) + '%'
+                                : 'N/A'}
                           </td>
                         </tr>
                       ))}
@@ -508,7 +533,7 @@ export default function ResultsDashboard() {
           {tab === 'financial' && (
             <>
               <div className="card p-5 mb-4">
-                <h3 className="text-sm font-semibold mb-4">{design?.analysis_period_years || 25}-Year Cashflow</h3>
+                <h3 className="text-sm font-semibold mb-4">{analysisYears}-Year Cashflow</h3>
                 <div className="h-72">
                   <Line data={cashflowChart} options={{
                     responsive: true, maintainAspectRatio: false,
@@ -608,20 +633,20 @@ export default function ResultsDashboard() {
               {result?.energy_comparison?.lifetime_costs && (
                 <div className="card p-5">
                   <h3 className="text-sm font-semibold text-forest-900 dark:text-white mb-4">
-                    Lifetime Cost ({result?.analysis_period_years || 25} Years)
+                    Lifetime Cost ({analysisYears} Years)
                   </h3>
                   <div className="space-y-3">
                     {[
-                      { label: 'Solar System', value: result.energy_comparison.lifetime_costs.solar, color: 'bg-emerald-500' },
-                      { label: 'Grid Only', value: result.energy_comparison.lifetime_costs.grid_only, color: 'bg-gray-500' },
-                      { label: 'Diesel Gen.', value: result.energy_comparison.lifetime_costs.diesel, color: 'bg-orange-500' },
-                      { label: 'Petrol Gen.', value: result.energy_comparison.lifetime_costs.petrol, color: 'bg-red-500' },
-                    ].sort((a, b) => a.value - b.value).map((item, idx) => {
+                      { label: 'Solar System', value: Number(result.energy_comparison.lifetime_costs.solar || 0), color: 'bg-emerald-500' },
+                      { label: 'Grid Only', value: Number(result.energy_comparison.lifetime_costs.grid_only || 0), color: 'bg-gray-500' },
+                      { label: 'Diesel Gen.', value: Number(result.energy_comparison.lifetime_costs.diesel || 0), color: 'bg-orange-500' },
+                      { label: 'Petrol Gen.', value: Number(result.energy_comparison.lifetime_costs.petrol || 0), color: 'bg-red-500' },
+                    ].filter((item) => Number.isFinite(item.value)).sort((a, b) => a.value - b.value).map((item, idx) => {
                       const maxVal = Math.max(
-                        result.energy_comparison.lifetime_costs.solar,
-                        result.energy_comparison.lifetime_costs.grid_only,
-                        result.energy_comparison.lifetime_costs.diesel,
-                        result.energy_comparison.lifetime_costs.petrol,
+                        Number(result.energy_comparison.lifetime_costs.solar || 0),
+                        Number(result.energy_comparison.lifetime_costs.grid_only || 0),
+                        Number(result.energy_comparison.lifetime_costs.diesel || 0),
+                        Number(result.energy_comparison.lifetime_costs.petrol || 0),
                       );
                       const pct = maxVal > 0 ? (item.value / maxVal) * 100 : 0;
                       return (
