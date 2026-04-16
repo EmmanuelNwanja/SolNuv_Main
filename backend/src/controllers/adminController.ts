@@ -46,6 +46,56 @@ function logDbError(context, error, extra = {}) {
   });
 }
 
+async function ensureCompanyForAdminPlanChange(targetUser) {
+  if (targetUser.company_id) {
+    return targetUser.company_id;
+  }
+
+  const generatedName =
+    targetUser.brand_name ||
+    [targetUser.first_name, targetUser.last_name].filter(Boolean).join(' ').trim() ||
+    'SolNuv Workspace';
+
+  const { data: company, error: companyError } = await supabase
+    .from('companies')
+    .insert({
+      name: generatedName,
+      email: targetUser.email,
+      user_type: targetUser.user_type || 'installer',
+      business_type: targetUser.business_type || 'solo',
+      subscription_plan: 'free',
+      max_team_members: PLAN_LIMITS.free,
+    })
+    .select('id')
+    .single();
+
+  if (companyError) throw companyError;
+
+  const { error: userUpdateError } = await supabase
+    .from('users')
+    .update({ company_id: company.id, updated_at: new Date().toISOString() })
+    .eq('id', targetUser.id);
+
+  if (userUpdateError) throw userUpdateError;
+
+  // Backfill older projects created before the user had a company.
+  const { error: projectUpdateError } = await supabase
+    .from('projects')
+    .update({ company_id: company.id })
+    .eq('user_id', targetUser.id)
+    .is('company_id', null);
+
+  if (projectUpdateError) {
+    logger.warn('Failed to backfill projects after admin company creation', {
+      user_id: targetUser.id,
+      company_id: company.id,
+      message: projectUpdateError.message,
+    });
+  }
+
+  return company.id;
+}
+
 exports.getOverview = async (req, res) => {
   try {
     const nowIso = new Date().toISOString();
@@ -201,7 +251,7 @@ exports.updateUserVerification = async (req, res) => {
 
     const { data: targetUser } = await supabase
       .from('users')
-      .select('id, email, company_id')
+      .select('id, email, company_id, first_name, last_name, brand_name, user_type, business_type')
       .eq('id', user_id)
       .single();
 
@@ -228,12 +278,17 @@ exports.updateUserVerification = async (req, res) => {
       }
     }
 
+    let effectiveCompanyId = targetUser.company_id || null;
+    if (isPlanChange && !effectiveCompanyId) {
+      effectiveCompanyId = await ensureCompanyForAdminPlanChange(targetUser);
+    }
+
     let previousPlan = 'free';
-    if (targetUser.company_id) {
+    if (effectiveCompanyId) {
       const { data: currentCompany } = await supabase
         .from('companies')
         .select('subscription_plan')
-        .eq('id', targetUser.company_id)
+        .eq('id', effectiveCompanyId)
         .maybeSingle();
       previousPlan = currentCompany?.subscription_plan || 'free';
 
@@ -280,7 +335,11 @@ exports.updateUserVerification = async (req, res) => {
       }
 
       if (Object.keys(companyUpdate).length > 0) {
-        await supabase.from('companies').update(companyUpdate).eq('id', targetUser.company_id);
+        const { error: companyUpdateError } = await supabase
+          .from('companies')
+          .update(companyUpdate)
+          .eq('id', effectiveCompanyId);
+        if (companyUpdateError) throw companyUpdateError;
       }
 
       // Record transaction for non-free plan changes
@@ -290,9 +349,9 @@ exports.updateUserVerification = async (req, res) => {
           ? bank_confirmed_at
           : new Date().toISOString();
 
-        await supabase.from('subscription_transactions').insert({
+        const { error: transactionError } = await supabase.from('subscription_transactions').insert({
           user_id: targetUser.id,
-          company_id: targetUser.company_id,
+          company_id: effectiveCompanyId,
           plan: company_plan,
           billing_interval: subscription_interval || 'monthly',
           amount_ngn: amount_received || 0,
@@ -312,7 +371,10 @@ exports.updateUserVerification = async (req, res) => {
           paid_at: paidAtDate,
           environment: env,
         });
+        if (transactionError) throw transactionError;
       }
+    } else if (isPlanChange) {
+      return sendError(res, 'User has no company and a billing workspace could not be created', 400);
     }
 
     await logPlatformActivity({
@@ -330,22 +392,26 @@ exports.updateUserVerification = async (req, res) => {
     });
 
     // Auto-assign or revoke AI agents when plan changes
-    if (isPlanChange && targetUser.company_id) {
+    if (isPlanChange && effectiveCompanyId) {
       const previousLevel = PLAN_HIERARCHY[previousPlan] ?? 0;
       const nextLevel = PLAN_HIERARCHY[company_plan] ?? 0;
 
       if (nextLevel < previousLevel) {
-        revokeAgentsOnDowngrade(targetUser.company_id, company_plan).catch(err =>
-          logger.warn('Agent revocation after admin downgrade failed', { companyId: targetUser.company_id, fromPlan: previousPlan, toPlan: company_plan, message: err.message })
+        revokeAgentsOnDowngrade(effectiveCompanyId, company_plan).catch(err =>
+          logger.warn('Agent revocation after admin downgrade failed', { companyId: effectiveCompanyId, fromPlan: previousPlan, toPlan: company_plan, message: err.message })
         );
       } else if (nextLevel > previousLevel) {
-        assignAgentsOnSubscription(targetUser.company_id, company_plan).catch(err =>
-          logger.warn('Agent assignment after admin upgrade failed', { companyId: targetUser.company_id, fromPlan: previousPlan, toPlan: company_plan, message: err.message })
+        assignAgentsOnSubscription(effectiveCompanyId, company_plan).catch(err =>
+          logger.warn('Agent assignment after admin upgrade failed', { companyId: effectiveCompanyId, fromPlan: previousPlan, toPlan: company_plan, message: err.message })
         );
       }
     }
 
-    return sendSuccess(res, { user_id }, isPlanChange ? 'Plan upgraded & transaction recorded' : 'User updated');
+    return sendSuccess(
+      res,
+      { user_id, company_id: effectiveCompanyId },
+      isPlanChange ? 'Plan upgraded & transaction recorded' : 'User updated'
+    );
   } catch (error) {
     logger.error('Failed to update user verification', { admin_user_id: req.user?.id || null, target_user_id: req.body?.user_id || null, message: error.message });
     return sendError(res, 'Failed to update user', 500);
