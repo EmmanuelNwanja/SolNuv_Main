@@ -205,7 +205,7 @@ exports.refreshLeaderboard = async (req, res) => {
     // Inline the refresh here to avoid circular dependency
     const { data: users } = await supabase
       .from('users')
-      .select('id, first_name, last_name, brand_name, company_id, companies(name)');
+      .select('id, first_name, last_name, brand_name, company_id, leaderboard_public_display_enabled, leaderboard_public_display_name, companies(name)');
 
     const { data: projects } = await supabase
       .from('projects')
@@ -301,7 +301,12 @@ exports.refreshLeaderboard = async (req, res) => {
         (co2AvoidedKg * 0.01) +
         (averageRating * 8) +
         verificationTrustScore;
-      const entityName  = user.companies?.name || user.brand_name || `${user.first_name} ${user.last_name || ''}`.trim();
+      const privacyAlias = `User-${String(user.id || '').slice(0, 8)}`;
+      const customPublicName = String(user.leaderboard_public_display_name || '').trim();
+      const defaultPublicName = user.companies?.name || user.brand_name || `${user.first_name} ${user.last_name || ''}`.trim();
+      const entityName = user.leaderboard_public_display_enabled
+        ? (customPublicName || defaultPublicName || privacyAlias)
+        : privacyAlias;
 
       entries.push({
         entity_id:             user.id,

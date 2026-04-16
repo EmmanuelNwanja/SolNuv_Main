@@ -51,6 +51,8 @@ export interface UserProfile {
   public_slug?: string | null;
   public_bio?: string | null;
   is_public_profile?: boolean | null;
+  leaderboard_public_display_enabled?: boolean | null;
+  leaderboard_public_display_name?: string | null;
   notification_preferences?: {
     sms?: boolean;
     whatsapp?: boolean;

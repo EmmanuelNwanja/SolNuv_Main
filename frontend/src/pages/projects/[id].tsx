@@ -701,6 +701,7 @@ export default function ProjectDetail() {
     : null;
   const transitions = STATUS_TRANSITIONS[project.status] || [];
   const canEditEquipment = project.status === 'draft' || project.status === 'maintenance';
+  const isGeoVerified = Boolean(project.geo_verified);
 
   return (
     <>
@@ -857,7 +858,7 @@ export default function ProjectDetail() {
                   <label className="label">Longitude</label>
                   <input type="number" step="0.000001" className="input" value={editForm.longitude} onChange={(e) => setEditForm((prev) => ({ ...prev, longitude: e.target.value, geo_source: prev.geo_source === 'none' ? 'manual' : prev.geo_source }))} />
                 </div>
-                <div className="sm:col-span-2 flex flex-wrap gap-2">
+                <div id="project-verification-panel" className="sm:col-span-2 flex flex-wrap gap-2">
                   <button
                     type="button"
                     onClick={() => {
@@ -897,7 +898,10 @@ export default function ProjectDetail() {
                           if (v.verified) {
                             toast.success(`Location verified! ${v.confidence_pct}% confidence`);
                           } else {
-                            toast(`Verification: ${v.confidence_pct}% confidence — ${v.distance_m}m from address`, { icon: '⚠️' });
+                            const distanceText = Number.isFinite(v.distance_m)
+                              ? `${v.distance_m}m from address`
+                              : 'distance unavailable, retry shortly';
+                            toast(`Verification: ${v.confidence_pct}% confidence — ${distanceText}`, { icon: '⚠️' });
                           }
                         } catch (err) {
                           toast.error(err.response?.data?.message || 'Verification failed');
@@ -1306,6 +1310,21 @@ export default function ProjectDetail() {
           {/* Actions */}
           <div className="card space-y-3">
             <h2 className="font-semibold text-forest-900 mb-2">Actions</h2>
+
+            {!isGeoVerified && (
+              <button
+                type="button"
+                onClick={() => {
+                  setEditMode(true);
+                  setTimeout(() => {
+                    document.getElementById('project-verification-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  }, 50);
+                }}
+                className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-semibold bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+              >
+                <RiMapPinLine /> Verify Project Location
+              </button>
+            )}
 
             {/* QR Code */}
             {project.qr_code_url && (

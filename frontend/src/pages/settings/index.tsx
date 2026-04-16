@@ -44,6 +44,8 @@ export default function Settings() {
     public_slug: profile?.public_slug || '',
     public_bio: profile?.public_bio || '',
     is_public_profile: profile?.is_public_profile !== false,
+    leaderboard_public_display_enabled: profile?.leaderboard_public_display_enabled === true,
+    leaderboard_public_display_name: profile?.leaderboard_public_display_name || '',
   });
 
   const [inviteForm, setInviteForm] = useState({ email: '', phone: '', role: 'manager', invite_channel: 'sms' });
@@ -89,6 +91,8 @@ export default function Settings() {
       public_slug: profile?.public_slug || '',
       public_bio: profile?.public_bio || '',
       is_public_profile: profile?.is_public_profile !== false,
+      leaderboard_public_display_enabled: profile?.leaderboard_public_display_enabled === true,
+      leaderboard_public_display_name: profile?.leaderboard_public_display_name || '',
     });
   }, [profile, company]);
 
@@ -467,6 +471,32 @@ export default function Settings() {
               <span className="text-sm text-slate-700">Public profile visible</span>
               <input type="checkbox" checked={accountForm.is_public_profile} onChange={e => setAccountForm(f => ({ ...f, is_public_profile: e.target.checked }))} />
             </label>
+            <label className="flex items-center justify-between p-3 rounded-xl bg-slate-50">
+              <span className="text-sm text-slate-700">Public name on leaderboard</span>
+              <input
+                type="checkbox"
+                checked={accountForm.leaderboard_public_display_enabled}
+                onChange={e => setAccountForm(f => ({ ...f, leaderboard_public_display_enabled: e.target.checked }))}
+              />
+            </label>
+            {accountForm.leaderboard_public_display_enabled && (
+              <div>
+                <label className="label">Leaderboard Public Display Name</label>
+                <input
+                  className="input"
+                  value={accountForm.leaderboard_public_display_name}
+                  onChange={e => setAccountForm(f => ({ ...f, leaderboard_public_display_name: e.target.value }))}
+                  placeholder="e.g. GreenVolt Lagos Team"
+                  maxLength={120}
+                />
+                <p className="text-xs text-slate-400 mt-1">If left blank, your default profile/company name is used.</p>
+              </div>
+            )}
+            {!accountForm.leaderboard_public_display_enabled && (
+              <p className="text-xs text-slate-500 -mt-1">
+                Privacy mode is active: leaderboard will show an anonymized user ID instead of your name.
+              </p>
+            )}
             {accountForm.public_slug && (
               <a href={`/profile/${encodeURIComponent(accountForm.public_slug)}`} target="_blank" rel="noreferrer" className="text-sm text-forest-900 font-semibold hover:underline inline-flex items-center gap-1">
                 <RiLinksLine /> Preview public portfolio

@@ -690,10 +690,17 @@ exports.geoVerify = async (req, res) => {
 
     if (updateError) throw updateError;
 
+    const safeDistanceM = Number.isFinite(result.distance_m) ? Math.round(result.distance_m) : null;
+    const verificationMessage = result.verified
+      ? `Location verified with ${result.confidence_pct}% confidence`
+      : safeDistanceM !== null
+        ? `Verification incomplete — ${result.confidence_pct}% confidence (${safeDistanceM}m from address)`
+        : `Verification incomplete — ${result.confidence_pct}% confidence (distance unavailable; retry shortly)`;
+
     return sendSuccess(res, {
       verified: result.verified,
       confidence_pct: result.confidence_pct,
-      distance_m: result.distance_m,
+      distance_m: safeDistanceM,
       method: result.method,
       geo_source: geoSource,
       details: {
@@ -703,10 +710,7 @@ exports.geoVerify = async (req, res) => {
         state_match: result.details.state_match,
         city_match: result.details.city_match,
       },
-    }, result.verified
-      ? `Location verified with ${result.confidence_pct}% confidence`
-      : `Verification incomplete — ${result.confidence_pct}% confidence (${result.distance_m}m from address)`
-    );
+    }, verificationMessage);
   } catch (err) {
     logger.error('geoVerify error', { message: err.message });
     return sendError(res, 'Geolocation verification failed');

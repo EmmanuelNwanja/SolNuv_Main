@@ -72,7 +72,7 @@ async function refreshLeaderboard() {
     // Step 1: Get all users (include verification_status for account-verified bonus)
     const { data: users, error: usersError } = await supabase
       .from('users')
-      .select('id, first_name, last_name, brand_name, company_id, verification_status, companies(name)');
+      .select('id, first_name, last_name, brand_name, company_id, verification_status, leaderboard_public_display_enabled, leaderboard_public_display_name, companies(name)');
 
     if (usersError || !users) {
       logger.error('Leaderboard: failed to fetch users', usersError);
@@ -234,10 +234,15 @@ async function refreshLeaderboard() {
       // Only include users who have at least one project
       if (userProjects.length === 0) continue;
 
-      const entityName =
+      const privacyAlias = `User-${String(user.id || '').slice(0, 8)}`;
+      const customPublicName = String(user.leaderboard_public_display_name || '').trim();
+      const defaultPublicName =
         user.companies?.name ||
         user.brand_name ||
         `${user.first_name} ${user.last_name || ''}`.trim();
+      const entityName = user.leaderboard_public_display_enabled
+        ? (customPublicName || defaultPublicName || privacyAlias)
+        : privacyAlias;
 
       leaderboardEntries.push({
         entity_id:            user.id,
