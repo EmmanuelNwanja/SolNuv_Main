@@ -20,6 +20,7 @@ router.use('/load-profiles', require('./loadProfileRoutes'));
 router.use('/simulation', require('./simulationRoutes'));
 router.use('/design-reports', require('./designReportRoutes'));
 router.use('/nerc', require('./nercRoutes'));
+router.use('/v2', require('./v2Routes'));
 
 // Public (unauthenticated) endpoints
 const adminController = require('../controllers/adminController');

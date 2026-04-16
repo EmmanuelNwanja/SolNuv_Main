@@ -483,6 +483,21 @@ export const tariffAPI = {
   delete: (id: string) => api.delete(`/tariffs/${id}`),
 };
 
+export const v2API = {
+  health: () => api.get("/v2/health"),
+  registerActor: (data: JsonRecord) => api.post("/v2/onboarding/register-actor", data),
+  registerSerials: (data: JsonRecord) => api.post("/v2/assets/serial-registrations", data),
+  listEscrowPolicies: (organization_id: string) =>
+    api.get("/v2/escrow/policies", { params: { organization_id } }),
+  createEscrowPolicy: (data: JsonRecord) => api.post("/v2/escrow/policies", data),
+  evaluateEscrowDecision: (data: JsonRecord) => api.post("/v2/escrow/decisions/evaluate", data),
+  executeEscrowDecision: (decision_id: string, organization_id: string) =>
+    api.post("/v2/escrow/executions/submit", { decision_id, organization_id }),
+  listLifecycleEvents: (organization_id: string, params?: JsonRecord) =>
+    api.get("/v2/lifecycle/events", { params: { organization_id, ...(params || {}) } }),
+  createLifecycleEvent: (data: JsonRecord) => api.post("/v2/lifecycle/events", data),
+};
+
 export const loadProfileAPI = {
   upload: (projectId: string, file: File) => {
     const form = new FormData();
