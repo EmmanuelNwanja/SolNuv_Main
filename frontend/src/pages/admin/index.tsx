@@ -34,6 +34,7 @@ export const ADMIN_TABS = [
   { id: 'pickup', label: 'Pickup Requests', path: '/admin/pickup', title: 'Pickup Requests - SolNuv' },
   { id: 'agents', label: 'AI Agents', path: '/admin/agents', title: 'AI Agents - SolNuv' },
   { id: 'design', label: 'Design & Modelling', path: '/admin/design', title: 'Design & Modelling - SolNuv' },
+  { id: 'v2-oracle', label: 'V2 Oracle', path: '/admin/v2-oracle', title: 'V2 Oracle Console - SolNuv' },
   { id: 'nerc', label: 'NERC Compliance', path: '/admin/nerc', title: 'NERC Compliance - SolNuv' },
   { id: 'direct-payments', label: 'Direct Payments', path: '/admin/direct-payments', title: 'Direct Bank Transfers - SolNuv' },
 ];

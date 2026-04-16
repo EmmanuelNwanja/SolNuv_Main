@@ -395,6 +395,47 @@ When you have paying customers, upgrade:
 
 ---
 
+## V2 Oracle Parallel Runtime (New)
+
+SolNuv V2 now runs in parallel with V1 at the backend route prefix:
+
+- `GET /api/v2/health`
+- `POST /api/v2/onboarding/register-actor`
+- `POST /api/v2/assets/serial-registrations`
+- `GET/POST /api/v2/escrow/policies`
+- `POST /api/v2/escrow/decisions/evaluate`
+- `POST /api/v2/escrow/executions/submit`
+- `GET/POST /api/v2/lifecycle/events`
+
+### Database migration
+
+Run the new migration in Supabase SQL editor:
+
+- `database/migrations/050_v2_oracle_foundation.sql`
+
+### Environment variables
+
+New backend env vars (see `backend/.env.example`):
+
+- `V2_CHAIN_PROVIDER`
+- `V2_CHAIN_ID`
+- `V2_CUSTODIAN_PROVIDER`
+
+### Smoke check
+
+After deployment, verify V2 health:
+
+```bash
+cd backend
+npm run test:v2-smoke -- https://api.solnuv.com
+```
+
+For deeper endpoint reference, see:
+
+- `docs/v2-oracle-api.md`
+
+---
+
 ## 🗂️ Key File Reference
 
 When you need to update something:
