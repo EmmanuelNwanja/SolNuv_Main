@@ -707,8 +707,12 @@ exports.geoVerify = async (req, res) => {
         geocoded_address: result.details.geocoded_address,
         geocoded_display: result.details.geocoded_display,
         reverse_display: result.details.reverse_display,
+        reverse_zoom: result.details.reverse_zoom ?? null,
         state_match: result.details.state_match,
         city_match: result.details.city_match,
+        address_token_score: result.details.address_token_score ?? null,
+        address_hint_match: result.details.address_hint_match ?? null,
+        used_fallback_geocode: result.details.used_fallback_geocode ?? null,
       },
     }, verificationMessage);
   } catch (err) {
