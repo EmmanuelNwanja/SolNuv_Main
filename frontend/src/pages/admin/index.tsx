@@ -675,7 +675,7 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
                           : plan === 'pro' ? 'bg-emerald-100 text-emerald-800'
                           : 'bg-slate-100 text-slate-600'
                         }`}>
-                          {!u.is_active ? 'Suspended' : plan === 'free' ? 'Basic' : plan.toUpperCase()}
+                          {!u.is_active ? 'Suspended' : plan === 'free' ? 'Free' : plan.toUpperCase()}
                         </span>
                         {u.verification_status === 'verified' && <span className="text-[11px] px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium">✓ Verified</span>}
                         {(u.verification_status === 'pending' || u.verification_status === 'pending_admin_review') && <span className="text-[11px] px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700 font-medium">⏳ Pending</span>}
@@ -789,7 +789,8 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
                           <div>
                             <label className="label text-xs">Plan</label>
                             <select className="input text-sm" value={mgmtPlan} onChange={e => setMgmtPlan(e.target.value)}>
-                              <option value="free">Basic (Free)</option>
+                              <option value="free">Free</option>
+                              <option value="basic">Basic</option>
                               <option value="pro">Pro</option>
                               <option value="elite">Elite</option>
                               <option value="enterprise">Enterprise</option>
@@ -1452,7 +1453,7 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
                   const row = v as { revenue_ngn?: number; count?: number };
                   return (
                   <div key={p} className="flex justify-between text-sm">
-                    <span className="text-slate-600 capitalize">{p === 'free' ? 'Basic' : p}</span>
+                    <span className="text-slate-600 capitalize">{p === 'free' ? 'Free' : p}</span>
                     <span className="font-medium text-forest-900">₦{Number(row.revenue_ngn).toLocaleString('en-NG')} ({row.count})</span>
                   </div>
                   );
