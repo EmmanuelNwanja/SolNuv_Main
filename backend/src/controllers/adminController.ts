@@ -770,7 +770,7 @@ exports.sendPushNotification = async (req, res) => {
     });
 
     if (recipients.length > 0) {
-      await supabase.from('notifications').insert(
+      const { error: notifInsertError } = await supabase.from('notifications').insert(
         recipients.map((u) => ({
           user_id: u.id,
           type: 'report_ready',
@@ -779,6 +779,15 @@ exports.sendPushNotification = async (req, res) => {
           data: { push_notification_id: pushRow.id, target_type, target_value },
         }))
       );
+
+      if (notifInsertError) {
+        logDbError('sendPushNotification notifications insert failed', notifInsertError, {
+          admin_user_id: req.user?.id || null,
+          push_notification_id: pushRow.id,
+          recipients_attempted: recipients.length,
+        });
+        return sendError(res, 'Push queued but delivery insert failed. Check notification_type enum / DB schema.', 500);
+      }
     }
 
     await logPlatformActivity({
@@ -1738,13 +1747,7 @@ exports.listReportShares = async (req, res) => {
       .from('report_shares')
       .select(`
         id, share_token, is_active, view_count, expires_at, created_at,
-        simulation_results(
-          id, pv_capacity_kwp, annual_savings,
-          project_designs(
-            project_id,
-            projects(id, name, companies(id, name))
-          )
-        )
+        projects!report_shares_project_id_fkey(id, name, companies!projects_company_id_fkey(id, name))
       `, { count: 'exact' })
       .order('created_at', { ascending: false })
       .range(from, to);
@@ -1763,10 +1766,10 @@ exports.listReportShares = async (req, res) => {
       view_count: r.view_count,
       expires_at: r.expires_at,
       created_at: r.created_at,
-      pv_kwp: r.simulation_results?.pv_capacity_kwp,
-      annual_savings: r.simulation_results?.annual_savings,
-      project_name: r.simulation_results?.project_designs?.projects?.name || '—',
-      company_name: r.simulation_results?.project_designs?.projects?.companies?.name || '—',
+      pv_kwp: null,
+      annual_savings: null,
+      project_name: r.projects?.name || '—',
+      company_name: r.projects?.companies?.name || '—',
     }));
 
     return sendSuccess(res, { shares: rows, total: count || 0, page: Number(page), limit: Number(limit) });
@@ -2003,7 +2006,7 @@ exports.listDirectPayments = async (req, res) => {
       .from('direct_payment_submissions')
       .select(
         `*, user:users!direct_payment_submissions_user_id_fkey(id, first_name, last_name, email,
-           companies(id, name, subscription_plan))`,
+           companies:companies!users_company_id_fkey(id, name, subscription_plan))`,
         { count: 'exact' }
       )
       .order('created_at', { ascending: false })
@@ -2198,9 +2201,28 @@ exports.getSeoSettings = async (req, res) => {
       .from('platform_seo_settings')
       .select('*')
       .eq('row_key', 'global')
-      .single();
+      .maybeSingle();
 
-    if (error) throw error;
+    if (error) {
+      if (error.code === 'PGRST205') {
+        logger.warn('Admin: platform_seo_settings missing; returning defaults');
+        return sendSuccess(res, {
+          row_key: 'global',
+          site_name: 'SolNuv',
+          default_title: 'SolNuv',
+          default_description: '',
+          default_keywords: '',
+          og_image_url: null,
+          twitter_handle: '@solnuv',
+          canonical_base: 'https://solnuv.com',
+          google_site_verification: null,
+          google_analytics_id: null,
+          structured_data: null,
+          extra_head_tags: null,
+        });
+      }
+      throw error;
+    }
     return sendSuccess(res, data || {});
   } catch (error) {
     logger.error('Admin: getSeoSettings failed', { message: error.message });
@@ -2251,7 +2273,12 @@ exports.updateSeoSettings = async (req, res) => {
       .select('*')
       .single();
 
-    if (error) throw error;
+    if (error) {
+      if (error.code === 'PGRST205') {
+        return sendError(res, 'SEO settings table not available in this environment. Run migration 027.', 503);
+      }
+      throw error;
+    }
 
     await logPlatformActivity({
       actorUserId: req.user.id,
@@ -2285,9 +2312,25 @@ exports.getPublicSeoSettings = async (req, res) => {
         'google_site_verification, google_analytics_id, structured_data'
       )
       .eq('row_key', 'global')
-      .single();
+      .maybeSingle();
 
-    if (error) throw error;
+    if (error) {
+      if (error.code === 'PGRST205') {
+        return sendSuccess(res, {
+          site_name: 'SolNuv',
+          default_title: 'SolNuv',
+          default_description: '',
+          default_keywords: '',
+          og_image_url: null,
+          twitter_handle: '@solnuv',
+          canonical_base: 'https://solnuv.com',
+          google_site_verification: null,
+          google_analytics_id: null,
+          structured_data: null,
+        });
+      }
+      throw error;
+    }
     return sendSuccess(res, data || {});
   } catch (error) {
     logger.error('getPublicSeoSettings failed', { message: error.message });
@@ -2316,7 +2359,7 @@ exports.listVerificationRequests = async (req, res) => {
         id, email, first_name, last_name, business_type, brand_name,
         verification_status, verification_requested_at, verification_notes,
         verification_rejection_reason, created_at,
-        companies(id, name, email)
+        companies:companies!users_company_id_fkey(id, name, email)
       `, { count: 'exact' })
       .in('verification_status', safeStatus === 'pending'
         ? ['pending', 'pending_admin_review'] 
