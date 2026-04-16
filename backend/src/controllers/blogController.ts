@@ -615,12 +615,12 @@ exports.adminUpdateAd = async (req, res) => {
       campaign_id: campaign_id || null,
       display_order: Number(display_order) || 0,
       updated_at: new Date().toISOString(),
+      ...(placement !== undefined && placement !== 'in-article'
+        ? { in_article_after_paragraph: 2 }
+        : in_article_after_paragraph !== undefined
+          ? { in_article_after_paragraph: clampInArticleParagraph(in_article_after_paragraph) }
+          : {}),
     };
-    if (placement !== undefined && placement !== 'in-article') {
-      updates.in_article_after_paragraph = 2;
-    } else if (in_article_after_paragraph !== undefined) {
-      updates.in_article_after_paragraph = clampInArticleParagraph(in_article_after_paragraph);
-    }
     const { data, error } = await supabase.from('ads').update(updates).eq('id', id).select().single();
     if (error) throw error;
     return sendSuccess(res, data, 'Ad updated');
