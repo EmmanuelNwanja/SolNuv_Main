@@ -672,6 +672,37 @@ exports.getNotifications = async (req, res) => {
 };
 
 /**
+ * PATCH /api/auth/notifications/:id/read
+ * Mark a single notification as read for current user.
+ */
+exports.markNotificationRead = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!id) return sendError(res, 'Notification ID is required', 400);
+
+    const { data, error } = await supabase
+      .from('notifications')
+      .update({ is_read: true })
+      .eq('id', id)
+      .eq('user_id', req.user.id)
+      .select('id, is_read')
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data) return sendError(res, 'Notification not found', 404);
+
+    return sendSuccess(res, data, 'Notification marked as read');
+  } catch (error) {
+    logger.error('Failed to mark notification read', {
+      user_id: req.user?.id || null,
+      notification_id: req.params?.id || null,
+      message: error.message,
+    });
+    return sendError(res, 'Failed to update notification', 500);
+  }
+};
+
+/**
  * POST /api/auth/password-reset/request
  */
 exports.requestPasswordResetOtp = async (req, res) => {

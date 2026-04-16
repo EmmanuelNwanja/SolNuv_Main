@@ -107,6 +107,9 @@ exports.getOverview = async (req, res) => {
       activeSubscriptions,
       monthlyRevenue,
       pendingPush,
+      pendingRecoveryRequests,
+      pendingVerificationRequests,
+      pendingDirectPayments,
       designsCount,
       simulationsCount,
     ] = await Promise.all([
@@ -125,12 +128,29 @@ exports.getOverview = async (req, res) => {
         .from('push_notifications')
         .select('*', { count: 'exact', head: true })
         .eq('status', 'queued'),
+      supabase
+        .from('recovery_requests')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'requested'),
+      supabase
+        .from('users')
+        .select('*', { count: 'exact', head: true })
+        .in('verification_status', ['pending', 'pending_admin_review']),
+      supabase
+        .from('direct_payment_submissions')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'pending'),
       supabase.from('project_designs').select('*', { count: 'exact', head: true }),
       supabase.from('simulation_results').select('*', { count: 'exact', head: true }),
     ]);
 
     const revenue30d = (monthlyRevenue.data || []).reduce((sum, tx) => sum + Number(tx.amount_ngn || 0), 0);
-    if (usersCount.error || companiesCount.error || projectsCount.error || activeSubscriptions.error || monthlyRevenue.error || pendingPush.error || designsCount.error || simulationsCount.error) {
+    if (
+      usersCount.error || companiesCount.error || projectsCount.error ||
+      activeSubscriptions.error || monthlyRevenue.error || pendingPush.error ||
+      pendingRecoveryRequests.error || pendingVerificationRequests.error || pendingDirectPayments.error ||
+      designsCount.error || simulationsCount.error
+    ) {
       logger.warn('Admin overview partial dataset', {
         admin_user_id: req.user?.id || null,
         users_error: usersCount.error?.message || null,
@@ -139,6 +159,9 @@ exports.getOverview = async (req, res) => {
         subscriptions_error: activeSubscriptions.error?.message || null,
         revenue_error: monthlyRevenue.error?.message || null,
         push_error: pendingPush.error?.message || null,
+        pending_recovery_error: pendingRecoveryRequests.error?.message || null,
+        pending_verification_error: pendingVerificationRequests.error?.message || null,
+        pending_direct_payments_error: pendingDirectPayments.error?.message || null,
         designs_error: designsCount.error?.message || null,
         simulations_error: simulationsCount.error?.message || null,
       });
@@ -151,6 +174,9 @@ exports.getOverview = async (req, res) => {
       active_subscriptions: activeSubscriptions.count || 0,
       revenue_30d_ngn: revenue30d,
       queued_push_notifications: pendingPush.count || 0,
+      pending_pickup_requests: pendingRecoveryRequests.count || 0,
+      pending_verification_requests: pendingVerificationRequests.count || 0,
+      pending_direct_payments: pendingDirectPayments.count || 0,
       designs: designsCount.count || 0,
       simulations: simulationsCount.count || 0,
     });

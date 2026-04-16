@@ -865,6 +865,41 @@ exports.submitBankTransfer = async (req, res) => {
       details: { plan_id, billing_interval, amount_ngn: Number(amount_ngn), has_receipt: !!proof_url },
     });
 
+    // Notify operations/super admins in-app so submissions are visible immediately.
+    const { data: admins } = await supabase
+      .from('admin_users')
+      .select('user_id')
+      .in('role', ['super_admin', 'operations', 'finance'])
+      .eq('is_active', true)
+      .limit(20);
+
+    const adminNotifs = (admins || [])
+      .map((a) => a?.user_id)
+      .filter(Boolean)
+      .map((userId) => ({
+        user_id: userId,
+        type: 'payment',
+        title: 'Direct Payment Submission Pending Review',
+        message: `${req.user.email || 'A user'} submitted a ${String(plan_id).toUpperCase()} ${String(billing_interval)} transfer proof for review.`,
+        data: {
+          source: 'direct_payment_submitted',
+          submission_id: data.id,
+          submitted_user_id: req.user.id,
+          plan_id,
+          billing_interval,
+        },
+      }));
+    if (adminNotifs.length > 0) {
+      const { error: notifErr } = await supabase.from('notifications').insert(adminNotifs);
+      if (notifErr) {
+        logger.warn('Failed to insert admin notifications for direct payment submission', {
+          submission_id: data.id,
+          message: notifErr.message,
+          code: notifErr.code,
+        });
+      }
+    }
+
     return sendSuccess(res, data, 'Payment proof submitted. An admin will review and activate your subscription within 1–2 business days.');
   } catch (err) {
     logger.error('submitBankTransfer error', { message: err.message });

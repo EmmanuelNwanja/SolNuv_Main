@@ -28,22 +28,49 @@ async function sendRecoveryConfirmation(user, project) {
 }
 
 async function notifyAdminOfPickupRequest(project, request) {
-  // Fetch super_admin and operations admin phones to notify
-  const supabase = require('../config/database');
+  // Fetch super_admin and operations admins for in-app + SMS alerts
   const { data: admins } = await supabase
     .from('admin_users')
-    .select('phone, email')
+    .select('user_id, users!admin_users_user_id_fkey(phone, email)')
     .in('role', ['super_admin', 'operations'])
     .eq('is_active', true)
-    .limit(5);
+    .limit(20);
 
   if (!admins || admins.length === 0) return;
 
   const recyclerLabel = request?.preferred_recycler || 'SolNuv to decide';
   const message = `SolNuv Admin: New pickup request for project "${project?.name || 'N/A'}" (${request?.requester_company_name || ''}). Preferred recycler: ${recyclerLabel}. Review at solnuv.com/admin.`;
 
+  const adminNotifications = admins
+    .map((a) => a?.user_id)
+    .filter(Boolean)
+    .map((userId) => ({
+      user_id: userId,
+      type: 'decommission_alert',
+      title: 'New Pickup Request Submitted',
+      message,
+      data: {
+        source: 'pickup_request',
+        project_id: project?.id || null,
+        recovery_request_id: request?.id || null,
+      },
+    }));
+
+  if (adminNotifications.length > 0) {
+    const { error: notifError } = await supabase.from('notifications').insert(adminNotifications);
+    if (notifError) {
+      logger.warn('Admin pickup in-app notification insert failed', {
+        message: notifError.message,
+        code: notifError.code,
+      });
+    }
+  }
+
   const results = await Promise.allSettled(
-    admins.filter(a => a.phone).map(a => sendSms({ to: a.phone, message, channel: 'generic' }))
+    admins
+      .map((a) => a?.users?.phone)
+      .filter(Boolean)
+      .map((phone) => sendSms({ to: phone, message, channel: 'generic' }))
   );
 
   const failures = results.filter(r => r.status === 'rejected');
@@ -74,6 +101,38 @@ async function notifyAdminsOfVerificationRequest(user, type) {
     user_email: userEmail,
     user_type: userType,
   });
+
+  const { data: admins } = await supabase
+    .from('admin_users')
+    .select('user_id')
+    .in('role', ['super_admin', 'operations'])
+    .eq('is_active', true)
+    .limit(20);
+
+  const rows = (admins || [])
+    .map((a) => a?.user_id)
+    .filter(Boolean)
+    .map((userId) => ({
+      user_id: userId,
+      type: 'account_activity',
+      title: 'New Verification Request',
+      message: `${userName} (${userEmail || 'no email'}) submitted a ${userType} verification request.`,
+      data: {
+        source: 'verification_request',
+        requested_user_id: user?.id || null,
+        requested_user_type: userType,
+      },
+    }));
+
+  if (rows.length > 0) {
+    const { error } = await supabase.from('notifications').insert(rows);
+    if (error) {
+      logger.warn('Admin verification in-app notification insert failed', {
+        message: error.message,
+        code: error.code,
+      });
+    }
+  }
 }
 
 async function notifyUserOfVerificationStatus(user, status, reason = null) {
