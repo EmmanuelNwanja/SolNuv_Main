@@ -26,6 +26,13 @@ function slugify(value) {
     .slice(0, 70);
 }
 
+function sanitizeLeaderboardDisplayName(value) {
+  const cleaned = String(value || '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return cleaned ? cleaned.slice(0, 120) : null;
+}
+
 async function ensureUniquePublicSlug(base, userId = null) {
   const fallback = `engineer-${uuidv4().slice(0, 8)}`;
   const normalized = slugify(base) || fallback;
@@ -76,6 +83,8 @@ exports.createOrUpdateProfile = async (req, res) => {
       public_slug,
       public_bio,
       is_public_profile,
+      leaderboard_public_display_enabled,
+      leaderboard_public_display_name,
     } = req.body;
 
     if (!first_name) return sendError(res, 'First name is required', 400);
@@ -242,6 +251,14 @@ exports.createOrUpdateProfile = async (req, res) => {
           public_slug: resolvedSlug,
           public_bio: public_bio || undefined,
           is_public_profile: typeof is_public_profile === 'boolean' ? is_public_profile : undefined,
+          leaderboard_public_display_enabled:
+            typeof leaderboard_public_display_enabled === 'boolean'
+              ? leaderboard_public_display_enabled
+              : undefined,
+          leaderboard_public_display_name:
+            leaderboard_public_display_name !== undefined
+              ? sanitizeLeaderboardDisplayName(leaderboard_public_display_name)
+              : undefined,
           is_onboarded: true,
           updated_at: new Date().toISOString(),
         })
@@ -275,6 +292,11 @@ exports.createOrUpdateProfile = async (req, res) => {
           public_slug: resolvedSlug,
           public_bio: public_bio || null,
           is_public_profile: typeof is_public_profile === 'boolean' ? is_public_profile : true,
+          leaderboard_public_display_enabled:
+            typeof leaderboard_public_display_enabled === 'boolean'
+              ? leaderboard_public_display_enabled
+              : false,
+          leaderboard_public_display_name: sanitizeLeaderboardDisplayName(leaderboard_public_display_name),
           is_onboarded: true,
           verification_status: 'unverified',
         })
