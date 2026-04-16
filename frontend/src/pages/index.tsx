@@ -8,7 +8,7 @@ import {
   RiTeamLine, RiBriefcaseLine, RiArrowDownLine, RiRobotLine,
   RiBatteryChargeLine, RiLineChartLine, RiDraftLine,
 } from 'react-icons/ri';
-import { calculatorAPI } from '../services/api';
+import { calculatorAPI, dashboardAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useRouter } from 'next/router';
 
@@ -52,6 +52,11 @@ export default function Home() {
   });
   const [silverResult, setSilverResult] = useState(null);
   const [calcLoading, setCalcLoading] = useState(false);
+  const [platformSummary, setPlatformSummary] = useState<{
+    totals?: Record<string, number>;
+    ai?: Record<string, number | boolean>;
+    v2?: Record<string, number>;
+  } | null>(null);
 
   useEffect(() => {
     const schedule = typeof window !== 'undefined' && 'requestIdleCallback' in window
@@ -72,6 +77,22 @@ export default function Home() {
     }
   }, [loading, session, profileResolved, isOnboarded, isPlatformAdmin, router]);
 
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadPublicSummary = async () => {
+      try {
+        const { data } = await dashboardAPI.getPublicSummary();
+        if (isMounted) setPlatformSummary(data?.data || null);
+      } catch {
+        if (isMounted) setPlatformSummary(null);
+      }
+    };
+
+    loadPublicSummary();
+    return () => { isMounted = false; };
+  }, []);
+
   async function runSilverCalc(form = silverForm) {
     setCalcLoading(true);
     try {
@@ -80,6 +101,60 @@ export default function Home() {
     } catch { /* silent fail on landing page */ }
     finally { setCalcLoading(false); }
   }
+
+  const summaryTotals = platformSummary?.totals || {};
+  const summaryAI = platformSummary?.ai || {};
+  const summaryV2 = platformSummary?.v2 || {};
+  const aiDefinitionsCount = Number(summaryAI?.active_agent_definitions || 0);
+  const aiFeedbackCount = Number(summaryAI?.design_feedback_generated_count || 0);
+
+  const formatWithThreshold = (
+    value: number | undefined,
+    threshold: number,
+    formatter: (val: number) => string,
+    placeholder: string
+  ) => {
+    const safe = Number(value || 0);
+    return safe >= threshold ? formatter(safe) : placeholder;
+  };
+
+  const heroStats = [
+    {
+      value: formatWithThreshold(summaryTotals?.simulation_runs, 50, (v) => `${v.toLocaleString()}+`, 'Scaling Fast'),
+      label: 'Simulation Runs',
+    },
+    {
+      value: formatWithThreshold(aiDefinitionsCount, 3, (v) => `${v}`, 'Multi-Agent'),
+      label: 'AI Agents Active',
+    },
+    {
+      value: summaryAI?.provider_ready ? 'Live' : 'Standby',
+      label: 'AI Provider Readiness',
+    },
+    {
+      value: formatWithThreshold(summaryV2?.serialized_assets, 20, (v) => `${v.toLocaleString()}+`, 'Serial-First'),
+      label: 'V2 Serialized Assets',
+    },
+  ];
+
+  const impactStats = [
+    {
+      label: 'Projects Registered',
+      value: formatWithThreshold(summaryTotals?.projects, 25, (v) => v.toLocaleString(), 'Growing Portfolio'),
+    },
+    {
+      label: 'Recovered / Decommissioned Projects',
+      value: formatWithThreshold(summaryTotals?.recovered_projects, 10, (v) => v.toLocaleString(), 'Lifecycle Active'),
+    },
+    {
+      label: 'V2 Escrow Decisions',
+      value: formatWithThreshold(summaryV2?.escrow_decisions, 10, (v) => v.toLocaleString(), 'Pilot In Progress'),
+    },
+    {
+      label: 'AI Design Feedback Generated',
+      value: formatWithThreshold(aiFeedbackCount, 20, (v) => `${v.toLocaleString()}+`, 'AI Advisor Live'),
+    },
+  ];
 
   return (
     <>
@@ -131,14 +206,14 @@ export default function Home() {
             <div className="max-w-3xl">
               <div className="inline-flex items-center gap-2 bg-white/10 border border-white/20 rounded-full px-4 py-1.5 mb-6">
                 <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
-                <span className="text-sm font-medium text-white/90">Africa&apos;s AI-Powered Solar Engineering Platform</span>
+                <span className="text-sm font-medium text-white/90">Solar Lifecycle Intelligence + V2 Oracle Infrastructure</span>
               </div>
               <h1 className="font-display text-4xl md:text-6xl font-bold leading-tight mb-6">
-                Design. Model. Track.<br />
-                <span className="text-amber-400">Comply. All in One.</span>
+                Register. Design. Verify.<br />
+                <span className="text-amber-400">Escrow with Proof.</span>
               </h1>
               <p className="text-lg text-white/75 mb-8 leading-relaxed max-w-2xl">
-                Size solar + battery storage systems using satellite irradiance data. Model 25-year financials under real African tariffs. Track every installation from commissioning to end-of-life. Auto-generate compliance reports. Let AI be your solar companion.
+                SolNuv now combines project design, lifecycle traceability, AI decision support, and V2 oracle workflows. Capture serial-number assets from day one, drive bankable simulations, and enforce escrow release decisions with verifiable evidence trails.
               </p>
               <div className="flex flex-wrap gap-4">
                 <Link href="/register" className="btn-amber inline-flex items-center gap-2">
@@ -159,12 +234,7 @@ export default function Home() {
           </div>
           <div className="relative border-t border-white/10">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 grid grid-cols-2 md:grid-cols-4 gap-6">
-              {[
-                { value: '25 yrs', label: 'Financial Modelling Horizon' },
-                { value: '5', label: 'AI-Powered Helpers' },
-                { value: '₦2.4T+', label: 'Nigerian Solar Market Value' },
-                { value: '36', label: 'Nigerian States — Degradation Coverage' },
-              ].map(s => (
+              {heroStats.map(s => (
                 <div key={s.label}>
                   <p className="font-display font-bold text-2xl text-amber-400">{s.value}</p>
                   <p className="text-xs text-white/50 font-medium mt-0.5">{s.label}</p>
@@ -204,12 +274,7 @@ export default function Home() {
         {/* STATS BAR */}
         <div className="bg-amber-500">
           <div className="max-w-7xl mx-auto px-4 py-5 flex flex-wrap justify-center gap-8 md:gap-16">
-            {[
-              { label: 'Avg Grid Savings With Solar+BESS', value: '40-70%' },
-              { label: 'Design-to-Report Time', value: '<15 min' },
-              { label: 'Climate Data Source', value: 'Satellite' },
-              { label: 'Panel Health Lost to Climate/yr', value: '0.85%' },
-            ].map(s => (
+            {impactStats.map(s => (
               <div key={s.label} className="text-center">
                 <p className="font-display font-bold text-2xl text-forest-900">{s.value}</p>
                 <p className="text-xs text-forest-900/70 font-medium mt-0.5">{s.label}</p>
@@ -224,16 +289,19 @@ export default function Home() {
             <div className="text-center mb-14">
               <span className="text-xs font-semibold uppercase tracking-widest text-emerald-600">How SolNuv Works</span>
               <h2 className="section-title mb-4 mt-2">From System Design to Lifecycle Recovery</h2>
-              <p className="text-slate-500 max-w-xl mx-auto">Six capabilities that cover the entire solar journey — design, finance, install, track, comply, and recover — built for Africa&apos;s energy professionals.</p>
+              <p className="text-slate-500 max-w-xl mx-auto">Eight integrated capabilities now cover origination, design, financing evidence, escrow decisions, lifecycle compliance, and second-life recovery.</p>
             </div>
             <div className="grid md:grid-cols-3 gap-6">
               {[
+                { step: '00', icon: RiShieldCheckLine, title: 'Onboard Actors + Verify Roles', desc: 'Installers, EPCs, financiers, recyclers, and regulators are captured with role-aware access controls so every action has a trusted actor context.' },
                 { step: '01', icon: RiFlashlightLine, title: 'Design Solar + BESS Systems', desc: 'Size PV arrays and battery storage using high-resolution satellite irradiance data for your exact site. Auto-optimise or manually configure — from 1 kW rooftop to MW-scale C&I projects.' },
                 { step: '02', icon: RiLineChartLine, title: 'Model 12->25-Year Financials', desc: 'Run full techno-economic simulations under real African tariffs — TOU rates, demand charges, multi-band utility structures. See IRR, NPV, payback period, and LCOE instantly.' },
-                { step: '03', icon: RiSunLine, title: 'Log & Track Every Project', desc: 'Register installations with panels, batteries, inverters, brand, and GPS coordinates. Works offline for field teams. Track your fleet in one dashboard.' },
+                { step: '03', icon: RiSunLine, title: 'Register Project + Serialized Assets', desc: 'Capture panel, battery, and inverter serial numbers at project registration or edit. Build traceability from origination instead of decommission-time guesswork.' },
                 { step: '04', icon: RiMapPinLine, title: 'Predict Degradation by Location', desc: 'Our West African degradation engine calibrates for Lagos coastal humidity, Kano desert heat, SE humidity, and inverter surge damage across all 36 Nigerian states.' },
-                { step: '05', icon: RiFileTextLine, title: 'Auto-Generate Compliance Reports', desc: 'Express NESREA EPR reports, Cradle-to-Grave certificates, and professional design reports. PDF and Excel export. Auto-route on Elite and Enterprise plans.' },
-                { step: '06', icon: RiRecycleLine, title: 'Recover End-of-Life Value', desc: 'See the real naira value of recoverable silver, lead, and lithium. Compare second-life refurbishment vs. recycling. Turn decommissioning into revenue.' },
+                { step: '05', icon: RiRobotLine, title: 'Run AI Assistants Across Workflows', desc: 'Generate design feedback, use specialist assistants, and automate internal task queues with provider failover and usage controls.' },
+                { step: '06', icon: RiFileTextLine, title: 'Enforce Escrow Decisions (V2 Oracle)', desc: 'Evaluate milestone conditions, anchor decision hashes, and trigger custodian execution workflows with idempotency and replay protection guardrails.' },
+                { step: '07', icon: RiFileTextLine, title: 'Auto-Generate Compliance Reports', desc: 'Express NESREA EPR reports, Cradle-to-Grave certificates, and professional design reports. PDF and Excel export. Auto-route on Elite and Enterprise plans.' },
+                { step: '08', icon: RiRecycleLine, title: 'Recover End-of-Life Value', desc: 'See the real naira value of recoverable silver, lead, and lithium. Compare second-life refurbishment vs. recycling. Turn decommissioning into revenue.' },
               ].map((item, i) => (
                 <div key={i} className="card-hover relative z-10">
                     <div className="flex items-center gap-3 mb-4">

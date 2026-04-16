@@ -1,8 +1,9 @@
 import Head from 'next/head';
 import { useRouter } from 'next/router';
+import Link from 'next/link';
 import { useEffect, useState, useCallback } from 'react';
 import { queryParamToString } from '../../../utils/nextRouter';
-import { projectsAPI, tariffAPI, loadProfileAPI, simulationAPI } from '../../../services/api';
+import { projectsAPI, tariffAPI, loadProfileAPI, simulationAPI, calculatorAPI } from '../../../services/api';
 import { useAuth } from '../../../context/AuthContext';
 import { getDashboardLayout } from '../../../components/Layout';
 import { LoadingSpinner } from '../../../components/ui/index';
@@ -206,6 +207,19 @@ export default function DesignWizard() {
   // Solar resource preview
   const [solarPreview, setSolarPreview] = useState(null);
   const [profileStale, setProfileStale] = useState(false);
+  const [calcPrefill, setCalcPrefill] = useState<{ annual_kwh?: number; peak_kw?: number; total_cost?: number } | null>(null);
+  const [projectCalcs, setProjectCalcs] = useState<any[]>([]);
+  const [selectedCalcId, setSelectedCalcId] = useState('');
+  const [designVersions, setDesignVersions] = useState<any[]>([]);
+  const [syncSource, setSyncSource] = useState<'project' | 'saved_design' | 'calculation' | null>(null);
+  const [fieldSources, setFieldSources] = useState<Record<string, string>>({});
+  const [selectedCalcFields, setSelectedCalcFields] = useState({
+    annual_kwh: true,
+    peak_kw: true,
+    total_cost: true,
+  });
+  const [restorePreview, setRestorePreview] = useState<any | null>(null);
+  const [pendingRestoreVersionId, setPendingRestoreVersionId] = useState('');
 
   const updateForm = useCallback((field, value) => {
     setForm(prev => ({ ...prev, [field]: value }));
@@ -215,6 +229,60 @@ export default function DesignWizard() {
     }
   }, []);
 
+  const applyValuesWithSource = useCallback((entries: Array<{ field: string; value: any }>, source: 'project' | 'saved_design' | 'calculation') => {
+    for (const entry of entries) {
+      if (entry.value === undefined || entry.value === null || entry.value === '') continue;
+      updateForm(entry.field, entry.value);
+    }
+    setFieldSources((prev) => {
+      const next = { ...prev };
+      for (const entry of entries) {
+        if (entry.value === undefined || entry.value === null || entry.value === '') continue;
+        next[entry.field] = source;
+      }
+      return next;
+    });
+    setSyncSource(source);
+  }, [updateForm]);
+
+  const applyCalcPrefill = useCallback((prefill) => {
+    if (!prefill) return;
+    if (prefill.annual_kwh && !form.annual_kwh) updateForm('annual_kwh', String(prefill.annual_kwh));
+    if (prefill.peak_kw && !form.peak_kw) updateForm('peak_kw', String(prefill.peak_kw));
+    if (prefill.total_cost && !form.total_cost) updateForm('total_cost', String(prefill.total_cost));
+    setSyncSource('calculation');
+  }, [form.annual_kwh, form.peak_kw, form.total_cost, updateForm]);
+
+  const applyCalculationToForm = useCallback((calc: any) => {
+    if (!calc) return;
+    const input = calc.input_params || {};
+    const result = calc.result_data || {};
+    const annual = Number(input.annual_kwh || input.annual_consumption_kwh || result.annual_kwh || 0);
+    const peak = Number(input.peak_kw || input.peak_demand_kw || result.peak_kw || 0);
+    const capex = Number(input.total_cost || input.capex || result.total_cost || result.system_cost || 0);
+    const entries: Array<{ field: string; value: any }> = [];
+    if (selectedCalcFields.annual_kwh && annual > 0) entries.push({ field: 'annual_kwh', value: String(annual) });
+    if (selectedCalcFields.peak_kw && peak > 0) entries.push({ field: 'peak_kw', value: String(peak) });
+    if (selectedCalcFields.total_cost && capex > 0) entries.push({ field: 'total_cost', value: String(capex) });
+    applyValuesWithSource(entries, 'calculation');
+  }, [applyValuesWithSource, selectedCalcFields]);
+
+  function derivePrefillFromCalculations(rows = []) {
+    const merged = { annual_kwh: 0, peak_kw: 0, total_cost: 0 };
+    for (const row of rows) {
+      const input = row?.input_params || {};
+      const result = row?.result_data || {};
+      const annual = Number(input.annual_kwh || input.annual_consumption_kwh || result.annual_kwh || 0);
+      const peak = Number(input.peak_kw || input.peak_demand_kw || result.peak_kw || 0);
+      const total = Number(input.total_cost || input.capex || result.total_cost || result.system_cost || 0);
+      if (annual > 0 && merged.annual_kwh <= 0) merged.annual_kwh = annual;
+      if (peak > 0 && merged.peak_kw <= 0) merged.peak_kw = peak;
+      if (total > 0 && merged.total_cost <= 0) merged.total_cost = total;
+    }
+    if (merged.annual_kwh || merged.peak_kw || merged.total_cost) return merged;
+    return null;
+  }
+
   // Load project data
   useEffect(() => {
     if (!projectId) return;
@@ -223,8 +291,63 @@ export default function DesignWizard() {
         const { data } = await projectsAPI.get(projectId);
         const p = data?.data || data;
         setProject(p);
-        if (p.location_lat) updateForm('location_lat', p.location_lat);
-        if (p.location_lon) updateForm('location_lon', p.location_lon);
+        applyValuesWithSource([
+          { field: 'location_lat', value: p.latitude ? String(p.latitude) : '' },
+          { field: 'location_lon', value: p.longitude ? String(p.longitude) : '' },
+        ], 'project');
+
+        const equipment = p.equipment || [];
+        const panels = equipment.filter((eq) => eq.equipment_type === 'panel');
+        const batteries = equipment.filter((eq) => eq.equipment_type === 'battery');
+        const panelCapacity = panels.reduce((sum, eq) => sum + (Number(eq.size_watts || 0) * Number(eq.quantity || 0)) / 1000, 0);
+        const batteryCapacity = batteries.reduce((sum, eq) => sum + Number(eq.capacity_kwh || 0) * Number(eq.quantity || 0), 0);
+        if (panelCapacity > 0) updateForm('pv_capacity_kwp', String(Number(panelCapacity.toFixed(2))));
+        if (batteryCapacity > 0) {
+          updateForm('include_bess', true);
+          updateForm('bess_capacity_kwh', String(Number(batteryCapacity.toFixed(2))));
+        }
+        setFieldSources((prev) => ({
+          ...prev,
+          ...(panelCapacity > 0 ? { pv_capacity_kwp: 'project' } : {}),
+          ...(batteryCapacity > 0 ? { bess_capacity_kwh: 'project' } : {}),
+        }));
+        setSyncSource('project');
+
+        const [designRes, calcRes] = await Promise.all([
+          simulationAPI.getDesignConfig(projectId).catch(() => null),
+          calculatorAPI.getProjectCalculations(projectId).catch(() => null),
+        ]);
+
+        const savedDesign = designRes?.data?.data;
+        if (savedDesign) {
+          applyValuesWithSource([
+            { field: 'location_lat', value: savedDesign.location_lat != null ? String(savedDesign.location_lat) : '' },
+            { field: 'location_lon', value: savedDesign.location_lon != null ? String(savedDesign.location_lon) : '' },
+            { field: 'pv_capacity_kwp', value: savedDesign.pv_capacity_kwp != null ? String(savedDesign.pv_capacity_kwp) : '' },
+            { field: 'grid_topology', value: savedDesign.grid_topology || '' },
+            { field: 'installation_type', value: savedDesign.installation_type || '' },
+            { field: 'bess_capacity_kwh', value: savedDesign.bess_capacity_kwh != null ? String(savedDesign.bess_capacity_kwh) : '' },
+            { field: 'bess_power_kw', value: savedDesign.bess_power_kw != null ? String(savedDesign.bess_power_kw) : '' },
+            { field: 'total_cost', value: savedDesign.capex_total != null ? String(savedDesign.capex_total) : '' },
+          ], 'saved_design');
+          if (savedDesign.bess_capacity_kwh > 0) updateForm('include_bess', true);
+          if (savedDesign.pv_tilt_deg != null) updateForm('tilt_angle', String(savedDesign.pv_tilt_deg));
+          if (savedDesign.pv_azimuth_deg != null) updateForm('azimuth_angle', String(savedDesign.pv_azimuth_deg));
+          if (savedDesign.discount_rate_pct != null) updateForm('discount_rate_pct', String(savedDesign.discount_rate_pct));
+          if (savedDesign.tariff_escalation_pct != null) updateForm('tariff_escalation_pct', String(savedDesign.tariff_escalation_pct));
+          if (savedDesign.om_annual != null) updateForm('om_cost_annual', String(savedDesign.om_annual));
+          if (savedDesign.analysis_period_years != null) updateForm('project_horizon_years', String(savedDesign.analysis_period_years));
+          if (savedDesign.bess_dod_pct != null) updateForm('bess_min_soc', Math.max(0, 100 - Number(savedDesign.bess_dod_pct)));
+        }
+
+        const activeCalcs = calcRes?.data?.data?.active || [];
+        setProjectCalcs(activeCalcs);
+        const prefill = derivePrefillFromCalculations(activeCalcs);
+        setCalcPrefill(prefill);
+        applyCalcPrefill(prefill);
+
+        const versionsRes = await simulationAPI.getDesignVersions(projectId).catch(() => null);
+        setDesignVersions(versionsRes?.data?.data || []);
       } catch {
         toast.error('Project not found');
         router.push('/projects');
@@ -232,7 +355,7 @@ export default function DesignWizard() {
         setLoading(false);
       }
     })();
-  }, [projectId, router, updateForm]);
+  }, [projectId, router, updateForm, applyCalcPrefill]);
 
   // Load tariff templates based on country
   useEffect(() => {
@@ -467,6 +590,72 @@ export default function DesignWizard() {
               <p className="text-sm text-gray-500">{project.name}</p>
             </div>
           </div>
+          <Link href={`/projects/${projectId}/calculations`} className="btn-secondary text-sm">
+            View Saved Calculations
+          </Link>
+        </div>
+        <div className="mb-4 grid md:grid-cols-2 gap-3">
+          <div className="p-3 rounded-xl border border-slate-200 bg-white">
+            <p className="text-xs font-semibold text-slate-600 mb-2">Apply Saved Calculation</p>
+            <div className="flex gap-2">
+              <select
+                className="input text-sm flex-1"
+                value={selectedCalcId}
+                onChange={(e) => setSelectedCalcId(e.target.value)}
+              >
+                <option value="">Select calculation</option>
+                {projectCalcs.map((calc: any) => (
+                  <option key={calc.id} value={calc.id}>
+                    {(calc.calculator_type || 'calc').toUpperCase()} - {new Date(calc.created_at).toLocaleDateString()}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                className="btn-secondary text-sm"
+                onClick={() => {
+                  const calc = projectCalcs.find((c: any) => c.id === selectedCalcId);
+                  if (!calc) return toast.error('Select a saved calculation');
+                  applyCalculationToForm(calc);
+                  toast.success('Saved calculation applied to design');
+                }}
+              >
+                Apply
+              </button>
+            </div>
+            <div className="mt-2 flex gap-3 text-xs text-slate-600">
+              <label className="inline-flex items-center gap-1"><input type="checkbox" checked={selectedCalcFields.annual_kwh} onChange={e => setSelectedCalcFields(v => ({ ...v, annual_kwh: e.target.checked }))} />Annual</label>
+              <label className="inline-flex items-center gap-1"><input type="checkbox" checked={selectedCalcFields.peak_kw} onChange={e => setSelectedCalcFields(v => ({ ...v, peak_kw: e.target.checked }))} />Peak</label>
+              <label className="inline-flex items-center gap-1"><input type="checkbox" checked={selectedCalcFields.total_cost} onChange={e => setSelectedCalcFields(v => ({ ...v, total_cost: e.target.checked }))} />Capex</label>
+            </div>
+          </div>
+          <div className="p-3 rounded-xl border border-slate-200 bg-white">
+            <p className="text-xs font-semibold text-slate-600 mb-2">Design Version History</p>
+            <div className="flex gap-2">
+              <select className="input text-sm flex-1" id="design-version-select">
+                <option value="">Select version to restore</option>
+                {designVersions.map((v: any) => (
+                  <option key={v.id} value={v.id}>
+                    {new Date(v.run_at).toLocaleString()} | kWh {Math.round(Number(v.annual_solar_gen_kwh || 0)).toLocaleString()}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                className="btn-secondary text-sm"
+                onClick={async () => {
+                  const el = document.getElementById('design-version-select') as HTMLSelectElement | null;
+                  const versionId = el?.value || '';
+                  if (!versionId) return toast.error('Select a design version');
+                  const selected = designVersions.find((v: any) => v.id === versionId);
+                  setPendingRestoreVersionId(versionId);
+                  setRestorePreview(selected || null);
+                }}
+              >
+                Restore
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* Step indicator */}
@@ -491,6 +680,31 @@ export default function DesignWizard() {
 
         {/* Step content */}
         <div className="card p-6 min-h-[400px]">
+          {syncSource && (
+            <div className="mb-4 p-2 rounded-lg bg-slate-50 border border-slate-200 text-xs text-slate-700">
+              Active sync source: <span className="font-semibold">{syncSource === 'saved_design' ? 'Saved Design' : syncSource === 'calculation' ? 'Saved Calculation' : 'Project'}</span>
+            </div>
+          )}
+          <div className="mb-3 flex flex-wrap gap-2 text-[11px]">
+            {['location_lat', 'location_lon', 'pv_capacity_kwp', 'bess_capacity_kwh', 'annual_kwh', 'peak_kw', 'total_cost'].map((f) => (
+              <span key={f} className="px-2 py-1 rounded-full border border-slate-200 bg-slate-50 text-slate-600">
+                {f.replace(/_/g, ' ')}: <span className="font-semibold">{fieldSources[f] || 'manual'}</span>
+              </span>
+            ))}
+          </div>
+          {calcPrefill && (
+            <div className="mb-4 p-3 rounded-xl border border-emerald-200 bg-emerald-50 text-xs text-emerald-800 flex items-center justify-between gap-3">
+              <span>
+                Synced from saved project calculations:
+                {calcPrefill.annual_kwh ? ` annual ${calcPrefill.annual_kwh.toLocaleString()} kWh` : ''}
+                {calcPrefill.peak_kw ? `, peak ${calcPrefill.peak_kw.toLocaleString()} kW` : ''}
+                {calcPrefill.total_cost ? `, capex ${calcPrefill.total_cost.toLocaleString()}` : ''}
+              </span>
+              <button type="button" className="text-emerald-700 font-semibold underline" onClick={() => applyCalcPrefill(calcPrefill)}>
+                Re-apply
+              </button>
+            </div>
+          )}
 
           {/* STEP 0: Location */}
           {step === 0 && (
@@ -1260,6 +1474,51 @@ export default function DesignWizard() {
             </button>
           )}
         </div>
+
+        {restorePreview && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+            <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full p-5">
+              <h3 className="text-lg font-semibold text-forest-900 mb-2">Restore Design Version</h3>
+              <p className="text-sm text-slate-600 mb-3">
+                Run: {new Date(restorePreview.run_at).toLocaleString()} | Annual solar: {Math.round(Number(restorePreview.annual_solar_gen_kwh || 0)).toLocaleString()} kWh
+              </p>
+              <div className="text-sm bg-slate-50 border border-slate-200 rounded-xl p-3 mb-4">
+                <p>Year-1 savings: {Math.round(Number(restorePreview.year1_savings || 0)).toLocaleString()}</p>
+                <p>Payback: {restorePreview.simple_payback_months ? `${(Number(restorePreview.simple_payback_months) / 12).toFixed(1)} years` : 'N/A'}</p>
+              </div>
+              <div className="flex justify-end gap-2">
+                <button type="button" className="btn-ghost" onClick={() => { setRestorePreview(null); setPendingRestoreVersionId(''); }}>
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="btn-primary"
+                  onClick={async () => {
+                    await simulationAPI.restoreDesignVersion(projectId, pendingRestoreVersionId);
+                    const refreshed = await simulationAPI.getDesignConfig(projectId);
+                    const restored = refreshed?.data?.data;
+                    if (restored) {
+                      applyValuesWithSource([
+                        { field: 'location_lat', value: restored.location_lat != null ? String(restored.location_lat) : '' },
+                        { field: 'location_lon', value: restored.location_lon != null ? String(restored.location_lon) : '' },
+                        { field: 'pv_capacity_kwp', value: restored.pv_capacity_kwp != null ? String(restored.pv_capacity_kwp) : '' },
+                        { field: 'grid_topology', value: restored.grid_topology || '' },
+                        { field: 'installation_type', value: restored.installation_type || '' },
+                        { field: 'bess_capacity_kwh', value: restored.bess_capacity_kwh != null ? String(restored.bess_capacity_kwh) : '' },
+                        { field: 'total_cost', value: restored.capex_total != null ? String(restored.capex_total) : '' },
+                      ], 'saved_design');
+                    }
+                    setRestorePreview(null);
+                    setPendingRestoreVersionId('');
+                    toast.success('Design version restored');
+                  }}
+                >
+                  Confirm Restore
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </MotionSection>
     </>
   );

@@ -18,6 +18,7 @@ router.get('/refresh-leaderboard', cachePolicies.noStore, (req, res) => {
 });
 router.post('/public/feedback/:token',          (req, res) => dashboardController.submitPublicFeedback(req, res));
 router.get('/public/profile/:slug',             cachePolicies.short, (req, res) => dashboardController.getPublicProfile(req, res));
+router.get('/public/summary',                   cachePolicies.short, (req, res) => dashboardController.getPublicSummary(req, res));
 
 router.use(requireAuth, requireProfile);
 router.get('/',       (req, res) => dashboardController.getDashboard(req, res));

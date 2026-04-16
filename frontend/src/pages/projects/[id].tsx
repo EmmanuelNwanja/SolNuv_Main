@@ -52,7 +52,18 @@ type EditEquipFormState = {
   sourcing_info: string;
   panel_technology: string | null;
   battery_chemistry: string | null;
+  serial_numbers_text: string;
 };
+
+function parseSerialNumbers(text: string): string[] {
+  if (!text) return [];
+  const serials = text
+    .split(/\r?\n|,/)
+    .map((v) => v.trim())
+    .filter(Boolean)
+    .map((v) => v.toUpperCase());
+  return [...new Set(serials)];
+}
 
 // ── EquipmentForm must live at MODULE scope (not inside the render function)
 // so React never unmounts it mid-keystroke when parent state updates.
@@ -155,6 +166,15 @@ function EquipmentForm({
             <option value="fair">Fair</option>
             <option value="poor">Poor</option>
           </select>
+        </div>
+        <div className="col-span-2">
+          <label className="label text-xs">Serial Numbers (optional, one per line)</label>
+          <textarea
+            className="input text-sm min-h-[72px]"
+            value={form.serial_numbers_text}
+            onChange={e => setForm(p => ({ ...p, serial_numbers_text: e.target.value }))}
+            placeholder="SN-001&#10;SN-002"
+          />
         </div>
       </div>
       <div className="flex gap-2 pt-1">
@@ -275,7 +295,7 @@ export default function ProjectDetail() {
   // Equipment editing (draft / maintenance only)
   const [editEquipmentId, setEditEquipmentId] = useState(null);
   const [addingEquipType, setAddingEquipType] = useState(null);
-  const [editEquipForm, setEditEquipForm] = useState({ brand: '', model: '', size_watts: '', capacity_kwh: '', quantity: 1, condition: 'good', sourcing_info: '', panel_technology: null, battery_chemistry: null });
+  const [editEquipForm, setEditEquipForm] = useState({ brand: '', model: '', size_watts: '', capacity_kwh: '', quantity: 1, condition: 'good', sourcing_info: '', panel_technology: null, battery_chemistry: null, serial_numbers_text: '' });
   const [equipmentSubmitting, setEquipmentSubmitting] = useState(false);
   const [triage, setTriage] = useState<any>(null);
   const [nercRegistrationStatus, setNercRegistrationStatus] = useState<'unregistered' | 'self_confirmed' | 'assisted_pending' | 'in_review' | 'registered' | 'changes_requested' | 'rejected'>('unregistered');
@@ -581,6 +601,7 @@ export default function ProjectDetail() {
       sourcing_info: item.sourcing_info || '',
       panel_technology: item.panel_technology || null,
       battery_chemistry: item.battery_chemistry || null,
+      serial_numbers_text: Array.isArray(item.serial_numbers) ? item.serial_numbers.join('\n') : '',
     });
   }
 
@@ -599,6 +620,7 @@ export default function ProjectDetail() {
       if (editEquipForm.capacity_kwh !== '') payload.capacity_kwh = Number(editEquipForm.capacity_kwh);
       if (editEquipForm.panel_technology) payload.panel_technology = editEquipForm.panel_technology;
       if (editEquipForm.battery_chemistry) payload.battery_chemistry = editEquipForm.battery_chemistry;
+      payload.serial_numbers = parseSerialNumbers(editEquipForm.serial_numbers_text);
       const { data } = await projectsAPI.updateEquipment(id, equipmentId, payload as JsonRecord);
       const updated = data.data;
       setProject(prev => ({ ...prev, equipment: prev.equipment.map(eq => eq.id === equipmentId ? updated : eq) }));
@@ -633,10 +655,11 @@ export default function ProjectDetail() {
         if (editEquipForm.capacity_kwh) payload.capacity_kwh = Number(editEquipForm.capacity_kwh);
         if (editEquipForm.battery_chemistry) payload.battery_chemistry = editEquipForm.battery_chemistry;
       }
+      payload.serial_numbers = parseSerialNumbers(editEquipForm.serial_numbers_text);
       const { data } = await projectsAPI.addEquipment(id, payload);
       setProject(prev => ({ ...prev, equipment: [...(prev.equipment || []), data.data] }));
       setAddingEquipType(null);
-      setEditEquipForm({ brand: '', model: '', size_watts: '', capacity_kwh: '', quantity: 1, condition: 'good', sourcing_info: '', panel_technology: null, battery_chemistry: null });
+      setEditEquipForm({ brand: '', model: '', size_watts: '', capacity_kwh: '', quantity: 1, condition: 'good', sourcing_info: '', panel_technology: null, battery_chemistry: null, serial_numbers_text: '' });
       toast.success('Equipment added');
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to add equipment');
@@ -1027,7 +1050,7 @@ export default function ProjectDetail() {
                   <RiSunLine className="text-amber-500" /> Solar Panels ({totalPanels} total)
                 </h2>
                 {canEditEquipment && addingEquipType !== 'panel' && (
-                  <button type="button" onClick={() => { setAddingEquipType('panel'); setEditEquipmentId(null); setEditEquipForm({ brand: '', model: '', size_watts: '', capacity_kwh: '', quantity: 1, condition: 'good', sourcing_info: '', panel_technology: null, battery_chemistry: null }); }}
+                  <button type="button" onClick={() => { setAddingEquipType('panel'); setEditEquipmentId(null); setEditEquipForm({ brand: '', model: '', size_watts: '', capacity_kwh: '', quantity: 1, condition: 'good', sourcing_info: '', panel_technology: null, battery_chemistry: null, serial_numbers_text: '' }); }}
                     className="flex items-center gap-1 text-xs font-semibold text-forest-900 border border-forest-900/30 rounded-lg px-2 py-1 hover:bg-forest-900/5 transition-colors">
                     <RiAddLine /> Add Panel
                   </button>
@@ -1043,6 +1066,9 @@ export default function ProjectDetail() {
                         <div>
                           <p className="font-semibold text-sm text-slate-800">{eq.brand} {eq.model && `— ${eq.model}`}</p>
                           <p className="text-xs text-slate-500">{eq.size_watts}W × {eq.quantity} panels = {(eq.size_watts * eq.quantity / 1000).toFixed(2)} kWp</p>
+                          {Array.isArray(eq.serial_numbers) && eq.serial_numbers.length > 0 && (
+                            <p className="text-xs text-slate-500">Serials: {eq.serial_numbers.length}</p>
+                          )}
                           <p className="text-xs text-slate-400 capitalize">Condition: {eq.condition}</p>
                         </div>
                         <div className="text-right flex flex-col items-end gap-1.5">
@@ -1088,7 +1114,7 @@ export default function ProjectDetail() {
                   <RiBatteryLine className="text-emerald-500" /> Batteries ({totalBatteries} total)
                 </h2>
                 {canEditEquipment && addingEquipType !== 'battery' && (
-                  <button type="button" onClick={() => { setAddingEquipType('battery'); setEditEquipmentId(null); setEditEquipForm({ brand: '', model: '', size_watts: '', capacity_kwh: '', quantity: 1, condition: 'good', sourcing_info: '', panel_technology: null, battery_chemistry: null }); }}
+                  <button type="button" onClick={() => { setAddingEquipType('battery'); setEditEquipmentId(null); setEditEquipForm({ brand: '', model: '', size_watts: '', capacity_kwh: '', quantity: 1, condition: 'good', sourcing_info: '', panel_technology: null, battery_chemistry: null, serial_numbers_text: '' }); }}
                     className="flex items-center gap-1 text-xs font-semibold text-forest-900 border border-forest-900/30 rounded-lg px-2 py-1 hover:bg-forest-900/5 transition-colors">
                     <RiAddLine /> Add Battery
                   </button>
@@ -1104,6 +1130,9 @@ export default function ProjectDetail() {
                         <div>
                           <p className="font-semibold text-sm text-slate-800">{eq.brand} {eq.model && `— ${eq.model}`}</p>
                           <p className="text-xs text-slate-500">{eq.capacity_kwh ? `${eq.capacity_kwh}kWh` : ''} × {eq.quantity} unit{eq.quantity !== 1 ? 's' : ''}</p>
+                          {Array.isArray(eq.serial_numbers) && eq.serial_numbers.length > 0 && (
+                            <p className="text-xs text-slate-500">Serials: {eq.serial_numbers.length}</p>
+                          )}
                           <p className="text-xs text-slate-400 capitalize">Condition: {eq.condition}</p>
                         </div>
                         <div className="flex flex-col items-end gap-1.5">
@@ -1139,7 +1168,7 @@ export default function ProjectDetail() {
           )}
           {/* Add-equipment prompt cards when project is editable but has no items yet */}
           {canEditEquipment && panels.length === 0 && addingEquipType !== 'panel' && (
-            <button type="button" onClick={() => { setAddingEquipType('panel'); setEditEquipmentId(null); setEditEquipForm({ brand: '', model: '', size_watts: '', capacity_kwh: '', quantity: 1, condition: 'good', sourcing_info: '', panel_technology: null, battery_chemistry: null }); }}
+            <button type="button" onClick={() => { setAddingEquipType('panel'); setEditEquipmentId(null); setEditEquipForm({ brand: '', model: '', size_watts: '', capacity_kwh: '', quantity: 1, condition: 'good', sourcing_info: '', panel_technology: null, battery_chemistry: null, serial_numbers_text: '' }); }}
               className="w-full border-2 border-dashed border-amber-300 rounded-2xl p-4 text-sm text-amber-700 font-medium hover:bg-amber-50 transition-colors flex items-center justify-center gap-2">
               <RiAddLine /> Add Solar Panels
             </button>
@@ -1152,7 +1181,7 @@ export default function ProjectDetail() {
                   <EquipmentForm equipType="panel" form={editEquipForm} setForm={setEditEquipForm} submitting={equipmentSubmitting} onSubmit={handleAddEquipment} onCancel={() => setAddingEquipType(null)} submitLabel="Add Panel" />
                 </div>
               )}
-              <button type="button" onClick={() => { setAddingEquipType('battery'); setEditEquipmentId(null); setEditEquipForm({ brand: '', model: '', size_watts: '', capacity_kwh: '', quantity: 1, condition: 'good', sourcing_info: '', panel_technology: null, battery_chemistry: null }); }}
+              <button type="button" onClick={() => { setAddingEquipType('battery'); setEditEquipmentId(null); setEditEquipForm({ brand: '', model: '', size_watts: '', capacity_kwh: '', quantity: 1, condition: 'good', sourcing_info: '', panel_technology: null, battery_chemistry: null, serial_numbers_text: '' }); }}
                 className="w-full border-2 border-dashed border-emerald-300 rounded-2xl p-4 text-sm text-emerald-700 font-medium hover:bg-emerald-50 transition-colors flex items-center justify-center gap-2">
                 <RiAddLine /> Add Batteries
               </button>

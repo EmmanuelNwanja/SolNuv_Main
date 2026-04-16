@@ -60,6 +60,9 @@ This document captures the initial deployable V2 API surface running alongside V
 - Signature verification:
   - expected header: `x-custodian-signature` (or `x-solnuv-signature`)
   - verified with `V2_CUSTODIAN_CALLBACK_SECRET` (fallback: `V2_CUSTODIAN_WEBHOOK_SECRET`)
+- Replay protection:
+  - callback payload must include `event_id`
+  - duplicate `event_id` values are ignored safely
 
 ### Lifecycle Events
 
@@ -79,4 +82,22 @@ This document captures the initial deployable V2 API surface running alongside V
 - `V2_CUSTODIAN_CALLBACK_SECRET`
 
 Current implementation supports `simulated` adapters for safe parallel rollout before live custodian/chain integrations.
+
+## Reliability Guardrails
+
+- Idempotent request handling (when `x-idempotency-key` is provided) for:
+  - escrow decision evaluation
+  - custodian execution submission
+- Outbox and dead-letter primitives:
+  - `v2_outbox_events`
+  - `v2_dead_letter_queue`
+- Callback replay protection:
+  - `v2_callback_events` unique per provider/event id
+
+## Operational Scripts
+
+- Smoke check:
+  - `npm run test:v2-smoke -- https://api.solnuv.com`
+- Outbox worker:
+  - `npm run v2:outbox-worker`
 

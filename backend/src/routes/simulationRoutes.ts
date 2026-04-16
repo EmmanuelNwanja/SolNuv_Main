@@ -11,6 +11,9 @@ router.use(requireAuth);
 router.post('/run', requirePlan('basic'), trackSimulationUsage('simulation'), simulationController.runProjectSimulation);
 
 // Get simulation results
+router.get('/:projectId/design-config', simulationController.getDesignConfig);
+router.get('/:projectId/design-versions', simulationController.getDesignVersions);
+router.post('/:projectId/design-versions/:resultId/restore', simulationController.restoreDesignVersion);
 router.get('/:projectId/results', simulationController.getSimulationResults);
 router.get('/:projectId/results/hourly', simulationController.getHourlyFlows);
 

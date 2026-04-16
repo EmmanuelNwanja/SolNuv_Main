@@ -11,7 +11,8 @@
     "lint": "eslint src/**/*.{ts,tsx}",
     "typecheck": "tsc --noEmit",
     "test:nerc-regression": "tsx scripts/nerc-regression-smoke.js",
-    "test:v2-smoke": "node scripts/v2-smoke.js"
+    "test:v2-smoke": "node scripts/v2-smoke.js",
+    "v2:outbox-worker": "node scripts/v2-outbox-worker.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",
