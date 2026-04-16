@@ -139,6 +139,37 @@ async function ensureRegulatoryProfile(
   project: { id: UUID; capacity_kw?: number | null }
 ) {
   const rules = await getNercRules();
+  const { data: existingProfile, error: existingError } = await supabase
+    .from('project_regulatory_profiles')
+    .select('*')
+    .eq('project_id', project.id)
+    .maybeSingle();
+  if (existingError) throw existingError;
+
+  // Never clobber user-managed fields on read. If a profile exists, only
+  // refresh rule-derived metadata and keep saved declared capacity/notes/type.
+  if (existingProfile) {
+    const existingCapacity = Number(existingProfile.declared_capacity_kw ?? project?.capacity_kw ?? 0);
+    const pathway = existingCapacity > rules.permit_threshold_kw ? 'permit_required' : 'registration';
+    const cadence = existingCapacity >= rules.annual_reporting_threshold_kw ? 'quarterly' : 'annual';
+
+    const { data: refreshed, error: refreshError } = await supabase
+      .from('project_regulatory_profiles')
+      .update({
+        regulatory_pathway: pathway,
+        permit_required: pathway === 'permit_required',
+        reporting_cadence: cadence,
+        permit_threshold_kw: rules.permit_threshold_kw,
+        annual_reporting_threshold_kw: rules.annual_reporting_threshold_kw,
+        regulation_version: existingProfile.regulation_version || rules.regulation_version,
+      })
+      .eq('id', existingProfile.id)
+      .select('*')
+      .single();
+    if (refreshError) throw refreshError;
+    return refreshed;
+  }
+
   const { data: latestDesign } = await supabase
     .from('project_designs')
     .select('grid_topology')
