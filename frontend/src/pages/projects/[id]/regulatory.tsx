@@ -10,6 +10,7 @@ import type {
   NercApplication,
   NercMiniGridType,
   NercProjectTriage,
+  NercReportingCycle,
   ProjectRegulatoryProfile,
 } from '../../../types/contracts';
 import { queryParamToString } from '../../../utils/nextRouter';
@@ -36,6 +37,7 @@ export default function ProjectRegulatoryPage() {
   const [confirmingPortalSubmission, setConfirmingPortalSubmission] = useState(false);
   const [profile, setProfile] = useState<ProjectRegulatoryProfile | null>(null);
   const [applications, setApplications] = useState<NercApplication[]>([]);
+  const [reportingCycles, setReportingCycles] = useState<NercReportingCycle[]>([]);
   const [triage, setTriage] = useState<NercProjectTriage | null>(null);
   const [form, setForm] = useState<RegulatoryFormState>({
     mini_grid_type: 'interconnected',
@@ -47,13 +49,15 @@ export default function ProjectRegulatoryPage() {
     if (!id) return;
     setLoading(true);
     try {
-      const [profileRes, appRes] = await Promise.all([
+      const [profileRes, appRes, cyclesRes] = await Promise.all([
         nercAPI.getProjectProfile(id),
         nercAPI.listProjectApplications(id),
+        nercAPI.listProjectReportingCycles(id),
       ]);
       const profileData = profileRes.data.data;
       setProfile(profileData);
       setApplications(appRes.data.data || []);
+      setReportingCycles(cyclesRes.data.data || []);
       try {
         const triageRes = await nercAPI.getProjectTriage(id);
         setTriage(triageRes.data.data || null);
@@ -146,6 +150,25 @@ export default function ProjectRegulatoryPage() {
   const primaryNercMessage = isUnder100
     ? 'Projects under 100kW follow a lighter registration path.'
     : 'Projects above 100kW follow the full NERC compliance submission path.';
+  const latestApplication = applications[0] || null;
+  const hasDraftApplication = applications.some((app) => app.status === 'draft' || app.status === 'changes_requested');
+  const hasSubmittedApplication = applications.some((app) =>
+    ['submitted', 'in_review', 'approved'].includes(app.status)
+  );
+  const hasPortalConfirmedSubmission = applications.some(
+    (app) => app.application_payload?.request_mode === 'user_portal_confirmation' && app.status === 'submitted'
+  );
+  const hasApplicationStarted = applications.length > 0;
+  const hasApplicationCompleted = hasSubmittedApplication || hasPortalConfirmedSubmission;
+  const hasReportingStarted = reportingCycles.length > 0;
+  const hasReportingSubmitted = reportingCycles.some((cycle) => cycle.status === 'submitted');
+  const stageProfileComplete = Boolean(profile);
+  const stageApplicationState = hasApplicationCompleted ? 'done' : hasApplicationStarted ? 'active' : 'todo';
+  const stageReportingState = hasReportingSubmitted ? 'done' : hasReportingStarted ? 'active' : 'todo';
+  const canShowCreateDraft = !hasApplicationCompleted && !hasDraftApplication;
+  const canShowConfirmSubmission = !hasPortalConfirmedSubmission && !hasApplicationCompleted;
+  const canShowAssistedRequest = !hasApplicationCompleted;
+  const showBulkExport = !isUnder100;
 
   if (loading) return <div className="flex justify-center py-16"><LoadingSpinner size="lg" /></div>;
 
@@ -164,8 +187,28 @@ export default function ProjectRegulatoryPage() {
         <div className="card">
           <div className="flex flex-wrap items-center gap-2 text-xs">
             <span className="rounded-full bg-forest-900 text-white px-3 py-1">1. Profile</span>
-            <span className="rounded-full bg-slate-100 text-slate-700 px-3 py-1">2. Application</span>
-            <span className="rounded-full bg-slate-100 text-slate-700 px-3 py-1">3. Reporting</span>
+            <span
+              className={`rounded-full px-3 py-1 ${
+                stageApplicationState === 'done'
+                  ? 'bg-emerald-600 text-white'
+                  : stageApplicationState === 'active'
+                    ? 'bg-emerald-100 text-emerald-800'
+                    : 'bg-slate-100 text-slate-700'
+              }`}
+            >
+              2. Application
+            </span>
+            <span
+              className={`rounded-full px-3 py-1 ${
+                stageReportingState === 'done'
+                  ? 'bg-emerald-600 text-white'
+                  : stageReportingState === 'active'
+                    ? 'bg-emerald-100 text-emerald-800'
+                    : 'bg-slate-100 text-slate-700'
+              }`}
+            >
+              3. Reporting
+            </span>
           </div>
           {triage && (
             <p className="text-sm text-slate-600 mt-3">
@@ -173,6 +216,11 @@ export default function ProjectRegulatoryPage() {
               {triage.net_metering_eligible ? ` · Net metering band (${triage.net_metering_band_kw[0]}-${triage.net_metering_band_kw[1]} kW)` : ''}
             </p>
           )}
+          <p className="text-xs text-slate-500 mt-2">
+            Progress: {stageProfileComplete ? 'Profile saved' : 'Profile pending'} ·{' '}
+            {stageApplicationState === 'done' ? 'Application submitted' : stageApplicationState === 'active' ? 'Application in progress' : 'Application pending'} ·{' '}
+            {stageReportingState === 'done' ? 'Reporting submitted' : stageReportingState === 'active' ? 'Reporting in progress' : 'Reporting pending'}
+          </p>
         </div>
 
         <div className="card">
@@ -215,7 +263,9 @@ export default function ProjectRegulatoryPage() {
             </div>
             <div className="sm:col-span-2 flex flex-wrap gap-3 items-center">
               <button type="submit" className="btn-primary" disabled={saving}>{saving ? 'Saving...' : 'Save Profile'}</button>
-              <button type="button" className="btn-outline" onClick={createDraftApplication}>Create Draft</button>
+              {canShowCreateDraft && (
+                <button type="button" className="btn-outline" onClick={createDraftApplication}>Create Draft</button>
+              )}
               <span className="text-xs rounded-full bg-slate-100 px-3 py-1">Pathway: {(profile?.regulatory_pathway || '-').replace('_', ' ')}</span>
               <span className="text-xs rounded-full bg-slate-100 px-3 py-1">Cadence: {profile?.reporting_cadence || '-'}</span>
             </div>
@@ -236,25 +286,34 @@ export default function ProjectRegulatoryPage() {
             >
               {primaryNercCta}
             </a>
-            <button
-              className="btn-outline text-sm"
-              onClick={confirmPortalSubmission}
-              disabled={confirmingPortalSubmission}
-            >
-              {confirmingPortalSubmission ? 'Saving...' : 'Confirm Application Submitted'}
-            </button>
-            <button
-              className="btn-outline text-sm"
-              onClick={requestSolNuvApply}
-              disabled={!isPro}
-              title={!isPro ? 'Available on Pro plan and above' : undefined}
-            >
-              Let SolNuv Apply
-            </button>
+            {canShowConfirmSubmission && (
+              <button
+                className="btn-outline text-sm"
+                onClick={confirmPortalSubmission}
+                disabled={confirmingPortalSubmission}
+              >
+                {confirmingPortalSubmission ? 'Saving...' : 'Confirm Application Submitted'}
+              </button>
+            )}
+            {canShowAssistedRequest && (
+              <button
+                className="btn-outline text-sm"
+                onClick={requestSolNuvApply}
+                disabled={!isPro}
+                title={!isPro ? 'Available on Pro plan and above' : undefined}
+              >
+                Let SolNuv Apply
+              </button>
+            )}
             {!isPro && (
               <span className="text-xs text-slate-500 self-center">Upgrade from {plan} to Pro+ to enable assisted filing.</span>
             )}
           </div>
+          {hasApplicationCompleted && (
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800 mb-4">
+              Application stage completed. Proceed to reporting updates when due.
+            </div>
+          )}
           <p className="text-xs text-slate-500 mb-4">
             SolNuv cannot automatically verify your status on NERC&apos;s portal. Use <strong>Confirm Application Submitted</strong> after submitting on NERC.
           </p>
@@ -262,12 +321,16 @@ export default function ProjectRegulatoryPage() {
           <div className="flex flex-wrap gap-2 mb-4">
             <button className="btn-outline text-sm" onClick={() => exportCurrentProject('csv')}>Export Current Project CSV</button>
             <button className="btn-outline text-sm" onClick={() => exportCurrentProject('excel')}>Export Current Project Excel</button>
-            <button className="btn-outline text-sm" onClick={() => exportBulkBand('csv')}>
-              Export {isUnder100 ? '<100kW' : '>100kW'} Bulk CSV
-            </button>
-            <button className="btn-outline text-sm" onClick={() => exportBulkBand('excel')}>
-              Export {isUnder100 ? '<100kW' : '>100kW'} Bulk Excel
-            </button>
+            {showBulkExport && (
+              <>
+                <button className="btn-outline text-sm" onClick={() => exportBulkBand('csv')}>
+                  Export {isUnder100 ? '<100kW' : '>100kW'} Bulk CSV
+                </button>
+                <button className="btn-outline text-sm" onClick={() => exportBulkBand('excel')}>
+                  Export {isUnder100 ? '<100kW' : '>100kW'} Bulk Excel
+                </button>
+              </>
+            )}
           </div>
 
           {applications.length > 0 ? (
@@ -284,6 +347,11 @@ export default function ProjectRegulatoryPage() {
             </div>
           ) : (
             <p className="text-sm text-slate-500">No assisted requests yet.</p>
+          )}
+          {latestApplication && (
+            <p className="text-xs text-slate-500 mt-3">
+              Latest application status: <strong>{latestApplication.status.replace('_', ' ')}</strong>
+            </p>
           )}
         </div>
       </div>
