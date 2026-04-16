@@ -6,6 +6,7 @@ import { designReportAPI } from '../../services/api';
 import { queryParamToString } from '../../utils/nextRouter';
 import { RiSunLine, RiBatteryLine, RiMoneyDollarCircleLine, RiFlashlightLine, RiLeafLine, RiBarChartBoxLine, RiTimeLine, RiFileChartLine, RiGlobalLine, RiLockLine, RiArrowRightSLine, RiRobot2Line } from 'react-icons/ri';
 import dynamic from 'next/dynamic';
+import SolarSchematic from '../../components/SolarSchematic';
 
 const Bar = dynamic(() => import('react-chartjs-2').then(m => m.Bar), { ssr: false });
 const Doughnut = dynamic(() => import('react-chartjs-2').then(m => m.Doughnut), { ssr: false });
@@ -48,6 +49,7 @@ const CHEM_LABELS = {
 const SECTIONS = [
   { id: 'project-details', label: 'Project Details' },
   { id: 'summary', label: 'Summary' },
+  { id: 'schematic', label: 'Schematic' },
   { id: 'pv-system', label: 'PV System' },
   { id: 'battery', label: 'Battery' },
   { id: 'tariff', label: 'Tariff' },
@@ -178,6 +180,16 @@ export default function SharedReport() {
   const monthly = (result?.monthly_summary as Array<Record<string, number>> | undefined) || [];
   const cashflow = result?.yearly_cashflow || [];
   const energyComp = result?.energy_comparison || {};
+  const uniqueTariffRates = Array.isArray(tariff?.rates)
+    ? Array.from(
+        new Map(
+          tariff.rates.map((r) => [
+            `${String(r?.season_key || '')}|${String(r?.period_name || '')}|${String(r?.rate_per_kwh || '')}`,
+            r,
+          ])
+        ).values()
+      )
+    : [];
 
   const totalSelfConsumed = monthly.reduce((s, m) => s + (m.solar_utilised_kwh || 0), 0);
   const totalGridImport = monthly.reduce((s, m) => s + (m.grid_import_kwh || 0), 0);
@@ -208,14 +220,6 @@ export default function SharedReport() {
       { label: 'Solar', data: monthly.map(m => Math.round(m.pv_gen_kwh || 0)), backgroundColor: BRAND.amber + 'CC' },
     ],
   };
-
-  const yearlyCostChart = cashflow.length > 0 ? {
-    labels: cashflow.map(c => `Year ${c.year}`),
-    datasets: [
-      { label: 'Baseline Cost', data: cashflow.map(c => Math.round((c.baseline_cost || 0))), borderColor: BRAND.red, backgroundColor: BRAND.red + '20', fill: true, tension: 0.3 },
-      { label: 'With Solar', data: cashflow.map(c => Math.round((c.with_solar_cost || 0))), borderColor: BRAND.accent, backgroundColor: BRAND.accent + '20', fill: true, tension: 0.3 },
-    ],
-  } : null;
 
   const cashflowChart = cashflow.length > 0 ? {
     labels: cashflow.map(c => `Yr ${c.year}`),
@@ -423,6 +427,20 @@ export default function SharedReport() {
               </section>
             )}
 
+            {/* Schematic */}
+            <section id="schematic" ref={(el) => { sectionRefs.current['schematic'] = el; }} className="bg-white rounded-2xl shadow-sm border p-6">
+              <div className="flex items-center gap-3 mb-6 pb-4 border-b border-gray-200">
+                <div className="w-10 h-10 bg-[#10B981]/10 rounded-lg flex items-center justify-center">
+                  <RiFlashlightLine className="w-5 h-5 text-[#10B981]" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold text-[#0D3B2E]">System Schematic</h2>
+                  <p className="text-sm text-gray-500">Generated single-line system representation</p>
+                </div>
+              </div>
+              <SolarSchematic design={design} result={result} />
+            </section>
+
             {/* Key Metrics */}
             <section className="bg-white rounded-2xl shadow-sm border overflow-hidden">
               <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 divide-x divide-gray-100">
@@ -558,7 +576,21 @@ export default function SharedReport() {
                   )}
                   <div className="p-4 bg-gray-50 rounded-xl">
                     <p className="text-xs text-gray-400 mb-1">Power Rating</p>
-                    <p className="text-lg font-semibold">{design?.bess_power_kw > 0 ? fmt(design?.bess_power_kw) + ' kW' : '—'}</p>
+                    <p className="text-lg font-semibold">
+                      {(
+                        Number(design?.bess_power_kw || 0) ||
+                        Number(design?.user_pcs_power_kw || 0) ||
+                        Number(design?.user_battery_max_discharge_kw || 0) ||
+                        Number(design?.user_inverter_power_kw || 0)
+                      ) > 0
+                        ? fmt(
+                            Number(design?.bess_power_kw || 0) ||
+                            Number(design?.user_pcs_power_kw || 0) ||
+                            Number(design?.user_battery_max_discharge_kw || 0) ||
+                            Number(design?.user_inverter_power_kw || 0)
+                          ) + ' kW'
+                        : '—'}
+                    </p>
                   </div>
                   <div className="p-4 bg-gray-50 rounded-xl">
                     <p className="text-xs text-gray-400 mb-1">Chemistry</p>
@@ -635,7 +667,7 @@ export default function SharedReport() {
                     <p className="text-sm font-medium">{TOPOLOGY_LABELS[design?.grid_topology] || design?.grid_topology || '—'}</p>
                   </div>
                 </div>
-                {tariff.rates?.length > 0 && (
+                {uniqueTariffRates.length > 0 && (
                   <div className="overflow-x-auto">
                     <p className="text-sm font-medium text-gray-700 mb-3">Rate Schedule</p>
                     <table className="w-full text-sm">
@@ -647,7 +679,7 @@ export default function SharedReport() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-100">
-                        {tariff.rates.map((r, i) => (
+                        {uniqueTariffRates.map((r, i) => (
                           <tr key={i} className="hover:bg-gray-50">
                             <td className="px-4 py-3">{r.season_key || '—'}</td>
                             <td className="px-4 py-3">{r.period_name || '—'}</td>
@@ -879,14 +911,6 @@ export default function SharedReport() {
                   </div>
                 </div>
               </div>
-              {yearlyCostChart && (
-                <div className="bg-white rounded-2xl shadow-sm border p-6">
-                  <h3 className="text-base font-semibold text-[#0D3B2E] mb-4">Lifetime Cost Projection</h3>
-                  <div className="h-80">
-                    <Line data={yearlyCostChart} options={{ responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: false } }, plugins: { legend: { position: 'bottom' } } }} />
-                  </div>
-                </div>
-              )}
               {cashflowChart && (
                 <div className="bg-white rounded-2xl shadow-sm border p-6">
                   <h3 className="text-base font-semibold text-[#0D3B2E] mb-4">Financial Projection</h3>
@@ -1136,6 +1160,20 @@ export default function SharedReport() {
                     <p className="text-sm leading-relaxed text-gray-700 whitespace-pre-wrap">{result.ai_feedback_text}</p>
                   </div>
                 )}
+              </section>
+            )}
+
+            {/* Design Warnings */}
+            {Array.isArray(result?.design_warnings) && result.design_warnings.length > 0 && (
+              <section className="bg-white rounded-2xl shadow-sm border p-6">
+                <h2 className="text-lg font-semibold text-[#0D3B2E] mb-4">Design Warnings & Notes</h2>
+                <div className="space-y-2">
+                  {result.design_warnings.map((w, i) => (
+                    <div key={i} className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                      {w?.message || String(w)}
+                    </div>
+                  ))}
+                </div>
               </section>
             )}
 
