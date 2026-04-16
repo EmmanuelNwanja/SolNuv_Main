@@ -219,6 +219,11 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
     }).catch(() => {});
   }, []);
 
+  async function refreshUsers() {
+    const { data } = await adminAPI.listUsers({ page: 1, limit: 30 });
+    setUsers(data.data?.users || []);
+  }
+
   async function refreshProjects() {
     const { data } = await adminAPI.listAllProjects({ page: 1, limit: 100, search: projectSearch, status: projectStatusFilter, geo_verified: projectGeoFilter });
     setProjects(data.data?.projects || []);
@@ -907,7 +912,7 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
                                   }
                                 }
                                 await adminAPI.updateUserManagement(payload);
-                                setUsers(prev => prev.map(x => x.id === u.id ? { ...x, companies: { ...x.companies, subscription_plan: mgmtPlan, subscription_interval: mgmtInterval, max_team_members: mgmtMaxTeam } } : x));
+                                await refreshUsers();
                                 toast.success('Plan updated');
                                 // Reset payment fields
                                 setMgmtPayChannel(''); setMgmtBankRef(''); setMgmtBankDate(''); setMgmtBankTime('');
