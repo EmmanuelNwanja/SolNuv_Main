@@ -179,15 +179,15 @@ export default function Home() {
           <MotionStagger className="grid lg:grid-cols-2 gap-8 items-end">
             <MotionItem>
               <span className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-widest bg-white/10 text-emerald-200">
-                Solar intelligence platform
+                End-to-end solar intelligence platform
               </span>
               <h1 className="font-display text-4xl md:text-5xl lg:text-6xl font-bold leading-tight mt-4">
-                Move from isolated tools
+                Plan, Track, & Recover
                 <br />
-                to dependable solar operations.
+                Solar Operations and Equipment.
               </h1>
               <p className="text-base md:text-lg text-white/75 leading-relaxed mt-5 max-w-2xl">
-                SolNuv helps engineering teams, project operators, and partners run design workflows, financial scenario analysis, lifecycle tracking, and compliance-ready reporting from one connected environment.
+                Run design workflows, financial scenario analysis, lifecycle tracking, and compliance-ready reporting from one connected environment.
               </p>
               <div className="marketing-cta-row">
                 <Link href="/register" className="btn-amber inline-flex items-center gap-2">
