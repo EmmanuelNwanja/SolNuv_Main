@@ -188,8 +188,8 @@ export default function Register() {
   return (
     <>
       <Head>
-        <title>Create Account — SolNuv | Design Solar Systems for Africa</title>
-        <meta name="description" content="Create your SolNuv account. Design solar+battery systems, model 25-year financials, track installations, and automate NESREA compliance — built for Africa's solar professionals." />
+        <title>Create Account — SolNuv | Solar Project Design and Lifecycle Workflows</title>
+        <meta name="description" content="Create your SolNuv account to design and evaluate solar projects, model long-horizon outcomes, and manage compliance-ready lifecycle workflows." />
       </Head>
       <div className="auth-shell">
         <div className="auth-wrap">

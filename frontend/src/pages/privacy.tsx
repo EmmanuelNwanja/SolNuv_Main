@@ -169,6 +169,8 @@ export default function PrivacyPolicy() {
             <li>Pages visited, session identifiers, and timestamps</li>
             <li>Calculator usage frequency (by calculator type)</li>
             <li>Blog engagement metrics (reads, time spent, link clicks)</li>
+            <li>Public profile and leaderboard visibility settings configured by authorised account users</li>
+            <li>Sponsored placement interaction metrics in eligible public content surfaces</li>
             <li>Device type, browser type, and screen resolution</li>
             <li>IP address (anonymised within 30 days for analytics)</li>
             <li>PWA install status and app launch events (for service improvement)</li>
@@ -252,6 +254,8 @@ export default function PrivacyPolicy() {
               <tr><td className="py-2 pr-4">NESREA EPR compliance report generation</td><td>Equipment, project, company data</td></tr>
               <tr><td className="py-2 pr-4">Customer support & responding to enquiries</td><td>Contact form data, correspondence</td></tr>
               <tr><td className="py-2 pr-4">Platform improvement & analytics</td><td>Usage data, session data (anonymised)</td></tr>
+              <tr><td className="py-2 pr-4">Public directory and leaderboard controls</td><td>Visibility settings, public-facing profile fields, project summary indicators</td></tr>
+              <tr><td className="py-2 pr-4">Sponsored placement measurement (where used)</td><td>Placement impressions, clicks, and related engagement events</td></tr>
               <tr><td className="py-2 pr-4">Sending transactional emails (welcome, decommission alerts, team invitations)</td><td>Email, name, project details</td></tr>
               <tr><td className="py-2 pr-4">Fraud prevention & platform security</td><td>IP address, usage patterns, rate-limiting data</td></tr>
               <tr><td className="py-2 pr-4">AI agent services (conversational guidance, project analysis, compliance reviews)</td><td>Conversation messages, project context, company data</td></tr>
@@ -356,6 +360,7 @@ export default function PrivacyPolicy() {
               <tr><td className="py-2 pr-4">Analytics & usage data</td><td>24 months (anonymised after 30 days)</td></tr>
               <tr><td className="py-2 pr-4">Audit logs</td><td>5 years</td></tr>
               <tr><td className="py-2 pr-4">AI conversation logs & task records</td><td>Duration of account + 12 months (or until deletion request)</td></tr>
+              <tr><td className="py-2 pr-4">Visibility and sponsored-content interaction logs</td><td>24 months (or longer where required for fraud/security review)</td></tr>
             </tbody>
           </table>
 

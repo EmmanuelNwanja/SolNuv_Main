@@ -159,15 +159,15 @@ export default function Home() {
   return (
     <>
       <Head>
-        <title>SolNuv — Africa&apos;s Solar Engineering &amp; Lifecycle Intelligence Platform</title>
-        <meta name="description" content="Design solar+battery systems, model 25-year financials, automate NESREA EPR compliance, and manage the full lifecycle of every installation — powered by Satellite climate data, AI agents, and built for Africa's energy market." />
-        <meta name="keywords" content="solar design software Africa, solar BESS sizing tool, solar engineering Nigeria, NESREA EPR compliance, solar battery storage design, solar financial modelling Africa, PV simulation, load profile analysis, tariff analysis Nigeria, solar project management, solar panel recycling, West African solar, solar lifecycle tracking" />
-        <meta property="og:title" content="SolNuv — Design, Model, Track & Comply. Africa's Solar Engineering Platform." />
-        <meta property="og:description" content="The only platform that takes you from solar+BESS system design to 25-year financial modelling to NESREA compliance — all in one place. Built for Africa's energy professionals." />
+        <title>SolNuv — Solar Engineering, Compliance &amp; Lifecycle Intelligence</title>
+        <meta name="description" content="SolNuv helps solar teams design and evaluate systems, manage project evidence, support compliance workflows, and track lifecycle outcomes in one secure workspace." />
+        <meta name="keywords" content="solar design software, solar BESS sizing tool, solar engineering platform, NESREA EPR workflow, solar financial modelling, PV simulation, load profile analysis, tariff analysis, solar project management, lifecycle tracking" />
+        <meta property="og:title" content="SolNuv — Solar Engineering &amp; Lifecycle Intelligence" />
+        <meta property="og:description" content="A unified platform for solar project design, financial scenario modelling, compliance support, and lifecycle traceability." />
         <meta property="og:type" content="website" />
         <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content="SolNuv — Africa&apos;s Complete Solar Engineering Platform" />
-        <meta name="twitter:description" content="Design solar+BESS systems. Model financials. Automate compliance. Track lifecycles. One platform, built for Africa." />
+        <meta name="twitter:title" content="SolNuv — Solar Engineering &amp; Lifecycle Intelligence" />
+        <meta name="twitter:description" content="Design and evaluate systems, run financial scenarios, support compliance workflows, and track assets across the lifecycle." />
         <link rel="canonical" href="https://solnuv.com" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
@@ -206,14 +206,14 @@ export default function Home() {
             <div className="max-w-3xl">
               <div className="inline-flex items-center gap-2 bg-white/10 border border-white/20 rounded-full px-4 py-1.5 mb-6">
                 <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
-                <span className="text-sm font-medium text-white/90">Solar Lifecycle Intelligence + V2 Oracle Infrastructure</span>
+                <span className="text-sm font-medium text-white/90">Solar project intelligence for teams, partners, and operators</span>
               </div>
               <h1 className="font-display text-4xl md:text-6xl font-bold leading-tight mb-6">
-                Register. Design. Verify.<br />
-                <span className="text-amber-400">Escrow with Proof.</span>
+                Plan, validate, and track<br />
+                <span className="text-amber-400">solar projects end-to-end.</span>
               </h1>
               <p className="text-lg text-white/75 mb-8 leading-relaxed max-w-2xl">
-                SolNuv now combines project design, lifecycle traceability, AI decision support, and V2 oracle workflows. Capture serial-number assets from day one, drive bankable simulations, and enforce escrow release decisions with verifiable evidence trails.
+                SolNuv brings design workflows, financial scenario modelling, compliance support, and lifecycle traceability into one platform. Teams can standardise project execution, improve reporting quality, and collaborate with partners using clear evidence trails.
               </p>
               <div className="flex flex-wrap gap-4">
                 <Link href="/register" className="btn-amber inline-flex items-center gap-2">
@@ -224,11 +224,11 @@ export default function Home() {
                 </Link>
               </div>
               <div className="mt-10 flex flex-wrap gap-6 text-sm text-white/60">
-                <span className="flex items-center gap-2"><RiCheckLine className="text-emerald-400" /> Solar + BESS Design Engine</span>
-                <span className="flex items-center gap-2"><RiCheckLine className="text-emerald-400" /> Satellite Climate Data</span>
-                <span className="flex items-center gap-2"><RiCheckLine className="text-emerald-400" /> EPR Compliant</span>
-                <span className="flex items-center gap-2"><RiCheckLine className="text-emerald-400" /> AI-Powered Helpers</span>
-                <span className="flex items-center gap-2"><RiCheckLine className="text-emerald-400" /> Easy to Start</span>
+                <span className="flex items-center gap-2"><RiCheckLine className="text-emerald-400" /> Solar + BESS design workflows</span>
+                <span className="flex items-center gap-2"><RiCheckLine className="text-emerald-400" /> Scenario-based financial analysis</span>
+                <span className="flex items-center gap-2"><RiCheckLine className="text-emerald-400" /> Compliance-ready reporting</span>
+                <span className="flex items-center gap-2"><RiCheckLine className="text-emerald-400" /> AI-assisted productivity tools</span>
+                <span className="flex items-center gap-2"><RiCheckLine className="text-emerald-400" /> Secure team collaboration</span>
               </div>
             </div>
           </div>
@@ -288,20 +288,19 @@ export default function Home() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-14">
               <span className="text-xs font-semibold uppercase tracking-widest text-emerald-600">How SolNuv Works</span>
-              <h2 className="section-title mb-4 mt-2">From System Design to Lifecycle Recovery</h2>
-              <p className="text-slate-500 max-w-xl mx-auto">Eight integrated capabilities now cover origination, design, financing evidence, escrow decisions, lifecycle compliance, and second-life recovery.</p>
+              <h2 className="section-title mb-4 mt-2">From project setup to lifecycle outcomes</h2>
+              <p className="text-slate-500 max-w-xl mx-auto">A connected workflow for teams that need technical rigour, cleaner communication, and dependable execution across the solar value chain.</p>
             </div>
             <div className="grid md:grid-cols-3 gap-6">
               {[
-                { step: '00', icon: RiShieldCheckLine, title: 'Onboard Actors + Verify Roles', desc: 'Installers, EPCs, financiers, recyclers, and regulators are captured with role-aware access controls so every action has a trusted actor context.' },
-                { step: '01', icon: RiFlashlightLine, title: 'Design Solar + BESS Systems', desc: 'Size PV arrays and battery storage using high-resolution satellite irradiance data for your exact site. Auto-optimise or manually configure — from 1 kW rooftop to MW-scale C&I projects.' },
-                { step: '02', icon: RiLineChartLine, title: 'Model 12->25-Year Financials', desc: 'Run full techno-economic simulations under real African tariffs — TOU rates, demand charges, multi-band utility structures. See IRR, NPV, payback period, and LCOE instantly.' },
-                { step: '03', icon: RiSunLine, title: 'Register Project + Serialized Assets', desc: 'Capture panel, battery, and inverter serial numbers at project registration or edit. Build traceability from origination instead of decommission-time guesswork.' },
-                { step: '04', icon: RiMapPinLine, title: 'Predict Degradation by Location', desc: 'Our West African degradation engine calibrates for Lagos coastal humidity, Kano desert heat, SE humidity, and inverter surge damage across all 36 Nigerian states.' },
-                { step: '05', icon: RiRobotLine, title: 'Run AI Assistants Across Workflows', desc: 'Generate design feedback, use specialist assistants, and automate internal task queues with provider failover and usage controls.' },
-                { step: '06', icon: RiFileTextLine, title: 'Enforce Escrow Decisions (V2 Oracle)', desc: 'Evaluate milestone conditions, anchor decision hashes, and trigger custodian execution workflows with idempotency and replay protection guardrails.' },
-                { step: '07', icon: RiFileTextLine, title: 'Auto-Generate Compliance Reports', desc: 'Express NESREA EPR reports, Cradle-to-Grave certificates, and professional design reports. PDF and Excel export. Auto-route on Elite and Enterprise plans.' },
-                { step: '08', icon: RiRecycleLine, title: 'Recover End-of-Life Value', desc: 'See the real naira value of recoverable silver, lead, and lithium. Compare second-life refurbishment vs. recycling. Turn decommissioning into revenue.' },
+                { step: '01', icon: RiShieldCheckLine, title: 'Set roles and access boundaries', desc: 'Configure clear permissions for installers, managers, analysts, partners, and reviewers so every activity is attributable and auditable.' },
+                { step: '02', icon: RiFlashlightLine, title: 'Build and compare system options', desc: 'Create solar and storage configurations, adjust assumptions, and compare alternatives before finalising project decisions.' },
+                { step: '03', icon: RiLineChartLine, title: 'Model long-horizon financial outcomes', desc: 'Run scenario-based projections across tariffs, demand profiles, and cost assumptions to support planning and investment conversations.' },
+                { step: '04', icon: RiSunLine, title: 'Register assets for traceability', desc: 'Capture equipment records and project identifiers early so lifecycle evidence remains organised from commissioning through end-of-life.' },
+                { step: '05', icon: RiMapPinLine, title: 'Track operational and degradation context', desc: 'Use location-aware and usage-aware signals to improve maintenance planning, replacement decisions, and performance reviews.' },
+                { step: '06', icon: RiRobotLine, title: 'Scale productivity with AI assistants', desc: 'Use guided assistants to speed up drafts, validation checks, and report preparation while keeping humans in control of final decisions.' },
+                { step: '07', icon: RiFileTextLine, title: 'Manage evidence and approval workflows', desc: 'Record milestone evidence, support partner reviews, and maintain decision logs for structured execution and handover.' },
+                { step: '08', icon: RiRecycleLine, title: 'Support lifecycle compliance and recovery', desc: 'Prepare compliance-facing reports and evaluate end-of-life routes with clearer visibility into potential recovery pathways.' },
               ].map((item, i) => (
                 <div key={i} className="card-hover relative z-10">
                     <div className="flex items-center gap-3 mb-4">
@@ -325,25 +324,25 @@ export default function Home() {
               <div>
                 <span className="text-xs font-semibold uppercase tracking-widest text-emerald-400">Why This Matters</span>
                 <h2 className="font-display text-4xl font-bold mt-3 mb-6 leading-tight">
-                  Africa&apos;s Solar Boom Needs<br />
-                  <span className="text-amber-400">Smarter Infrastructure</span>
+                  High-growth solar markets need<br />
+                  <span className="text-amber-400">operational discipline, not more tools.</span>
                 </h2>
                 <p className="text-white/70 leading-relaxed mb-6">
-                  Sub-Saharan Africa will add over 100 GW of solar capacity by 2035. But most projects are still designed on spreadsheets, sized by guesswork, and tracked on paper. Meanwhile, the first wave of installations is reaching end-of-life — with no formal recovery infrastructure.
+                  Teams often work across disconnected spreadsheets, messaging apps, and isolated tools. That fragmentation slows delivery, weakens audit trails, and creates risk during financing, compliance, and partner reporting.
                 </p>
                 <p className="text-white/70 leading-relaxed mb-8">
-                  SolNuv replaces fragmented tools and consultants with one platform — from the first system design through 25 years of operation to responsible decommissioning. Design better systems, close more deals, stay compliant, and capture the full lifecycle value of every installation.
+                  SolNuv unifies technical planning, financial communication, and lifecycle documentation so teams can execute with greater consistency, credibility, and speed.
                 </p>
                 <p className="text-emerald-300 font-semibold leading-relaxed">
-                  The platform engineered for how solar actually works in Africa — not a Western tool with an African price tag.
+                  Built for serious solar operators who need dependable workflows across projects, portfolios, and partnerships.
                 </p>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 {[
-                  { icon: RiFlashlightLine, color: 'bg-emerald-500/20 border-emerald-500/30', title: 'Bankable System Design', desc: 'Size solar+BESS systems with real irradiance data and hourly simulations. Produce professional design reports that land financing and close commercial deals.' },
-                  { icon: RiGlobalLine, color: 'bg-amber-500/20 border-amber-500/30', title: 'African Market Intelligence', desc: 'Built-in multi-band tariff structures, regional utility rates, TOU profiles, and climate-specific degradation models. No more adapting European tools for African conditions.' },
-                  { icon: RiShieldCheckLine, color: 'bg-emerald-500/20 border-emerald-500/30', title: 'Regulatory Compliance', desc: 'Meet NESREA EPR 2024 mandates with auto-generated Cradle-to-Grave certificates and audit-ready compliance records. One-click PDF reports.' },
-                  { icon: RiBriefcaseLine, color: 'bg-amber-500/20 border-amber-500/30', title: 'Full Lifecycle Value', desc: 'Track every asset from commissioning to decommissioning. Recover silver, lead, and lithium value. Second-life refurbishment delivers up to 74× the value of dismantling.' },
+                  { icon: RiFlashlightLine, color: 'bg-emerald-500/20 border-emerald-500/30', title: 'Decision-ready system planning', desc: 'Move from concept to structured designs with assumptions, comparisons, and outputs your internal and external stakeholders can review.' },
+                  { icon: RiGlobalLine, color: 'bg-amber-500/20 border-amber-500/30', title: 'Market-aware financial communication', desc: 'Frame project economics with tariff-aware and demand-aware scenarios that are easier to explain to clients, financiers, and management teams.' },
+                  { icon: RiShieldCheckLine, color: 'bg-emerald-500/20 border-emerald-500/30', title: 'Compliance support by design', desc: 'Generate cleaner records and reports to support environmental and regulatory workflows without exposing proprietary internal methods.' },
+                  { icon: RiBriefcaseLine, color: 'bg-amber-500/20 border-amber-500/30', title: 'Lifecycle visibility', desc: 'Maintain asset continuity from deployment to end-of-life decisions so reporting and handovers remain accurate over time.' },
                 ].map((card, i) => (
                   <div key={i} className={`rounded-2xl p-5 border ${card.color}`}>
                     <div className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center mb-3">
@@ -364,7 +363,7 @@ export default function Home() {
             <div className="text-center mb-10">
               <span className="text-xs font-semibold uppercase tracking-widest text-emerald-600">Try It Now</span>
               <h2 className="section-title mb-4 mt-2">See What Your Panels Are Worth</h2>
-              <p className="text-slate-500">No account needed. Calculate live recovery value from your panel fleet.</p>
+              <p className="text-slate-500">No account needed. Run a sample estimate to see lifecycle value signals for panel assets.</p>
             </div>
             <div className="bg-white rounded-3xl shadow-lg overflow-hidden">
               <div className="flex border-b border-slate-100">
@@ -513,23 +512,23 @@ export default function Home() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-14">
               <span className="text-xs font-semibold uppercase tracking-widest text-emerald-600">Platform Capabilities</span>
-              <h2 className="section-title mb-4 mt-2">Everything Solar Professionals Need</h2>
-              <p className="text-slate-500 max-w-xl mx-auto">From system design and financial modelling to compliance automation and material recovery — one platform replaces a dozen tools.</p>
+              <h2 className="section-title mb-4 mt-2">Built for technical teams and commercial outcomes</h2>
+              <p className="text-slate-500 max-w-xl mx-auto">Core capabilities designed to improve delivery quality, stakeholder confidence, and operational consistency.</p>
             </div>
             <div className="grid md:grid-cols-3 gap-6">
               {[
-                { icon: RiBatteryChargeLine, color: 'bg-forest-900', title: 'Solar + BESS Design Engine', desc: 'Size PV arrays and battery storage using hourly satellite irradiance data. Auto-optimise or manually configure for any site in Africa. Supports TOU tariff-aware dispatch.' },
-                { icon: RiLineChartLine, color: 'bg-emerald-500', title: '25-Year Financial Modelling', desc: 'Full techno-economic simulation — IRR, NPV, payback period, LCOE, lifetime savings. Model under real African tariff structures including multi-band and regional utility rates.' },
-                { icon: RiDraftLine, color: 'bg-forest-900', title: 'Professional Design Reports', desc: 'Generate client-ready PDF and Excel reports with system specs, energy flows, financial projections, and load analysis. Shareable via public link.' },
-                { icon: RiMapPinLine, color: 'bg-amber-500', title: 'West African Degradation Engine', desc: 'Algorithms calibrated for all 36 Nigerian states. Lagos coastal humidity, Kano desert heat, and inverter surge damage — all factored into your decommission timeline.' },
-                { icon: RiLeafLine, color: 'bg-emerald-500', title: 'Silver & Material Recovery Calculator', desc: 'Translate every panel and battery into recoverable grams of silver, lead, or lithium — plus real naira estimates across recycling and second-life routes.' },
-                { icon: RiBarChartLine, color: 'bg-forest-900', title: 'Load Profile Analysis', desc: 'Upload CSV load data, enter manually, or generate synthetic profiles by building type. Understand consumption patterns before you size a system.' },
-                { icon: RiShieldCheckLine, color: 'bg-amber-500', title: 'NESREA EPR Compliance Module', desc: 'Auto-generate Cradle-to-Grave certificates and EPR reports under the 2024 Battery Control Regulations. One click. Audit-ready PDF.' },
-                { icon: RiCalculatorLine, color: 'bg-emerald-500', title: 'Tariff & ROI Analysis', desc: 'Model savings across all NERC tariff bands, TOU rates, and generator fuel costs. Generate professional payback proposals with PDF export.' },
-                { icon: RiRobotLine, color: 'bg-forest-900', title: '5 AI-Powered Agents', desc: 'AI Assistant on every plan. Pro+ unlocks dedicated Design Engineer, Project Manager, Financial Advisor, Compliance Officer, and Report Specialist agents.' },
-                { icon: RiTrophyLine, color: 'bg-amber-500', title: 'Live Competitive Leaderboard', desc: 'Rank against other installers by active projects, recovered equipment weight, and environmental impact. Build reputation with eco-conscious clients.' },
-                { icon: RiTeamLine, color: 'bg-emerald-500', title: 'Team & Organisation Management', desc: 'Invite Admins and Managers. Track projects per team member. Scale from a one-man-band to a national EPC firm — one dashboard.' },
-                { icon: RiRecycleLine, color: 'bg-forest-900', title: 'Battery SoH & Warranty Ledger', desc: 'Track battery health heuristics, detect deep-cycle abuse, and maintain defendable warranty and maintenance records — per unit, per site.' },
+                { icon: RiBatteryChargeLine, color: 'bg-forest-900', title: 'Solar + storage design workflows', desc: 'Create and refine technical configurations with structured inputs, comparison views, and consistent output formats.' },
+                { icon: RiLineChartLine, color: 'bg-emerald-500', title: 'Long-range scenario modelling', desc: 'Evaluate project performance across planning horizons with transparent assumptions and adjustable cost/tariff factors.' },
+                { icon: RiDraftLine, color: 'bg-forest-900', title: 'Share-ready reporting', desc: 'Generate clear report outputs for internal alignment, customer communication, partner reviews, and approval processes.' },
+                { icon: RiMapPinLine, color: 'bg-amber-500', title: 'Location-aware lifecycle signals', desc: 'Use site context and operating patterns to inform maintenance timing and lifecycle planning decisions.' },
+                { icon: RiLeafLine, color: 'bg-emerald-500', title: 'Material recovery insights', desc: 'Estimate end-of-life pathways and compare route options to support commercially and environmentally responsible decisions.' },
+                { icon: RiBarChartLine, color: 'bg-forest-900', title: 'Load and usage analysis', desc: 'Work with measured or estimated demand profiles to improve system sizing logic and planning confidence.' },
+                { icon: RiShieldCheckLine, color: 'bg-amber-500', title: 'Compliance workflow support', desc: 'Prepare evidence-backed records and structured documents to support external compliance and internal governance needs.' },
+                { icon: RiCalculatorLine, color: 'bg-emerald-500', title: 'Tariff and return analysis', desc: 'Model commercial outcomes across energy pricing structures with outputs suitable for business decision-making.' },
+                { icon: RiRobotLine, color: 'bg-forest-900', title: 'AI assistants for execution', desc: 'Use built-in assistants to accelerate drafting, interpretation, and workflow support while keeping expert oversight in place.' },
+                { icon: RiTrophyLine, color: 'bg-amber-500', title: 'Performance visibility tools', desc: 'Monitor portfolio and team performance indicators with controls for public or private visibility by account settings.' },
+                { icon: RiTeamLine, color: 'bg-emerald-500', title: 'Organisation and team controls', desc: 'Manage workspace members, responsibilities, and workflow accountability as your projects and partnerships expand.' },
+                { icon: RiRecycleLine, color: 'bg-forest-900', title: 'Asset health and lifecycle records', desc: 'Maintain operational histories and condition snapshots to support quality assurance, warranty conversations, and handovers.' },
               ].map((f, i) => (
                 <div key={i} className="card-hover">
                   <div className={`w-11 h-11 ${f.color} rounded-xl flex items-center justify-center mb-4`}>
@@ -637,8 +636,8 @@ export default function Home() {
           <div className="absolute -top-24 -right-24 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl" />
           <div className="relative max-w-3xl mx-auto px-4 text-center">
             <span className="text-xs font-semibold uppercase tracking-widest text-emerald-400 mb-3 block">Start in minutes</span>
-            <h2 className="font-display font-bold text-4xl text-white mb-4 leading-tight">The Platform Africa&apos;s Solar<br />Industry Has Been Missing</h2>
-            <p className="text-white/70 mb-8 max-w-xl mx-auto">Join solar professionals across Africa using SolNuv to design better systems, close bigger deals, automate compliance, and capture the full value of every installation.</p>
+            <h2 className="font-display font-bold text-4xl text-white mb-4 leading-tight">Build higher-confidence solar workflows<br />with one connected platform</h2>
+            <p className="text-white/70 mb-8 max-w-xl mx-auto">Support technical decisions, partner communication, and lifecycle accountability with tools designed for modern solar operations.</p>
             <div className="flex flex-wrap justify-center gap-4">
               <Link href="/register" className="btn-amber inline-flex items-center gap-2 text-base px-8 py-4 rounded-2xl">
                 Create Your Account <RiArrowRightLine />
@@ -647,7 +646,7 @@ export default function Home() {
                 Partner With Us
               </Link>
             </div>
-            <p className="text-white/40 text-xs mt-6">No credit card required · Design your first system in under 15 minutes · NESREA-compliant from day one</p>
+            <p className="text-white/40 text-xs mt-6">No credit card required · Structured onboarding · Plan controls for teams and partners</p>
           </div>
         </section>
 

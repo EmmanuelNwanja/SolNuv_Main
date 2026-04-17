@@ -1254,7 +1254,7 @@ export default function SharedReport() {
                 </div>
                 <span className="font-semibold text-[#0D3B2E]">SolNuv</span>
               </div>
-              <p className="text-sm text-gray-500">Africa's Solar Engineering Platform</p>
+              <p className="text-sm text-gray-500">Solar engineering and lifecycle intelligence platform</p>
               <p className="text-sm text-gray-400 mt-4">
                 <a href="https://solnuv.com" target="_blank" rel="noopener noreferrer" className="text-[#10B981] hover:underline">
                   Create your own solar design at solnuv.com
