@@ -141,10 +141,10 @@ body {
     @apply px-4 py-2 text-sm;
   }
   .marketing-main {
-    @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10;
+    @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14 lg:py-16;
   }
   .marketing-section {
-    @apply rounded-3xl border p-6 sm:p-8 lg:p-10 mb-8;
+    @apply rounded-3xl border p-7 sm:p-10 lg:p-12 mb-10 sm:mb-12;
     border-color: rgba(148, 163, 184, 0.2);
     background: color-mix(in srgb, #ffffff 90%, transparent);
     box-shadow: 0 18px 40px rgba(2, 8, 23, 0.06);
@@ -178,11 +178,13 @@ body {
     animation: marketingFloatReverse 14s ease-in-out infinite;
   }
   .reveal-lift {
-    transition: transform .35s ease, box-shadow .35s ease;
+    transition: transform .42s cubic-bezier(0.22, 1, 0.36, 1), box-shadow .42s cubic-bezier(0.22, 1, 0.36, 1), border-color .3s ease;
+    will-change: transform;
   }
   .reveal-lift:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 20px 38px rgba(2, 8, 23, 0.14);
+    transform: translateY(-6px) scale(1.012);
+    box-shadow: 0 24px 42px rgba(2, 8, 23, 0.16);
+    border-color: color-mix(in srgb, #10b981 32%, #cbd5e1 68%);
   }
   .marketing-section-dark {
     @apply marketing-section text-white border-0;
@@ -194,11 +196,14 @@ body {
     color: #047857;
   }
   .marketing-headline {
-    @apply font-display text-3xl md:text-4xl lg:text-5xl font-bold leading-tight mt-4;
+    @apply font-display font-bold mt-4;
+    font-size: clamp(2rem, 4vw, 3.55rem);
+    line-height: 1.08;
+    letter-spacing: -0.015em;
     color: #0f172a;
   }
   .marketing-subcopy {
-    @apply text-slate-600 text-base md:text-lg leading-relaxed mt-4 max-w-3xl;
+    @apply text-slate-600 text-base md:text-[1.075rem] leading-relaxed mt-5 max-w-[44rem];
   }
   .marketing-card-grid {
     @apply grid md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-5 mt-8;
@@ -404,6 +409,17 @@ body {
   }
   .reveal-lift {
     transition: none !important;
+  }
+  .reveal-lift:hover {
+    transform: none !important;
+    box-shadow: none !important;
+  }
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .reveal-lift:hover {
+    transform: none;
+    box-shadow: var(--shadow-soft);
   }
 }
 
@@ -689,6 +705,15 @@ body {
   border-color: rgba(148, 163, 184, 0.26);
 }
 
+:root[data-theme='dark'] .marketing-shell .marketing-section {
+  background: color-mix(in srgb, #ffffff 94%, transparent);
+  border-color: #dbe3ee;
+}
+
+:root[data-theme='dark'] .marketing-shell .marketing-section-dark {
+  background: linear-gradient(135deg, #0b1220 0%, #0d3b2e 50%, #0f766e 100%);
+}
+
 :root[data-theme='dark'] .marketing-shell .marketing-nav-links,
 :root[data-theme='dark'] .marketing-shell .marketing-subcopy,
 :root[data-theme='dark'] .marketing-shell .marketing-proof-copy,
@@ -703,6 +728,11 @@ body {
 :root[data-theme='dark'] .marketing-shell .text-slate-800,
 :root[data-theme='dark'] .marketing-shell .text-forest-900 {
   color: #0f172a !important;
+}
+
+:root[data-theme='dark'] .marketing-shell .text-slate-500,
+:root[data-theme='dark'] .marketing-shell .text-slate-400 {
+  color: #64748b !important;
 }
 
 :root[data-theme='dark'] .marketing-shell .bg-white,
@@ -727,6 +757,30 @@ body {
   color: #0f172a;
 }
 
+:root[data-theme='dark'] .marketing-shell .dark\:bg-slate-900,
+:root[data-theme='dark'] .marketing-shell .dark\:bg-slate-800,
+:root[data-theme='dark'] .marketing-shell .dark\:bg-slate-800\/60 {
+  background-color: #ffffff !important;
+}
+
+:root[data-theme='dark'] .marketing-shell .dark\:border-slate-800,
+:root[data-theme='dark'] .marketing-shell .dark\:border-slate-700 {
+  border-color: #dbe3ee !important;
+}
+
+:root[data-theme='dark'] .marketing-shell .dark\:text-white,
+:root[data-theme='dark'] .marketing-shell .dark\:text-slate-100,
+:root[data-theme='dark'] .marketing-shell .dark\:text-slate-300,
+:root[data-theme='dark'] .marketing-shell .dark\:text-slate-400,
+:root[data-theme='dark'] .marketing-shell .dark\:text-slate-500 {
+  color: #475569 !important;
+}
+
+:root[data-theme='dark'] .marketing-shell .dark\:text-emerald-400,
+:root[data-theme='dark'] .marketing-shell .dark\:text-forest-300 {
+  color: #0f766e !important;
+}
+
 :root[data-theme='dark'] .marketing-shell .input::placeholder {
   color: #94a3b8;
 }
@@ -740,6 +794,42 @@ body {
 :root[data-theme='dark'] .marketing-shell .btn-outline:hover {
   background: #f8fafc;
   border-color: #94a3b8;
+}
+
+:root[data-theme='dark'] .auth-shell {
+  background:
+    radial-gradient(circle at 12% -5%, rgba(16, 185, 129, 0.16), transparent 35%),
+    radial-gradient(circle at 86% 2%, rgba(245, 158, 11, 0.15), transparent 30%),
+    #f6f8fb;
+}
+
+:root[data-theme='dark'] .auth-wrap .text-slate-500,
+:root[data-theme='dark'] .auth-wrap .text-slate-400 {
+  color: #64748b !important;
+}
+
+:root[data-theme='dark'] .auth-wrap .text-slate-700,
+:root[data-theme='dark'] .auth-wrap .text-slate-800,
+:root[data-theme='dark'] .auth-wrap .text-slate-900,
+:root[data-theme='dark'] .auth-wrap .text-forest-900 {
+  color: #0f172a !important;
+}
+
+:root[data-theme='dark'] .auth-wrap .auth-card,
+:root[data-theme='dark'] .auth-wrap .bg-white {
+  background: #ffffff !important;
+  border-color: #dbe3ee !important;
+}
+
+:root[data-theme='dark'] .auth-wrap .border-slate-100,
+:root[data-theme='dark'] .auth-wrap .border-slate-200 {
+  border-color: #dbe3ee !important;
+}
+
+:root[data-theme='dark'] .auth-wrap .input {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  color: #0f172a;
 }
 
 /* TOAST CUSTOM STYLE */

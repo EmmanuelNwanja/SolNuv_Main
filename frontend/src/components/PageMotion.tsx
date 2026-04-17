@@ -1,5 +1,6 @@
 import { motion, useReducedMotion } from "framer-motion";
 import type { ComponentProps, ReactNode } from "react";
+import { useEffect, useState } from "react";
 
 const pageVariants = {
   hidden: { opacity: 0, y: 10 },
@@ -25,11 +26,21 @@ const sectionVariants = {
 };
 
 export function PageMotion({ children }: { children: ReactNode }) {
-  useReducedMotion();
+  const reduceMotion = useReducedMotion();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted || reduceMotion) {
+    return <motion.div>{children}</motion.div>;
+  }
+
   return (
     <motion.div
       variants={pageVariants}
-      initial={false}
+      initial="hidden"
       animate="visible"
     >
       {children}
@@ -46,12 +57,27 @@ type MotionSectionProps = {
 >;
 
 export function MotionSection({ children, className = "", ...rest }: MotionSectionProps) {
-  useReducedMotion();
+  const reduceMotion = useReducedMotion();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted || reduceMotion) {
+    return (
+      <motion.div className={className} {...rest}>
+        {children}
+      </motion.div>
+    );
+  }
+
   return (
     <motion.div
       variants={sectionVariants}
-      initial={false}
-      animate="visible"
+      initial="hidden"
+      whileInView="visible"
+      viewport={{ once: true, amount: 0.16 }}
       className={className}
       {...rest}
     >
@@ -69,11 +95,22 @@ export function MotionStagger({
   className?: string;
   delay?: number;
 }) {
-  useReducedMotion();
+  const reduceMotion = useReducedMotion();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted || reduceMotion) {
+    return <motion.div className={className}>{children}</motion.div>;
+  }
+
   return (
     <motion.div
-      initial={false}
-      animate="visible"
+      initial="hidden"
+      whileInView="visible"
+      viewport={{ once: true, amount: 0.14 }}
       variants={{
         hidden: { opacity: 0, y: 10 },
         visible: {

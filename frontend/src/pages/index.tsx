@@ -123,19 +123,19 @@ export default function Home() {
   const heroStats = [
     {
       value: formatWithThreshold(summaryTotals?.simulation_runs, 50, (v) => `${v.toLocaleString()}+`, 'Scaling Fast'),
-      label: 'Simulation Runs',
+      label: '10+ Simulation Runs',
     },
     {
       value: formatWithThreshold(aiDefinitionsCount, 3, (v) => `${v}`, 'Multi-Agent'),
-      label: 'AI Agents Active',
+      label: 'Dedicated AI Advisors',
     },
     {
       value: summaryAI?.provider_ready ? 'Live' : 'Standby',
-      label: 'AI Provider Readiness',
+      label: 'Asset Tracking & Recovery',
     },
     {
-      value: formatWithThreshold(summaryV2?.serialized_assets, 20, (v) => `${v.toLocaleString()}+`, 'Serial-First'),
-      label: 'V2 Serialized Assets',
+      value: formatWithThreshold(summaryV2?.serialized_assets, 20, (v) => `${v.toLocaleString()}+`, '1M Asset-Chase'),
+      label: 'On Track to Recover 1M Assets'
     },
   ];
 
@@ -149,12 +149,12 @@ export default function Home() {
       value: formatWithThreshold(summaryTotals?.recovered_projects, 10, (v) => v.toLocaleString(), 'Lifecycle Active'),
     },
     {
-      label: 'V2 Escrow Decisions',
+      label: 'Escrow Transactions',
       value: formatWithThreshold(summaryV2?.escrow_decisions, 10, (v) => v.toLocaleString(), 'Pilot In Progress'),
     },
     {
-      label: 'AI Design Feedback Generated',
-      value: formatWithThreshold(aiFeedbackCount, 20, (v) => `${v.toLocaleString()}+`, 'AI Advisor Live'),
+      label: 'AI Support Delevered',
+      value: formatWithThreshold(aiFeedbackCount, 20, (v) => `${v.toLocaleString()}+`, 'Live & Counting Up'),
     },
   ];
 
@@ -179,12 +179,12 @@ export default function Home() {
           <MotionStagger className="grid lg:grid-cols-2 gap-8 items-end">
             <MotionItem>
               <span className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-widest bg-white/10 text-emerald-200">
-                End-to-end solar intelligence platform
+                End-to-end solar lifecycle intelligence
               </span>
-              <h1 className="font-display text-4xl md:text-5xl lg:text-6xl font-bold leading-tight mt-4">
-                Plan, Track, & Recover
+              <h1 className="font-display text-3xl sm:text-4xl lg:text-5xl font-bold leading-[1.08] mt-4 tracking-[-0.015em]">
+                Design Solar Projects,
                 <br />
-                Solar Operations and Equipment.
+                Track & Recover Equipment.
               </h1>
               <p className="text-base md:text-lg text-white/75 leading-relaxed mt-5 max-w-2xl">
                 Run design workflows, financial scenario analysis, lifecycle tracking, and compliance-ready reporting from one connected environment.
@@ -258,14 +258,14 @@ export default function Home() {
           </p>
           <MotionStagger className="marketing-card-grid" delay={0.03}>
               {[
-                { step: '01', icon: RiShieldCheckLine, title: 'Set roles and access boundaries', desc: 'Configure clear permissions for installers, managers, analysts, partners, and reviewers so every activity is attributable and auditable.' },
-                { step: '02', icon: RiFlashlightLine, title: 'Build and compare system options', desc: 'Create solar and storage configurations, adjust assumptions, and compare alternatives before finalising project decisions.' },
-                { step: '03', icon: RiLineChartLine, title: 'Model long-horizon financial outcomes', desc: 'Run scenario-based projections across tariffs, demand profiles, and cost assumptions to support planning and investment conversations.' },
-                { step: '04', icon: RiSunLine, title: 'Register assets for traceability', desc: 'Capture equipment records and project identifiers early so lifecycle evidence remains organised from commissioning through end-of-life.' },
-                { step: '05', icon: RiMapPinLine, title: 'Track operational and degradation context', desc: 'Use location-aware and usage-aware signals to improve maintenance planning, replacement decisions, and performance reviews.' },
-                { step: '06', icon: RiRobotLine, title: 'Scale productivity with AI assistants', desc: 'Use guided assistants to speed up drafts, validation checks, and report preparation while keeping humans in control of final decisions.' },
-                { step: '07', icon: RiFileTextLine, title: 'Manage evidence and approval workflows', desc: 'Record milestone evidence, support partner reviews, and maintain decision logs for structured execution and handover.' },
-                { step: '08', icon: RiRecycleLine, title: 'Support lifecycle compliance and recovery', desc: 'Prepare compliance-facing reports and evaluate end-of-life routes with clearer visibility into potential recovery pathways.' },
+                { step: '01', icon: RiShieldCheckLine, title: 'Set roles & boundaries', desc: 'Configure clear permissions for your team, installers, managers, analysts, partners, and reviewers so every activity is attributable and auditable.' },
+                { step: '02', icon: RiFlashlightLine, title: 'Build & compare systems', desc: 'Create solar and storage configurations, adjust assumptions, and compare alternatives before finalising project decisions.' },
+                { step: '03', icon: RiLineChartLine, title: 'Model flexible financial outcomes', desc: 'Run scenario-based projections across tariffs, demand profiles, and cost assumptions to support planning and investment conversations.' },
+                { step: '04', icon: RiSunLine, title: 'Register assets for traceability', desc: 'Capture equipment records and project identifiers early, so your lifecycle evidence remains organised from commissioning through end-of-life.' },
+                { step: '05', icon: RiMapPinLine, title: 'Track operational & degradation data', desc: 'Use location-aware and usage-aware signals to improve maintenance planning, replacement decisions, and performance reviews.' },
+                { step: '06', icon: RiRobotLine, title: 'Scale productivity with AI Advisors', desc: 'Use guided assistants to speed up drafts, validation checks, and report preparation while keeping humans in control of final decisions.' },
+                { step: '07', icon: RiFileTextLine, title: 'Manage evidence & approval workflows', desc: 'Record milestone evidence, support partner reviews, and maintain decision logs for structured execution and handover.' },
+                { step: '08', icon: RiRecycleLine, title: 'Control lifecycle compliance', desc: 'Plan and recover equipment, generate compliance-facing reports and evaluate end-of-life routes with clearer visibility into recovery pathways.' },
               ].map((item, i) => (
                 <MotionItem key={i} className="card-hover relative z-10 bg-white reveal-lift">
                     <div className="flex items-center gap-3 mb-4">
@@ -286,7 +286,7 @@ export default function Home() {
             <MotionStagger className="grid lg:grid-cols-2 gap-16 items-center">
               <MotionItem>
                 <span className="text-xs font-semibold uppercase tracking-widest text-emerald-400">Why This Matters</span>
-                <h2 className="font-display text-4xl font-bold mt-3 mb-6 leading-tight">
+                <h2 className="font-display text-3xl md:text-4xl font-bold mt-3 mb-6 leading-tight">
                   High-growth solar markets need<br />
                   <span className="text-amber-400">operational discipline, not more tools.</span>
                 </h2>
@@ -587,7 +587,7 @@ export default function Home() {
         {/* CTA */}
         <MotionSection className="marketing-section-dark marketing-section-animated text-center">
             <span className="text-xs font-semibold uppercase tracking-widest text-emerald-400 mb-3 block">Start in minutes</span>
-            <h2 className="font-display font-bold text-4xl text-white mb-4 leading-tight">Build higher-confidence solar workflows<br />with one connected platform</h2>
+            <h2 className="font-display font-bold text-3xl md:text-4xl text-white mb-4 leading-tight">Build higher-confidence solar workflows<br />with one connected platform</h2>
             <p className="text-white/70 mb-8 max-w-xl mx-auto">Support technical decisions, partner communication, and lifecycle accountability with tools designed for modern solar operations.</p>
             <div className="flex flex-wrap justify-center gap-4">
               <Link href="/register" className="btn-amber inline-flex items-center gap-2 text-base px-8 py-4 rounded-2xl">
