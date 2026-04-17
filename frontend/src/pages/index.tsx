@@ -205,15 +205,14 @@ export default function Home() {
           <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 md:py-32">
             <div className="max-w-3xl">
               <div className="inline-flex items-center gap-2 bg-white/10 border border-white/20 rounded-full px-4 py-1.5 mb-6">
-                <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
-                <span className="text-sm font-medium text-white/90">Solar project intelligence for teams, partners, and operators</span>
+                <span className="text-sm font-medium text-white/90">Project + equipment intelligence for solar operators</span>
               </div>
               <h1 className="font-display text-4xl md:text-6xl font-bold leading-tight mb-6">
-                Plan, validate, and track<br />
+                Plan, track, & recover<br />
                 <span className="text-amber-400">solar projects end-to-end.</span>
               </h1>
               <p className="text-lg text-white/75 mb-8 leading-relaxed max-w-2xl">
-                SolNuv brings design workflows, financial scenario modelling, compliance support, and lifecycle traceability into one platform. Teams can standardise project execution, improve reporting quality, and collaborate with partners using clear evidence trails.
+                Design workflows, financial scenario modelling, compliance support, and lifecycle traceability in one platform. Standardise project execution, improve reporting quality, and collaborate with partners using clear evidence trails.
               </p>
               <div className="flex flex-wrap gap-4">
                 <Link href="/register" className="btn-amber inline-flex items-center gap-2">
