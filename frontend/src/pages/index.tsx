@@ -15,10 +15,10 @@ import { MotionItem, MotionSection, MotionStagger } from '../components/PageMoti
 import { getPublicLayout } from '../components/Layout';
 
 const CLIMATE_ZONES = [
-  { value: 'coastal_humid', label: 'Coastal / Humid (Lagos, Rivers, Delta)' },
-  { value: 'sahel_dry',     label: 'Sahel / Dry Heat (Kano, Sokoto, Borno)' },
-  { value: 'se_humid',      label: 'Southeast Humid (Enugu, Anambra, Imo)' },
-  { value: 'mixed',         label: 'Mixed / Inland (FCT, Oyo, Kaduna)' },
+  { value: 'coastal_humid', label: 'Coastal / humid' },
+  { value: 'sahel_dry',     label: 'Sahel / dry heat' },
+  { value: 'se_humid',      label: 'Southeast humid' },
+  { value: 'mixed',         label: 'Mixed / inland' },
 ];
 
 const PARTNERS_ROW1 = [
@@ -204,8 +204,8 @@ export default function Home() {
 
       <div className="font-body relative">
         <MotionSection className="marketing-section-dark marketing-section-animated rounded-3xl overflow-hidden mb-8" id="top">
-          <MotionStagger className="grid lg:grid-cols-2 gap-8 items-end">
-            <MotionItem>
+          <MotionStagger className="grid lg:grid-cols-2 gap-8 items-end w-full min-w-0 [contain:layout]" delay={0.02}>
+            <MotionItem className="min-w-0">
               <span className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-widest bg-white/10 text-emerald-200">
                 End-to-end solar lifecycle intelligence
               </span>
@@ -221,19 +221,19 @@ export default function Home() {
                 <Link href="/register" className="btn-amber inline-flex items-center gap-2">
                   Create account <RiArrowRightLine />
                 </Link>
-                <Link href="/contact" className="btn-outline border-white/30 text-white hover:bg-white/10">
+                <Link href="/contact" className="btn-on-dark w-full sm:w-auto">
                   Partner with SolNuv
                 </Link>
               </div>
             </MotionItem>
-            <MotionStagger className="grid grid-cols-1 min-[400px]:grid-cols-2 gap-3 sm:gap-4" delay={0.08}>
+            <MotionStagger className="grid grid-cols-1 min-[400px]:grid-cols-2 gap-3 sm:gap-4 w-full min-w-0" delay={0.08}>
               {heroStats.map((s) => (
-                <MotionItem key={s.label} className="rounded-2xl border border-white/15 bg-white/5 p-4 reveal-lift">
+                <MotionItem key={s.label} className="rounded-2xl border border-white/15 bg-white/5 p-4 reveal-lift min-w-0">
                   <p className="font-display font-bold text-amber-300 marketing-hero-stat-value">{s.value}</p>
                   <p className="text-xs text-white/65 mt-1">{s.label}</p>
                 </MotionItem>
               ))}
-              <MotionItem className="col-span-2 marketing-snapshot-card reveal-lift">
+              <MotionItem className="col-span-1 min-[400px]:col-span-2 marketing-snapshot-card reveal-lift min-w-0">
                 <img
                   src={EXPERIENCE_SNAPSHOTS.dashboard.src}
                   alt={EXPERIENCE_SNAPSHOTS.dashboard.title}
@@ -339,8 +339,8 @@ export default function Home() {
 
         {/* WHY IT MATTERS */}
         <MotionSection id="impact" className="marketing-section-dark marketing-section-animated">
-            <MotionStagger className="grid lg:grid-cols-2 gap-8 lg:gap-16 items-center">
-              <MotionItem>
+            <MotionStagger className="grid lg:grid-cols-2 gap-8 lg:gap-16 items-start w-full min-w-0 [contain:layout]" delay={0.02}>
+              <MotionItem className="min-w-0">
                 <span className="text-xs font-semibold uppercase tracking-widest text-emerald-400">Why This Matters</span>
                 <h2 className="marketing-hero-dark-title mt-3 mb-6">
                   High-growth solar markets need<br />
@@ -356,8 +356,8 @@ export default function Home() {
                   Built for serious solar operators who need dependable workflows across projects, portfolios, and partnerships.
                 </p>
               </MotionItem>
-              <MotionStagger className="grid grid-cols-1 sm:grid-cols-2 gap-4" delay={0.1}>
-                <MotionItem className="col-span-2 marketing-snapshot-card reveal-lift">
+              <MotionStagger className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full min-w-0 isolate" delay={0.08}>
+                <MotionItem className="col-span-1 sm:col-span-2 marketing-snapshot-card reveal-lift min-w-0">
                   <img
                     src={EXPERIENCE_SNAPSHOTS.ai.src}
                     alt={EXPERIENCE_SNAPSHOTS.ai.title}
@@ -375,15 +375,15 @@ export default function Home() {
                   { icon: RiShieldCheckLine, color: 'bg-emerald-500/20 border-emerald-500/30', title: 'Compliance support by design', desc: 'Generate cleaner records and reports to support environmental and regulatory workflows without exposing proprietary internal methods.' },
                   { icon: RiBriefcaseLine, color: 'bg-amber-500/20 border-amber-500/30', title: 'Lifecycle visibility', desc: 'Maintain asset continuity from deployment to end-of-life decisions so reporting and handovers remain accurate over time.' },
                 ].map((card, i) => (
-                  <MotionItem key={i} className={`rounded-2xl p-5 border ${card.color} reveal-lift`}>
-                    <div className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center mb-3">
+                  <MotionItem key={i} className={`rounded-2xl p-5 border ${card.color} reveal-lift min-w-0 relative z-0`}>
+                    <div className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center mb-3 shrink-0">
                       <card.icon className="text-white text-lg" />
                     </div>
-                    <h4 className="font-semibold text-white text-sm mb-2">{card.title}</h4>
-                    <p className="text-white/60 text-xs leading-relaxed">{card.desc}</p>
+                    <h4 className="font-semibold text-white text-sm mb-2 break-words">{card.title}</h4>
+                    <p className="text-white/60 text-xs leading-relaxed break-words">{card.desc}</p>
                   </MotionItem>
                 ))}
-                <MotionItem className="col-span-2 marketing-snapshot-card reveal-lift">
+                <MotionItem className="col-span-1 sm:col-span-2 marketing-snapshot-card reveal-lift min-w-0">
                   <img
                     src={EXPERIENCE_SNAPSHOTS.compliance.src}
                     alt={EXPERIENCE_SNAPSHOTS.compliance.title}
@@ -407,25 +407,25 @@ export default function Home() {
               <p className="text-slate-500">No account needed. Run a sample estimate to see lifecycle value signals for panel assets.</p>
             </div>
             <div className="bg-white rounded-3xl shadow-lg overflow-hidden">
-              <div className="flex overflow-x-auto snap-x snap-mandatory border-b border-slate-100 sm:snap-none [-webkit-overflow-scrolling:touch]">
+              <div className="marketing-tab-strip snap-x snap-mandatory sm:snap-none">
                 {[
                   { id: 'panel',   label: '☀️ Panel Value',      sub: 'Silver + Second-Life' },
                   { id: 'battery', label: '🔋 Battery Value',     sub: 'Sign in to calculate' },
-                  { id: 'degrade', label: '📅 Decommission Date', sub: 'Sign in to calculate' },
+                  { id: 'degrade', label: '📅 Decommission', sub: 'Sign in to calculate' },
                 ].map(tab => (
                   <button key={tab.id} type="button" onClick={() => setCalcTab(tab.id)}
-                    className={`flex-none min-w-[33.333%] sm:flex-1 sm:min-w-0 snap-start py-3.5 sm:py-4 px-2 flex flex-col items-center justify-center text-center transition-all ${calcTab === tab.id ? 'bg-forest-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>
-                    <span className="text-xs sm:text-sm font-semibold leading-tight">{tab.label}</span>
-                    <span className={`text-[10px] sm:text-xs mt-0.5 leading-snug px-0.5 ${calcTab === tab.id ? 'text-white/60' : 'text-slate-400'}`}>{tab.sub}</span>
+                    className={`flex-none min-w-[11.5rem] max-w-[42vw] sm:max-w-none sm:min-w-0 sm:flex-1 snap-start py-3.5 sm:py-4 px-2 sm:px-3 flex flex-col items-center justify-center text-center transition-all ${calcTab === tab.id ? 'bg-forest-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>
+                    <span className="text-xs sm:text-sm font-semibold leading-tight whitespace-normal">{tab.label}</span>
+                    <span className={`text-[10px] sm:text-xs mt-0.5 leading-snug px-0.5 line-clamp-2 ${calcTab === tab.id ? 'text-white/70' : 'text-slate-500'}`}>{tab.sub}</span>
                   </button>
                 ))}
               </div>
 
-              <div className="p-6 md:p-10">
+              <div className="p-4 min-[400px]:p-6 md:p-10">
                 {calcTab === 'panel' && (
                   <div className="grid md:grid-cols-2 gap-8">
-                    <div className="space-y-4">
-                      <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-4 min-w-0">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
                           <label className="label">Panel Wattage (W)</label>
                           <input type="number" className="input" value={silverForm.size_watts} min="50" max="800"
@@ -445,10 +445,12 @@ export default function Home() {
                       </div>
                       <div>
                         <label className="label">Climate Zone</label>
-                        <select className="input" value={silverForm.climate_zone}
-                          onChange={e => setSilverForm(f => ({ ...f, climate_zone: e.target.value }))}>
+                        <select className="input w-full max-w-full" value={silverForm.climate_zone}
+                          onChange={e => setSilverForm(f => ({ ...f, climate_zone: e.target.value }))}
+                          title="Climate band for degradation modelling">
                           {CLIMATE_ZONES.map(z => <option key={z.value} value={z.value}>{z.label}</option>)}
                         </select>
+                        <p className="text-xs text-slate-500 mt-1.5 leading-snug">Bands cover coastal humidity, Sahel heat, southeast humid, and mixed inland zones.</p>
                       </div>
                       <button onClick={() => runSilverCalc()} disabled={calcLoading} className="btn-primary w-full">
                         {calcLoading ? 'Calculating...' : 'Calculate Panel Value →'}
@@ -646,7 +648,7 @@ export default function Home() {
               <Link href="/register" className="btn-amber inline-flex items-center justify-center gap-2 text-base px-8 py-4 rounded-2xl w-full sm:w-auto">
                 Create Your Account <RiArrowRightLine />
               </Link>
-              <Link href="/contact" className="inline-flex items-center justify-center gap-2 border border-white/30 text-white px-6 py-4 rounded-2xl text-sm font-semibold hover:bg-white/10 transition-all min-h-[2.75rem] w-full sm:w-auto">
+              <Link href="/contact" className="btn-on-dark px-6 py-4 rounded-2xl text-sm w-full sm:w-auto">
                 Partner With Us
               </Link>
             </div>

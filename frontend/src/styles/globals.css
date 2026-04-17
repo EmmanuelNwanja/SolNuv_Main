@@ -126,7 +126,7 @@ body {
     @apply z-[60];
   }
   .marketing-nav {
-    @apply max-w-7xl mx-auto px-3 min-[400px]:px-4 sm:px-6 lg:px-8 h-[var(--marketing-header-height)] min-h-[var(--marketing-header-height)] flex items-center justify-between gap-2 sm:gap-4;
+    @apply max-w-[min(100%,88rem)] mx-auto px-3 min-[400px]:px-4 sm:px-5 lg:px-6 h-[var(--marketing-header-height)] min-h-[var(--marketing-header-height)] flex items-center justify-between gap-2 sm:gap-4;
   }
   .marketing-brand {
     @apply inline-flex items-center gap-2 font-display font-bold text-base text-forest-900;
@@ -185,7 +185,7 @@ body {
     top: var(--marketing-header-height);
   }
   .marketing-mobile-drawer-inner {
-    @apply max-w-7xl mx-auto px-4 py-3 flex flex-col gap-0.5;
+    @apply max-w-[min(100%,88rem)] mx-auto px-4 py-3 flex flex-col gap-0.5;
   }
   .marketing-mobile-link {
     @apply block rounded-xl px-3 py-3 text-[15px] font-medium text-slate-700 transition-colors hover:bg-slate-50 active:bg-slate-100;
@@ -197,24 +197,24 @@ body {
     @apply mt-1 border-t border-slate-100 pt-3 text-slate-600;
   }
   .marketing-main {
-    @apply max-w-7xl mx-auto w-full py-8 min-[400px]:py-10 sm:py-14 lg:py-16;
-    padding-left: max(0.75rem, env(safe-area-inset-left, 0px));
-    padding-right: max(0.75rem, env(safe-area-inset-right, 0px));
+    @apply max-w-[min(100%,88rem)] mx-auto w-full py-8 min-[400px]:py-10 sm:py-14 lg:py-16;
+    padding-left: max(0.5rem, env(safe-area-inset-left, 0px));
+    padding-right: max(0.5rem, env(safe-area-inset-right, 0px));
   }
   @media (min-width: 640px) {
     .marketing-main {
-      padding-left: max(1.5rem, env(safe-area-inset-left, 0px));
-      padding-right: max(1.5rem, env(safe-area-inset-right, 0px));
+      padding-left: max(0.875rem, env(safe-area-inset-left, 0px));
+      padding-right: max(0.875rem, env(safe-area-inset-right, 0px));
     }
   }
   @media (min-width: 1024px) {
     .marketing-main {
-      padding-left: max(2rem, env(safe-area-inset-left, 0px));
-      padding-right: max(2rem, env(safe-area-inset-right, 0px));
+      padding-left: max(1.25rem, env(safe-area-inset-left, 0px));
+      padding-right: max(1.25rem, env(safe-area-inset-right, 0px));
     }
   }
   .marketing-section {
-    @apply rounded-2xl min-[400px]:rounded-3xl border p-5 sm:p-7 md:p-10 lg:p-12 mb-8 sm:mb-10 lg:mb-12;
+    @apply rounded-2xl min-[400px]:rounded-3xl border p-4 min-[400px]:p-5 sm:p-6 md:p-8 lg:p-10 mb-8 sm:mb-10 lg:mb-12;
     border-color: rgba(148, 163, 184, 0.2);
     background: color-mix(in srgb, #ffffff 90%, transparent);
     box-shadow: 0 18px 40px rgba(2, 8, 23, 0.06);
@@ -343,25 +343,25 @@ body {
   }
   .marketing-footer {
     @apply mt-8 border-t py-8 sm:py-10;
-    padding-left: max(1rem, env(safe-area-inset-left, 0px));
-    padding-right: max(1rem, env(safe-area-inset-right, 0px));
+    padding-left: max(0.5rem, env(safe-area-inset-left, 0px));
+    padding-right: max(0.5rem, env(safe-area-inset-right, 0px));
     background: #0b1220;
     border-color: rgba(148, 163, 184, 0.22);
   }
   @media (min-width: 640px) {
     .marketing-footer {
-      padding-left: max(1.5rem, env(safe-area-inset-left, 0px));
-      padding-right: max(1.5rem, env(safe-area-inset-right, 0px));
+      padding-left: max(0.875rem, env(safe-area-inset-left, 0px));
+      padding-right: max(0.875rem, env(safe-area-inset-right, 0px));
     }
   }
   @media (min-width: 1024px) {
     .marketing-footer {
-      padding-left: max(2rem, env(safe-area-inset-left, 0px));
-      padding-right: max(2rem, env(safe-area-inset-right, 0px));
+      padding-left: max(1.25rem, env(safe-area-inset-left, 0px));
+      padding-right: max(1.25rem, env(safe-area-inset-right, 0px));
     }
   }
   .marketing-footer-grid {
-    @apply max-w-7xl mx-auto grid md:grid-cols-2 xl:grid-cols-4 gap-8;
+    @apply max-w-[min(100%,88rem)] mx-auto grid md:grid-cols-2 xl:grid-cols-4 gap-8;
   }
   .marketing-footer-title {
     @apply text-xs uppercase tracking-widest text-slate-400 mb-3 font-semibold;
@@ -373,7 +373,7 @@ body {
     color: #ffffff;
   }
   .marketing-footer-meta {
-    @apply max-w-7xl mx-auto mt-8 pt-5 border-t border-slate-700/70 text-xs text-slate-500 flex flex-col md:flex-row md:justify-between gap-2;
+    @apply max-w-[min(100%,88rem)] mx-auto mt-8 pt-5 border-t border-slate-700/70 text-xs text-slate-500 flex flex-col md:flex-row md:justify-between gap-2;
   }
 
   .btn-primary {
@@ -402,6 +402,28 @@ body {
   .btn-outline:hover {
     border-color: color-mix(in srgb, var(--text-primary) 38%, transparent);
     background: color-mix(in srgb, var(--bg-soft) 88%, transparent);
+  }
+  /* Ghost outline for dark marketing bands — do not combine with .btn-outline (light fill) */
+  .btn-on-dark {
+    @apply inline-flex items-center justify-center gap-2 min-h-[2.75rem] px-6 py-3 rounded-xl font-semibold text-sm transition-all duration-200;
+    color: #ffffff;
+    border: 2px solid rgba(255, 255, 255, 0.42);
+    background: rgba(255, 255, 255, 0.1);
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.12);
+  }
+  .btn-on-dark:hover {
+    background: rgba(255, 255, 255, 0.18);
+    border-color: rgba(255, 255, 255, 0.62);
+    color: #ffffff;
+  }
+  .btn-on-dark:focus-visible {
+    outline: 2px solid rgba(255, 255, 255, 0.85);
+    outline-offset: 2px;
+  }
+  .marketing-tab-strip {
+    @apply flex flex-nowrap gap-0 overflow-x-auto overscroll-x-contain border-b border-slate-100;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
   }
   .btn-ghost {
     @apply px-4 py-2 rounded-xl font-medium text-sm transition-all duration-200;
@@ -982,6 +1004,18 @@ body {
   background: #ffffff;
   border-color: #cbd5e1;
   color: #0f172a;
+}
+
+:root[data-theme='dark'] .marketing-shell .marketing-section-dark .btn-on-dark {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.48);
+}
+
+:root[data-theme='dark'] .marketing-shell .marketing-section-dark .btn-on-dark:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.65);
+  color: #ffffff;
 }
 
 :root[data-theme='dark'] .marketing-shell .btn-outline:hover {
