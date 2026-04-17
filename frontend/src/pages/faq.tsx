@@ -119,7 +119,7 @@ function FaqPage() {
           </div>
         </MotionStagger>
       </MotionSection>
-      <div className="max-w-6xl mx-auto px-4 pt-4">
+      <div className="max-w-6xl mx-auto w-full pt-4 px-[max(1rem,env(safe-area-inset-left,0px))] pr-[max(1rem,env(safe-area-inset-right,0px))]">
         <AdSlot slot="banner" page="faq" limit={1} />
       </div>
       <MotionSection className="marketing-section marketing-section-animated">

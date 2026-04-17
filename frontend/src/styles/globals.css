@@ -116,13 +116,17 @@ body {
       linear-gradient(180deg, #f8fafc 0%, #f4f7fb 44%, #f8fafc 100%);
   }
   .marketing-nav-wrap {
+    --marketing-header-height: 4.35rem;
     @apply sticky top-0 z-40 border-b backdrop-blur-xl;
     background: color-mix(in srgb, #ffffff 84%, transparent);
     border-color: rgba(148, 163, 184, 0.2);
     box-shadow: 0 8px 24px rgba(2, 8, 23, 0.04);
   }
+  .marketing-nav-wrap-open {
+    @apply z-[60];
+  }
   .marketing-nav {
-    @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-[4.35rem] flex items-center justify-between gap-4;
+    @apply max-w-7xl mx-auto px-3 min-[400px]:px-4 sm:px-6 lg:px-8 h-[var(--marketing-header-height)] min-h-[var(--marketing-header-height)] flex items-center justify-between gap-2 sm:gap-4;
   }
   .marketing-brand {
     @apply inline-flex items-center gap-2 font-display font-bold text-base text-forest-900;
@@ -161,16 +165,56 @@ body {
     color: #0f172a !important;
   }
   .marketing-nav-cta {
-    @apply flex items-center gap-2;
+    @apply flex items-center gap-1 sm:gap-2 flex-shrink-0;
+  }
+  .marketing-nav-signin {
+    @apply hidden sm:inline-flex;
   }
   .marketing-nav-btn {
-    @apply px-4 py-2 text-sm;
+    @apply px-3 py-2 text-xs font-semibold sm:px-4 sm:py-2 sm:text-sm whitespace-nowrap;
+  }
+  .marketing-nav-mobile-btn {
+    @apply lg:hidden inline-flex items-center justify-center min-w-[2.75rem] min-h-[2.75rem] rounded-xl border border-slate-200/90 bg-white/90 text-slate-800 shadow-sm transition-colors hover:bg-slate-50;
+  }
+  .marketing-mobile-backdrop {
+    @apply fixed left-0 right-0 bottom-0 z-[55] lg:hidden bg-slate-900/45;
+    top: var(--marketing-header-height);
+  }
+  .marketing-mobile-drawer {
+    @apply fixed left-0 right-0 z-[56] lg:hidden border-b border-slate-200/80 bg-white/95 backdrop-blur-xl shadow-lg max-h-[min(75vh,24rem)] overflow-y-auto overscroll-contain;
+    top: var(--marketing-header-height);
+  }
+  .marketing-mobile-drawer-inner {
+    @apply max-w-7xl mx-auto px-4 py-3 flex flex-col gap-0.5;
+  }
+  .marketing-mobile-link {
+    @apply block rounded-xl px-3 py-3 text-[15px] font-medium text-slate-700 transition-colors hover:bg-slate-50 active:bg-slate-100;
+  }
+  .marketing-mobile-link-active {
+    @apply bg-emerald-50 text-forest-900 font-semibold;
+  }
+  .marketing-mobile-link-secondary {
+    @apply mt-1 border-t border-slate-100 pt-3 text-slate-600;
   }
   .marketing-main {
-    @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14 lg:py-16;
+    @apply max-w-7xl mx-auto w-full py-8 min-[400px]:py-10 sm:py-14 lg:py-16;
+    padding-left: max(0.75rem, env(safe-area-inset-left, 0px));
+    padding-right: max(0.75rem, env(safe-area-inset-right, 0px));
+  }
+  @media (min-width: 640px) {
+    .marketing-main {
+      padding-left: max(1.5rem, env(safe-area-inset-left, 0px));
+      padding-right: max(1.5rem, env(safe-area-inset-right, 0px));
+    }
+  }
+  @media (min-width: 1024px) {
+    .marketing-main {
+      padding-left: max(2rem, env(safe-area-inset-left, 0px));
+      padding-right: max(2rem, env(safe-area-inset-right, 0px));
+    }
   }
   .marketing-section {
-    @apply rounded-3xl border p-7 sm:p-10 lg:p-12 mb-10 sm:mb-12;
+    @apply rounded-2xl min-[400px]:rounded-3xl border p-5 sm:p-7 md:p-10 lg:p-12 mb-8 sm:mb-10 lg:mb-12;
     border-color: rgba(148, 163, 184, 0.2);
     background: color-mix(in srgb, #ffffff 90%, transparent);
     box-shadow: 0 18px 40px rgba(2, 8, 23, 0.06);
@@ -222,14 +266,17 @@ body {
     color: #047857;
   }
   .marketing-headline {
-    @apply font-display font-bold mt-4;
-    font-size: clamp(2rem, 4vw, 3.55rem);
+    @apply font-display font-bold mt-3 sm:mt-4;
+    font-size: clamp(1.625rem, 5.2vw + 0.35rem, 3.55rem);
     line-height: 1.08;
     letter-spacing: -0.015em;
     color: #0f172a;
+    word-wrap: break-word;
+    overflow-wrap: anywhere;
   }
   .marketing-subcopy {
-    @apply text-slate-600 text-base md:text-[1.075rem] leading-relaxed mt-5 max-w-[44rem];
+    @apply text-slate-600 leading-relaxed mt-4 sm:mt-5 max-w-[44rem];
+    font-size: clamp(0.9375rem, 2.1vw + 0.65rem, 1.075rem);
   }
   .marketing-card-grid {
     @apply grid md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-5 mt-8;
@@ -253,14 +300,23 @@ body {
     box-shadow: 0 14px 34px rgba(2, 8, 23, 0.08);
   }
   .marketing-snapshot-media {
-    @apply w-full h-52 sm:h-64 object-cover;
+    @apply w-full object-cover object-top;
+    aspect-ratio: 16 / 10;
+    max-height: min(52vh, 420px);
+    min-height: 10rem;
+  }
+  @media (min-width: 640px) {
+    .marketing-snapshot-media {
+      max-height: min(48vh, 480px);
+    }
   }
   .marketing-snapshot-meta {
     @apply p-4 sm:p-5;
   }
   .marketing-snapshot-title {
-    @apply font-display text-xl font-bold text-slate-900;
-    line-height: 1.15;
+    @apply font-display font-bold text-slate-900;
+    font-size: clamp(1.05rem, 2.4vw + 0.55rem, 1.35rem);
+    line-height: 1.2;
   }
   .marketing-snapshot-copy {
     @apply text-sm text-slate-600 mt-2 leading-relaxed;
@@ -274,12 +330,35 @@ body {
     color: #334155;
   }
   .marketing-cta-row {
-    @apply flex flex-wrap items-center gap-3 mt-6;
+    @apply flex flex-wrap items-stretch sm:items-center gap-3 mt-5 sm:mt-6;
+  }
+  @media (max-width: 639px) {
+    .marketing-cta-row {
+      @apply flex-col;
+    }
+    .marketing-cta-row > a,
+    .marketing-cta-row > button {
+      @apply w-full justify-center text-center;
+    }
   }
   .marketing-footer {
-    @apply mt-8 border-t py-10 px-4 sm:px-6 lg:px-8;
+    @apply mt-8 border-t py-8 sm:py-10;
+    padding-left: max(1rem, env(safe-area-inset-left, 0px));
+    padding-right: max(1rem, env(safe-area-inset-right, 0px));
     background: #0b1220;
     border-color: rgba(148, 163, 184, 0.22);
+  }
+  @media (min-width: 640px) {
+    .marketing-footer {
+      padding-left: max(1.5rem, env(safe-area-inset-left, 0px));
+      padding-right: max(1.5rem, env(safe-area-inset-right, 0px));
+    }
+  }
+  @media (min-width: 1024px) {
+    .marketing-footer {
+      padding-left: max(2rem, env(safe-area-inset-left, 0px));
+      padding-right: max(2rem, env(safe-area-inset-right, 0px));
+    }
   }
   .marketing-footer-grid {
     @apply max-w-7xl mx-auto grid md:grid-cols-2 xl:grid-cols-4 gap-8;
@@ -298,7 +377,7 @@ body {
   }
 
   .btn-primary {
-    @apply text-white px-6 py-3 rounded-xl font-semibold text-sm transition-all duration-300 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply text-white px-6 py-3 rounded-xl font-semibold text-sm transition-all duration-300 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed min-h-[2.75rem] inline-flex items-center justify-center;
     background: var(--accent-gradient);
     box-shadow: 0 10px 24px rgba(13, 59, 46, 0.28);
   }
@@ -310,12 +389,12 @@ body {
     box-shadow: 0 0 0 3px var(--focus-ring);
   }
   .btn-amber {
-    @apply text-forest-900 px-6 py-3 rounded-xl font-semibold text-sm transition-all duration-200 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply text-forest-900 px-6 py-3 rounded-xl font-semibold text-sm transition-all duration-200 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed min-h-[2.75rem] inline-flex items-center justify-center;
     background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%);
     box-shadow: 0 10px 24px rgba(245, 158, 11, .26);
   }
   .btn-outline {
-    @apply border-2 px-6 py-3 rounded-xl font-semibold text-sm transition-all duration-200;
+    @apply border-2 px-6 py-3 rounded-xl font-semibold text-sm transition-all duration-200 min-h-[2.75rem] inline-flex items-center justify-center;
     border-color: color-mix(in srgb, var(--text-primary) 22%, transparent);
     color: var(--text-primary);
     background: color-mix(in srgb, var(--bg-elevated) 88%, transparent);
@@ -369,7 +448,35 @@ body {
   .badge-slate { @apply badge bg-slate-100 text-slate-600; }
   .badge-forest { @apply badge bg-forest-900 text-white; }
   .section-title {
-    @apply font-display text-3xl md:text-4xl font-bold text-forest-900;
+    @apply font-display font-bold text-forest-900;
+    font-size: clamp(1.5rem, 4vw + 0.55rem, 2.5rem);
+    line-height: 1.12;
+    letter-spacing: -0.02em;
+    word-wrap: break-word;
+    overflow-wrap: anywhere;
+  }
+  .marketing-hero-dark-title {
+    @apply font-display font-bold text-white;
+    font-size: clamp(1.65rem, 4.8vw + 0.45rem, 3rem);
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    word-wrap: break-word;
+    overflow-wrap: anywhere;
+  }
+  .marketing-hero-stat-value {
+    font-size: clamp(1.125rem, 3.2vw + 0.45rem, 1.5rem);
+    line-height: 1.15;
+  }
+  .marketing-proof-stat-value {
+    font-size: clamp(1.25rem, 3.2vw + 0.4rem, 1.5rem);
+    line-height: 1.15;
+  }
+  .article-title-fluid {
+    font-size: clamp(1.45rem, 4.2vw + 0.55rem, 2.75rem);
+    line-height: 1.12;
+    letter-spacing: -0.02em;
+    word-wrap: break-word;
+    overflow-wrap: anywhere;
   }
   .stat-card {
     @apply rounded-2xl p-6;
@@ -414,7 +521,9 @@ body {
     letter-spacing: .02em;
   }
   .theme-fab-wrap {
-    @apply fixed bottom-5 right-5 z-[70];
+    @apply fixed z-[70];
+    right: max(1.25rem, env(safe-area-inset-right, 0px));
+    bottom: max(1.25rem, env(safe-area-inset-bottom, 0px));
   }
 
   .auth-shell {
@@ -438,6 +547,21 @@ body {
   .auth-wrap {
     @apply w-full max-w-md relative;
     z-index: 1;
+  }
+
+  .auth-headline {
+    @apply font-display font-bold text-forest-900;
+    font-size: clamp(1.375rem, 4.5vw + 0.45rem, 1.5rem);
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+    word-wrap: break-word;
+    overflow-wrap: anywhere;
+  }
+
+  .plan-price-display {
+    font-size: clamp(1.5rem, 4vw + 0.45rem, 1.875rem);
+    line-height: 1.1;
+    letter-spacing: -0.02em;
   }
 
   .auth-card {

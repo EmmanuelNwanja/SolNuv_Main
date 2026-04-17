@@ -201,7 +201,7 @@ export default function Register() {
               </div>
               <span className="font-display font-bold text-forest-900 text-2xl">SolNuv</span>
             </Link>
-            <h1 className="font-display font-bold text-forest-900 text-2xl">Create your account</h1>
+            <h1 className="auth-headline">Create your account</h1>
             <p className="text-slate-500 text-sm mt-1">Set up your workspace for design workflows, reporting, and lifecycle operations.</p>
           </MotionStagger>
 

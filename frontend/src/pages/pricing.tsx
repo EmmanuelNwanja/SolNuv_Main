@@ -74,10 +74,10 @@ export default function PricingPage() {
       <MotionSection className="marketing-section-dark marketing-section-animated">
         <MotionStagger className="text-center max-w-3xl mx-auto" delay={0.02}>
           <span className="text-xs font-semibold uppercase tracking-widest text-emerald-300">Pricing</span>
-          <h1 className="font-display text-4xl md:text-5xl font-bold text-white mt-3 leading-tight">
+          <h1 className="marketing-hero-dark-title mt-3">
             Transparent plans for dependable solar operations
           </h1>
-          <p className="text-white/75 mt-4 text-base md:text-lg">
+          <p className="text-white/75 mt-4 text-sm sm:text-base md:text-lg max-w-2xl mx-auto px-1">
             Naira-first pricing for teams building, operating, and governing solar lifecycle workflows.
           </p>
           <div className="marketing-cta-row justify-center">
