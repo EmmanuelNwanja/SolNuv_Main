@@ -1,5 +1,5 @@
 import { motion, useReducedMotion } from "framer-motion";
-import type { ReactNode } from "react";
+import type { ComponentProps, ReactNode } from "react";
 
 const pageVariants = {
   hidden: { opacity: 0, y: 10 },
@@ -37,7 +37,15 @@ export function PageMotion({ children }: { children: ReactNode }) {
   );
 }
 
-export function MotionSection({ children, className = "" }: { children: ReactNode; className?: string }) {
+type MotionSectionProps = {
+  children: ReactNode;
+  className?: string;
+} & Omit<
+  ComponentProps<typeof motion.div>,
+  "children" | "className" | "variants" | "initial" | "whileInView" | "viewport"
+>;
+
+export function MotionSection({ children, className = "", ...rest }: MotionSectionProps) {
   const reduceMotion = useReducedMotion();
   return (
     <motion.div
@@ -46,6 +54,7 @@ export function MotionSection({ children, className = "" }: { children: ReactNod
       whileInView={reduceMotion ? undefined : "visible"}
       viewport={{ once: true, amount: 0.2 }}
       className={className}
+      {...rest}
     >
       {children}
     </motion.div>
