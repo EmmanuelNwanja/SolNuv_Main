@@ -42,6 +42,34 @@ const PARTNERS_ROW2 = [
   { name: 'NAERG', tag: 'Renewable Energy', color: 'text-slate-800 bg-slate-50 border-slate-200' },
 ];
 
+const EXPERIENCE_SNAPSHOTS = {
+  dashboard: {
+    src: "/platform-snapshots/dashboard.png",
+    title: "Operations dashboard pulse",
+    copy: "Track portfolio progress, recovery queues, and income signals from one command center.",
+  },
+  design: {
+    src: "/platform-snapshots/design-overview.png",
+    title: "Design performance analytics",
+    copy: "Inspect energy splits, monthly performance, and technical specifications in one evidence panel.",
+  },
+  ai: {
+    src: "/platform-snapshots/ai-analysis.png",
+    title: "AI design quality review",
+    copy: "AI expert analysis surfaces strengths, sizing concerns, and financial viability signals before decisions.",
+  },
+  compliance: {
+    src: "/platform-snapshots/compliance-reports.png",
+    title: "Compliance and reports studio",
+    copy: "Generate NESREA-ready outputs and maintain audit-grade report workflows per project cycle.",
+  },
+  impact: {
+    src: "/platform-snapshots/impact-panel.png",
+    title: "Lifecycle impact and recovery tracking",
+    copy: "Translate fleet activity into recovery and emissions visibility aligned to operational reporting.",
+  },
+};
+
 export default function Home() {
   const { session, loading, profileResolved, isOnboarded, isPlatformAdmin } = useAuth();
   const router = useRouter();
@@ -205,6 +233,18 @@ export default function Home() {
                   <p className="text-xs text-white/65 mt-1">{s.label}</p>
                 </MotionItem>
               ))}
+              <MotionItem className="col-span-2 marketing-snapshot-card reveal-lift">
+                <img
+                  src={EXPERIENCE_SNAPSHOTS.dashboard.src}
+                  alt={EXPERIENCE_SNAPSHOTS.dashboard.title}
+                  className="marketing-snapshot-media"
+                  loading="lazy"
+                />
+                <div className="marketing-snapshot-meta">
+                  <h3 className="marketing-snapshot-title">{EXPERIENCE_SNAPSHOTS.dashboard.title}</h3>
+                  <p className="marketing-snapshot-copy">{EXPERIENCE_SNAPSHOTS.dashboard.copy}</p>
+                </div>
+              </MotionItem>
             </MotionStagger>
           </MotionStagger>
         </MotionSection>
@@ -251,11 +291,27 @@ export default function Home() {
 
         {/* HOW IT WORKS */}
         <MotionSection id="how-it-works" className="marketing-section marketing-section-animated">
-          <span className="marketing-kicker">How It Works</span>
-          <h2 className="marketing-headline">From setup to lifecycle governance</h2>
-          <p className="marketing-subcopy">
-            SolNuv structures project operations into a clear sequence so technical work, partner communication, and compliance evidence remain synchronised.
-          </p>
+          <div className="grid lg:grid-cols-2 gap-8 items-start">
+            <div>
+              <span className="marketing-kicker">How It Works</span>
+              <h2 className="marketing-headline">From setup to lifecycle governance</h2>
+              <p className="marketing-subcopy">
+                SolNuv structures project operations into a clear sequence so technical work, partner communication, and compliance evidence remain synchronised.
+              </p>
+            </div>
+            <MotionItem className="marketing-snapshot-card reveal-lift">
+              <img
+                src={EXPERIENCE_SNAPSHOTS.design.src}
+                alt={EXPERIENCE_SNAPSHOTS.design.title}
+                className="marketing-snapshot-media"
+                loading="lazy"
+              />
+              <div className="marketing-snapshot-meta">
+                <h3 className="marketing-snapshot-title">{EXPERIENCE_SNAPSHOTS.design.title}</h3>
+                <p className="marketing-snapshot-copy">{EXPERIENCE_SNAPSHOTS.design.copy}</p>
+              </div>
+            </MotionItem>
+          </div>
           <MotionStagger className="marketing-card-grid" delay={0.03}>
               {[
                 { step: '01', icon: RiShieldCheckLine, title: 'Set roles & boundaries', desc: 'Configure clear permissions for your team, installers, managers, analysts, partners, and reviewers so every activity is attributable and auditable.' },
@@ -301,6 +357,18 @@ export default function Home() {
                 </p>
               </MotionItem>
               <MotionStagger className="grid grid-cols-2 gap-4" delay={0.1}>
+                <MotionItem className="col-span-2 marketing-snapshot-card reveal-lift">
+                  <img
+                    src={EXPERIENCE_SNAPSHOTS.ai.src}
+                    alt={EXPERIENCE_SNAPSHOTS.ai.title}
+                    className="marketing-snapshot-media"
+                    loading="lazy"
+                  />
+                  <div className="marketing-snapshot-meta">
+                    <h3 className="marketing-snapshot-title">{EXPERIENCE_SNAPSHOTS.ai.title}</h3>
+                    <p className="marketing-snapshot-copy">{EXPERIENCE_SNAPSHOTS.ai.copy}</p>
+                  </div>
+                </MotionItem>
                 {[
                   { icon: RiFlashlightLine, color: 'bg-emerald-500/20 border-emerald-500/30', title: 'Decision-ready system planning', desc: 'Move from concept to structured designs with assumptions, comparisons, and outputs your internal and external stakeholders can review.' },
                   { icon: RiGlobalLine, color: 'bg-amber-500/20 border-amber-500/30', title: 'Market-aware financial communication', desc: 'Frame project economics with tariff-aware and demand-aware scenarios that are easier to explain to clients, financiers, and management teams.' },
@@ -315,6 +383,18 @@ export default function Home() {
                     <p className="text-white/60 text-xs leading-relaxed">{card.desc}</p>
                   </MotionItem>
                 ))}
+                <MotionItem className="col-span-2 marketing-snapshot-card reveal-lift">
+                  <img
+                    src={EXPERIENCE_SNAPSHOTS.compliance.src}
+                    alt={EXPERIENCE_SNAPSHOTS.compliance.title}
+                    className="marketing-snapshot-media"
+                    loading="lazy"
+                  />
+                  <div className="marketing-snapshot-meta">
+                    <h3 className="marketing-snapshot-title">{EXPERIENCE_SNAPSHOTS.compliance.title}</h3>
+                    <p className="marketing-snapshot-copy">{EXPERIENCE_SNAPSHOTS.compliance.copy}</p>
+                  </div>
+                </MotionItem>
               </MotionStagger>
             </MotionStagger>
         </MotionSection>
@@ -498,6 +578,18 @@ export default function Home() {
                 </MotionItem>
               ))}
             </MotionStagger>
+            <MotionItem className="marketing-snapshot-card reveal-lift mt-8">
+              <img
+                src={EXPERIENCE_SNAPSHOTS.impact.src}
+                alt={EXPERIENCE_SNAPSHOTS.impact.title}
+                className="marketing-snapshot-media"
+                loading="lazy"
+              />
+              <div className="marketing-snapshot-meta">
+                <h3 className="marketing-snapshot-title">{EXPERIENCE_SNAPSHOTS.impact.title}</h3>
+                <p className="marketing-snapshot-copy">{EXPERIENCE_SNAPSHOTS.impact.copy}</p>
+              </div>
+            </MotionItem>
         </MotionSection>
 
         {/* WHO IT'S FOR */}
@@ -540,45 +632,6 @@ export default function Home() {
                       </li>
                     ))}
                   </ul>
-                </MotionItem>
-              ))}
-            </MotionStagger>
-        </MotionSection>
-
-        {/* PLANS */}
-        <MotionSection id="plans" className="marketing-section marketing-section-animated">
-            <div className="text-center mb-14">
-              <span className="text-xs font-semibold uppercase tracking-widest text-emerald-600">Pricing</span>
-              <h2 className="section-title mb-4 mt-2">Simple, Naira-First Pricing</h2>
-              <p className="text-slate-500">No FX surprises. All prices in Naira. Start with our Basic plan and scale as you grow. Annual billing saves 10%.</p>
-            </div>
-            <MotionStagger className="grid md:grid-cols-4 gap-6 items-start" delay={0.03}>
-              {[
-                { name: 'Basic', price: '₦15,000', period: '/mo', cta: 'Get Basic', href: '/register', features: ['Unlimited project logging', 'Solar+BESS system design', 'Satellite irradiance data access', 'Decommission predictions', '54 calculator uses/month', 'Basic financial modelling', 'SolNuv AI Assistant', '1 user / 1 device'] },
-                { name: 'Pro', price: '₦40,000', period: '/mo', cta: 'Start Pro', href: '/register?plan=pro', popular: true, features: ['Everything in Basic', 'Full 25-year financial simulations', 'Professional PDF & Excel reports', 'Public report sharing links', 'NESREA EPR Reports', 'Load profile analysis (CSV/manual/synthetic)', 'AI Design Engineer agent', 'Team access (5 users)'] },
-                { name: 'Elite', price: '₦100,000', period: '/mo', cta: 'Go Elite', href: '/register?plan=elite', features: ['Everything in Pro', 'Auto-send to NESREA', 'System Schematic Diagram (wiring & single-line)', 'Advanced tariff modelling (TOU, multi-band, regional)', '4 AI Agents (Project Manager, Advisor, Compliance, Reports)', 'Auto-optimised system sizing', 'Team access (15 users)', 'Priority support + onboarding', 'Featured installer badge'] },
-                { name: 'Enterprise', price: '₦250,000+', period: '/mo', cta: 'Contact Us', href: '/contact', features: ['Everything in Elite', 'All AI Agents + priority & async tasks', 'Custom API integrations', 'Bulk project design import', 'White-label design reports', 'Team access (50 users)', 'Dedicated account manager', 'Quarterly advisory sessions'] },
-              ].map((plan, i) => (
-                <MotionItem key={i} className={`rounded-2xl overflow-hidden reveal-lift ${plan.popular ? 'ring-2 ring-forest-900 shadow-xl' : 'border border-slate-200'}`}>
-                  {plan.popular && <div className="bg-forest-900 text-center py-1.5 text-xs font-bold text-amber-400">MOST POPULAR</div>}
-                  <div className="p-6 bg-white">
-                    <h3 className="font-display font-bold text-forest-900 text-lg mb-2">{plan.name}</h3>
-                    <div className="flex items-end gap-1 mb-5">
-                      <span className="font-display font-bold text-3xl text-forest-900">{plan.price}</span>
-                      <span className="text-slate-400 text-sm pb-1">{plan.period}</span>
-                    </div>
-                    <ul className="space-y-2.5 mb-6">
-                      {plan.features.map((f, j) => (
-                        <li key={j} className="flex items-start gap-2 text-sm text-slate-600">
-                          <RiCheckLine className="text-emerald-500 flex-shrink-0 mt-0.5" />
-                          {f}
-                        </li>
-                      ))}
-                    </ul>
-                    <Link href={plan.href} className={`block text-center py-3 rounded-xl font-semibold text-sm transition-all ${plan.popular ? 'btn-primary' : 'btn-outline'}`}>
-                      {plan.cta}
-                    </Link>
-                  </div>
                 </MotionItem>
               ))}
             </MotionStagger>

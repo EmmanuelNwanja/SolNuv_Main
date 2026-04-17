@@ -104,7 +104,7 @@ export default function BlogIndex() {
       </Head>
 
       <MotionSection className="marketing-section marketing-section-animated">
-        <MotionStagger className="text-center max-w-4xl mx-auto">
+        <MotionStagger className="text-center max-w-4xl mx-auto" delay={0.04}>
           <span className="marketing-kicker">Resource Centre</span>
           <h1 className="marketing-headline">Insights for better solar delivery decisions</h1>
           <p className="marketing-subcopy mx-auto">
@@ -167,7 +167,7 @@ export default function BlogIndex() {
               </div>
             ) : (
               <>
-                <MotionStagger className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6" delay={0.02}>
+                <MotionStagger className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6" delay={0.08}>
                   {posts.map((post, idx) => (
                     <>
                       <MotionItem key={post.id} className="reveal-lift">
