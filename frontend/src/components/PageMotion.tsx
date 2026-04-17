@@ -25,12 +25,12 @@ const sectionVariants = {
 };
 
 export function PageMotion({ children }: { children: ReactNode }) {
-  const reduceMotion = useReducedMotion();
+  useReducedMotion();
   return (
     <motion.div
       variants={pageVariants}
-      initial={reduceMotion ? false : "hidden"}
-      animate={reduceMotion ? false : "visible"}
+      initial={false}
+      animate="visible"
     >
       {children}
     </motion.div>
@@ -46,12 +46,12 @@ type MotionSectionProps = {
 >;
 
 export function MotionSection({ children, className = "", ...rest }: MotionSectionProps) {
-  const reduceMotion = useReducedMotion();
+  useReducedMotion();
   return (
     <motion.div
       variants={sectionVariants}
-      initial={reduceMotion ? false : "hidden"}
-      animate={reduceMotion ? false : "visible"}
+      initial={false}
+      animate="visible"
       className={className}
       {...rest}
     >
@@ -69,11 +69,11 @@ export function MotionStagger({
   className?: string;
   delay?: number;
 }) {
-  const reduceMotion = useReducedMotion();
+  useReducedMotion();
   return (
     <motion.div
-      initial={reduceMotion ? false : "hidden"}
-      animate={reduceMotion ? false : "visible"}
+      initial={false}
+      animate="visible"
       variants={{
         hidden: { opacity: 0, y: 10 },
         visible: {
