@@ -167,6 +167,8 @@ export default function TermsOfService() {
             <li><strong>Project Management:</strong> Track installations, equipment, and decommission timelines.</li>
             <li><strong>NESREA EPR Compliance:</strong> Auto-generated compliance reports, cradle-to-grave tracking, and audit evidence.</li>
             <li><strong>AI-Powered Agents:</strong> Conversational AI assistants for solar guidance, project management, financial analysis, compliance reviews, and report generation — availability determined by your subscription tier.</li>
+            <li><strong>Public Visibility Controls:</strong> Optional controls for public profile and leaderboard visibility, including partner-discoverable signals where enabled by your organisation.</li>
+            <li><strong>Content Surfaces:</strong> Public-facing content modules (such as blog, FAQs, and sponsored placements) that may include editorial, educational, and partner-supported communication.</li>
             <li><strong>Leaderboard & Analytics:</strong> Industry benchmarking and portfolio analytics.</li>
           </ul>
 
@@ -294,6 +296,11 @@ export default function TermsOfService() {
           <SubHeading>9.4 Aggregate & Anonymised Data</SubHeading>
           <p>
             We may create, use, and share aggregate, de-identified, or anonymised data derived from User Content for industry analytics, platform benchmarking, research, and to improve our Services. Such anonymised data cannot be used to identify you. By using the Platform, you consent to this use.
+          </p>
+
+          <SubHeading>9.5 Public Display Settings</SubHeading>
+          <p>
+            Certain Platform features allow your organisation to control whether selected company, project, and performance attributes appear on public-facing profile and leaderboard surfaces. You are responsible for the configuration choices made by your authorised account administrators, and for ensuring that any data you elect to publish is appropriate for public display.
           </p>
 
           {/* ──────────────────────────────── 10 ──────────────────────────────── */}
@@ -444,7 +451,7 @@ export default function TermsOfService() {
           {/* ──────────────────────────────── 13 ──────────────────────────────── */}
           <SectionHeading id="third-party">13. Third-Party Services</SectionHeading>
           <p>
-            The Platform integrates with third-party services (Paystack, Supabase, Brevo, Termii, Google OAuth, Google Gemini AI, Groq AI) and may contain links to third-party websites. These services are governed by their own terms of service and privacy policies. We do not control, endorse, or assume responsibility for third-party services. Your interactions with third parties are solely between you and them.
+            The Platform integrates with third-party services (Paystack, Supabase, Brevo, Termii, Google OAuth, Google Gemini AI, Groq AI) and may contain links to third-party websites. Certain content areas may also include partner-supported or sponsored placements. These services and placements are governed by their own terms and privacy policies where applicable. We do not control, endorse, or assume responsibility for third-party services. Your interactions with third parties are solely between you and them.
           </p>
 
           {/* ──────────────────────────────── 14 ──────────────────────────────── */}

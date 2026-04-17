@@ -222,7 +222,7 @@ export default function Plans() {
 
         {promoResult && (
           <p className="text-xs text-emerald-200 mt-2">
-            {promoResult.promo_code} applied: pay N{Number(promoResult.payable_amount_ngn || 0).toLocaleString('en-NG')} instead of N{Number(promoResult.original_amount_ngn || 0).toLocaleString('en-NG')}
+            {promoResult.promo_code} applied: pay ₦{Number(promoResult.payable_amount_ngn || 0).toLocaleString('en-NG')} instead of ₦{Number(promoResult.original_amount_ngn || 0).toLocaleString('en-NG')}
           </p>
         )}
           </div>
@@ -246,13 +246,13 @@ export default function Plans() {
                 <div className="flex items-end gap-1 mb-5">
                   <span className="font-display font-bold text-3xl text-forest-900">
                     {billingInterval === 'annual'
-                      ? `N${Number(plan.annual_price_ngn || 0).toLocaleString('en-NG')}`
-                      : `N${Number(plan.monthly_price_ngn || 0).toLocaleString('en-NG')}`}
+                      ? `₦${Number(plan.annual_price_ngn || 0).toLocaleString('en-NG')}`
+                      : `₦${Number(plan.monthly_price_ngn || 0).toLocaleString('en-NG')}`}
                   </span>
                   {plan.monthly_price_ngn > 0 && <span className="text-slate-400 text-sm pb-1">/{billingInterval === 'annual' ? 'year' : 'month'}</span>}
                 </div>
                 {billingInterval === 'annual' && plan.annual_savings_ngn > 0 && (
-                  <p className="text-xs text-emerald-600 -mt-3 mb-4">Save N{Number(plan.annual_savings_ngn).toLocaleString('en-NG')} annually</p>
+                  <p className="text-xs text-emerald-600 -mt-3 mb-4">Save ₦{Number(plan.annual_savings_ngn).toLocaleString('en-NG')} annually</p>
                 )}
                 <ul className="space-y-2.5 mb-6 flex-1">
                   {plan.features?.map((f, i) => (
@@ -279,8 +279,8 @@ export default function Plans() {
       )}
 
       <div className="text-center mt-10 text-sm text-slate-400">
-        <p>Payments are processed securely. Monthly and annual subscriptions support auto-renewal.</p>
-        <p className="mt-1">All plans include solar+BESS design and project tracking. Need help choosing? <a href="mailto:support@solnuv.com" className="text-forest-900 hover:underline">support@solnuv.com</a></p>
+        <p>Payments are processed securely. Available payment methods are shown at checkout based on current platform availability.</p>
+        <p className="mt-1">All plans include core design and project workflows. Need help choosing? <a href="mailto:support@solnuv.com" className="text-forest-900 hover:underline">support@solnuv.com</a></p>
       </div>
 
       {/* ── Payment Method Modal ─────────────────────────────────── */}

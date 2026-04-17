@@ -246,7 +246,7 @@ export default function BlogPostPage() {
             {/* CTA */}
             <div className="mt-10 p-6 rounded-xl bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-slate-800 dark:to-slate-900 border border-emerald-100 dark:border-slate-700">
               <p className="font-semibold text-forest-900 dark:text-white">Want to engineer smarter solar projects?</p>
-              <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">Join SolNuv — Africa's premier solar engineering platform.</p>
+              <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">Join SolNuv to streamline solar project design, communication, and lifecycle reporting.</p>
               <div className="mt-4 flex gap-3">
                 <Link href="/register" className="px-4 py-2 rounded-lg bg-forest-900 text-white text-sm font-semibold hover:bg-forest-800 transition-colors">
                   Get Started
