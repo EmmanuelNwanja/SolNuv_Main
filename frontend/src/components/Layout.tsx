@@ -283,6 +283,17 @@ export function getDashboardLayout(page: ReactElement): ReactElement {
 
 export function getPublicLayout(page: ReactElement): ReactElement {
   function PublicSiteLayout({ children }: { children: ReactNode }) {
+    const router = useRouter();
+
+    const isActive = (href: string) => {
+      if (href === "/") return router.pathname === "/";
+      if (href.includes("#")) {
+        const [path] = href.split("#");
+        return router.pathname === (path || "/");
+      }
+      return router.pathname === href || router.pathname.startsWith(`${href}/`);
+    };
+
     return (
       <div className="marketing-shell">
         <header className="marketing-nav-wrap">
@@ -294,11 +305,11 @@ export function getPublicLayout(page: ReactElement): ReactElement {
               <span>SolNuv</span>
             </Link>
             <nav className="marketing-nav-links">
-              <Link href="/#how-it-works">How it works</Link>
-              <Link href="/#platform">Platform</Link>
-              <Link href="/plans">Pricing</Link>
-              <Link href="/blog">Resources</Link>
-              <Link href="/contact">Contact</Link>
+              <Link href="/#how-it-works" className={isActive("/#how-it-works") ? "marketing-nav-link-active" : ""}>How it works</Link>
+              <Link href="/#platform" className={isActive("/#platform") ? "marketing-nav-link-active" : ""}>Platform</Link>
+              <Link href="/pricing" className={isActive("/pricing") ? "marketing-nav-link-active" : ""}>Pricing</Link>
+              <Link href="/blog" className={isActive("/blog") ? "marketing-nav-link-active" : ""}>Resources</Link>
+              <Link href="/contact" className={isActive("/contact") ? "marketing-nav-link-active" : ""}>Contact</Link>
             </nav>
             <div className="marketing-nav-cta">
               <ThemeToggle compact />
@@ -330,8 +341,8 @@ export function getPublicLayout(page: ReactElement): ReactElement {
               <div className="marketing-footer-links">
                 <Link href="/#how-it-works">How it works</Link>
                 <Link href="/#platform">Capabilities</Link>
-                <Link href="/plans">Pricing</Link>
-                <Link href="/calculator">Calculator</Link>
+                <Link href="/pricing">Pricing</Link>
+                <Link href="/contact">Book a demo</Link>
               </div>
             </div>
             <div>

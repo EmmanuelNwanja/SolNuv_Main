@@ -99,7 +99,7 @@ function FaqPage() {
         />
       </Head>
       <MotionSection className="marketing-section marketing-section-animated">
-        <MotionStagger className="max-w-2xl mx-auto text-center">
+        <MotionStagger className="max-w-2xl mx-auto text-center" delay={0.03}>
           <span className="inline-flex items-center gap-2 marketing-kicker mb-4">
             <RiQuestionLine /> Help Centre
           </span>
@@ -157,7 +157,7 @@ function FaqPage() {
               </div>
             )}
             {!loading && filtered.length > 0 && (
-              <MotionStagger className="space-y-10" delay={0.02}>
+              <MotionStagger className="space-y-10" delay={0.07}>
                 {Object.entries(grouped).map(([category, items]) => (
                   <MotionItem key={category}>
                     {Object.keys(grouped).length > 1 && (

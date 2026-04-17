@@ -119,9 +119,10 @@ body {
     @apply sticky top-0 z-40 border-b backdrop-blur-xl;
     background: color-mix(in srgb, #ffffff 84%, transparent);
     border-color: rgba(148, 163, 184, 0.2);
+    box-shadow: 0 8px 24px rgba(2, 8, 23, 0.04);
   }
   .marketing-nav {
-    @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4;
+    @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-[4.35rem] flex items-center justify-between gap-4;
   }
   .marketing-brand {
     @apply inline-flex items-center gap-2 font-display font-bold text-base text-forest-900;
@@ -133,7 +134,32 @@ body {
   .marketing-nav-links {
     @apply hidden lg:flex items-center gap-6 text-sm font-medium text-slate-600;
   }
-  .marketing-nav-links a:hover { color: #0d3b2e; }
+  .marketing-nav-links a {
+    @apply relative pb-1 transition-colors;
+  }
+  .marketing-nav-links a::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    bottom: -0.28rem;
+    width: 100%;
+    height: 2px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, #0f766e, #10b981);
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform .24s ease;
+  }
+  .marketing-nav-links a:hover {
+    color: #0d3b2e;
+  }
+  .marketing-nav-links a:hover::after,
+  .marketing-nav-link-active::after {
+    transform: scaleX(1);
+  }
+  .marketing-nav-link-active {
+    color: #0f172a !important;
+  }
   .marketing-nav-cta {
     @apply flex items-center gap-2;
   }
@@ -217,6 +243,35 @@ body {
   }
   .marketing-proof-copy {
     @apply text-sm text-slate-600 leading-relaxed;
+  }
+  .marketing-snapshot-grid {
+    @apply grid lg:grid-cols-2 gap-5 mt-8;
+  }
+  .marketing-snapshot-card {
+    @apply rounded-2xl border bg-white/95 overflow-hidden;
+    border-color: rgba(148, 163, 184, 0.24);
+    box-shadow: 0 14px 34px rgba(2, 8, 23, 0.08);
+  }
+  .marketing-snapshot-media {
+    @apply w-full h-52 sm:h-64 object-cover;
+  }
+  .marketing-snapshot-meta {
+    @apply p-4 sm:p-5;
+  }
+  .marketing-snapshot-title {
+    @apply font-display text-xl font-bold text-slate-900;
+    line-height: 1.15;
+  }
+  .marketing-snapshot-copy {
+    @apply text-sm text-slate-600 mt-2 leading-relaxed;
+  }
+  .marketing-snapshot-tags {
+    @apply flex flex-wrap gap-2 mt-3;
+  }
+  .marketing-snapshot-tags span {
+    @apply inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold;
+    background: #f1f5f9;
+    color: #334155;
   }
   .marketing-cta-row {
     @apply flex flex-wrap items-center gap-3 mt-6;
@@ -722,6 +777,10 @@ body {
   color: #475569 !important;
 }
 
+:root[data-theme='dark'] .marketing-shell .marketing-nav-link-active {
+  color: #0f172a !important;
+}
+
 :root[data-theme='dark'] .marketing-shell .marketing-headline,
 :root[data-theme='dark'] .marketing-shell .marketing-proof-title,
 :root[data-theme='dark'] .marketing-shell .text-slate-900,
@@ -733,6 +792,16 @@ body {
 :root[data-theme='dark'] .marketing-shell .text-slate-500,
 :root[data-theme='dark'] .marketing-shell .text-slate-400 {
   color: #64748b !important;
+}
+
+:root[data-theme='dark'] .marketing-shell .marketing-snapshot-card {
+  background: #ffffff;
+  border-color: #dbe3ee;
+}
+
+:root[data-theme='dark'] .marketing-shell .marketing-snapshot-tags span {
+  background: #f1f5f9;
+  color: #334155;
 }
 
 :root[data-theme='dark'] .marketing-shell .bg-white,

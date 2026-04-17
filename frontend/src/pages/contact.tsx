@@ -63,7 +63,7 @@ export default function ContactPage() {
       </Head>
 
       <MotionSection className="marketing-section marketing-section-animated">
-        <MotionStagger className="max-w-4xl mx-auto text-center">
+        <MotionStagger className="max-w-4xl mx-auto text-center" delay={0.03}>
           <span className="marketing-kicker">Contact SolNuv</span>
           <h1 className="marketing-headline">Talk to product, support, or partnerships</h1>
           <p className="marketing-subcopy mx-auto">
@@ -76,7 +76,7 @@ export default function ContactPage() {
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-10">
 
           {/* Contact info */}
-          <MotionStagger className="lg:col-span-2 space-y-8" delay={0.02}>
+          <MotionStagger className="lg:col-span-2 space-y-8" delay={0.06}>
             <div>
               <h2 className="text-xl font-display font-bold text-slate-900 dark:text-white mb-5">Contact Information</h2>
               <div className="space-y-4">
@@ -133,7 +133,7 @@ export default function ContactPage() {
             <div className="rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 space-y-3">
               <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">Quick Links</p>
               {[
-                { label: 'View Plans & Pricing', href: '/plans' },
+                { label: 'View Plans & Pricing', href: '/pricing' },
                 { label: 'Explore the Platform', href: '/#how-it-works' },
                 { label: 'Read our Blog', href: '/blog' },
                 { label: 'Get Started', href: '/register' },
@@ -284,7 +284,7 @@ export default function ContactPage() {
           <Link href="/register" className="btn-amber inline-flex items-center gap-2">
             Create account <RiArrowRightLine />
           </Link>
-          <Link href="/plans" className="btn-outline border-white/30 text-white hover:bg-white/10">
+          <Link href="/pricing" className="btn-outline border-white/30 text-white hover:bg-white/10">
             Compare plans
           </Link>
         </div>

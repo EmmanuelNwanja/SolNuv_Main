@@ -194,7 +194,7 @@ export default function Register() {
       </Head>
       <div className="auth-shell">
         <MotionSection className="auth-wrap">
-          <MotionStagger className="text-center mb-8">
+          <MotionStagger className="text-center mb-8" delay={0.02}>
             <Link href="/" className="inline-flex items-center gap-2 mb-4">
               <div className="w-10 h-10 bg-forest-900 rounded-xl flex items-center justify-center">
                 <RiSunLine className="text-amber-400 text-xl" />
