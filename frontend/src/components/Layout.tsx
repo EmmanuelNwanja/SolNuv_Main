@@ -25,6 +25,7 @@ import {
   RiAdminLine,
   RiArticleLine,
   RiQuestionLine,
+  RiArrowRightLine,
 } from "react-icons/ri";
 import type { IconType } from "react-icons";
 import toast from "react-hot-toast";
@@ -281,7 +282,89 @@ export function getDashboardLayout(page: ReactElement): ReactElement {
 }
 
 export function getPublicLayout(page: ReactElement): ReactElement {
-  return <Layout>{page}</Layout>;
+  function PublicSiteLayout({ children }: { children: ReactNode }) {
+    return (
+      <div className="marketing-shell">
+        <header className="marketing-nav-wrap">
+          <div className="marketing-nav">
+            <Link href="/" className="marketing-brand">
+              <span className="marketing-brand-icon">
+                <RiSunLine />
+              </span>
+              <span>SolNuv</span>
+            </Link>
+            <nav className="marketing-nav-links">
+              <Link href="/#how-it-works">How it works</Link>
+              <Link href="/#platform">Platform</Link>
+              <Link href="/plans">Pricing</Link>
+              <Link href="/blog">Resources</Link>
+              <Link href="/contact">Contact</Link>
+            </nav>
+            <div className="marketing-nav-cta">
+              <ThemeToggle compact />
+              <Link href="/login" className="btn-ghost">Sign in</Link>
+              <Link href="/register" className="btn-primary marketing-nav-btn">
+                Get started
+              </Link>
+            </div>
+          </div>
+        </header>
+        <main className="marketing-main">
+          <PageMotion>{children}</PageMotion>
+        </main>
+        <footer className="marketing-footer">
+          <div className="marketing-footer-grid">
+            <div>
+              <div className="marketing-brand mb-3">
+                <span className="marketing-brand-icon">
+                  <RiSunLine />
+                </span>
+                <span>SolNuv</span>
+              </div>
+              <p className="text-sm leading-relaxed text-slate-400">
+                Solar engineering, lifecycle intelligence, and compliance workflow support for project teams and partners.
+              </p>
+            </div>
+            <div>
+              <p className="marketing-footer-title">Platform</p>
+              <div className="marketing-footer-links">
+                <Link href="/#how-it-works">How it works</Link>
+                <Link href="/#platform">Capabilities</Link>
+                <Link href="/plans">Pricing</Link>
+                <Link href="/calculator">Calculator</Link>
+              </div>
+            </div>
+            <div>
+              <p className="marketing-footer-title">Resources</p>
+              <div className="marketing-footer-links">
+                <Link href="/blog">Blog</Link>
+                <Link href="/faq">FAQ</Link>
+                <Link href="/terms">Terms</Link>
+                <Link href="/privacy">Privacy</Link>
+              </div>
+            </div>
+            <div>
+              <p className="marketing-footer-title">Conversion</p>
+              <div className="space-y-2">
+                <Link href="/register" className="inline-flex items-center gap-1 text-sm text-emerald-300 hover:text-emerald-200">
+                  Create account <RiArrowRightLine />
+                </Link>
+                <Link href="/contact" className="inline-flex items-center gap-1 text-sm text-amber-300 hover:text-amber-200">
+                  Partner or enterprise enquiries <RiArrowRightLine />
+                </Link>
+              </div>
+            </div>
+          </div>
+          <div className="marketing-footer-meta">
+            <p>© {new Date().getFullYear()} SolNuv by Fudo Greentech.</p>
+            <p>Built for dependable solar operations.</p>
+          </div>
+        </footer>
+      </div>
+    );
+  }
+
+  return <PublicSiteLayout>{page}</PublicSiteLayout>;
 }
 
 export function getAdminLayout(page: ReactElement): ReactElement {

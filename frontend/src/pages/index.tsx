@@ -11,6 +11,7 @@ import {
 import { calculatorAPI, dashboardAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useRouter } from 'next/router';
+import { MotionItem, MotionSection, MotionStagger } from '../components/PageMotion';
 
 const CLIMATE_ZONES = [
   { value: 'coastal_humid', label: 'Coastal / Humid (Lagos, Rivers, Delta)' },
@@ -172,77 +173,40 @@ export default function Home() {
         <link rel="icon" href="/favicon.ico" />
       </Head>
 
-      <div className="min-h-screen bg-white/60 font-body relative">
-        {/* NAV */}
-        <nav className="sticky top-0 z-50 bg-white/80 backdrop-blur-xl border-b border-slate-100/80">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-16">
-            <Link href="/" className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-forest-900 rounded-lg flex items-center justify-center">
-                <RiSunLine className="text-amber-400 text-lg" />
-              </div>
-              <span className="font-display font-bold text-forest-900 text-lg">SolNuv</span>
-            </Link>
-            <div className="hidden md:flex items-center gap-6 text-sm font-medium text-slate-600">
-              <Link href="#how-it-works" className="hover:text-forest-900 transition-colors">How It Works</Link>
-              <Link href="#impact" className="hover:text-forest-900 transition-colors">Why SolNuv</Link>
-              <Link href="#calculator" className="hover:text-forest-900 transition-colors">Calculator</Link>
-              <Link href="#plans" className="hover:text-forest-900 transition-colors">Plans</Link>
-              <Link href="/blog" className="hover:text-forest-900 transition-colors">Blog</Link>
-              <Link href="/contact" className="hover:text-forest-900 transition-colors">Contact</Link>
-            </div>
-            <div className="flex items-center gap-3">
-              <Link href="/login" className="text-sm font-medium text-slate-600 hover:text-forest-900 transition-colors hidden sm:block">Sign In</Link>
-              <Link href="/register" className="btn-primary text-sm px-4 py-2 rounded-xl">Get Started</Link>
-            </div>
-          </div>
-        </nav>
-
-        {/* HERO */}
-        <section className="relative bg-forest-900 text-white overflow-hidden">
-          <div className="absolute inset-0 bg-grid-forest opacity-30" />
-          <div className="absolute -top-24 -right-24 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl" />
-          <div className="absolute -bottom-24 -left-24 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl" />
-          <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 md:py-32">
-            <div className="max-w-3xl">
-              <div className="inline-flex items-center gap-2 bg-white/10 border border-white/20 rounded-full px-4 py-1.5 mb-6">
-                <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
-                <span className="text-sm font-medium text-white/90">Solar project intelligence for teams, partners, and operators</span>
-              </div>
-              <h1 className="font-display text-4xl md:text-6xl font-bold leading-tight mb-6">
-                Plan, validate, and track<br />
-                <span className="text-amber-400">solar projects end-to-end.</span>
+      <div className="font-body relative">
+        <MotionSection className="marketing-section-dark marketing-section-animated rounded-3xl overflow-hidden mb-8" id="top">
+          <MotionStagger className="grid lg:grid-cols-2 gap-8 items-end">
+            <MotionItem>
+              <span className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-widest bg-white/10 text-emerald-200">
+                Solar intelligence platform
+              </span>
+              <h1 className="font-display text-4xl md:text-5xl lg:text-6xl font-bold leading-tight mt-4">
+                Move from isolated tools
+                <br />
+                to dependable solar operations.
               </h1>
-              <p className="text-lg text-white/75 mb-8 leading-relaxed max-w-2xl">
-                SolNuv brings design workflows, financial scenario modelling, compliance support, and lifecycle traceability into one platform. Teams can standardise project execution, improve reporting quality, and collaborate with partners using clear evidence trails.
+              <p className="text-base md:text-lg text-white/75 leading-relaxed mt-5 max-w-2xl">
+                SolNuv helps engineering teams, project operators, and partners run design workflows, financial scenario analysis, lifecycle tracking, and compliance-ready reporting from one connected environment.
               </p>
-              <div className="flex flex-wrap gap-4">
+              <div className="marketing-cta-row">
                 <Link href="/register" className="btn-amber inline-flex items-center gap-2">
-                  Start Building <RiArrowRightLine />
+                  Create account <RiArrowRightLine />
                 </Link>
-                <Link href="#how-it-works" className="inline-flex items-center gap-2 border border-white/30 text-white px-6 py-3 rounded-xl text-sm font-semibold hover:bg-white/10 transition-all">
-                  See How It Works <RiArrowDownLine />
+                <Link href="/contact" className="btn-outline border-white/30 text-white hover:bg-white/10">
+                  Partner with SolNuv
                 </Link>
               </div>
-              <div className="mt-10 flex flex-wrap gap-6 text-sm text-white/60">
-                <span className="flex items-center gap-2"><RiCheckLine className="text-emerald-400" /> Solar + BESS design workflows</span>
-                <span className="flex items-center gap-2"><RiCheckLine className="text-emerald-400" /> Scenario-based financial analysis</span>
-                <span className="flex items-center gap-2"><RiCheckLine className="text-emerald-400" /> Compliance-ready reporting</span>
-                <span className="flex items-center gap-2"><RiCheckLine className="text-emerald-400" /> AI-assisted productivity tools</span>
-                <span className="flex items-center gap-2"><RiCheckLine className="text-emerald-400" /> Secure team collaboration</span>
-              </div>
-            </div>
-          </div>
-          <div className="relative border-t border-white/10">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 grid grid-cols-2 md:grid-cols-4 gap-6">
-              {heroStats.map(s => (
-                <div key={s.label}>
-                  <p className="font-display font-bold text-2xl text-amber-400">{s.value}</p>
-                  <p className="text-xs text-white/50 font-medium mt-0.5">{s.label}</p>
-                </div>
+            </MotionItem>
+            <MotionStagger className="grid grid-cols-2 gap-3 sm:gap-4" delay={0.08}>
+              {heroStats.map((s) => (
+                <MotionItem key={s.label} className="rounded-2xl border border-white/15 bg-white/5 p-4 reveal-lift">
+                  <p className="font-display text-2xl font-bold text-amber-300">{s.value}</p>
+                  <p className="text-xs text-white/65 mt-1">{s.label}</p>
+                </MotionItem>
               ))}
-            </div>
-          </div>
-        </section>
+            </MotionStagger>
+          </MotionStagger>
+        </MotionSection>
 
         {/* PARTNERS / ECOSYSTEM — hidden until signed partnership agreements are in place */}
         {false && <section className="py-10 bg-white border-b border-slate-100 overflow-hidden">
@@ -271,27 +235,27 @@ export default function Home() {
           </div>
         </section>}
 
-        {/* STATS BAR */}
-        <div className="bg-amber-500">
-          <div className="max-w-7xl mx-auto px-4 py-5 flex flex-wrap justify-center gap-8 md:gap-16">
+        <MotionSection className="marketing-section marketing-section-animated">
+          <span className="marketing-kicker">Portfolio Signals</span>
+          <h2 className="marketing-headline">Proof of operational momentum</h2>
+          <MotionStagger className="mt-6 grid sm:grid-cols-2 lg:grid-cols-4 gap-4" delay={0.05}>
             {impactStats.map(s => (
-              <div key={s.label} className="text-center">
+              <MotionItem key={s.label} className="marketing-proof-card reveal-lift">
                 <p className="font-display font-bold text-2xl text-forest-900">{s.value}</p>
-                <p className="text-xs text-forest-900/70 font-medium mt-0.5">{s.label}</p>
-              </div>
+                <p className="text-xs text-slate-500 font-medium mt-1">{s.label}</p>
+              </MotionItem>
             ))}
-          </div>
-        </div>
+          </MotionStagger>
+        </MotionSection>
 
         {/* HOW IT WORKS */}
-        <section id="how-it-works" className="py-20 bg-white/80 backdrop-blur-sm">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="text-center mb-14">
-              <span className="text-xs font-semibold uppercase tracking-widest text-emerald-600">How SolNuv Works</span>
-              <h2 className="section-title mb-4 mt-2">From project setup to lifecycle outcomes</h2>
-              <p className="text-slate-500 max-w-xl mx-auto">A connected workflow for teams that need technical rigour, cleaner communication, and dependable execution across the solar value chain.</p>
-            </div>
-            <div className="grid md:grid-cols-3 gap-6">
+        <MotionSection id="how-it-works" className="marketing-section marketing-section-animated">
+          <span className="marketing-kicker">How It Works</span>
+          <h2 className="marketing-headline">From setup to lifecycle governance</h2>
+          <p className="marketing-subcopy">
+            SolNuv structures project operations into a clear sequence so technical work, partner communication, and compliance evidence remain synchronised.
+          </p>
+          <MotionStagger className="marketing-card-grid" delay={0.03}>
               {[
                 { step: '01', icon: RiShieldCheckLine, title: 'Set roles and access boundaries', desc: 'Configure clear permissions for installers, managers, analysts, partners, and reviewers so every activity is attributable and auditable.' },
                 { step: '02', icon: RiFlashlightLine, title: 'Build and compare system options', desc: 'Create solar and storage configurations, adjust assumptions, and compare alternatives before finalising project decisions.' },
@@ -302,7 +266,7 @@ export default function Home() {
                 { step: '07', icon: RiFileTextLine, title: 'Manage evidence and approval workflows', desc: 'Record milestone evidence, support partner reviews, and maintain decision logs for structured execution and handover.' },
                 { step: '08', icon: RiRecycleLine, title: 'Support lifecycle compliance and recovery', desc: 'Prepare compliance-facing reports and evaluate end-of-life routes with clearer visibility into potential recovery pathways.' },
               ].map((item, i) => (
-                <div key={i} className="card-hover relative z-10">
+                <MotionItem key={i} className="card-hover relative z-10 bg-white reveal-lift">
                     <div className="flex items-center gap-3 mb-4">
                       <span className="text-xs font-bold text-slate-400">{item.step}</span>
                       <div className="w-10 h-10 bg-forest-900 rounded-xl flex items-center justify-center">
@@ -311,17 +275,15 @@ export default function Home() {
                     </div>
                     <h3 className="font-semibold text-forest-900 mb-2">{item.title}</h3>
                     <p className="text-sm text-slate-500 leading-relaxed">{item.desc}</p>
-                </div>
+                </MotionItem>
               ))}
-            </div>
-          </div>
-        </section>
+            </MotionStagger>
+        </MotionSection>
 
         {/* WHY IT MATTERS */}
-        <section id="impact" className="py-20 bg-forest-900 text-white">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="grid lg:grid-cols-2 gap-16 items-center">
-              <div>
+        <MotionSection id="impact" className="marketing-section-dark marketing-section-animated">
+            <MotionStagger className="grid lg:grid-cols-2 gap-16 items-center">
+              <MotionItem>
                 <span className="text-xs font-semibold uppercase tracking-widest text-emerald-400">Why This Matters</span>
                 <h2 className="font-display text-4xl font-bold mt-3 mb-6 leading-tight">
                   High-growth solar markets need<br />
@@ -336,30 +298,28 @@ export default function Home() {
                 <p className="text-emerald-300 font-semibold leading-relaxed">
                   Built for serious solar operators who need dependable workflows across projects, portfolios, and partnerships.
                 </p>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
+              </MotionItem>
+              <MotionStagger className="grid grid-cols-2 gap-4" delay={0.1}>
                 {[
                   { icon: RiFlashlightLine, color: 'bg-emerald-500/20 border-emerald-500/30', title: 'Decision-ready system planning', desc: 'Move from concept to structured designs with assumptions, comparisons, and outputs your internal and external stakeholders can review.' },
                   { icon: RiGlobalLine, color: 'bg-amber-500/20 border-amber-500/30', title: 'Market-aware financial communication', desc: 'Frame project economics with tariff-aware and demand-aware scenarios that are easier to explain to clients, financiers, and management teams.' },
                   { icon: RiShieldCheckLine, color: 'bg-emerald-500/20 border-emerald-500/30', title: 'Compliance support by design', desc: 'Generate cleaner records and reports to support environmental and regulatory workflows without exposing proprietary internal methods.' },
                   { icon: RiBriefcaseLine, color: 'bg-amber-500/20 border-amber-500/30', title: 'Lifecycle visibility', desc: 'Maintain asset continuity from deployment to end-of-life decisions so reporting and handovers remain accurate over time.' },
                 ].map((card, i) => (
-                  <div key={i} className={`rounded-2xl p-5 border ${card.color}`}>
+                  <MotionItem key={i} className={`rounded-2xl p-5 border ${card.color} reveal-lift`}>
                     <div className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center mb-3">
                       <card.icon className="text-white text-lg" />
                     </div>
                     <h4 className="font-semibold text-white text-sm mb-2">{card.title}</h4>
                     <p className="text-white/60 text-xs leading-relaxed">{card.desc}</p>
-                  </div>
+                  </MotionItem>
                 ))}
-              </div>
-            </div>
-          </div>
-        </section>
+              </MotionStagger>
+            </MotionStagger>
+        </MotionSection>
 
         {/* LIVE CALCULATOR */}
-        <section id="calculator" className="py-20 bg-slate-50">
-          <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+        <MotionSection id="calculator" className="marketing-section marketing-section-animated">
             <div className="text-center mb-10">
               <span className="text-xs font-semibold uppercase tracking-widest text-emerald-600">Try It Now</span>
               <h2 className="section-title mb-4 mt-2">See What Your Panels Are Worth</h2>
@@ -504,18 +464,16 @@ export default function Home() {
                 <Link href="/register" className="btn-amber text-sm px-4 py-2 rounded-xl">Create Account →</Link>
               </div>
             </div>
-          </div>
-        </section>
+        </MotionSection>
 
         {/* FEATURES */}
-        <section className="py-20 bg-white">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <MotionSection className="marketing-section marketing-section-animated" id="platform">
             <div className="text-center mb-14">
               <span className="text-xs font-semibold uppercase tracking-widest text-emerald-600">Platform Capabilities</span>
               <h2 className="section-title mb-4 mt-2">Built for technical teams and commercial outcomes</h2>
               <p className="text-slate-500 max-w-xl mx-auto">Core capabilities designed to improve delivery quality, stakeholder confidence, and operational consistency.</p>
             </div>
-            <div className="grid md:grid-cols-3 gap-6">
+            <MotionStagger className="grid md:grid-cols-3 gap-6" delay={0.03}>
               {[
                 { icon: RiBatteryChargeLine, color: 'bg-forest-900', title: 'Solar + storage design workflows', desc: 'Create and refine technical configurations with structured inputs, comparison views, and consistent output formats.' },
                 { icon: RiLineChartLine, color: 'bg-emerald-500', title: 'Long-range scenario modelling', desc: 'Evaluate project performance across planning horizons with transparent assumptions and adjustable cost/tariff factors.' },
@@ -530,26 +488,24 @@ export default function Home() {
                 { icon: RiTeamLine, color: 'bg-emerald-500', title: 'Organisation and team controls', desc: 'Manage workspace members, responsibilities, and workflow accountability as your projects and partnerships expand.' },
                 { icon: RiRecycleLine, color: 'bg-forest-900', title: 'Asset health and lifecycle records', desc: 'Maintain operational histories and condition snapshots to support quality assurance, warranty conversations, and handovers.' },
               ].map((f, i) => (
-                <div key={i} className="card-hover">
+                <MotionItem key={i} className="card-hover reveal-lift">
                   <div className={`w-11 h-11 ${f.color} rounded-xl flex items-center justify-center mb-4`}>
                     <f.icon className={`text-xl ${f.color === 'bg-amber-500' ? 'text-forest-900' : 'text-white'}`} />
                   </div>
                   <h3 className="font-semibold text-forest-900 mb-2">{f.title}</h3>
                   <p className="text-sm text-slate-500 leading-relaxed">{f.desc}</p>
-                </div>
+                </MotionItem>
               ))}
-            </div>
-          </div>
-        </section>
+            </MotionStagger>
+        </MotionSection>
 
         {/* WHO IT'S FOR */}
-        <section className="py-16 bg-slate-50">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <MotionSection className="marketing-section marketing-section-animated">
             <div className="text-center mb-12">
               <span className="text-xs font-semibold uppercase tracking-widest text-emerald-600">Who Uses SolNuv</span>
-              <h2 className="section-title mb-4 mt-2">Built for Africa&apos;s Solar Value Chain</h2>
+              <h2 className="section-title mb-4 mt-2">Built for modern solar stakeholders</h2>
             </div>
-            <div className="grid md:grid-cols-4 gap-6">
+            <MotionStagger className="grid md:grid-cols-4 gap-6" delay={0.03}>
               {[
                 {
                   emoji: '🔧',
@@ -572,7 +528,7 @@ export default function Home() {
                   points: ['Validate project designs with independent modelling', 'Evidence for ESG and green finance reporting', 'Lifecycle data for circular economy mandates', 'First-mover access to Africa\'s e-waste recovery market'],
                 },
               ].map((persona, i) => (
-                <div key={i} className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
+                <MotionItem key={i} className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm reveal-lift">
                   <div className="text-3xl mb-4">{persona.emoji}</div>
                   <h3 className="font-display font-bold text-forest-900 text-lg mb-4">{persona.title}</h3>
                   <ul className="space-y-2.5">
@@ -583,28 +539,26 @@ export default function Home() {
                       </li>
                     ))}
                   </ul>
-                </div>
+                </MotionItem>
               ))}
-            </div>
-          </div>
-        </section>
+            </MotionStagger>
+        </MotionSection>
 
         {/* PLANS */}
-        <section id="plans" className="py-20 bg-white">
-          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+        <MotionSection id="plans" className="marketing-section marketing-section-animated">
             <div className="text-center mb-14">
               <span className="text-xs font-semibold uppercase tracking-widest text-emerald-600">Pricing</span>
               <h2 className="section-title mb-4 mt-2">Simple, Naira-First Pricing</h2>
               <p className="text-slate-500">No FX surprises. All prices in Naira. Start with our Basic plan and scale as you grow. Annual billing saves 10%.</p>
             </div>
-            <div className="grid md:grid-cols-4 gap-6 items-start">
+            <MotionStagger className="grid md:grid-cols-4 gap-6 items-start" delay={0.03}>
               {[
                 { name: 'Basic', price: '₦15,000', period: '/mo', cta: 'Get Basic', href: '/register', features: ['Unlimited project logging', 'Solar+BESS system design', 'Satellite irradiance data access', 'Decommission predictions', '54 calculator uses/month', 'Basic financial modelling', 'SolNuv AI Assistant', '1 user / 1 device'] },
                 { name: 'Pro', price: '₦40,000', period: '/mo', cta: 'Start Pro', href: '/register?plan=pro', popular: true, features: ['Everything in Basic', 'Full 25-year financial simulations', 'Professional PDF & Excel reports', 'Public report sharing links', 'NESREA EPR Reports', 'Load profile analysis (CSV/manual/synthetic)', 'AI Design Engineer agent', 'Team access (5 users)'] },
                 { name: 'Elite', price: '₦100,000', period: '/mo', cta: 'Go Elite', href: '/register?plan=elite', features: ['Everything in Pro', 'Auto-send to NESREA', 'System Schematic Diagram (wiring & single-line)', 'Advanced tariff modelling (TOU, multi-band, regional)', '4 AI Agents (Project Manager, Advisor, Compliance, Reports)', 'Auto-optimised system sizing', 'Team access (15 users)', 'Priority support + onboarding', 'Featured installer badge'] },
                 { name: 'Enterprise', price: '₦250,000+', period: '/mo', cta: 'Contact Us', href: '/contact', features: ['Everything in Elite', 'All AI Agents + priority & async tasks', 'Custom API integrations', 'Bulk project design import', 'White-label design reports', 'Team access (50 users)', 'Dedicated account manager', 'Quarterly advisory sessions'] },
               ].map((plan, i) => (
-                <div key={i} className={`rounded-2xl overflow-hidden ${plan.popular ? 'ring-2 ring-forest-900 shadow-xl' : 'border border-slate-200'}`}>
+                <MotionItem key={i} className={`rounded-2xl overflow-hidden reveal-lift ${plan.popular ? 'ring-2 ring-forest-900 shadow-xl' : 'border border-slate-200'}`}>
                   {plan.popular && <div className="bg-forest-900 text-center py-1.5 text-xs font-bold text-amber-400">MOST POPULAR</div>}
                   <div className="p-6 bg-white">
                     <h3 className="font-display font-bold text-forest-900 text-lg mb-2">{plan.name}</h3>
@@ -624,17 +578,13 @@ export default function Home() {
                       {plan.cta}
                     </Link>
                   </div>
-                </div>
+                </MotionItem>
               ))}
-            </div>
-          </div>
-        </section>
+            </MotionStagger>
+        </MotionSection>
 
         {/* CTA */}
-        <section className="bg-forest-900 py-20 relative overflow-hidden">
-          <div className="absolute inset-0 bg-grid-forest opacity-20" />
-          <div className="absolute -top-24 -right-24 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl" />
-          <div className="relative max-w-3xl mx-auto px-4 text-center">
+        <MotionSection className="marketing-section-dark marketing-section-animated text-center">
             <span className="text-xs font-semibold uppercase tracking-widest text-emerald-400 mb-3 block">Start in minutes</span>
             <h2 className="font-display font-bold text-4xl text-white mb-4 leading-tight">Build higher-confidence solar workflows<br />with one connected platform</h2>
             <p className="text-white/70 mb-8 max-w-xl mx-auto">Support technical decisions, partner communication, and lifecycle accountability with tools designed for modern solar operations.</p>
@@ -647,59 +597,7 @@ export default function Home() {
               </Link>
             </div>
             <p className="text-white/40 text-xs mt-6">No credit card required · Structured onboarding · Plan controls for teams and partners</p>
-          </div>
-        </section>
-
-        {/* FOOTER */}
-        <footer className="bg-forest-950 text-white/60 py-12">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="grid md:grid-cols-4 gap-8 mb-8">
-              <div>
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="w-7 h-7 bg-amber-400 rounded flex items-center justify-center">
-                    <RiSunLine className="text-forest-900 text-sm" />
-                  </div>
-                  <span className="font-display font-bold text-white text-sm">SolNuv</span>
-                </div>
-                <p className="text-xs leading-relaxed">Africa&apos;s complete solar engineering platform. Design systems, model financials, track assets, and automate compliance — from one dashboard.</p>
-              </div>
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-widest text-white/40 mb-3">Platform</p>
-                <div className="space-y-2 text-xs">
-                  <Link href="/register" className="block hover:text-white transition-colors">Get Started</Link>
-                  <Link href="#calculator" className="block hover:text-white transition-colors">Calculator</Link>
-                  <Link href="#plans" className="block hover:text-white transition-colors">Pricing</Link>
-                  <Link href="#how-it-works" className="block hover:text-white transition-colors">How It Works</Link>
-                </div>
-              </div>
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-widest text-white/40 mb-3">Resources</p>
-                <div className="space-y-2 text-xs">
-                  <Link href="/blog" className="block hover:text-white transition-colors">Blog</Link>
-                  <Link href="/contact" className="block hover:text-white transition-colors">Contact Us</Link>
-                  <a href="mailto:partnerships@solnuv.com" className="block hover:text-white transition-colors">Partnerships</a>
-                  <a href="mailto:sales@solnuv.com" className="block hover:text-white transition-colors">Enterprise Sales</a>
-                  <Link href="/privacy" className="block hover:text-white transition-colors">Privacy Policy</Link>
-                  <Link href="/terms" className="block hover:text-white transition-colors">Terms of Service</Link>
-                </div>
-              </div>
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-widest text-white/40 mb-3">Capabilities</p>
-                <div className="space-y-2 text-xs">
-                  <p className="flex items-center gap-1.5"><RiCheckLine className="text-emerald-500" /> Solar + BESS Design</p>
-                  <p className="flex items-center gap-1.5"><RiCheckLine className="text-emerald-500" /> 25-Year Financial Modelling</p>
-                  <p className="flex items-center gap-1.5"><RiCheckLine className="text-emerald-500" /> NESREA EPR Compliance</p>
-                  <p className="flex items-center gap-1.5"><RiCheckLine className="text-emerald-500" /> Lifecycle & Material Recovery</p>
-                  <p className="flex items-center gap-1.5"><RiCheckLine className="text-emerald-500" /> AI-Powered Agents</p>
-                </div>
-              </div>
-            </div>
-            <div className="border-t border-white/10 pt-6 flex flex-col md:flex-row items-center justify-between gap-4">
-              <p className="text-xs">© {new Date().getFullYear()} SolNuv by Fudo Greentech. Powering Africa&apos;s solar transition.</p>
-              <p className="text-xs text-white/30">Powered by Fudo Greentech · Afrocarb</p>
-            </div>
-          </div>
-        </footer>
+        </MotionSection>
       </div>
     </>
   );

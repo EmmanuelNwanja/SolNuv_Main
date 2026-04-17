@@ -7,6 +7,7 @@ import {
 } from 'react-icons/ri';
 import { contactAPI } from '../services/api';
 import { getPublicLayout } from '../components/Layout';
+import { MotionItem, MotionSection, MotionStagger } from '../components/PageMotion';
 
 const SUBJECTS = [
   'General Enquiry',
@@ -61,22 +62,21 @@ export default function ContactPage() {
         <meta name="description" content="Get in touch with the SolNuv team for technical support, partnership opportunities, enterprise licensing, investment enquiries, or product feedback. We respond within 24 hours." />
       </Head>
 
-      {/* Hero */}
-      <section className="bg-gradient-to-br from-forest-900 via-emerald-900 to-teal-900 text-white py-16 px-4">
-        <div className="max-w-4xl mx-auto text-center">
-          <span className="inline-block px-3 py-1 text-xs font-semibold uppercase tracking-widest bg-emerald-500/20 text-emerald-300 rounded-full mb-4">Get in Touch</span>
-          <h1 className="text-4xl md:text-5xl font-display font-bold mb-4">Let&apos;s Build Africa&apos;s Solar Future Together</h1>
-          <p className="text-lg text-emerald-100 max-w-2xl mx-auto">
-            Whether you&apos;re looking for technical support, want to explore partnership opportunities, or are interested in white-label solutions — we&apos;d love to hear from you.
+      <MotionSection className="marketing-section marketing-section-animated">
+        <MotionStagger className="max-w-4xl mx-auto text-center">
+          <span className="marketing-kicker">Contact SolNuv</span>
+          <h1 className="marketing-headline">Talk to product, support, or partnerships</h1>
+          <p className="marketing-subcopy mx-auto">
+            Reach the team for implementation support, partner collaboration, enterprise procurement, or platform onboarding guidance.
           </p>
-        </div>
-      </section>
+        </MotionStagger>
+      </MotionSection>
 
-      <div className="max-w-5xl mx-auto px-4 py-14">
+      <MotionSection className="marketing-section marketing-section-animated">
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-10">
 
           {/* Contact info */}
-          <div className="lg:col-span-2 space-y-8">
+          <MotionStagger className="lg:col-span-2 space-y-8" delay={0.02}>
             <div>
               <h2 className="text-xl font-display font-bold text-slate-900 dark:text-white mb-5">Contact Information</h2>
               <div className="space-y-4">
@@ -148,10 +148,10 @@ export default function ContactPage() {
                 </Link>
               ))}
             </div>
-          </div>
+          </MotionStagger>
 
           {/* Form */}
-          <div className="lg:col-span-3">
+          <MotionItem className="lg:col-span-3">
             {submitted ? (
               <div className="flex flex-col items-center justify-center text-center py-16 px-8 rounded-2xl border border-emerald-200 bg-emerald-50 dark:bg-slate-900 dark:border-emerald-800 h-full">
                 <div className="w-16 h-16 rounded-full bg-emerald-100 dark:bg-emerald-900/50 flex items-center justify-center text-emerald-600 text-3xl mb-4">
@@ -271,9 +271,24 @@ export default function ContactPage() {
                 </p>
               </form>
             )}
-          </div>
+          </MotionItem>
         </div>
-      </div>
+      </MotionSection>
+      <MotionSection className="marketing-section-dark marketing-section-animated text-center">
+        <span className="text-xs font-semibold uppercase tracking-widest text-emerald-300">Ready to start?</span>
+        <h2 className="font-display font-bold text-3xl text-white mt-3">Open your SolNuv workspace</h2>
+        <p className="text-white/75 max-w-2xl mx-auto mt-3">
+          Create your account to begin design workflows immediately, or continue with enterprise onboarding through the partnerships team.
+        </p>
+        <div className="marketing-cta-row justify-center">
+          <Link href="/register" className="btn-amber inline-flex items-center gap-2">
+            Create account <RiArrowRightLine />
+          </Link>
+          <Link href="/plans" className="btn-outline border-white/30 text-white hover:bg-white/10">
+            Compare plans
+          </Link>
+        </div>
+      </MotionSection>
     </>
   );
 }

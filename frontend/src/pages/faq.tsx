@@ -12,6 +12,7 @@ import {
 import { faqAPI } from "../services/api";
 import { getPublicLayout } from "../components/Layout";
 import AdSlot from "../components/ui/AdSlot";
+import { MotionItem, MotionSection, MotionStagger } from "../components/PageMotion";
 
 interface FaqEntry {
   id: string;
@@ -97,14 +98,14 @@ function FaqPage() {
           content="Frequently asked questions about SolNuv — solar+BESS system design, 25-year financial modelling, NESREA EPR compliance, AI agents, tariff analysis, and lifecycle tracking for Africa."
         />
       </Head>
-      <section className="bg-gradient-to-br from-forest-900 via-forest-800 to-forest-700 py-16 px-4">
-        <div className="max-w-2xl mx-auto text-center">
-          <span className="inline-flex items-center gap-2 bg-white/10 text-white/80 text-xs font-semibold px-3 py-1.5 rounded-full mb-4">
+      <MotionSection className="marketing-section marketing-section-animated">
+        <MotionStagger className="max-w-2xl mx-auto text-center">
+          <span className="inline-flex items-center gap-2 marketing-kicker mb-4">
             <RiQuestionLine /> Help Centre
           </span>
-          <h1 className="text-3xl sm:text-4xl font-display font-extrabold text-white mb-4">Frequently Asked Questions</h1>
-          <p className="text-forest-100 text-base mb-8">
-            Everything you need to know about SolNuv — solar+BESS design, financial modelling, compliance automation, AI agents, and pricing.
+          <h1 className="marketing-headline !mt-0">Frequently asked questions</h1>
+          <p className="marketing-subcopy mx-auto mb-8">
+            Answers on implementation workflows, platform features, pricing, reporting, and account operations.
           </p>
           <div className="relative max-w-lg mx-auto">
             <RiSearchLine className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-lg" />
@@ -113,15 +114,15 @@ function FaqPage() {
               placeholder="Search questions…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-11 pr-4 py-3 rounded-xl bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 placeholder-slate-400 text-sm font-medium border border-transparent focus:outline-none focus:ring-2 focus:ring-forest-300 shadow-lg"
+              className="input w-full pl-11 pr-4 py-3"
             />
           </div>
-        </div>
-      </section>
+        </MotionStagger>
+      </MotionSection>
       <div className="max-w-6xl mx-auto px-4 pt-4">
         <AdSlot slot="banner" page="faq" limit={1} />
       </div>
-      <section className="max-w-6xl mx-auto px-4 py-10">
+      <MotionSection className="marketing-section marketing-section-animated">
         <div className="flex flex-col lg:flex-row gap-8">
           <main className="flex-1 min-w-0">
             {categories.length > 2 && (
@@ -156,9 +157,9 @@ function FaqPage() {
               </div>
             )}
             {!loading && filtered.length > 0 && (
-              <div className="space-y-10">
+              <MotionStagger className="space-y-10" delay={0.02}>
                 {Object.entries(grouped).map(([category, items]) => (
-                  <div key={category}>
+                  <MotionItem key={category}>
                     {Object.keys(grouped).length > 1 && (
                       <h2 className="text-xs font-bold uppercase tracking-widest text-forest-600 dark:text-forest-400 mb-4">{category}</h2>
                     )}
@@ -167,16 +168,31 @@ function FaqPage() {
                         <FaqItem key={faq.id} faq={faq} />
                       ))}
                     </div>
-                  </div>
+                  </MotionItem>
                 ))}
-              </div>
+              </MotionStagger>
             )}
           </main>
           <aside className="w-full lg:w-64 flex-shrink-0 space-y-6">
             <AdSlot slot="sidebar" page="faq" limit={2} />
           </aside>
         </div>
-      </section>
+      </MotionSection>
+      <MotionSection className="marketing-section-dark marketing-section-animated text-center">
+        <span className="text-xs font-semibold uppercase tracking-widest text-emerald-300">Need more support?</span>
+        <h2 className="font-display font-bold text-3xl text-white mt-3">Move from questions to implementation</h2>
+        <p className="text-white/75 max-w-2xl mx-auto mt-3">
+          Start a workspace or talk to the team for partner and enterprise onboarding.
+        </p>
+        <div className="marketing-cta-row justify-center">
+          <Link href="/register" className="btn-amber inline-flex items-center gap-2">
+            Create account <RiArrowRightLine />
+          </Link>
+          <Link href="/contact" className="btn-outline border-white/30 text-white hover:bg-white/10">
+            Contact team
+          </Link>
+        </div>
+      </MotionSection>
     </>
   );
 }
