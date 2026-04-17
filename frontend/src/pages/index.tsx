@@ -12,6 +12,7 @@ import { calculatorAPI, dashboardAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useRouter } from 'next/router';
 import { MotionItem, MotionSection, MotionStagger } from '../components/PageMotion';
+import { getPublicLayout } from '../components/Layout';
 
 const CLIMATE_ZONES = [
   { value: 'coastal_humid', label: 'Coastal / Humid (Lagos, Rivers, Delta)' },
@@ -602,3 +603,5 @@ export default function Home() {
     </>
   );
 }
+
+Home.getLayout = getPublicLayout;
