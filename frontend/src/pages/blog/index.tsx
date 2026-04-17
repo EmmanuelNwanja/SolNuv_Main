@@ -239,7 +239,7 @@ export default function BlogIndex() {
           <Link href="/register" className="btn-amber inline-flex items-center gap-2">
             Create account <RiArrowRightLine />
           </Link>
-          <Link href="/contact" className="btn-outline border-white/30 text-white hover:bg-white/10">
+          <Link href="/contact" className="btn-on-dark">
             Talk to partnerships
           </Link>
         </div>
