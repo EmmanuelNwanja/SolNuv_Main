@@ -5,6 +5,7 @@ import { useRouter } from 'next/router';
 import { useAuth } from '../context/AuthContext';
 import { RiSunLine, RiGoogleLine, RiEyeLine, RiEyeOffLine } from 'react-icons/ri';
 import toast from 'react-hot-toast';
+import { MotionItem, MotionSection, MotionStagger } from '../components/PageMotion';
 
 export default function Login() {
   const { session, isOnboarded, isPlatformAdmin, profileResolved, signInWithGoogle, signInWithEmail, loading } = useAuth();
@@ -48,13 +49,13 @@ export default function Login() {
   return (
     <>
       <Head>
-        <title>Sign In — SolNuv | Africa&apos;s Solar Engineering Platform</title>
-        <meta name="description" content="Sign in to SolNuv — design solar+BESS systems, model financials, track projects, and automate compliance across Africa." />
+        <title>Sign In — SolNuv | Solar Project Intelligence Workspace</title>
+        <meta name="description" content="Sign in to access SolNuv design workflows, financial scenario tools, lifecycle records, and compliance support features." />
       </Head>
       <div className="auth-shell">
-        <div className="auth-wrap">
+        <MotionSection className="auth-wrap">
           {/* Logo */}
-          <div className="text-center mb-8">
+          <MotionStagger className="text-center mb-8">
             <Link href="/" className="inline-flex items-center gap-2 mb-4">
               <div className="w-10 h-10 bg-forest-900 rounded-xl flex items-center justify-center">
                 <RiSunLine className="text-amber-400 text-xl" />
@@ -62,10 +63,10 @@ export default function Login() {
               <span className="font-display font-bold text-forest-900 text-2xl">SolNuv</span>
             </Link>
             <h1 className="font-display font-bold text-forest-900 text-2xl">Welcome back</h1>
-            <p className="text-slate-500 text-sm mt-1">Sign in to design, model, track, and comply</p>
-          </div>
+            <p className="text-slate-500 text-sm mt-1">Continue your project operations workspace.</p>
+          </MotionStagger>
 
-          <div className="auth-card">
+          <MotionItem className="auth-card reveal-lift">
             {/* Google */}
             <button onClick={handleGoogle} disabled={submitting} className="w-full flex items-center justify-center gap-3 border-2 border-slate-200 rounded-xl py-3 text-sm font-semibold text-slate-700 hover:border-forest-900 hover:bg-forest-900/5 transition-all mb-6 disabled:opacity-50">
               <RiGoogleLine className="text-lg" />
@@ -98,13 +99,16 @@ export default function Login() {
                 {submitting ? 'Signing in...' : 'Sign In'}
               </button>
             </form>
-          </div>
+          </MotionItem>
 
           <p className="text-center text-sm text-slate-500 mt-6">
             Don't have an account?{' '}
             <Link href="/register" className="text-forest-900 font-semibold hover:underline">Get started</Link>
           </p>
-        </div>
+          <p className="text-center text-xs text-slate-400 mt-2">
+            Need enterprise onboarding help? <Link href="/contact" className="hover:underline text-slate-500">Contact the team</Link>
+          </p>
+        </MotionSection>
       </div>
     </>
   );

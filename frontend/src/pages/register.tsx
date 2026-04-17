@@ -5,6 +5,7 @@ import { useRouter } from 'next/router';
 import { useAuth } from '../context/AuthContext';
 import { RiSunLine, RiGoogleLine, RiEyeLine, RiEyeOffLine } from 'react-icons/ri';
 import toast from 'react-hot-toast';
+import { MotionItem, MotionSection, MotionStagger } from '../components/PageMotion';
 
 export default function Register() {
   const { session, isOnboarded, isPlatformAdmin, profileResolved, signInWithGoogle, signUpWithEmail, loading } = useAuth();
@@ -192,8 +193,8 @@ export default function Register() {
         <meta name="description" content="Create your SolNuv account to design and evaluate solar projects, model long-horizon outcomes, and manage compliance-ready lifecycle workflows." />
       </Head>
       <div className="auth-shell">
-        <div className="auth-wrap">
-          <div className="text-center mb-8">
+        <MotionSection className="auth-wrap">
+          <MotionStagger className="text-center mb-8">
             <Link href="/" className="inline-flex items-center gap-2 mb-4">
               <div className="w-10 h-10 bg-forest-900 rounded-xl flex items-center justify-center">
                 <RiSunLine className="text-amber-400 text-xl" />
@@ -201,10 +202,10 @@ export default function Register() {
               <span className="font-display font-bold text-forest-900 text-2xl">SolNuv</span>
             </Link>
             <h1 className="font-display font-bold text-forest-900 text-2xl">Create your account</h1>
-            <p className="text-slate-500 text-sm mt-1">Design your first solar+BESS system in under 15 minutes. No credit card required.</p>
-          </div>
+            <p className="text-slate-500 text-sm mt-1">Set up your workspace for design workflows, reporting, and lifecycle operations.</p>
+          </MotionStagger>
 
-          <div className="auth-card">
+          <MotionItem className="auth-card reveal-lift">
             <button onClick={handleGoogle} disabled={submitting} className="w-full flex items-center justify-center gap-3 border-2 border-slate-200 rounded-xl py-3 text-sm font-semibold text-slate-700 hover:border-forest-900 hover:bg-forest-900/5 transition-all mb-6 disabled:opacity-50">
               <RiGoogleLine className="text-lg" />
               Sign up with Google
@@ -269,13 +270,16 @@ export default function Register() {
                 {submitting ? 'Creating account...' : cooldownEnd ? `Wait ${Math.ceil((cooldownEnd - Date.now()) / 1000)}s` : 'Create Account'}
               </button>
             </form>
-          </div>
+          </MotionItem>
 
           <p className="text-center text-sm text-slate-500 mt-6">
             Already have an account?{' '}
             <Link href="/login" className="text-forest-900 font-semibold hover:underline">Sign in</Link>
           </p>
-        </div>
+          <p className="text-center text-xs text-slate-400 mt-2">
+            Need team onboarding support? <Link href="/contact" className="hover:underline text-slate-500">Contact SolNuv</Link>
+          </p>
+        </MotionSection>
       </div>
     </>
   );

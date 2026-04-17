@@ -1,4 +1,4 @@
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import type { ReactNode } from "react";
 
 const pageVariants = {
@@ -25,16 +25,82 @@ const sectionVariants = {
 };
 
 export function PageMotion({ children }: { children: ReactNode }) {
+  const reduceMotion = useReducedMotion();
   return (
-    <motion.div variants={pageVariants} initial="hidden" animate="visible">
+    <motion.div
+      variants={pageVariants}
+      initial={reduceMotion ? false : "hidden"}
+      animate={reduceMotion ? false : "visible"}
+    >
       {children}
     </motion.div>
   );
 }
 
 export function MotionSection({ children, className = "" }: { children: ReactNode; className?: string }) {
+  const reduceMotion = useReducedMotion();
   return (
-    <motion.div variants={sectionVariants} className={className}>
+    <motion.div
+      variants={sectionVariants}
+      initial={reduceMotion ? false : "hidden"}
+      whileInView={reduceMotion ? undefined : "visible"}
+      viewport={{ once: true, amount: 0.2 }}
+      className={className}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
+export function MotionStagger({
+  children,
+  className = "",
+  delay = 0,
+}: {
+  children: ReactNode;
+  className?: string;
+  delay?: number;
+}) {
+  const reduceMotion = useReducedMotion();
+  return (
+    <motion.div
+      initial={reduceMotion ? false : "hidden"}
+      whileInView={reduceMotion ? undefined : "visible"}
+      viewport={{ once: true, amount: 0.2 }}
+      variants={{
+        hidden: { opacity: 0, y: 10 },
+        visible: {
+          opacity: 1,
+          y: 0,
+          transition: {
+            delay,
+            duration: 0.45,
+            ease: [0.22, 1, 0.36, 1],
+            staggerChildren: 0.07,
+          },
+        },
+      }}
+      className={className}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
+export function MotionItem({ children, className = "" }: { children: ReactNode; className?: string }) {
+  return (
+    <motion.div
+      variants={{
+        hidden: { opacity: 0, y: 12, scale: 0.985 },
+        visible: {
+          opacity: 1,
+          y: 0,
+          scale: 1,
+          transition: { duration: 0.34, ease: [0.22, 1, 0.36, 1] },
+        },
+      }}
+      className={className}
+    >
       {children}
     </motion.div>
   );

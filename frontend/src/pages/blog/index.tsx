@@ -9,6 +9,7 @@ import {
 import { blogAPI } from '../../services/api';
 import { getPublicLayout } from '../../components/Layout';
 import AdSlot from '../../components/ui/AdSlot';
+import { MotionItem, MotionSection, MotionStagger } from '../../components/PageMotion';
 
 const CATEGORIES = ['All', 'Solar Energy', 'Battery Storage', 'Engineering', 'Industry News', 'Case Studies', 'Regulations'];
 
@@ -102,12 +103,13 @@ export default function BlogIndex() {
         <meta name="description" content="Insights, guides and news on solar energy, battery storage, and engineering for Africa." />
       </Head>
 
-      {/* Hero */}
-      <section className="relative bg-gradient-to-br from-forest-900 via-emerald-900 to-teal-900 text-white py-16 px-4">
-        <div className="max-w-4xl mx-auto text-center">
-          <span className="inline-block px-3 py-1 text-xs font-semibold uppercase tracking-widest bg-emerald-500/20 text-emerald-300 rounded-full mb-4">SolNuv Blog</span>
-          <h1 className="text-4xl md:text-5xl font-display font-bold mb-4">Solar Engineering Insights</h1>
-          <p className="text-lg text-emerald-100 max-w-2xl mx-auto">Expert articles, industry news, and practical guides for solar professionals across Africa.</p>
+      <MotionSection className="marketing-section marketing-section-animated">
+        <MotionStagger className="text-center max-w-4xl mx-auto">
+          <span className="marketing-kicker">Resource Centre</span>
+          <h1 className="marketing-headline">Insights for better solar delivery decisions</h1>
+          <p className="marketing-subcopy mx-auto">
+            Research-backed guidance, regulatory context, and practical operating playbooks for engineering teams, project operators, and commercial stakeholders.
+          </p>
           {/* Search */}
           <form onSubmit={handleSearch} className="mt-8 flex max-w-lg mx-auto gap-2">
             <div className="relative flex-1">
@@ -117,21 +119,21 @@ export default function BlogIndex() {
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
                 placeholder="Search articles..."
-                className="w-full pl-9 pr-4 py-2.5 rounded-lg bg-white/10 backdrop-blur border border-white/20 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                className="input pl-9"
               />
             </div>
-            <button type="submit" className="px-5 py-2.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 font-semibold transition-colors">Search</button>
+            <button type="submit" className="btn-primary px-5 py-2.5">Search</button>
           </form>
-        </div>
-      </section>
+        </MotionStagger>
+      </MotionSection>
 
       {/* Top banner ad */}
-      <div className="max-w-6xl mx-auto px-4 pt-4">
+      <div className="pt-4">
         <AdSlot slot="banner" page="blog" />
       </div>
 
       {/* Main layout */}
-      <div className="max-w-6xl mx-auto px-4 py-10">
+      <MotionSection className="marketing-section marketing-section-animated">
         {/* Category filter */}
         <div className="flex flex-wrap gap-2 mb-8 overflow-x-auto pb-2">
           {CATEGORIES.map((cat) => (
@@ -165,10 +167,12 @@ export default function BlogIndex() {
               </div>
             ) : (
               <>
-                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
+                <MotionStagger className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6" delay={0.02}>
                   {posts.map((post, idx) => (
                     <>
-                      <PostCard key={post.id} post={post} />
+                      <MotionItem key={post.id} className="reveal-lift">
+                        <PostCard post={post} />
+                      </MotionItem>
                       {/* In-feed ad after every 6th post */}
                       {(idx + 1) % 6 === 0 && (
                         <div key={`ad-${idx}`} className="sm:col-span-2 xl:col-span-3">
@@ -177,7 +181,7 @@ export default function BlogIndex() {
                       )}
                     </>
                   ))}
-                </div>
+                </MotionStagger>
 
                 {/* Pagination */}
                 {totalPages > 1 && (
@@ -209,10 +213,10 @@ export default function BlogIndex() {
 
             {/* About box */}
             <div className="rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 p-5">
-              <h3 className="font-semibold text-slate-800 dark:text-white mb-2">About SolNuv Blog</h3>
-              <p className="text-sm text-slate-500 dark:text-slate-400">Expert resources for solar engineers, installers, and energy professionals across Africa.</p>
+              <h3 className="font-semibold text-slate-800 dark:text-white mb-2">Need a tailored recommendation?</h3>
+              <p className="text-sm text-slate-500 dark:text-slate-400">Share your project or portfolio context and the SolNuv team will recommend the right workflow and plan path.</p>
               <Link href="/contact" className="mt-3 inline-flex items-center gap-1 text-sm text-emerald-700 dark:text-emerald-400 font-medium hover:underline">
-                Get in touch <RiArrowRightLine />
+                Contact team <RiArrowRightLine />
               </Link>
             </div>
 
@@ -224,7 +228,22 @@ export default function BlogIndex() {
         <div className="mt-10">
           <AdSlot slot="footer" page="blog" />
         </div>
-      </div>
+      </MotionSection>
+      <MotionSection className="marketing-section-dark marketing-section-animated text-center">
+        <span className="text-xs font-semibold uppercase tracking-widest text-emerald-300">Next step</span>
+        <h2 className="font-display font-bold text-3xl text-white mt-3">Apply insights in a live workspace</h2>
+        <p className="text-white/75 max-w-2xl mx-auto mt-3">
+          Turn strategy into repeatable execution with SolNuv design, reporting, and lifecycle workflows.
+        </p>
+        <div className="marketing-cta-row justify-center">
+          <Link href="/register" className="btn-amber inline-flex items-center gap-2">
+            Create account <RiArrowRightLine />
+          </Link>
+          <Link href="/contact" className="btn-outline border-white/30 text-white hover:bg-white/10">
+            Talk to partnerships
+          </Link>
+        </div>
+      </MotionSection>
     </>
   );
 }
