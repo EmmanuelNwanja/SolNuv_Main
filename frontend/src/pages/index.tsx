@@ -209,7 +209,7 @@ export default function Home() {
               <span className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-widest bg-white/10 text-emerald-200">
                 End-to-end solar lifecycle intelligence
               </span>
-              <h1 className="font-display text-3xl sm:text-4xl lg:text-5xl font-bold leading-[1.08] mt-4 tracking-[-0.015em]">
+              <h1 className="marketing-hero-dark-title mt-4">
                 Design Solar Projects,
                 <br />
                 Track & Recover Equipment.
@@ -226,10 +226,10 @@ export default function Home() {
                 </Link>
               </div>
             </MotionItem>
-            <MotionStagger className="grid grid-cols-2 gap-3 sm:gap-4" delay={0.08}>
+            <MotionStagger className="grid grid-cols-1 min-[400px]:grid-cols-2 gap-3 sm:gap-4" delay={0.08}>
               {heroStats.map((s) => (
                 <MotionItem key={s.label} className="rounded-2xl border border-white/15 bg-white/5 p-4 reveal-lift">
-                  <p className="font-display text-2xl font-bold text-amber-300">{s.value}</p>
+                  <p className="font-display font-bold text-amber-300 marketing-hero-stat-value">{s.value}</p>
                   <p className="text-xs text-white/65 mt-1">{s.label}</p>
                 </MotionItem>
               ))}
@@ -282,7 +282,7 @@ export default function Home() {
           <MotionStagger className="mt-6 grid sm:grid-cols-2 lg:grid-cols-4 gap-4" delay={0.05}>
             {impactStats.map(s => (
               <MotionItem key={s.label} className="marketing-proof-card reveal-lift">
-                <p className="font-display font-bold text-2xl text-forest-900">{s.value}</p>
+                <p className="font-display font-bold text-forest-900 marketing-proof-stat-value">{s.value}</p>
                 <p className="text-xs text-slate-500 font-medium mt-1">{s.label}</p>
               </MotionItem>
             ))}
@@ -339,10 +339,10 @@ export default function Home() {
 
         {/* WHY IT MATTERS */}
         <MotionSection id="impact" className="marketing-section-dark marketing-section-animated">
-            <MotionStagger className="grid lg:grid-cols-2 gap-16 items-center">
+            <MotionStagger className="grid lg:grid-cols-2 gap-8 lg:gap-16 items-center">
               <MotionItem>
                 <span className="text-xs font-semibold uppercase tracking-widest text-emerald-400">Why This Matters</span>
-                <h2 className="font-display text-3xl md:text-4xl font-bold mt-3 mb-6 leading-tight">
+                <h2 className="marketing-hero-dark-title mt-3 mb-6">
                   High-growth solar markets need<br />
                   <span className="text-amber-400">operational discipline, not more tools.</span>
                 </h2>
@@ -356,7 +356,7 @@ export default function Home() {
                   Built for serious solar operators who need dependable workflows across projects, portfolios, and partnerships.
                 </p>
               </MotionItem>
-              <MotionStagger className="grid grid-cols-2 gap-4" delay={0.1}>
+              <MotionStagger className="grid grid-cols-1 sm:grid-cols-2 gap-4" delay={0.1}>
                 <MotionItem className="col-span-2 marketing-snapshot-card reveal-lift">
                   <img
                     src={EXPERIENCE_SNAPSHOTS.ai.src}
@@ -407,16 +407,16 @@ export default function Home() {
               <p className="text-slate-500">No account needed. Run a sample estimate to see lifecycle value signals for panel assets.</p>
             </div>
             <div className="bg-white rounded-3xl shadow-lg overflow-hidden">
-              <div className="flex border-b border-slate-100">
+              <div className="flex overflow-x-auto snap-x snap-mandatory border-b border-slate-100 sm:snap-none [-webkit-overflow-scrolling:touch]">
                 {[
                   { id: 'panel',   label: '☀️ Panel Value',      sub: 'Silver + Second-Life' },
                   { id: 'battery', label: '🔋 Battery Value',     sub: 'Sign in to calculate' },
                   { id: 'degrade', label: '📅 Decommission Date', sub: 'Sign in to calculate' },
                 ].map(tab => (
-                  <button key={tab.id} onClick={() => setCalcTab(tab.id)}
-                    className={`flex-1 py-4 flex flex-col items-center transition-all ${calcTab === tab.id ? 'bg-forest-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>
-                    <span className="text-sm font-semibold">{tab.label}</span>
-                    <span className={`text-xs mt-0.5 ${calcTab === tab.id ? 'text-white/60' : 'text-slate-400'}`}>{tab.sub}</span>
+                  <button key={tab.id} type="button" onClick={() => setCalcTab(tab.id)}
+                    className={`flex-none min-w-[33.333%] sm:flex-1 sm:min-w-0 snap-start py-3.5 sm:py-4 px-2 flex flex-col items-center justify-center text-center transition-all ${calcTab === tab.id ? 'bg-forest-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>
+                    <span className="text-xs sm:text-sm font-semibold leading-tight">{tab.label}</span>
+                    <span className={`text-[10px] sm:text-xs mt-0.5 leading-snug px-0.5 ${calcTab === tab.id ? 'text-white/60' : 'text-slate-400'}`}>{tab.sub}</span>
                   </button>
                 ))}
               </div>
@@ -532,17 +532,17 @@ export default function Home() {
                         : 'Get a climate-adjusted decommission date using our algorithm covering all 36 Nigerian states — accounting for coastal humidity, Sahel heat, and inverter surge damage.'}
                     </p>
                     <p className="text-slate-400 text-xs mb-6">An account is required — takes 2 minutes to set up.</p>
-                    <div className="flex gap-3">
-                      <Link href="/register" className="btn-primary flex items-center gap-2">Create Account →</Link>
-                      <Link href="/login" className="btn-outline">Sign In</Link>
+                    <div className="flex flex-col w-full max-w-sm sm:max-w-none sm:flex-row sm:w-auto gap-3 items-stretch sm:items-center justify-center">
+                      <Link href="/register" className="btn-primary flex items-center justify-center gap-2 w-full sm:w-auto">Create Account →</Link>
+                      <Link href="/login" className="btn-outline w-full sm:w-auto justify-center">Sign In</Link>
                     </div>
                   </div>
                 )}
               </div>
 
-              <div className="bg-forest-900 px-8 py-4 flex items-center justify-between">
-                <p className="text-white/70 text-sm">Ready to track your full fleet automatically?</p>
-                <Link href="/register" className="btn-amber text-sm px-4 py-2 rounded-xl">Create Account →</Link>
+              <div className="bg-forest-900 px-4 sm:px-8 py-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-white/70 text-sm text-center sm:text-left">Ready to track your full fleet automatically?</p>
+                <Link href="/register" className="btn-amber text-sm px-4 py-2 rounded-xl shrink-0 self-center sm:self-auto w-full sm:w-auto justify-center">Create Account →</Link>
               </div>
             </div>
         </MotionSection>
@@ -554,7 +554,7 @@ export default function Home() {
               <h2 className="section-title mb-4 mt-2">Built for technical teams and commercial outcomes</h2>
               <p className="text-slate-500 max-w-xl mx-auto">Core capabilities designed to improve delivery quality, stakeholder confidence, and operational consistency.</p>
             </div>
-            <MotionStagger className="grid md:grid-cols-3 gap-6" delay={0.03}>
+            <MotionStagger className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6" delay={0.03}>
               {[
                 { icon: RiBatteryChargeLine, color: 'bg-forest-900', title: 'Solar + storage design workflows', desc: 'Create and refine technical configurations with structured inputs, comparison views, and consistent output formats.' },
                 { icon: RiLineChartLine, color: 'bg-emerald-500', title: 'Long-range scenario modelling', desc: 'Evaluate project performance across planning horizons with transparent assumptions and adjustable cost/tariff factors.' },
@@ -598,7 +598,7 @@ export default function Home() {
               <span className="text-xs font-semibold uppercase tracking-widest text-emerald-600">Who Uses SolNuv</span>
               <h2 className="section-title mb-4 mt-2">Built for modern solar stakeholders</h2>
             </div>
-            <MotionStagger className="grid md:grid-cols-4 gap-6" delay={0.03}>
+            <MotionStagger className="grid sm:grid-cols-2 xl:grid-cols-4 gap-6" delay={0.03}>
               {[
                 {
                   emoji: '🔧',
@@ -640,13 +640,13 @@ export default function Home() {
         {/* CTA */}
         <MotionSection className="marketing-section-dark marketing-section-animated text-center">
             <span className="text-xs font-semibold uppercase tracking-widest text-emerald-400 mb-3 block">Start in minutes</span>
-            <h2 className="font-display font-bold text-3xl md:text-4xl text-white mb-4 leading-tight">Build higher-confidence solar workflows<br />with one connected platform</h2>
+            <h2 className="marketing-hero-dark-title mb-4">Build higher-confidence solar workflows<br />with one connected platform</h2>
             <p className="text-white/70 mb-8 max-w-xl mx-auto">Support technical decisions, partner communication, and lifecycle accountability with tools designed for modern solar operations.</p>
-            <div className="flex flex-wrap justify-center gap-4">
-              <Link href="/register" className="btn-amber inline-flex items-center gap-2 text-base px-8 py-4 rounded-2xl">
+            <div className="flex flex-col w-full max-w-md sm:max-w-none mx-auto sm:flex-row flex-wrap justify-center gap-3 sm:gap-4 px-1">
+              <Link href="/register" className="btn-amber inline-flex items-center justify-center gap-2 text-base px-8 py-4 rounded-2xl w-full sm:w-auto">
                 Create Your Account <RiArrowRightLine />
               </Link>
-              <Link href="/contact" className="inline-flex items-center gap-2 border border-white/30 text-white px-6 py-4 rounded-2xl text-sm font-semibold hover:bg-white/10 transition-all">
+              <Link href="/contact" className="inline-flex items-center justify-center gap-2 border border-white/30 text-white px-6 py-4 rounded-2xl text-sm font-semibold hover:bg-white/10 transition-all min-h-[2.75rem] w-full sm:w-auto">
                 Partner With Us
               </Link>
             </div>

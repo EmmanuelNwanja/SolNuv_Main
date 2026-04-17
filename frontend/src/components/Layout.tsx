@@ -26,6 +26,7 @@ import {
   RiArticleLine,
   RiQuestionLine,
   RiArrowRightLine,
+  RiCloseLine,
 } from "react-icons/ri";
 import type { IconType } from "react-icons";
 import toast from "react-hot-toast";
@@ -284,6 +285,7 @@ export function getDashboardLayout(page: ReactElement): ReactElement {
 export function getPublicLayout(page: ReactElement): ReactElement {
   function PublicSiteLayout({ children }: { children: ReactNode }) {
     const router = useRouter();
+    const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
     const isActive = (href: string) => {
       if (href === "/") return router.pathname === "/";
@@ -294,9 +296,34 @@ export function getPublicLayout(page: ReactElement): ReactElement {
       return router.pathname === href || router.pathname.startsWith(`${href}/`);
     };
 
+    const publicNavItems = [
+      { href: "/#how-it-works", label: "How it works", activeHref: "/#how-it-works" },
+      { href: "/#platform", label: "Platform", activeHref: "/#platform" },
+      { href: "/pricing", label: "Pricing", activeHref: "/pricing" },
+      { href: "/blog", label: "Resources", activeHref: "/blog" },
+      { href: "/contact", label: "Contact", activeHref: "/contact" },
+    ] as const;
+
+    useEffect(() => {
+      function onRouteDone() {
+        setMobileNavOpen(false);
+      }
+      router.events.on("routeChangeComplete", onRouteDone);
+      return () => router.events.off("routeChangeComplete", onRouteDone);
+    }, [router.events]);
+
+    useEffect(() => {
+      if (!mobileNavOpen) return;
+      const prev = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      return () => {
+        document.body.style.overflow = prev;
+      };
+    }, [mobileNavOpen]);
+
     return (
       <div className="marketing-shell">
-        <header className="marketing-nav-wrap">
+        <header className={`marketing-nav-wrap ${mobileNavOpen ? "marketing-nav-wrap-open" : ""}`}>
           <div className="marketing-nav">
             <Link href="/" className="marketing-brand">
               <span className="marketing-brand-icon">
@@ -304,21 +331,73 @@ export function getPublicLayout(page: ReactElement): ReactElement {
               </span>
               <span>SolNuv</span>
             </Link>
-            <nav className="marketing-nav-links">
-              <Link href="/#how-it-works" className={isActive("/#how-it-works") ? "marketing-nav-link-active" : ""}>How it works</Link>
-              <Link href="/#platform" className={isActive("/#platform") ? "marketing-nav-link-active" : ""}>Platform</Link>
-              <Link href="/pricing" className={isActive("/pricing") ? "marketing-nav-link-active" : ""}>Pricing</Link>
-              <Link href="/blog" className={isActive("/blog") ? "marketing-nav-link-active" : ""}>Resources</Link>
-              <Link href="/contact" className={isActive("/contact") ? "marketing-nav-link-active" : ""}>Contact</Link>
+            <nav className="marketing-nav-links" aria-label="Primary">
+              {publicNavItems.map(({ href, label, activeHref }) => (
+                <Link
+                  key={href}
+                  href={href}
+                  className={isActive(activeHref) ? "marketing-nav-link-active" : ""}
+                >
+                  {label}
+                </Link>
+              ))}
             </nav>
             <div className="marketing-nav-cta">
               <ThemeToggle compact />
-              <Link href="/login" className="btn-ghost">Sign in</Link>
+              <Link href="/login" className="btn-ghost marketing-nav-signin">
+                Sign in
+              </Link>
               <Link href="/register" className="btn-primary marketing-nav-btn">
                 Get started
               </Link>
+              <button
+                type="button"
+                className="marketing-nav-mobile-btn"
+                aria-expanded={mobileNavOpen}
+                aria-controls="marketing-mobile-nav"
+                aria-label={mobileNavOpen ? "Close menu" : "Open menu"}
+                onClick={() => setMobileNavOpen((o) => !o)}
+              >
+                {mobileNavOpen ? <RiCloseLine className="text-xl" /> : <RiMenuLine className="text-xl" />}
+              </button>
             </div>
           </div>
+          {mobileNavOpen && (
+            <>
+              <div
+                className="marketing-mobile-backdrop"
+                aria-hidden
+                onClick={() => setMobileNavOpen(false)}
+              />
+              <div
+                id="marketing-mobile-nav"
+                className="marketing-mobile-drawer"
+                role="dialog"
+                aria-modal="true"
+                aria-label="Site navigation"
+              >
+                <nav className="marketing-mobile-drawer-inner">
+                  {publicNavItems.map(({ href, label, activeHref }) => (
+                    <Link
+                      key={href}
+                      href={href}
+                      className={isActive(activeHref) ? "marketing-mobile-link marketing-mobile-link-active" : "marketing-mobile-link"}
+                      onClick={() => setMobileNavOpen(false)}
+                    >
+                      {label}
+                    </Link>
+                  ))}
+                  <Link
+                    href="/login"
+                    className="marketing-mobile-link marketing-mobile-link-secondary"
+                    onClick={() => setMobileNavOpen(false)}
+                  >
+                    Sign in
+                  </Link>
+                </nav>
+              </div>
+            </>
+          )}
         </header>
         <main className="marketing-main">
           <PageMotion>{children}</PageMotion>

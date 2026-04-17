@@ -111,18 +111,18 @@ export default function BlogIndex() {
             Research-backed guidance, regulatory context, and practical operating playbooks for engineering teams, project operators, and commercial stakeholders.
           </p>
           {/* Search */}
-          <form onSubmit={handleSearch} className="mt-8 flex max-w-lg mx-auto gap-2">
-            <div className="relative flex-1">
+          <form onSubmit={handleSearch} className="mt-8 flex flex-col min-[400px]:flex-row max-w-lg mx-auto w-full gap-2 px-1">
+            <div className="relative flex-1 min-w-0">
               <RiSearchLine className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 type="search"
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
                 placeholder="Search articles..."
-                className="input pl-9"
+                className="input pl-9 w-full"
               />
             </div>
-            <button type="submit" className="btn-primary px-5 py-2.5">Search</button>
+            <button type="submit" className="btn-primary px-5 py-2.5 shrink-0 w-full min-[400px]:w-auto">Search</button>
           </form>
         </MotionStagger>
       </MotionSection>

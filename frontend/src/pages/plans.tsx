@@ -160,7 +160,7 @@ export default function Plans() {
 
       <MotionSection className="mb-6">
         {isWelcome && (
-          <div className="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-4 flex items-start gap-3">
+          <div className="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 sm:px-5 py-4 flex flex-col sm:flex-row items-start gap-3">
             <span className="text-emerald-500 text-xl mt-0.5">🎉</span>
             <div>
               <p className="font-semibold text-emerald-900 text-sm">Account setup complete — choose a plan to get started</p>
@@ -172,22 +172,22 @@ export default function Plans() {
           <div className="absolute -top-20 -right-16 h-56 w-56 rounded-full bg-emerald-300/20 blur-3xl" />
           <div className="absolute -bottom-20 -left-20 h-56 w-56 rounded-full bg-amber-300/20 blur-3xl" />
           <div className="relative">
-            <h1 className="font-display font-bold text-3xl sm:text-4xl">Choose Your Plan</h1>
-            <p className="text-white/75 mt-2">Unlock solar+BESS design, 25-year financial modelling, professional reports, NESREA compliance, and AI agents</p>
+            <h1 className="marketing-hero-dark-title">Choose Your Plan</h1>
+            <p className="text-white/75 mt-2 text-sm sm:text-base max-w-2xl mx-auto leading-relaxed">Unlock solar+BESS design, 25-year financial modelling, professional reports, NESREA compliance, and AI agents</p>
             <p className="text-xs text-white/60 mt-1">All prices in Nigerian Naira. No FX surprises. Annual billing includes 10% discount on every paid plan.</p>
 
-        <div className="mt-6 inline-flex rounded-xl bg-slate-100 p-1">
+        <div className="mt-6 flex w-full max-w-md mx-auto sm:max-w-none sm:inline-flex rounded-xl bg-slate-100 p-1 gap-1">
           <button
             type="button"
             onClick={() => setBillingInterval('monthly')}
-            className={`px-4 py-2 rounded-lg text-sm font-semibold ${billingInterval === 'monthly' ? 'bg-white text-forest-900 shadow-sm' : 'text-slate-500'}`}
+            className={`flex-1 min-h-[2.75rem] px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold ${billingInterval === 'monthly' ? 'bg-white text-forest-900 shadow-sm' : 'text-slate-500'}`}
           >
             Monthly Billing
           </button>
           <button
             type="button"
             onClick={() => setBillingInterval('annual')}
-            className={`px-4 py-2 rounded-lg text-sm font-semibold ${billingInterval === 'annual' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-500'}`}
+            className={`flex-1 min-h-[2.75rem] px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold leading-snug ${billingInterval === 'annual' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-500'}`}
           >
             Annual Billing (Save 10%)
           </button>
@@ -244,7 +244,7 @@ export default function Plans() {
               <div className="p-6 flex flex-col flex-1">
                 <h3 className="font-display font-bold text-forest-900 text-xl mb-1">{plan.name}</h3>
                 <div className="flex items-end gap-1 mb-5">
-                  <span className="font-display font-bold text-3xl text-forest-900">
+                  <span className="font-display font-bold text-forest-900 plan-price-display">
                     {billingInterval === 'annual'
                       ? `₦${Number(plan.annual_price_ngn || 0).toLocaleString('en-NG')}`
                       : `₦${Number(plan.monthly_price_ngn || 0).toLocaleString('en-NG')}`}

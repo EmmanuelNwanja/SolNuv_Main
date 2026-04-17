@@ -8,7 +8,7 @@ const LAST_UPDATED  = 'April 5, 2026';
 
 function SectionHeading({ id, children }: { id: string; children: ReactNode }) {
   return (
-    <h2 id={id} className="text-xl font-bold text-forest-900 dark:text-white mt-10 mb-3 scroll-mt-24">
+    <h2 id={id} className="text-lg sm:text-xl font-bold text-forest-900 dark:text-white mt-8 sm:mt-10 mb-3 scroll-mt-28 sm:scroll-mt-24 break-words">
       {children}
     </h2>
   );
@@ -45,11 +45,11 @@ export default function PrivacyPolicy() {
       </Head>
 
       {/* Hero */}
-      <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-forest-900 via-emerald-900 to-slate-900 text-white px-8 py-12 mb-10">
+      <section className="relative overflow-hidden rounded-xl sm:rounded-2xl bg-gradient-to-br from-forest-900 via-emerald-900 to-slate-900 text-white px-4 sm:px-8 py-8 sm:py-12 mb-8 sm:mb-10">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(245,158,11,0.10),transparent_60%)]" />
         <div className="relative max-w-3xl">
           <span className="text-xs font-semibold uppercase tracking-widest text-emerald-300 mb-3 block">Legal</span>
-          <h1 className="font-display font-bold text-3xl md:text-4xl">Privacy Policy</h1>
+          <h1 className="marketing-hero-dark-title">Privacy Policy</h1>
           <p className="text-white/70 text-sm mt-3 max-w-xl">
             Your privacy matters. This policy explains what data we collect, why, how we protect it, and the rights you have under Nigerian and applicable international law.
           </p>

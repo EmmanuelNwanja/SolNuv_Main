@@ -62,7 +62,7 @@ export default function Login() {
               </div>
               <span className="font-display font-bold text-forest-900 text-2xl">SolNuv</span>
             </Link>
-            <h1 className="font-display font-bold text-forest-900 text-2xl">Welcome back</h1>
+            <h1 className="auth-headline">Welcome back</h1>
             <p className="text-slate-500 text-sm mt-1">Continue your project operations workspace.</p>
           </MotionStagger>
 

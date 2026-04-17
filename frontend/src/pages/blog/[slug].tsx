@@ -157,7 +157,7 @@ export default function BlogPostPage() {
         {post.cover_image_url && <meta property="og:image" content={post.cover_image_url} />}
       </Head>
 
-      <div className="max-w-6xl mx-auto px-4 py-8">
+      <div className="max-w-6xl mx-auto w-full py-6 sm:py-8 px-[max(1rem,env(safe-area-inset-left,0px))] pr-[max(1rem,env(safe-area-inset-right,0px))]">
         {/* Back */}
         <Link href="/blog" className="inline-flex items-center gap-2 text-sm text-slate-500 hover:text-forest-900 dark:hover:text-emerald-400 mb-6 transition-colors">
           <RiArrowLeftLine /> All Articles
@@ -169,7 +169,7 @@ export default function BlogPostPage() {
             {/* Cover image */}
             {post.cover_image_url && (
               <div className="rounded-2xl overflow-hidden mb-8 shadow-sm">
-                <img src={post.cover_image_url} alt={post.title} className="w-full object-cover max-h-[420px]" />
+                <img src={post.cover_image_url} alt={post.title} className="w-full object-cover max-h-[min(50vh,420px)] sm:max-h-[420px]" />
               </div>
             )}
 
@@ -177,15 +177,17 @@ export default function BlogPostPage() {
             {post.category && (
               <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 uppercase tracking-wide">{post.category}</span>
             )}
-            <h1 className="mt-2 text-3xl md:text-4xl font-display font-bold text-slate-900 dark:text-white leading-tight">{post.title}</h1>
+            <h1 className="mt-2 font-display font-bold text-slate-900 dark:text-white leading-tight article-title-fluid">{post.title}</h1>
             {post.excerpt && (
-              <p className="mt-3 text-lg text-slate-500 dark:text-slate-400">{post.excerpt}</p>
+              <p className="mt-3 text-base sm:text-lg text-slate-500 dark:text-slate-400">{post.excerpt}</p>
             )}
 
-            <div className="mt-4 flex flex-wrap items-center gap-4 text-sm text-slate-400 dark:text-slate-500 border-b border-slate-100 dark:border-slate-800 pb-4">
-              {date && <span className="flex items-center gap-1.5"><RiCalendarLine />{date}</span>}
-              {post.read_time_mins && <span className="flex items-center gap-1.5"><RiTimeLine />{post.read_time_mins} min read</span>}
-              <button onClick={handleShare} className="ml-auto flex items-center gap-1 text-slate-400 hover:text-forest-900 dark:hover:text-emerald-400 transition-colors">
+            <div className="mt-4 flex flex-col min-[400px]:flex-row min-[400px]:flex-wrap min-[400px]:items-center gap-3 min-[400px]:gap-4 text-sm text-slate-400 dark:text-slate-500 border-b border-slate-100 dark:border-slate-800 pb-4">
+              <div className="flex flex-wrap items-center gap-3 min-[400px]:gap-4">
+                {date && <span className="flex items-center gap-1.5"><RiCalendarLine />{date}</span>}
+                {post.read_time_mins && <span className="flex items-center gap-1.5"><RiTimeLine />{post.read_time_mins} min read</span>}
+              </div>
+              <button type="button" onClick={handleShare} className="flex items-center gap-1 text-slate-400 hover:text-forest-900 dark:hover:text-emerald-400 transition-colors min-[400px]:ml-auto self-start min-[400px]:self-center min-h-[44px]">
                 <RiShareLine /> Share
               </button>
             </div>
@@ -193,7 +195,7 @@ export default function BlogPostPage() {
             {/* Content + in-article ads (within reading flow) */}
             <div
               ref={contentRef}
-              className="mt-8 prose prose-slate dark:prose-invert max-w-none prose-lg sm:prose-xl
+              className="mt-8 prose prose-slate dark:prose-invert max-w-none prose-base sm:prose-lg lg:prose-xl overflow-x-auto
                 prose-headings:font-display prose-headings:scroll-mt-24
                 prose-p:leading-relaxed prose-p:my-4
                 prose-h2:mt-10 prose-h2:mb-3 prose-h2:text-2xl prose-h2:font-bold
@@ -247,11 +249,11 @@ export default function BlogPostPage() {
             <div className="mt-10 p-6 rounded-xl bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-slate-800 dark:to-slate-900 border border-emerald-100 dark:border-slate-700">
               <p className="font-semibold text-forest-900 dark:text-white">Want to engineer smarter solar projects?</p>
               <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">Join SolNuv to streamline solar project design, communication, and lifecycle reporting.</p>
-              <div className="mt-4 flex gap-3">
-                <Link href="/register" className="px-4 py-2 rounded-lg bg-forest-900 text-white text-sm font-semibold hover:bg-forest-800 transition-colors">
+              <div className="mt-4 flex flex-col sm:flex-row gap-3">
+                <Link href="/register" className="inline-flex justify-center px-4 py-2.5 rounded-lg bg-forest-900 text-white text-sm font-semibold hover:bg-forest-800 transition-colors min-h-[44px] items-center">
                   Get Started
                 </Link>
-                <Link href="/blog" className="px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-sm hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+                <Link href="/blog" className="inline-flex justify-center px-4 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 text-sm hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors min-h-[44px] items-center">
                   More Articles
                 </Link>
               </div>
