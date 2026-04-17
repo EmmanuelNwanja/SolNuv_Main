@@ -51,8 +51,7 @@ export function MotionSection({ children, className = "", ...rest }: MotionSecti
     <motion.div
       variants={sectionVariants}
       initial={reduceMotion ? false : "hidden"}
-      whileInView={reduceMotion ? undefined : "visible"}
-      viewport={{ once: true, amount: 0.2 }}
+      animate={reduceMotion ? false : "visible"}
       className={className}
       {...rest}
     >
@@ -74,8 +73,7 @@ export function MotionStagger({
   return (
     <motion.div
       initial={reduceMotion ? false : "hidden"}
-      whileInView={reduceMotion ? undefined : "visible"}
-      viewport={{ once: true, amount: 0.2 }}
+      animate={reduceMotion ? false : "visible"}
       variants={{
         hidden: { opacity: 0, y: 10 },
         visible: {

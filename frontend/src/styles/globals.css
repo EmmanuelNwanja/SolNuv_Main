@@ -683,6 +683,65 @@ body {
 :root[data-theme='dark'] .text-green-700,
 :root[data-theme='dark'] .text-green-600 { color: #86efac !important; }
 
+/* Keep public marketing pages legible in dark mode */
+:root[data-theme='dark'] .marketing-shell .marketing-nav-wrap {
+  background: color-mix(in srgb, #ffffff 88%, transparent);
+  border-color: rgba(148, 163, 184, 0.26);
+}
+
+:root[data-theme='dark'] .marketing-shell .marketing-nav-links,
+:root[data-theme='dark'] .marketing-shell .marketing-subcopy,
+:root[data-theme='dark'] .marketing-shell .marketing-proof-copy,
+:root[data-theme='dark'] .marketing-shell .text-slate-600,
+:root[data-theme='dark'] .marketing-shell .text-slate-700 {
+  color: #475569 !important;
+}
+
+:root[data-theme='dark'] .marketing-shell .marketing-headline,
+:root[data-theme='dark'] .marketing-shell .marketing-proof-title,
+:root[data-theme='dark'] .marketing-shell .text-slate-900,
+:root[data-theme='dark'] .marketing-shell .text-slate-800,
+:root[data-theme='dark'] .marketing-shell .text-forest-900 {
+  color: #0f172a !important;
+}
+
+:root[data-theme='dark'] .marketing-shell .bg-white,
+:root[data-theme='dark'] .marketing-shell .bg-white\/80,
+:root[data-theme='dark'] .marketing-shell .bg-white\/70,
+:root[data-theme='dark'] .marketing-shell .bg-white\/60 {
+  background-color: #ffffff !important;
+}
+
+:root[data-theme='dark'] .marketing-shell .bg-slate-50 {
+  background-color: #f8fafc !important;
+}
+
+:root[data-theme='dark'] .marketing-shell .border-slate-100,
+:root[data-theme='dark'] .marketing-shell .border-slate-200 {
+  border-color: #dbe3ee !important;
+}
+
+:root[data-theme='dark'] .marketing-shell .input {
+  background: #ffffff;
+  border-color: #dbe3ee;
+  color: #0f172a;
+}
+
+:root[data-theme='dark'] .marketing-shell .input::placeholder {
+  color: #94a3b8;
+}
+
+:root[data-theme='dark'] .marketing-shell .btn-outline {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  color: #0f172a;
+}
+
+:root[data-theme='dark'] .marketing-shell .btn-outline:hover {
+  background: #f8fafc;
+  border-color: #94a3b8;
+}
+
 /* TOAST CUSTOM STYLE */
 .toast-custom {
   font-family: var(--font-body) !important;
