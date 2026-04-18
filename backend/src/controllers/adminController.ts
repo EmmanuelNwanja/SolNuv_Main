@@ -2384,6 +2384,9 @@ exports.getSeoSettings = async (req, res) => {
           google_analytics_id: null,
           structured_data: null,
           extra_head_tags: null,
+          theme_light_enabled: true,
+          theme_dark_enabled: true,
+          theme_default: 'light',
         });
       }
       throw error;
@@ -2407,6 +2410,7 @@ exports.updateSeoSettings = async (req, res) => {
       'og_image_url', 'twitter_handle', 'canonical_base',
       'google_site_verification', 'google_analytics_id',
       'structured_data', 'extra_head_tags',
+      'theme_light_enabled', 'theme_dark_enabled', 'theme_default',
     ];
 
     // Only accept known fields; reject empties for critical fields
@@ -2425,6 +2429,32 @@ exports.updateSeoSettings = async (req, res) => {
     for (const required of ['site_name', 'default_title', 'default_description', 'canonical_base']) {
       if (update[required] !== undefined && !String(update[required] || '').trim()) {
         return sendError(res, `${required} cannot be empty`, 400);
+      }
+    }
+
+    const THEME_KEYS = ['theme_light_enabled', 'theme_dark_enabled', 'theme_default'];
+    if (THEME_KEYS.some((k) => k in update)) {
+      if (update.theme_default !== undefined && !['light', 'dark'].includes(String(update.theme_default))) {
+        return sendError(res, 'theme_default must be light or dark', 400);
+      }
+      const { data: cur } = await supabase
+        .from('platform_seo_settings')
+        .select('theme_light_enabled, theme_dark_enabled, theme_default')
+        .eq('row_key', 'global')
+        .maybeSingle();
+      const light =
+        update.theme_light_enabled !== undefined ? !!update.theme_light_enabled : !!cur?.theme_light_enabled;
+      const dark =
+        update.theme_dark_enabled !== undefined ? !!update.theme_dark_enabled : !!cur?.theme_dark_enabled;
+      if (!light && !dark) {
+        return sendError(res, 'At least one of light or dark theme must remain enabled', 400);
+      }
+      const def = update.theme_default !== undefined ? String(update.theme_default) : String(cur?.theme_default || 'light');
+      if (def === 'light' && !light) {
+        return sendError(res, 'Default theme cannot be light while light theme is disabled', 400);
+      }
+      if (def === 'dark' && !dark) {
+        return sendError(res, 'Default theme cannot be dark while dark theme is disabled', 400);
       }
     }
 
@@ -2474,7 +2504,8 @@ exports.getPublicSeoSettings = async (req, res) => {
       .select(
         'site_name, default_title, default_description, default_keywords, ' +
         'og_image_url, twitter_handle, canonical_base, ' +
-        'google_site_verification, google_analytics_id, structured_data'
+        'google_site_verification, google_analytics_id, structured_data, ' +
+        'theme_light_enabled, theme_dark_enabled, theme_default'
       )
       .eq('row_key', 'global')
       .maybeSingle();
@@ -2492,11 +2523,20 @@ exports.getPublicSeoSettings = async (req, res) => {
           google_site_verification: null,
           google_analytics_id: null,
           structured_data: null,
+          theme_light_enabled: true,
+          theme_dark_enabled: true,
+          theme_default: 'light',
         });
       }
       throw error;
     }
-    return sendSuccess(res, data || {});
+    const row = data || {};
+    return sendSuccess(res, {
+      ...row,
+      theme_light_enabled: row.theme_light_enabled !== false,
+      theme_dark_enabled: row.theme_dark_enabled !== false,
+      theme_default: row.theme_default === 'dark' ? 'dark' : 'light',
+    });
   } catch (error) {
     logger.error('getPublicSeoSettings failed', { message: error.message });
     return sendError(res, 'Failed to load SEO settings', 500);

@@ -357,6 +357,9 @@ export const adminAPI = {
   listRecoveryRequests: (params?: JsonRecord) => api.get("/admin/recovery-requests", { params }),
   approveDecommission: (id: string, data?: JsonRecord) =>
     api.patch(`/admin/recovery-requests/${id}/approve`, data ?? {}),
+  listV2Organizations: (params?: JsonRecord) => api.get("/admin/v2-organizations", { params }),
+  assignRecoveryPartner: (id: string, organization_id: string) =>
+    api.patch(`/admin/recovery-requests/${id}/assign-partner`, { organization_id }),
   getEnvironmentMode: () => api.get("/admin/settings/environment"),
   toggleEnvironmentMode: (mode: string) => api.patch("/admin/settings/environment", { mode }),
   getDesignOverview: () => api.get("/admin/design/overview"),
@@ -483,6 +486,16 @@ export const tariffAPI = {
   getDetail: (id: string) => api.get(`/tariffs/${id}`),
   update: (id: string, data: JsonRecord) => api.put(`/tariffs/${id}`, data),
   delete: (id: string) => api.delete(`/tariffs/${id}`),
+};
+
+export const partnerAPI = {
+  listRecyclerPickups: () => api.get("/partner/recycler/pickups"),
+  recyclerSlaSummary: () => api.get("/partner/recycler/sla-summary"),
+  logPortalEvent: (data: JsonRecord) => api.post("/partner/portal-events", data),
+  listPortalEvents: (params?: JsonRecord) => api.get("/partner/portal-events", { params }),
+  listFinancierFunding: () => api.get("/partner/financier/funding-requests"),
+  createFinancierFunding: (data: JsonRecord) => api.post("/partner/financier/funding-requests", data),
+  financierFinancials: () => api.get("/partner/financier/financials-summary"),
 };
 
 export const v2API = {

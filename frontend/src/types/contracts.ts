@@ -84,6 +84,18 @@ export interface CompanyProfile {
   subscription_auto_renew?: boolean | null;
 }
 
+/** V2 org membership returned on GET /api/auth/me for partner portal routing. */
+export interface PartnerOrgMembership {
+  role_code?: string | null;
+  organization?: {
+    id?: string;
+    name?: string | null;
+    organization_type?: string | null;
+    verification_status?: string | null;
+    jurisdiction?: string | null;
+  } | null;
+}
+
 /** Merged API + client auth profile (AuthContext). Partial during bootstrap. */
 export interface AppUserProfile extends Partial<UserProfile> {
   supabase_uid?: string | null;
@@ -92,6 +104,7 @@ export interface AppUserProfile extends Partial<UserProfile> {
   is_platform_admin?: boolean;
   platform_admin_role?: string | null;
   verification_status?: string | null;
+  partner_memberships?: PartnerOrgMembership[];
   [key: string]: unknown;
 }
 

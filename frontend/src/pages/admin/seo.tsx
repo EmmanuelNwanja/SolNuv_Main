@@ -55,8 +55,8 @@ function Field({ name, meta, value, onChange }) {
 export default function AdminSeoPage() {
   const { session } = useAuth();
   const accessToken = session?.access_token;
-  const [settings, setSettings] = useState(null);
-  const [form, setForm] = useState({});
+  const [settings, setSettings] = useState<Record<string, unknown> | null>(null);
+  const [form, setForm] = useState<Record<string, unknown>>({});
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -69,7 +69,12 @@ export default function AdminSeoPage() {
       const json = await res.json();
       if (res.ok && json.data) {
         setSettings(json.data);
-        setForm(json.data);
+        setForm({
+          ...json.data,
+          theme_light_enabled: json.data.theme_light_enabled !== false,
+          theme_dark_enabled: json.data.theme_dark_enabled !== false,
+          theme_default: json.data.theme_default === 'dark' ? 'dark' : 'light',
+        });
       } else {
         toast.error(json.message || 'Failed to load SEO settings');
       }
@@ -82,18 +87,21 @@ export default function AdminSeoPage() {
 
   useEffect(() => { load(); }, [load]);
 
-  function handleChange(key, value) {
-    setForm(prev => ({ ...prev, [key]: value }));
+  function handleChange(key: string, value: unknown) {
+    setForm((prev) => ({ ...prev, [key]: value }));
   }
 
   async function handleSave(e) {
     e.preventDefault();
     setSaving(true);
     try {
-      const payload = {};
+      const payload: Record<string, unknown> = {};
       for (const key of Object.keys(FIELD_META)) {
         payload[key] = form[key] ?? null;
       }
+      payload.theme_light_enabled = !!form.theme_light_enabled;
+      payload.theme_dark_enabled = !!form.theme_dark_enabled;
+      payload.theme_default = form.theme_default === 'dark' ? 'dark' : 'light';
 
       const res = await fetch(`${API}/api/admin/seo`, {
         method: 'PUT',
@@ -117,9 +125,10 @@ export default function AdminSeoPage() {
     }
   }
 
-  const lastUpdated = settings?.updated_at
-    ? new Date(settings.updated_at).toLocaleString()
-    : null;
+  const lastUpdated =
+    settings?.updated_at && (typeof settings.updated_at === 'string' || typeof settings.updated_at === 'number')
+      ? new Date(settings.updated_at).toLocaleString()
+      : null;
 
   return (
     <AdminLayout>
@@ -188,6 +197,42 @@ export default function AdminSeoPage() {
               {['google_site_verification', 'google_analytics_id'].map(key => (
                 <Field key={key} name={key} meta={FIELD_META[key]} value={form[key]} onChange={handleChange} />
               ))}
+            </section>
+
+            <section className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4">
+              <h2 className="text-sm font-semibold text-slate-300 uppercase tracking-wide">Theme availability</h2>
+              <p className="text-xs text-slate-500">
+                Control which color modes appear in the app. At least one must stay enabled. Users only see the theme toggle when both are on.
+              </p>
+              <label className="flex items-center gap-3 text-sm text-slate-200 cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="rounded border-slate-600"
+                  checked={form.theme_light_enabled !== false}
+                  onChange={(e) => handleChange('theme_light_enabled', e.target.checked)}
+                />
+                Light theme enabled
+              </label>
+              <label className="flex items-center gap-3 text-sm text-slate-200 cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="rounded border-slate-600"
+                  checked={form.theme_dark_enabled !== false}
+                  onChange={(e) => handleChange('theme_dark_enabled', e.target.checked)}
+                />
+                Dark theme enabled
+              </label>
+              <div>
+                <label className="block text-xs font-medium text-slate-400 mb-1">Default for new visitors (when policy loads)</label>
+                <select
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100"
+                  value={form.theme_default === 'dark' ? 'dark' : 'light'}
+                  onChange={(e) => handleChange('theme_default', e.target.value)}
+                >
+                  <option value="light">Light</option>
+                  <option value="dark">Dark</option>
+                </select>
+              </div>
             </section>
 
             <button

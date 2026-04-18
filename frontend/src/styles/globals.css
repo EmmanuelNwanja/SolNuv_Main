@@ -219,9 +219,10 @@ body {
     background: color-mix(in srgb, #ffffff 90%, transparent);
     box-shadow: 0 18px 40px rgba(2, 8, 23, 0.06);
   }
+  /* overflow visible: long in-section lists rely on intersection; hidden clipped IO on iOS */
   .marketing-section-animated {
     position: relative;
-    overflow: hidden;
+    overflow: visible;
   }
   .marketing-section-animated::before {
     content: "";

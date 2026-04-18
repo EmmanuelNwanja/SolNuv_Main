@@ -17,6 +17,24 @@ function shouldTraceAuth(email) {
   return String(email || '').toLowerCase().trim() === AUTH_DEBUG_EMAIL;
 }
 
+async function fetchPartnerMembershipsForUser(userId) {
+  if (!userId) return [];
+  const { data, error } = await supabase
+    .from('v2_org_memberships')
+    .select(
+      'role_code, v2_organizations ( id, name, organization_type, verification_status, jurisdiction )',
+    )
+    .eq('user_id', userId);
+  if (error || !data) return [];
+  return data
+    .map((row) => ({
+      role_code: row.role_code,
+      organization:
+        row.v2_organizations && typeof row.v2_organizations === 'object' ? row.v2_organizations : null,
+    }))
+    .filter((m) => m.organization);
+}
+
 function slugify(value) {
   return String(value || '')
     .toLowerCase()
@@ -383,9 +401,11 @@ exports.getMe = async (req, res) => {
             });
           }
 
+          const partner_memberships = await fetchPartnerMembershipsForUser(legacyUser.id);
           return sendSuccess(res, {
             ...legacyUser,
             is_onboarded: isOnboarded,
+            partner_memberships,
           });
         }
       }
@@ -474,12 +494,15 @@ exports.getMe = async (req, res) => {
       .eq('is_active', true)
       .single();
 
+    const partner_memberships = await fetchPartnerMembershipsForUser(user.id);
+
     return sendSuccess(res, {
       ...user,
       unread_notifications: unreadCount || 0,
       is_platform_admin: !!adminMembership,
       platform_admin_role: adminMembership?.role || null,
       platform_admin_permissions: adminMembership || null,
+      partner_memberships,
     });
   } catch (error) {
     logger.error('Failed to fetch profile', { user_id: req.user?.id || null, message: error.message });

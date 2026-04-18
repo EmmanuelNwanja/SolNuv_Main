@@ -157,7 +157,7 @@ function FaqPage() {
               </div>
             )}
             {!loading && filtered.length > 0 && (
-              <MotionStagger className="space-y-10" delay={0.07}>
+              <MotionStagger className="space-y-10" delay={0.07} useViewport={false}>
                 {Object.entries(grouped).map(([category, items]) => (
                   <MotionItem key={category}>
                     {Object.keys(grouped).length > 1 && (
