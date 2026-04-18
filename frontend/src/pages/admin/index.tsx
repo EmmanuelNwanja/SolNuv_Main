@@ -32,6 +32,7 @@ export const ADMIN_TABS = [
   { id: 'contact', label: 'Contact Inbox', path: '/admin/contact', title: 'Contact Inbox - SolNuv' },
   { id: 'analytics', label: 'Analytics', path: '/admin/analytics', title: 'Platform Analytics - SolNuv' },
   { id: 'pickup', label: 'Pickup Requests', path: '/admin/pickup', title: 'Pickup Requests - SolNuv' },
+  { id: 'partners', label: 'Partner orgs', path: '/admin/partners', title: 'Partner organizations - SolNuv' },
   { id: 'operational-alerts', label: 'Operational Alerts', path: '/admin/alerts', title: 'Operational Alerts - SolNuv' },
   { id: 'agents', label: 'AI Agents', path: '/admin/agents', title: 'AI Agents - SolNuv' },
   { id: 'design', label: 'Design & Modelling', path: '/admin/design', title: 'Design & Modelling - SolNuv' },
@@ -63,7 +64,11 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
   const [logs, setLogs] = useState([]);
   const [admins, setAdmins] = useState([]);
   const [recoveryRequests, setRecoveryRequests] = useState([]);
+  const [approvedPickups, setApprovedPickups] = useState([]);
+  const [recyclerOrgsPickups, setRecyclerOrgsPickups] = useState([]);
+  const [v2Organizations, setV2Organizations] = useState([]);
   const [pickupApprovingId, setPickupApprovingId] = useState(null);
+  const [partnerAssignBusyId, setPartnerAssignBusyId] = useState(null);
   const [operationalAlerts, setOperationalAlerts] = useState([]);
   const [alertBusyId, setAlertBusyId] = useState(null);
   const [alertRejectReasons, setAlertRejectReasons] = useState({});
@@ -169,7 +174,12 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
       push: [],
       logs: [{ key: 'logs', request: adminAPI.getActivityLogs() }],
       admins: [{ key: 'admins', request: adminAPI.listAdmins() }],
-      pickup: [{ key: 'pickup', request: adminAPI.listRecoveryRequests({ status: 'requested' }) }],
+      pickup: [
+        { key: 'pickup', request: adminAPI.listRecoveryRequests({ status: 'requested' }) },
+        { key: 'pickupsApproved', request: adminAPI.listRecoveryRequests({ status: 'approved', limit: 80 }) },
+        { key: 'recyclerOrgs', request: adminAPI.listV2Organizations({ organization_type: 'recycler' }) },
+      ],
+      partners: [{ key: 'v2orgs', request: adminAPI.listV2Organizations() }],
       'operational-alerts': [
         { key: 'operationalAlerts', request: authAPI.getNotifications() },
         { key: 'pickup', request: adminAPI.listRecoveryRequests({ status: 'requested' }) },
@@ -210,6 +220,9 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
           if (key === 'logs') setLogs(payload || []);
           if (key === 'admins') setAdmins(payload || []);
           if (key === 'pickup') setRecoveryRequests(payload?.requests || []);
+          if (key === 'pickupsApproved') setApprovedPickups(payload?.requests || []);
+          if (key === 'recyclerOrgs') setRecyclerOrgsPickups(payload?.organizations || []);
+          if (key === 'v2orgs') setV2Organizations(payload?.organizations || []);
           if (key === 'operationalAlerts') setOperationalAlerts(payload || []);
           if (key === 'directPayments') setDirectPayments(payload?.submissions || []);
           if (key === 'bankTransferSettings') setBankTransferSettings(s => ({ ...s, ...(payload || {}) }));
@@ -1918,14 +1931,67 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
         </div>
       )}
 
+      {/* ======================== PARTNER ORGS (V2) ======================== */}
+      {activeTab === 'partners' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-bold text-forest-900">Partner organizations (V2)</h2>
+            <button
+              type="button"
+              className="btn-ghost text-sm"
+              onClick={async () => {
+                try {
+                  const { data } = await adminAPI.listV2Organizations();
+                  setV2Organizations(data?.data?.organizations || []);
+                } catch {
+                  toast.error('Failed to refresh');
+                }
+              }}
+            >
+              Refresh
+            </button>
+          </div>
+          {v2Organizations.length === 0 ? (
+            <p className="text-slate-500 text-sm">No organizations loaded.</p>
+          ) : (
+            <div className="space-y-2">
+              {v2Organizations.map((org) => (
+                <div
+                  key={org.id}
+                  className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3 text-sm"
+                >
+                  <div>
+                    <p className="font-semibold text-slate-800">{org.name}</p>
+                    <p className="text-xs text-slate-500">
+                      {org.organization_type} · {org.verification_status || 'unknown'} · {org.jurisdiction || '—'}
+                    </p>
+                  </div>
+                  <span className="text-xs font-mono text-slate-400">{org.id}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* ======================== PICKUP REQUESTS ======================== */}
       {activeTab === 'pickup' && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-bold text-forest-900">Pickup & Decommission Requests</h2>
             <button className="btn-ghost text-sm" onClick={async () => {
-              const { data } = await adminAPI.listRecoveryRequests({ status: 'requested' });
-              setRecoveryRequests(data?.data?.requests || []);
+              try {
+                const [pending, approved, orgs] = await Promise.all([
+                  adminAPI.listRecoveryRequests({ status: 'requested' }),
+                  adminAPI.listRecoveryRequests({ status: 'approved', limit: 80 }),
+                  adminAPI.listV2Organizations({ organization_type: 'recycler' }),
+                ]);
+                setRecoveryRequests(pending.data?.data?.requests || []);
+                setApprovedPickups(approved.data?.data?.requests || []);
+                setRecyclerOrgsPickups(orgs.data?.data?.organizations || []);
+              } catch {
+                toast.error('Refresh failed');
+              }
             }}>Refresh</button>
           </div>
 
@@ -1995,6 +2061,67 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
                       </button>
                     </div>
                   )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {approvedPickups.length > 0 && (
+            <div className="mt-10 space-y-3">
+              <h3 className="text-base font-bold text-forest-900">Approved requests — assign recycler org</h3>
+              <p className="text-xs text-slate-500">
+                Links a V2 recycler organization to the pickup row for the partner portal.
+              </p>
+              {approvedPickups.map((req) => (
+                <div key={`ap-${req.id}`} className="bg-white border border-slate-200 rounded-2xl p-4 space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="font-semibold text-slate-800">{req.project?.name || 'Project'}</p>
+                    {req.assigned_recycler && (
+                      <span className="text-xs text-emerald-700 bg-emerald-50 px-2 py-1 rounded-lg">
+                        Assigned: {req.assigned_recycler}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap items-end gap-2">
+                    <select
+                      id={`partner-org-${req.id}`}
+                      className="input text-sm flex-1 min-w-[200px]"
+                      defaultValue={req.assigned_partner_org_id || ''}
+                    >
+                      <option value="">Select recycler org…</option>
+                      {recyclerOrgsPickups.map((o) => (
+                        <option key={o.id} value={o.id}>
+                          {o.name}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      className="btn-primary text-sm whitespace-nowrap"
+                      disabled={partnerAssignBusyId === req.id}
+                      onClick={async () => {
+                        const el = document.getElementById(`partner-org-${req.id}`);
+                        const organization_id = el && 'value' in el ? String((el as HTMLSelectElement).value) : '';
+                        if (!organization_id) {
+                          toast.error('Choose a recycler organization');
+                          return;
+                        }
+                        setPartnerAssignBusyId(req.id);
+                        try {
+                          await adminAPI.assignRecoveryPartner(req.id, organization_id);
+                          toast.success('Recycler assigned');
+                          const { data } = await adminAPI.listRecoveryRequests({ status: 'approved', limit: 80 });
+                          setApprovedPickups(data?.data?.requests || []);
+                        } catch (err) {
+                          toast.error(err.response?.data?.message || 'Assign failed');
+                        } finally {
+                          setPartnerAssignBusyId(null);
+                        }
+                      }}
+                    >
+                      {partnerAssignBusyId === req.id ? 'Saving…' : 'Save assignment'}
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>

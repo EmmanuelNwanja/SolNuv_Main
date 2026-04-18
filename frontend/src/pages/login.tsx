@@ -3,12 +3,13 @@ import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '../context/AuthContext';
+import { getPartnerPortalPath } from '../utils/partnerPortal';
 import { RiSunLine, RiGoogleLine, RiEyeLine, RiEyeOffLine } from 'react-icons/ri';
 import toast from 'react-hot-toast';
 import { MotionItem, MotionSection, MotionStagger } from '../components/PageMotion';
 
 export default function Login() {
-  const { session, isOnboarded, isPlatformAdmin, profileResolved, signInWithGoogle, signInWithEmail, loading } = useAuth();
+  const { session, profile, isOnboarded, isPlatformAdmin, profileResolved, signInWithGoogle, signInWithEmail, loading } = useAuth();
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -16,12 +17,23 @@ export default function Login() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
+    if (!router.isReady) return;
     if (session && !loading && profileResolved) {
-      // Check admin first — admins go directly to /admin regardless of onboarding status
-      const redirectUrl = isPlatformAdmin ? '/admin' : (!isOnboarded ? '/onboarding' : '/dashboard');
-      router.replace(redirectUrl);
+      const nextRaw = router.query.next;
+      const next = typeof nextRaw === 'string' && nextRaw.startsWith('/') ? nextRaw : null;
+      if (next) {
+        void router.replace(next);
+        return;
+      }
+      const partnerPath = getPartnerPortalPath(profile);
+      const redirectUrl = isPlatformAdmin
+        ? '/admin'
+        : isOnboarded
+          ? '/dashboard'
+          : partnerPath || '/onboarding';
+      void router.replace(redirectUrl);
     }
-  }, [session, loading, profileResolved, isOnboarded, isPlatformAdmin, router]);
+  }, [session, loading, profileResolved, isOnboarded, isPlatformAdmin, profile, router, router.isReady, router.query.next]);
 
   async function handleGoogle() {
     setSubmitting(true);

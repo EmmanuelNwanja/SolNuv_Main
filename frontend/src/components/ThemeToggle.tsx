@@ -2,7 +2,9 @@ import { RiMoonClearLine, RiSunLine } from "react-icons/ri";
 import { useTheme } from "../context/ThemeContext";
 
 export function ThemeToggle({ compact = false }: { compact?: boolean }) {
-  const { isDark, toggleTheme } = useTheme();
+  const { isDark, toggleTheme, canToggleTheme, themePolicyLoaded } = useTheme();
+
+  if (themePolicyLoaded && !canToggleTheme) return null;
 
   return (
     <button
@@ -19,6 +21,8 @@ export function ThemeToggle({ compact = false }: { compact?: boolean }) {
 }
 
 export function FloatingThemeToggle() {
+  const { canToggleTheme, themePolicyLoaded } = useTheme();
+  if (themePolicyLoaded && !canToggleTheme) return null;
   return (
     <div className="theme-fab-wrap">
       <ThemeToggle compact />

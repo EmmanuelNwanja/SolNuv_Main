@@ -86,14 +86,30 @@ export function MotionSection({ children, className = "", ...rest }: MotionSecti
   );
 }
 
+const staggerVariants = {
+  hidden: { opacity: 0, y: 10 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.45,
+      ease: [0.22, 1, 0.36, 1],
+      staggerChildren: 0.07,
+    },
+  },
+};
+
 export function MotionStagger({
   children,
   className = "",
   delay = 0,
+  /** When false, animate on mount (no IntersectionObserver). Use for long in-section lists on mobile/WebKit. */
+  useViewport = true,
 }: {
   children: ReactNode;
   className?: string;
   delay?: number;
+  useViewport?: boolean;
 }) {
   const reduceMotion = useReducedMotion();
   const [mounted, setMounted] = useState(false);
@@ -106,24 +122,31 @@ export function MotionStagger({
     return <motion.div className={className}>{children}</motion.div>;
   }
 
+  const variants = {
+    hidden: staggerVariants.hidden,
+    visible: {
+      ...staggerVariants.visible,
+      transition: {
+        ...staggerVariants.visible.transition,
+        delay,
+      },
+    },
+  };
+
+  if (!useViewport) {
+    return (
+      <motion.div initial="hidden" animate="visible" variants={variants} className={className}>
+        {children}
+      </motion.div>
+    );
+  }
+
   return (
     <motion.div
       initial="hidden"
       whileInView="visible"
       viewport={{ once: true, amount: "some", margin: "0px 0px -48px 0px" }}
-      variants={{
-        hidden: { opacity: 0, y: 10 },
-        visible: {
-          opacity: 1,
-          y: 0,
-          transition: {
-            delay,
-            duration: 0.45,
-            ease: [0.22, 1, 0.36, 1],
-            staggerChildren: 0.07,
-          },
-        },
-      }}
+      variants={variants}
       className={className}
     >
       {children}

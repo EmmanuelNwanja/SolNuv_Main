@@ -167,20 +167,22 @@ export default function BlogIndex() {
               </div>
             ) : (
               <>
-                <MotionStagger className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6" delay={0.08}>
-                  {posts.map((post, idx) => (
-                    <>
+                <MotionStagger className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6" delay={0.08} useViewport={false}>
+                  {posts.flatMap((post, idx) => {
+                    const nodes = [
                       <MotionItem key={post.id} className="reveal-lift">
                         <PostCard post={post} />
-                      </MotionItem>
-                      {/* In-feed ad after every 6th post */}
-                      {(idx + 1) % 6 === 0 && (
-                        <div key={`ad-${idx}`} className="sm:col-span-2 xl:col-span-3">
+                      </MotionItem>,
+                    ];
+                    if ((idx + 1) % 6 === 0) {
+                      nodes.push(
+                        <div key={`in-feed-${post.id}`} className="sm:col-span-2 xl:col-span-3">
                           <AdSlot slot="in-feed" page="blog" />
-                        </div>
-                      )}
-                    </>
-                  ))}
+                        </div>,
+                      );
+                    }
+                    return nodes;
+                  })}
                 </MotionStagger>
 
                 {/* Pagination */}

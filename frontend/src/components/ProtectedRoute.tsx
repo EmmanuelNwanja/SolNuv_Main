@@ -1,11 +1,13 @@
 import { useEffect, type ReactNode } from "react";
 import { useRouter } from "next/router";
 import { useAuth } from "../context/AuthContext";
+import { getPartnerPortalPath } from "../utils/partnerPortal";
 
 export default function ProtectedRoute({ children }: { children: ReactNode }) {
   const { session, profile, loading, isOnboarded, profileResolved, wakingServer } = useAuth();
   const router = useRouter();
   const isReadyToDecide = profileResolved && !loading;
+  const partnerPath = getPartnerPortalPath(profile);
 
   useEffect(() => {
     if (!isReadyToDecide) return;
@@ -13,10 +15,13 @@ export default function ProtectedRoute({ children }: { children: ReactNode }) {
       void router.replace("/login");
       return;
     }
-    if (!isOnboarded) {
-      void router.replace("/onboarding");
+    if (isOnboarded) return;
+    if (partnerPath) {
+      void router.replace(partnerPath);
+      return;
     }
-  }, [session, isReadyToDecide, isOnboarded, router]);
+    void router.replace("/onboarding");
+  }, [session, isReadyToDecide, isOnboarded, partnerPath, router]);
 
   if (loading || !profileResolved) {
     return (

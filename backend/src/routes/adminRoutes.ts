@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const adminController = require('../controllers/adminController');
+const partnerController = require('../controllers/partnerController');
 const nercController = require('../controllers/nercController');
 const { requireAuth, requireProfile } = require('../middlewares/authMiddleware');
 const { requireAdmin, requireAdminRole } = require('../middlewares/adminMiddleware');
@@ -42,6 +43,8 @@ router.patch('/projects/:id', requireAdminRole('super_admin', 'operations'), adm
 
 router.get('/recovery-requests', requireAdminRole('super_admin', 'operations'), adminController.listRecoveryRequests);
 router.patch('/recovery-requests/:id/approve', requireAdminRole('super_admin', 'operations'), adminController.approveDecommission);
+router.patch('/recovery-requests/:id/assign-partner', requireAdminRole('super_admin', 'operations'), partnerController.assignRecoveryPartner);
+router.get('/v2-organizations', requireAdminRole('super_admin', 'operations', 'analytics'), partnerController.listV2OrganizationsAdmin);
 
 // Platform settings (test/live mode)
 router.get('/settings/environment', requireAdminRole('super_admin'), adminController.getEnvironmentMode);
