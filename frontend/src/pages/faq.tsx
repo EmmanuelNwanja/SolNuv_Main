@@ -12,7 +12,6 @@ import {
 import { faqAPI } from "../services/api";
 import { getPublicLayout } from "../components/Layout";
 import AdSlot from "../components/ui/AdSlot";
-import { MotionItem, MotionSection, MotionStagger } from "../components/PageMotion";
 
 interface FaqEntry {
   id: string;
@@ -98,8 +97,8 @@ function FaqPage() {
           content="Frequently asked questions about SolNuv — solar+BESS system design, 25-year financial modelling, NESREA EPR compliance, AI agents, tariff analysis, and lifecycle tracking for Africa."
         />
       </Head>
-      <MotionSection className="marketing-section marketing-section-animated">
-        <MotionStagger className="max-w-2xl mx-auto text-center" delay={0.03}>
+      <section className="marketing-section marketing-section-animated">
+        <div className="max-w-2xl mx-auto text-center w-full min-w-0">
           <span className="inline-flex items-center gap-2 marketing-kicker mb-4">
             <RiQuestionLine /> Help Centre
           </span>
@@ -117,12 +116,12 @@ function FaqPage() {
               className="input w-full pl-11 pr-4 py-3"
             />
           </div>
-        </MotionStagger>
-      </MotionSection>
+        </div>
+      </section>
       <div className="max-w-6xl mx-auto w-full pt-4 px-[max(1rem,env(safe-area-inset-left,0px))] pr-[max(1rem,env(safe-area-inset-right,0px))]">
         <AdSlot slot="banner" page="faq" limit={1} />
       </div>
-      <MotionSection className="marketing-section marketing-section-animated">
+      <section className="marketing-section marketing-section-animated">
         <div className="flex flex-col lg:flex-row gap-8">
           <main className="flex-1 min-w-0">
             {categories.length > 2 && (
@@ -157,9 +156,9 @@ function FaqPage() {
               </div>
             )}
             {!loading && filtered.length > 0 && (
-              <MotionStagger className="space-y-10" delay={0.07} useViewport={false}>
+              <div className="space-y-10 w-full min-w-0">
                 {Object.entries(grouped).map(([category, items]) => (
-                  <MotionItem key={category}>
+                  <div key={category}>
                     {Object.keys(grouped).length > 1 && (
                       <h2 className="text-xs font-bold uppercase tracking-widest text-forest-600 dark:text-forest-400 mb-4">{category}</h2>
                     )}
@@ -168,17 +167,17 @@ function FaqPage() {
                         <FaqItem key={faq.id} faq={faq} />
                       ))}
                     </div>
-                  </MotionItem>
+                  </div>
                 ))}
-              </MotionStagger>
+              </div>
             )}
           </main>
           <aside className="w-full lg:w-64 flex-shrink-0 space-y-6">
             <AdSlot slot="sidebar" page="faq" limit={2} />
           </aside>
         </div>
-      </MotionSection>
-      <MotionSection className="marketing-section-dark marketing-section-animated text-center">
+      </section>
+      <section className="marketing-section-dark marketing-section-animated text-center">
         <span className="text-xs font-semibold uppercase tracking-widest text-emerald-300">Need more support?</span>
         <h2 className="font-display font-bold text-3xl text-white mt-3">Move from questions to implementation</h2>
         <p className="text-white/75 max-w-2xl mx-auto mt-3">
@@ -192,7 +191,7 @@ function FaqPage() {
             Contact team
           </Link>
         </div>
-      </MotionSection>
+      </section>
     </>
   );
 }
