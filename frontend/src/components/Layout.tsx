@@ -3,6 +3,8 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { useAuth } from "../context/AuthContext";
 import ProtectedRoute from "./ProtectedRoute";
+import PartnerProtectedRoute from "./PartnerProtectedRoute";
+import PartnerPortalLayout from "./PartnerPortalLayout";
 import AdminLayout from "./AdminLayout";
 import { ThemeToggle } from "./ThemeToggle";
 import { PageMotion } from "./PageMotion";
@@ -27,6 +29,8 @@ import {
   RiQuestionLine,
   RiArrowRightLine,
   RiCloseLine,
+  RiRocketLine,
+  RiCodeSSlashLine,
 } from "react-icons/ri";
 import type { IconType } from "react-icons";
 import toast from "react-hot-toast";
@@ -36,6 +40,7 @@ interface NavItem {
   icon: IconType;
   label: string;
   pro?: boolean;
+  soon?: boolean;
 }
 
 const navItems: NavItem[] = [
@@ -48,6 +53,8 @@ const navItems: NavItem[] = [
   { href: "/calculator", icon: RiCalculatorLine, label: "Calculator" },
   { href: "/blog", icon: RiArticleLine, label: "Blog" },
   { href: "/faq", icon: RiQuestionLine, label: "FAQ" },
+  { href: "/advanced-app", icon: RiRocketLine, label: "Advanced App", soon: true },
+  { href: "/api-integration", icon: RiCodeSSlashLine, label: "API integration", soon: true },
   { href: "/settings", icon: RiSettingsLine, label: "Settings" },
 ];
 
@@ -136,7 +143,7 @@ export default function Layout({ children }: { children: ReactNode }) {
         </div>
 
         <nav className="flex-1 p-2 sm:p-4 space-y-1 overflow-y-auto">
-          {[...navItems, ...adminNav].map(({ href, icon: Icon, label, pro }) => {
+          {[...navItems, ...adminNav].map(({ href, icon: Icon, label, pro, soon }) => {
             const active = router.pathname === href || router.pathname.startsWith(`${href}/`);
             const locked = pro && !isPro;
             return (
@@ -148,6 +155,11 @@ export default function Layout({ children }: { children: ReactNode }) {
               >
                 <Icon className="text-lg flex-shrink-0" />
                 <span className="flex-1">{label}</span>
+                {soon && (
+                  <span className="text-[10px] bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-1.5 py-0.5 rounded font-semibold">
+                    Soon
+                  </span>
+                )}
                 {locked && (
                   <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-semibold">
                     PRO
@@ -278,6 +290,26 @@ export function getDashboardLayout(page: ReactElement): ReactElement {
   return (
     <ProtectedRoute>
       <Layout>{page}</Layout>
+    </ProtectedRoute>
+  );
+}
+
+export function getPartnerRecyclerLayout(page: ReactElement): ReactElement {
+  return (
+    <ProtectedRoute>
+      <PartnerProtectedRoute allowed={["recycler"]}>
+        <PartnerPortalLayout variant="recycler">{page}</PartnerPortalLayout>
+      </PartnerProtectedRoute>
+    </ProtectedRoute>
+  );
+}
+
+export function getPartnerFinancierLayout(page: ReactElement): ReactElement {
+  return (
+    <ProtectedRoute>
+      <PartnerProtectedRoute allowed={["financier"]}>
+        <PartnerPortalLayout variant="financier">{page}</PartnerPortalLayout>
+      </PartnerProtectedRoute>
     </ProtectedRoute>
   );
 }
