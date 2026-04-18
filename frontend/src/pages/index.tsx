@@ -204,7 +204,7 @@ export default function Home() {
 
       <div className="font-body relative">
         <MotionSection className="marketing-section-dark marketing-section-animated rounded-3xl overflow-hidden mb-8" id="top">
-          <MotionStagger className="grid lg:grid-cols-2 gap-8 items-end w-full min-w-0 [contain:layout]" delay={0.02}>
+          <MotionStagger className="grid lg:grid-cols-2 gap-8 items-end w-full min-w-0" delay={0.02}>
             <MotionItem className="min-w-0">
               <span className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-widest bg-white/10 text-emerald-200">
                 End-to-end solar lifecycle intelligence
@@ -339,7 +339,7 @@ export default function Home() {
 
         {/* WHY IT MATTERS */}
         <MotionSection id="impact" className="marketing-section-dark marketing-section-animated">
-            <MotionStagger className="grid lg:grid-cols-2 gap-8 lg:gap-16 items-start w-full min-w-0 [contain:layout]" delay={0.02}>
+            <MotionStagger className="grid lg:grid-cols-2 gap-8 lg:gap-16 items-start w-full min-w-0" delay={0.02}>
               <MotionItem className="min-w-0">
                 <span className="text-xs font-semibold uppercase tracking-widest text-emerald-400">Why This Matters</span>
                 <h2 className="marketing-hero-dark-title mt-3 mb-6">

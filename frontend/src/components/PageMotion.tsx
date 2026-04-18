@@ -3,10 +3,9 @@ import type { ComponentProps, ReactNode } from "react";
 import { useEffect, useState } from "react";
 
 const pageVariants = {
-  hidden: { opacity: 0, y: 10 },
+  hidden: { opacity: 0 },
   visible: {
     opacity: 1,
-    y: 0,
     transition: {
       duration: 0.35,
       ease: [0.22, 1, 0.36, 1],
@@ -34,11 +33,12 @@ export function PageMotion({ children }: { children: ReactNode }) {
   }, []);
 
   if (!mounted || reduceMotion) {
-    return <motion.div>{children}</motion.div>;
+    return <div className="w-full min-w-0">{children}</div>;
   }
 
   return (
     <motion.div
+      className="w-full min-w-0"
       variants={pageVariants}
       initial="hidden"
       animate="visible"
@@ -64,9 +64,11 @@ export function MotionSection({ children, className = "", ...rest }: MotionSecti
     setMounted(true);
   }, []);
 
+  const sectionClass = `${className} w-full min-w-0`.trim();
+
   if (!mounted || reduceMotion) {
     return (
-      <motion.div className={className} {...rest}>
+      <motion.div className={sectionClass} {...rest}>
         {children}
       </motion.div>
     );
@@ -78,7 +80,7 @@ export function MotionSection({ children, className = "", ...rest }: MotionSecti
       initial="hidden"
       whileInView="visible"
       viewport={{ once: true, amount: "some", margin: "0px 0px -40px 0px" }}
-      className={className}
+      className={sectionClass}
       {...rest}
     >
       {children}
@@ -103,13 +105,10 @@ export function MotionStagger({
   children,
   className = "",
   delay = 0,
-  /** When false, animate on mount (no IntersectionObserver). Use for long in-section lists on mobile/WebKit. */
-  useViewport = true,
 }: {
   children: ReactNode;
   className?: string;
   delay?: number;
-  useViewport?: boolean;
 }) {
   const reduceMotion = useReducedMotion();
   const [mounted, setMounted] = useState(false);
@@ -119,7 +118,7 @@ export function MotionStagger({
   }, []);
 
   if (!mounted || reduceMotion) {
-    return <motion.div className={className}>{children}</motion.div>;
+    return <motion.div className={`${className} w-full min-w-0`.trim()}>{children}</motion.div>;
   }
 
   const variants = {
@@ -133,21 +132,13 @@ export function MotionStagger({
     },
   };
 
-  if (!useViewport) {
-    return (
-      <motion.div initial="hidden" animate="visible" variants={variants} className={className}>
-        {children}
-      </motion.div>
-    );
-  }
-
   return (
     <motion.div
       initial="hidden"
       whileInView="visible"
       viewport={{ once: true, amount: "some", margin: "0px 0px -48px 0px" }}
       variants={variants}
-      className={className}
+      className={`${className} w-full min-w-0`.trim()}
     >
       {children}
     </motion.div>

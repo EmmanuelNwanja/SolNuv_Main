@@ -9,7 +9,6 @@ import {
 import { blogAPI } from '../../services/api';
 import { getPublicLayout } from '../../components/Layout';
 import AdSlot from '../../components/ui/AdSlot';
-import { MotionItem, MotionSection, MotionStagger } from '../../components/PageMotion';
 
 const CATEGORIES = ['All', 'Solar Energy', 'Battery Storage', 'Engineering', 'Industry News', 'Case Studies', 'Regulations'];
 
@@ -103,8 +102,8 @@ export default function BlogIndex() {
         <meta name="description" content="Insights, guides and news on solar energy, battery storage, and engineering for Africa." />
       </Head>
 
-      <MotionSection className="marketing-section marketing-section-animated">
-        <MotionStagger className="text-center max-w-4xl mx-auto" delay={0.04}>
+      <section className="marketing-section marketing-section-animated">
+        <div className="text-center max-w-4xl mx-auto w-full min-w-0">
           <span className="marketing-kicker">Resource Centre</span>
           <h1 className="marketing-headline">Insights for better solar delivery decisions</h1>
           <p className="marketing-subcopy mx-auto">
@@ -124,8 +123,8 @@ export default function BlogIndex() {
             </div>
             <button type="submit" className="btn-primary px-5 py-2.5 shrink-0 w-full min-[400px]:w-auto">Search</button>
           </form>
-        </MotionStagger>
-      </MotionSection>
+        </div>
+      </section>
 
       {/* Top banner ad */}
       <div className="pt-4">
@@ -133,7 +132,7 @@ export default function BlogIndex() {
       </div>
 
       {/* Main layout */}
-      <MotionSection className="marketing-section marketing-section-animated">
+      <section className="marketing-section marketing-section-animated">
         {/* Category filter */}
         <div className="flex flex-wrap gap-2 mb-8 overflow-x-auto pb-2">
           {CATEGORIES.map((cat) => (
@@ -167,12 +166,12 @@ export default function BlogIndex() {
               </div>
             ) : (
               <>
-                <MotionStagger className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6" delay={0.08} useViewport={false}>
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6 w-full min-w-0">
                   {posts.flatMap((post, idx) => {
                     const nodes = [
-                      <MotionItem key={post.id} className="reveal-lift">
+                      <div key={post.id} className="reveal-lift min-w-0">
                         <PostCard post={post} />
-                      </MotionItem>,
+                      </div>,
                     ];
                     if ((idx + 1) % 6 === 0) {
                       nodes.push(
@@ -183,7 +182,7 @@ export default function BlogIndex() {
                     }
                     return nodes;
                   })}
-                </MotionStagger>
+                </div>
 
                 {/* Pagination */}
                 {totalPages > 1 && (
@@ -230,8 +229,8 @@ export default function BlogIndex() {
         <div className="mt-10">
           <AdSlot slot="footer" page="blog" />
         </div>
-      </MotionSection>
-      <MotionSection className="marketing-section-dark marketing-section-animated text-center">
+      </section>
+      <section className="marketing-section-dark marketing-section-animated text-center">
         <span className="text-xs font-semibold uppercase tracking-widest text-emerald-300">Next step</span>
         <h2 className="font-display font-bold text-3xl text-white mt-3">Apply insights in a live workspace</h2>
         <p className="text-white/75 max-w-2xl mx-auto mt-3">
@@ -245,7 +244,7 @@ export default function BlogIndex() {
             Talk to partnerships
           </Link>
         </div>
-      </MotionSection>
+      </section>
     </>
   );
 }
