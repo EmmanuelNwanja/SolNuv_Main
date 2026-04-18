@@ -35,3 +35,18 @@ export function hasPartnerRecycler(profile: AppUserProfile | null | undefined): 
 export function hasPartnerFinancier(profile: AppUserProfile | null | undefined): boolean {
   return getPartnerMemberships(profile).some((m) => m.organization?.organization_type === "financier");
 }
+
+/** Home route for the main app shell logo and post-login “home” for the signed-in user. */
+export function getAppHomePath(profile: AppUserProfile | null | undefined): string {
+  const portal = getPartnerPortalPath(profile);
+  if (portal) return portal;
+  const ut = typeof profile?.user_type === "string" ? profile.user_type.toLowerCase() : "";
+  if (ut === "recycler") return "/partners/recycling";
+  if (ut === "financier") return "/partners/finance";
+  return "/dashboard";
+}
+
+export function isPartnerUserType(profile: AppUserProfile | null | undefined): boolean {
+  const ut = typeof profile?.user_type === "string" ? profile.user_type.toLowerCase() : "";
+  return ut === "recycler" || ut === "financier";
+}
