@@ -3,12 +3,13 @@ import Link from 'next/link';
 import { useState, useEffect, type FormEvent } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '../context/AuthContext';
+import { getAppHomePath } from '../utils/partnerPortal';
 import { RiSunLine, RiGoogleLine, RiEyeLine, RiEyeOffLine } from 'react-icons/ri';
 import toast from 'react-hot-toast';
 import { MotionItem, MotionSection, MotionStagger } from '../components/PageMotion';
 
 export default function Register() {
-  const { session, isOnboarded, isPlatformAdmin, profileResolved, signInWithGoogle, signUpWithEmail, loading } = useAuth();
+  const { session, profile, isOnboarded, isPlatformAdmin, profileResolved, signInWithGoogle, signUpWithEmail, loading } = useAuth();
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -49,10 +50,10 @@ export default function Register() {
 
   useEffect(() => {
     if (session && !loading && profileResolved) {
-      const dest = isPlatformAdmin ? '/admin' : '/dashboard';
+      const dest = isPlatformAdmin ? '/admin' : getAppHomePath(profile);
       router.replace(dest);
     }
-  }, [session, loading, profileResolved, isOnboarded, isPlatformAdmin, router]);
+  }, [session, loading, profileResolved, isOnboarded, isPlatformAdmin, profile, router]);
 
   async function handleGoogle() {
     if (cooldownEnd) {

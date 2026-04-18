@@ -34,6 +34,7 @@ import {
 } from "react-icons/ri";
 import type { IconType } from "react-icons";
 import toast from "react-hot-toast";
+import { getAppHomePath, isPartnerUserType } from "../utils/partnerPortal";
 
 interface NavItem {
   href: string;
@@ -106,6 +107,35 @@ export default function Layout({ children }: { children: ReactNode }) {
       setUnreadCount(0);
     }
   }, [router.pathname]);
+
+  const appHomePath = getAppHomePath(profile);
+
+  useEffect(() => {
+    if (!session || !profile) return;
+    if (!isPartnerUserType(profile)) return;
+    const home = getAppHomePath(profile);
+    if (home === "/dashboard") return;
+    const p = router.pathname;
+    if (p === "/settings" || p.startsWith("/settings/")) {
+      void router.replace(`${home}/settings`);
+      return;
+    }
+    if (p === "/notifications") {
+      void router.replace(`${home}/notifications`);
+      return;
+    }
+    if (p === "/advanced-app" || p.startsWith("/advanced-app/")) {
+      void router.replace(`${home}/advanced-app`);
+      return;
+    }
+    if (p === "/api-integration" || p.startsWith("/api-integration/")) {
+      void router.replace(`${home}/api-integration`);
+      return;
+    }
+    const solarOnly = ["/dashboard", "/projects", "/leaderboard", "/reports", "/calculator"];
+    const onSolarOnly = solarOnly.some((prefix) => p === prefix || p.startsWith(`${prefix}/`));
+    if (onSolarOnly) void router.replace(home);
+  }, [session, profile, router]);
 
   async function handleSignOut() {
     await signOut();
@@ -317,7 +347,9 @@ export function getPartnerFinancierLayout(page: ReactElement): ReactElement {
 export function getPublicLayout(page: ReactElement): ReactElement {
   function PublicSiteLayout({ children }: { children: ReactNode }) {
     const router = useRouter();
+    const { session, profile } = useAuth();
     const [mobileNavOpen, setMobileNavOpen] = useState(false);
+    const marketingBrandHref = session ? getAppHomePath(profile) : "/";
 
     const isActive = (href: string) => {
       if (href === "/") return router.pathname === "/";
@@ -357,7 +389,7 @@ export function getPublicLayout(page: ReactElement): ReactElement {
       <div className="marketing-shell">
         <header className={`marketing-nav-wrap ${mobileNavOpen ? "marketing-nav-wrap-open" : ""}`}>
           <div className="marketing-nav">
-            <Link href="/" className="marketing-brand">
+            <Link href={marketingBrandHref} className="marketing-brand">
               <span className="marketing-brand-icon">
                 <RiSunLine />
               </span>

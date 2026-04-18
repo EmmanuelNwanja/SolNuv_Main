@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '../context/AuthContext';
-import { getPartnerPortalPath } from '../utils/partnerPortal';
+import { getAppHomePath, getPartnerPortalPath } from '../utils/partnerPortal';
 import { RiSunLine, RiGoogleLine, RiEyeLine, RiEyeOffLine } from 'react-icons/ri';
 import toast from 'react-hot-toast';
 import { MotionItem, MotionSection, MotionStagger } from '../components/PageMotion';
@@ -29,7 +29,7 @@ export default function Login() {
       const redirectUrl = isPlatformAdmin
         ? '/admin'
         : isOnboarded
-          ? '/dashboard'
+          ? getAppHomePath(profile)
           : partnerPath || '/onboarding';
       void router.replace(redirectUrl);
     }
