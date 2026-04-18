@@ -195,17 +195,17 @@ export default function BlogPostPage() {
             {/* Content + in-article ads (within reading flow) */}
             <div
               ref={contentRef}
-              className="mt-8 prose prose-slate dark:prose-invert max-w-none prose-base sm:prose-lg lg:prose-xl overflow-x-auto
-                prose-headings:font-display prose-headings:scroll-mt-24
+              className="mt-8 prose prose-slate max-w-none prose-base sm:prose-lg lg:prose-xl overflow-x-auto text-slate-700
+                prose-headings:font-display prose-headings:scroll-mt-24 prose-headings:text-slate-900
                 prose-p:leading-relaxed prose-p:my-4
                 prose-h2:mt-10 prose-h2:mb-3 prose-h2:text-2xl prose-h2:font-bold
                 prose-h3:mt-8 prose-h3:mb-2 prose-h3:text-xl prose-h3:font-semibold
                 prose-ul:my-4 prose-ol:my-4 prose-li:my-1
-                prose-blockquote:border-emerald-600 prose-blockquote:text-slate-600 dark:prose-blockquote:text-slate-400
-                prose-a:text-emerald-700 dark:prose-a:text-emerald-400 prose-a:font-medium
+                prose-blockquote:border-emerald-600 prose-blockquote:text-slate-600
+                prose-a:text-emerald-700 prose-a:font-medium
                 prose-img:rounded-xl prose-img:shadow-sm
                 prose-hr:my-10
-                prose-table:text-sm prose-th:bg-slate-100 dark:prose-th:bg-slate-800"
+                prose-table:text-sm prose-th:bg-slate-100"
             >
               {articleBlocks.map((block, i) => {
                 const afterIdx = i + 1;

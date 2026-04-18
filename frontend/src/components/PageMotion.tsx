@@ -77,7 +77,7 @@ export function MotionSection({ children, className = "", ...rest }: MotionSecti
       variants={sectionVariants}
       initial="hidden"
       whileInView="visible"
-      viewport={{ once: true, amount: 0.16 }}
+      viewport={{ once: true, amount: "some", margin: "0px 0px -40px 0px" }}
       className={className}
       {...rest}
     >
@@ -110,7 +110,7 @@ export function MotionStagger({
     <motion.div
       initial="hidden"
       whileInView="visible"
-      viewport={{ once: true, amount: 0.14 }}
+      viewport={{ once: true, amount: "some", margin: "0px 0px -48px 0px" }}
       variants={{
         hidden: { opacity: 0, y: 10 },
         visible: {
