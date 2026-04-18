@@ -710,7 +710,7 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
             <div className="card border-l-4 border-l-sky-500"><p className="text-xs text-slate-500">Pending Direct Payments</p><p className="text-3xl font-bold text-sky-700 mt-1">{overview.pending_direct_payments || 0}</p><p className="text-xs text-slate-400 mt-1">Transfer submissions to review</p></div>
           </div>
 
-          <div className="grid lg:grid-cols-3 gap-4">
+          <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-4">
             <Link href="/admin/users" className="card hover:-translate-y-0.5 transition-transform group">
               <p className="text-xs uppercase tracking-wide text-slate-500">User Intelligence</p>
               <p className="text-base font-semibold text-slate-800 mt-1">Audit activation and plan states</p>
@@ -730,6 +730,13 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
               <p className="text-base font-semibold text-slate-800 mt-1">Manage pickup and decommission flow</p>
               <p className="text-sm text-slate-500 mt-2">Approve pending pickup requests and unlock project decommissioning.</p>
               <p className="mt-4 inline-flex items-center text-sm font-semibold text-forest-900">Open pickup requests <RiArrowRightUpLine className="ml-1" /></p>
+            </Link>
+
+            <Link href="/admin/partners" className="card hover:-translate-y-0.5 transition-transform group">
+              <p className="text-xs uppercase tracking-wide text-slate-500">Partners</p>
+              <p className="text-base font-semibold text-slate-800 mt-1">V2 recycler &amp; financier orgs</p>
+              <p className="text-sm text-slate-500 mt-2">List partner organizations, verification status, and jurisdictions.</p>
+              <p className="mt-4 inline-flex items-center text-sm font-semibold text-forest-900">Open partner orgs <RiArrowRightUpLine className="ml-1" /></p>
             </Link>
           </div>
 

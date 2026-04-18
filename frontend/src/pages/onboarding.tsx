@@ -2,7 +2,7 @@ import Head from 'next/head';
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '../context/AuthContext';
-import { authAPI } from '../services/api';
+import { authAPI, v2API } from '../services/api';
 import { RiSunLine, RiCheckLine, RiArrowRightLine, RiArrowLeftLine } from 'react-icons/ri';
 import toast from 'react-hot-toast';
 
@@ -15,7 +15,7 @@ function isValidNigerianPhone(phone) {
 }
 
 export default function Onboarding() {
-  const { session, loading, setProfile, isOnboarded, isPlatformAdmin, profileResolved } = useAuth();
+  const { session, loading, setProfile, refreshProfile, isOnboarded, isPlatformAdmin, profileResolved } = useAuth();
   const router = useRouter();
   const redirectedRef = useRef(false);
   const [step, setStep] = useState(1);
@@ -82,6 +82,7 @@ export default function Onboarding() {
 
   const update = (field, val) => setForm(f => ({ ...f, [field]: val }));
   const isRegistered = form.business_type === 'registered';
+  const isPartnerRole = form.user_type === 'recycler' || form.user_type === 'financier';
 
   // Persist step + form so browser refresh doesn't lose progress
   useEffect(() => {
@@ -112,6 +113,10 @@ export default function Onboarding() {
       }
       if (!isValidNigerianPhone(form.phone)) {
         toast.error('Please enter a valid Nigerian phone number (e.g., 08012345678)');
+        return false;
+      }
+      if (isPartnerRole && !isRegistered && !form.brand_name?.trim()) {
+        toast.error('Enter your organization or brand name (used for your partner profile)');
         return false;
       }
     }
@@ -147,7 +152,29 @@ export default function Onboarding() {
       if (data?.data) {
         setProfile(data.data);
       }
-      
+
+      if (isPartnerRole) {
+        const orgName = (isRegistered ? form.company_name : form.brand_name)?.trim();
+        if (orgName) {
+          try {
+            await v2API.registerActor({
+              organization_name: orgName,
+              actor_type: form.user_type,
+              role_title: 'member',
+              jurisdiction: 'NG',
+            });
+          } catch (v2Err) {
+            const ax = v2Err as { response?: { data?: { message?: string } }; message?: string };
+            const v2Msg = ax.response?.data?.message || ax.message;
+            if (v2Msg) toast.error(String(v2Msg));
+          }
+        }
+        await refreshProfile();
+        toast.success('Partner profile saved! Opening your portal…');
+        router.push(form.user_type === 'financier' ? '/partners/finance' : '/partners/recycling');
+        return;
+      }
+
       toast.success('Profile saved! Welcome to SolNuv 🌞');
       router.push('/plans?welcome=1');
     } catch (err) {
@@ -201,16 +228,24 @@ export default function Onboarding() {
               <div className="space-y-5">
                 <div>
                   <p className="label">What best describes your role?</p>
-                  <div className="grid grid-cols-3 gap-3 mt-2">
+                  <p className="text-xs text-slate-500 mt-1 mb-2">
+                    <strong className="text-slate-700">Solar workspace:</strong> installer, EPC, or developer.
+                    <span className="block mt-1">
+                      <strong className="text-slate-700">Partners:</strong> recycling or finance — you get the partner portal (pickups / funding) after setup.
+                    </span>
+                  </p>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-2">
                     {[
                       { value: 'installer', label: 'Installer / Engineer', emoji: '🔧' },
                       { value: 'epc', label: 'EPC Contractor', emoji: '🏗️' },
                       { value: 'developer', label: 'Developer', emoji: '💻' },
+                      { value: 'recycler', label: 'Recycling partner', emoji: '♻️' },
+                      { value: 'financier', label: 'Finance partner', emoji: '🏦' },
                     ].map(opt => (
                       <button key={opt.value} type="button" onClick={() => update('user_type', opt.value)}
                         className={`p-4 rounded-xl border-2 text-center transition-all ${form.user_type === opt.value ? 'border-forest-900 bg-forest-900/5' : 'border-slate-200 hover:border-slate-300'}`}>
                         <span className="text-2xl block mb-1">{opt.emoji}</span>
-                        <span className="text-xs font-medium text-slate-700">{opt.label}</span>
+                        <span className="text-xs font-medium text-slate-700 leading-tight">{opt.label}</span>
                       </button>
                     ))}
                   </div>
@@ -252,8 +287,20 @@ export default function Onboarding() {
                 </div>
                 {!isRegistered && (
                   <div>
-                    <label className="label">Brand / Business Name</label>
-                    <input className="input" placeholder="SunTech Solar Solutions" value={form.brand_name} onChange={e => update('brand_name', e.target.value)} />
+                    <label className="label">
+                      Brand / Business Name
+                      {isPartnerRole && <span className="text-forest-700 font-normal"> *</span>}
+                    </label>
+                    <input
+                      className="input"
+                      placeholder={isPartnerRole ? 'Official partner organization name' : 'SunTech Solar Solutions'}
+                      value={form.brand_name}
+                      onChange={e => update('brand_name', e.target.value)}
+                      required={isPartnerRole}
+                    />
+                    {isPartnerRole && (
+                      <p className="text-xs text-slate-500 mt-1">This name is used for your V2 partner organization.</p>
+                    )}
                   </div>
                 )}
               </div>

@@ -21,6 +21,7 @@ import {
   RiRobotLine,
   RiSunLine,
   RiSearchEyeLine,
+  RiTeamLine,
 } from "react-icons/ri";
 import type { IconType } from "react-icons";
 import { useAuth } from "../context/AuthContext";
@@ -48,6 +49,7 @@ const adminNavSections: AdminNavSection[] = [
     label: "Operations",
     items: [
       { href: "/admin/users", label: "Users", icon: RiFileList3Line },
+      { href: "/admin/partners", label: "Partner organizations", icon: RiTeamLine },
       { href: "/admin/admins", label: "Admins", icon: RiAdminLine },
       { href: "/admin/finance", label: "Finance", icon: RiWallet3Line },
       { href: "/admin/promo", label: "Promotions", icon: RiPriceTag3Line },
