@@ -1,7 +1,7 @@
 import Head from "next/head";
 import { useCallback, useEffect, useState } from "react";
-import PartnerLayout from "../../../components/PartnerLayout";
-import PartnerProtectedRoute from "../../../components/PartnerProtectedRoute";
+import Link from "next/link";
+import { getPartnerRecyclerLayout } from "../../../components/Layout";
 import { partnerAPI } from "../../../services/api";
 
 type PickupRow = {
@@ -52,30 +52,41 @@ export default function PartnerRecyclingEsgPage() {
   const completed = pickups.filter((p) => p.completed_at);
 
   return (
-    <PartnerProtectedRoute allowed={["recycler"]}>
-      <PartnerLayout variant="recycler">
-        <Head>
-          <title>ESG — Recycling partner — SolNuv</title>
-        </Head>
-        <h1 className="text-2xl font-bold text-forest-900 mb-2">ESG & recovery</h1>
-        <p className="text-slate-600 text-sm mb-6">
-          Aggregate counts from your scoped pickups. Detailed mass / CO₂e methodology can be attached to diligence packs when
-          available.
+    <>
+      <Head>
+        <title>ESG — Recycling partner — SolNuv</title>
+      </Head>
+      <div className="max-w-5xl">
+        <h1 className="text-2xl font-bold text-forest-900 dark:text-white mb-2">ESG &amp; recovery</h1>
+        <p className="text-slate-600 dark:text-slate-300 text-sm mb-4 leading-relaxed">
+          Aggregate counts from your scoped pickups. Pair this export with your internal mass-balance or CO₂e models—SolNuv stores operational truth; your sustainability team owns methodology.
         </p>
+        <div className="rounded-xl border border-emerald-200 dark:border-emerald-900/40 bg-emerald-50/50 dark:bg-emerald-950/20 p-4 text-sm text-emerald-950 dark:text-emerald-100 mb-6">
+          <p className="font-semibold">Reporting tip</p>
+          <p className="mt-1 text-emerald-900/85 dark:text-emerald-200/90">
+            For auditors, keep the CSV alongside ticket photos or weighbridge receipts stored in your QMS. Need a different column layout? Note it in{" "}
+            <Link href="/contact" className="underline font-medium">
+              Contact
+            </Link>{" "}
+            so we can prioritize partner exports.
+          </p>
+        </div>
         <div className="grid sm:grid-cols-2 gap-4 mb-8">
-          <div className="bg-white border border-slate-200 rounded-xl p-4">
-            <p className="text-xs text-slate-500 uppercase">Scoped pickups</p>
-            <p className="text-2xl font-bold text-forest-900 mt-1">{pickups.length}</p>
+          <div className="bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl p-4">
+            <p className="text-xs text-slate-500 dark:text-slate-400 uppercase">Scoped pickups</p>
+            <p className="text-2xl font-bold text-forest-900 dark:text-white mt-1">{pickups.length}</p>
           </div>
-          <div className="bg-white border border-slate-200 rounded-xl p-4">
-            <p className="text-xs text-slate-500 uppercase">With completion timestamp</p>
-            <p className="text-2xl font-bold text-forest-900 mt-1">{completed.length}</p>
+          <div className="bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl p-4">
+            <p className="text-xs text-slate-500 dark:text-slate-400 uppercase">With completion timestamp</p>
+            <p className="text-2xl font-bold text-forest-900 dark:text-white mt-1">{completed.length}</p>
           </div>
         </div>
         <button type="button" className="btn-primary text-sm" onClick={() => downloadCsv(pickups)}>
           Export CSV (pickup list)
         </button>
-      </PartnerLayout>
-    </PartnerProtectedRoute>
+      </div>
+    </>
   );
 }
+
+PartnerRecyclingEsgPage.getLayout = getPartnerRecyclerLayout;
