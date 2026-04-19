@@ -257,10 +257,67 @@ function getTOUScheduleForDisplay(tariffStructure, rates) {
   return result;
 }
 
+/**
+ * Resolve the tariff structure + rates + ancillary charges that applied on a
+ * given date. Falls back to the structure as stored today when the structure
+ * has no effective_from/effective_to window — preserving historical behaviour.
+ *
+ * Provide `supabaseClient` (injected from caller) so this helper stays pure
+ * and testable.
+ *
+ * @param {object} args
+ * @param {string} args.tariffStructureId
+ * @param {string|Date} args.asOf - ISO timestamp or Date; tariff must be
+ *   effective at this moment. Defaults to now.
+ * @param {object} args.supabase - Supabase client
+ * @returns {Promise<{ structure: object|null, rates: object[], ancillaryCharges: object[], bandHash: string, asOf: string }>}
+ */
+async function resolveRatesForDate({ tariffStructureId, asOf, supabase }) {
+  const crypto = require('crypto');
+  const asOfDate = asOf ? new Date(asOf) : new Date();
+  const asOfIso = asOfDate.toISOString();
+
+  if (!tariffStructureId || !supabase) {
+    return { structure: null, rates: [], ancillaryCharges: [], bandHash: '', asOf: asOfIso };
+  }
+
+  const [structRes, ratesRes, chargesRes] = await Promise.all([
+    supabase.from('tariff_structures').select('*').eq('id', tariffStructureId).single(),
+    supabase.from('tariff_rates').select('*').eq('tariff_structure_id', tariffStructureId),
+    supabase.from('tariff_ancillary_charges').select('*').eq('tariff_structure_id', tariffStructureId),
+  ]);
+
+  const structure = structRes?.data || null;
+  const rates = ratesRes?.data || [];
+  const ancillaryCharges = chargesRes?.data || [];
+
+  // If the structure has an explicit effective window that excludes asOf, the
+  // caller almost certainly has the wrong structure id — log nothing here but
+  // let the hash reflect the actual rows so the audit trail is still honest.
+  if (structure) {
+    const from = structure.effective_from ? new Date(structure.effective_from).getTime() : null;
+    const to = structure.effective_to ? new Date(structure.effective_to).getTime() : null;
+    const t = asOfDate.getTime();
+    if ((from != null && t < from) || (to != null && t >= to)) {
+      // Flag on the returned structure; caller may warn/surface in UI.
+      structure.__out_of_window = true;
+    }
+  }
+
+  const bandHash = crypto
+    .createHash('sha256')
+    .update(JSON.stringify({ structureId: tariffStructureId, rates, ancillaryCharges }))
+    .digest('hex')
+    .slice(0, 16);
+
+  return { structure, rates, ancillaryCharges, bandHash, asOf: asOfIso };
+}
+
 module.exports = {
   getSeasonForMonth,
   getTOUPeriod,
   buildHourlyTOUMap,
   calculateAnnualBill,
   getTOUScheduleForDisplay,
+  resolveRatesForDate,
 };

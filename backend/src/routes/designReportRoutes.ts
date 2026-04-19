@@ -22,6 +22,9 @@ router.get('/:projectId/pdf', requirePlan('pro'), requireVerified, designReportC
 // Excel — Elite+ + verified
 router.get('/:projectId/excel', requirePlan('elite'), requireVerified, designReportController.downloadExcel);
 
+// Reproducibility export pack (ZIP) — Pro+ + verified
+router.get('/:projectId/pack', requirePlan('pro'), requireVerified, designReportController.downloadPack);
+
 // Share link creation — Pro+ + verified
 router.post('/:projectId/share', requirePlan('pro'), requireVerified, designReportController.createShareLink);
 

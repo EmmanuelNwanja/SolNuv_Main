@@ -5,6 +5,7 @@ import { ThemeProvider } from "../context/ThemeContext";
 import { FloatingThemeToggle } from "../components/ThemeToggle";
 import { toast, Toaster, type Toast } from "react-hot-toast";
 import ErrorBoundary from "../components/ErrorBoundary";
+import UpgradeModal from "../components/UpgradeModal";
 import { useEffect } from "react";
 import { analyticsAPI } from "../services/api";
 import "../styles/globals.css";
@@ -184,6 +185,7 @@ function AppShell({ Component, pageProps, router }: AppProps) {
           <Page {...pageProps} />
         </ErrorBoundary>
       )}
+      <UpgradeModal />
       <FloatingThemeToggle />
     </div>
   );

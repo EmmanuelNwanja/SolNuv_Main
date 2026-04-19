@@ -7,6 +7,7 @@ const crypto = require('crypto');
 const supabase = require('../config/database');
 const { sendSuccess, sendError } = require('../utils/responseHelper');
 const { generateDesignReportPdf: generatePdfkitPdf, generateDesignReportExcel, generateSharedReportPdf } = require('../services/designReportService');
+const { buildExportPack } = require('../services/exportPackService');
 const logger = require('../utils/logger');
 
 /** Verify ownership supporting orphaned projects (created before user joined a company) */
@@ -118,6 +119,37 @@ exports.downloadExcel = async (req, res) => {
   } catch (err) {
     logger.error('downloadExcel error', { message: err.message });
     return sendError(res, 'Failed to generate Excel report');
+  }
+};
+
+/**
+ * GET /api/design-reports/:projectId/pack
+ * Download a reproducibility pack (ZIP) with PDF, Excel, and JSON inputs /
+ * results / provenance. Pro+ plan.
+ */
+exports.downloadPack = async (req, res) => {
+  const { projectId } = req.params;
+  try {
+    const project = await verifyProjectOwnership(projectId, req.user);
+    if (!project) return sendError(res, 'Project not found', 404);
+
+    const result = await getLatestSimulationResult(projectId);
+    if (!result) return sendError(res, 'No simulation results found. Run a simulation first.', 404);
+
+    const { buffer, filename } = await buildExportPack(result.id);
+
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Length', buffer.length);
+    return res.send(buffer);
+  } catch (err) {
+    logger.error('downloadPack error', {
+      message: err.message,
+      stack: err.stack,
+      projectId,
+      userId: req.user?.id,
+    });
+    return sendError(res, 'Failed to generate export pack: ' + err.message);
   }
 };
 

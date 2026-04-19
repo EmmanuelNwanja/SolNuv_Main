@@ -116,6 +116,25 @@ function getPlanDurationMonths(interval = 'monthly') {
   return interval === 'annual' ? 12 : 1;
 }
 
+// Per-plan monthly usage limits exposed publicly so the frontend can drive
+// the comparison matrix from one source of truth.
+// `null` means unlimited. `false` means the feature is not included.
+const CALCULATOR_LIMIT_BY_PLAN = {
+  free: FREE_CALC_TOTAL_LIMIT,
+  basic: BASIC_CALC_TOTAL_LIMIT,
+  pro: null,
+  elite: null,
+  enterprise: null,
+};
+
+const SIMULATION_LIMIT_BY_PLAN = {
+  free: 0,
+  basic: 3,
+  pro: null,
+  elite: null,
+  enterprise: null,
+};
+
 function getPlanCatalogForClient() {
   return Object.values(PLAN_DEFINITIONS).map((plan) => ({
     id: plan.id,
@@ -134,7 +153,11 @@ function getPlanCatalogForClient() {
       : 0,
     popular: Boolean((plan as { popular?: boolean }).popular),
     features: plan.features,
-    limits: { team_members: PLAN_LIMITS[plan.id] || 1 },
+    limits: {
+      team_members: PLAN_LIMITS[plan.id] || 1,
+      calculator_uses_per_month: CALCULATOR_LIMIT_BY_PLAN[plan.id] ?? null,
+      simulations_per_month: SIMULATION_LIMIT_BY_PLAN[plan.id] ?? null,
+    },
     cta: plan.cta,
   }));
 }

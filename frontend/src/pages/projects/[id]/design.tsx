@@ -1,6 +1,7 @@
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { useEffect, useState, useCallback } from 'react';
 import { queryParamToString } from '../../../utils/nextRouter';
 import { projectsAPI, tariffAPI, loadProfileAPI, simulationAPI, calculatorAPI } from '../../../services/api';
@@ -220,6 +221,8 @@ export default function DesignWizard() {
   });
   const [restorePreview, setRestorePreview] = useState<any | null>(null);
   const [pendingRestoreVersionId, setPendingRestoreVersionId] = useState('');
+  const [livePreview, setLivePreview] = useState<any | null>(null);
+  const [previewPending, setPreviewPending] = useState(false);
 
   const updateForm = useCallback((field, value) => {
     setForm(prev => ({ ...prev, [field]: value }));
@@ -383,6 +386,56 @@ export default function DesignWizard() {
     }, 800);
     return () => clearTimeout(t);
   }, [form.location_lat, form.location_lon]);
+
+  // Live preview: debounced lightweight simulation for instant feedback. Hits
+  // the rate-limited /simulation/preview endpoint (no DB writes, no quota).
+  useEffect(() => {
+    const lat = parseFloat(form.location_lat);
+    const lon = parseFloat(form.location_lon);
+    const pv = parseFloat(form.pv_capacity_kwp);
+    const annualLoad = parseFloat(form.annual_kwh);
+    if (!lat || !lon || !(pv > 0) || !(annualLoad > 0)) {
+      setLivePreview(null);
+      return;
+    }
+    setPreviewPending(true);
+    const t = setTimeout(() => {
+      simulationAPI.preview({
+        lat,
+        lon,
+        pv_capacity_kwp: pv,
+        pv_technology: 'mono_perc',
+        tilt_deg: parseFloat(form.tilt_angle) || undefined,
+        azimuth_deg: parseFloat(form.azimuth_angle) || undefined,
+        system_losses_pct: parseFloat(String(form.system_losses_pct)) || 14,
+        installation_type: form.installation_type,
+        bess_capacity_kwh: form.include_bess ? parseFloat(form.bess_capacity_kwh) || 0 : 0,
+        bess_chemistry: (form.battery_chemistry || 'lfp').toLowerCase(),
+        grid_topology: form.grid_topology,
+        annual_load_kwh: annualLoad,
+        capex_total: parseFloat(form.total_cost) || 0,
+        om_annual: parseFloat(form.om_cost_annual) || 0,
+        discount_rate_pct: parseFloat(String(form.discount_rate_pct)) || 10,
+        tariff_escalation_pct: parseFloat(String(form.tariff_escalation_pct)) || 8,
+        analysis_period_years: parseFloat(String(form.project_horizon_years)) || 25,
+        include_risk: false,
+      })
+        .then((r) => setLivePreview(r.data?.data || null))
+        .catch(() => setLivePreview(null))
+        .finally(() => setPreviewPending(false));
+    }, 500);
+    return () => {
+      clearTimeout(t);
+      setPreviewPending(false);
+    };
+  }, [
+    form.location_lat, form.location_lon,
+    form.pv_capacity_kwp, form.tilt_angle, form.azimuth_angle, form.system_losses_pct,
+    form.include_bess, form.bess_capacity_kwh, form.battery_chemistry,
+    form.grid_topology, form.installation_type,
+    form.annual_kwh, form.total_cost, form.om_cost_annual,
+    form.discount_rate_pct, form.tariff_escalation_pct, form.project_horizon_years,
+  ]);
 
   // Auto-size handler
   const handleAutoSize = async () => {
@@ -1449,6 +1502,10 @@ export default function DesignWizard() {
                 </div>
               </div>
 
+              <LivePreviewCard preview={livePreview} pending={previewPending} />
+
+              <DesignCanvasSpikeSlot form={form} />
+
               <button onClick={handleSimulate} disabled={simulating}
                 className="btn-primary w-full py-3 text-base flex items-center justify-center gap-2 mt-2">
                 {simulating ? (
@@ -1525,3 +1582,76 @@ export default function DesignWizard() {
 }
 
 DesignWizard.getLayout = getDashboardLayout;
+
+function LivePreviewCard({ preview, pending }: { preview: any | null; pending: boolean }) {
+  if (!preview && !pending) return null;
+  const annualKwh = preview?.annual_solar_gen_kwh;
+  const utilisationPct =
+    preview?.annual_solar_gen_kwh > 0 && preview?.solar_utilised_kwh != null
+      ? (preview.solar_utilised_kwh / preview.annual_solar_gen_kwh) * 100
+      : null;
+  const npv = preview?.npv_25yr;
+  const irr = preview?.irr_pct;
+  const paybackYears =
+    typeof preview?.simple_payback_months === 'number'
+      ? preview.simple_payback_months / 12
+      : null;
+  const fmtNum = (v: any, digits = 0) =>
+    typeof v === 'number' && Number.isFinite(v)
+      ? v.toLocaleString(undefined, { maximumFractionDigits: digits, minimumFractionDigits: digits })
+      : '—';
+  return (
+    <div className="mt-3 rounded-lg border border-indigo-200 dark:border-indigo-800 bg-indigo-50/60 dark:bg-indigo-950/30 p-3">
+      <div className="flex items-center justify-between mb-2">
+        <div className="text-xs font-semibold uppercase tracking-wider text-indigo-700 dark:text-indigo-300">
+          Live preview
+        </div>
+        <div className="text-[10px] text-indigo-700/70 dark:text-indigo-300/70">
+          {pending ? 'Updating…' : 'Indicative — run full simulation for final numbers'}
+        </div>
+      </div>
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-xs">
+        <PreviewStat label="Annual gen" value={`${fmtNum(annualKwh)} kWh`} />
+        <PreviewStat label="Solar utilised" value={utilisationPct != null ? `${fmtNum(utilisationPct, 1)}%` : '—'} />
+        <PreviewStat label="NPV (25y)" value={fmtNum(npv)} />
+        <PreviewStat label="IRR" value={irr != null ? `${fmtNum(irr, 1)}%` : '—'} />
+        <PreviewStat label="Payback" value={paybackYears != null ? `${fmtNum(paybackYears, 1)} yrs` : '—'} />
+      </div>
+    </div>
+  );
+}
+
+const DesignShadingCanvas = dynamic(() => import('../../../components/DesignShadingCanvas'), {
+  ssr: false,
+});
+
+function DesignCanvasSpikeSlot({ form }: { form: any }) {
+  const enabled = process.env.NEXT_PUBLIC_ENABLE_DESIGN_CANVAS === 'true';
+  const lat = parseFloat(form?.location_lat);
+  const lon = parseFloat(form?.location_lon);
+  const pv = parseFloat(form?.pv_capacity_kwp);
+  const tilt = parseFloat(form?.tilt_angle);
+  const azimuth = parseFloat(form?.azimuth_angle);
+  if (!enabled) return null;
+  if (!lat || !lon || !(pv > 0)) return null;
+  return (
+    <div className="mt-3">
+      <DesignShadingCanvas
+        lat={lat}
+        lon={lon}
+        tiltDeg={Number.isFinite(tilt) ? tilt : Math.abs(lat)}
+        azimuthDeg={Number.isFinite(azimuth) ? azimuth : (lat >= 0 ? 180 : 0)}
+        pvCapacityKwp={pv}
+      />
+    </div>
+  );
+}
+
+function PreviewStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-md bg-white/70 dark:bg-slate-900/40 border border-indigo-100 dark:border-indigo-900 px-2 py-1.5">
+      <div className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-slate-400">{label}</div>
+      <div className="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate">{value}</div>
+    </div>
+  );
+}

@@ -5,7 +5,7 @@
 
 const supabase = require('../config/database');
 const { sendSuccess, sendError } = require('../utils/responseHelper');
-const { runSimulation } = require('../services/simulationService');
+const { runSimulation, runSimulationPreview } = require('../services/simulationService');
 const { generateFeedback, saveEditedFeedback } = require('../services/aiDesignFeedbackService');
 const { getHourlySolarResource, estimateOptimalTilt, estimateOptimalAzimuth } = require('../services/solarResourceService');
 const logger = require('../utils/logger');
@@ -368,6 +368,27 @@ exports.restoreDesignVersion = async (req, res) => {
   } catch (err) {
     logger.error('restoreDesignVersion error', { message: err.message });
     return sendError(res, 'Failed to restore design version');
+  }
+};
+
+/**
+ * POST /api/simulation/preview
+ *
+ * Lightweight preview simulation — no DB writes, no hourly persistence.
+ * Returns headline metrics (annual kWh, savings, NPV, IRR, LCOE, loss waterfall,
+ * and risk bands) for live feedback in the design wizard.
+ */
+exports.runSimulationPreview = async (req, res) => {
+  try {
+    const cfg = req.body || {};
+    if (!cfg.pv_capacity_kwp && !cfg.annual_load_kwh) {
+      return sendError(res, 'pv_capacity_kwp or annual_load_kwh is required', 400);
+    }
+    const out = await runSimulationPreview(cfg);
+    return sendSuccess(res, out, 'Preview simulation complete');
+  } catch (err) {
+    logger.error('runSimulationPreview error', { message: err.message });
+    return sendError(res, 'Failed to run preview simulation');
   }
 };
 

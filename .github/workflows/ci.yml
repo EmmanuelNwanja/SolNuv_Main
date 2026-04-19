@@ -38,6 +38,10 @@ jobs:
         working-directory: backend
         run: npm run test:nerc-regression --if-present
 
+      - name: Run simulation golden regression
+        working-directory: backend
+        run: npm run test:simulation-golden --if-present
+
       - name: Install frontend deps
         working-directory: frontend
         run: npm ci

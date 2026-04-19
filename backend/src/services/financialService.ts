@@ -281,10 +281,114 @@ function compareFinancingOptions(baseConfig) {
   };
 }
 
+/**
+ * Seeded Mulberry32 PRNG for reproducible Monte Carlo runs.
+ */
+function makeRng(seed) {
+  let s = (seed | 0) || 1337;
+  return function rand() {
+    s |= 0; s = (s + 0x6D2B79F5) | 0;
+    let t = Math.imul(s ^ (s >>> 15), 1 | s);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/**
+ * Box-Muller transform: uniform → normal(0,1).
+ */
+function normal(rand) {
+  const u1 = Math.max(1e-9, rand());
+  const u2 = rand();
+  return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+}
+
+function percentile(sortedArr, p) {
+  if (!sortedArr.length) return 0;
+  const idx = Math.min(sortedArr.length - 1, Math.max(0, Math.round(p * (sortedArr.length - 1))));
+  return sortedArr[idx];
+}
+
+/**
+ * Monte Carlo risk analysis around the base cashflow config.
+ *
+ * Perturbs a small, defensible set of lender-salient inputs:
+ *   - year1Savings     ±10% (triangular-ish via normal clipped)
+ *   - year1GenKwh      ±5%  (weather + performance uncertainty)
+ *   - omAnnual         ±15% (maintenance cost variance)
+ *   - tariffEscalation ±2 percentage points absolute
+ *   - discountRate     ±1.5 percentage points absolute
+ *
+ * Returns P10 / P50 / P90 for NPV and IRR. With a fixed seed + fixed base
+ * inputs, the result is bit-stable — CI can assert exact equality.
+ *
+ * @param {object} baseConfig - Same shape as calculate25YearCashflow input.
+ * @param {object} [opts]
+ * @param {number} [opts.iterations=500]
+ * @param {number} [opts.seed=1337]
+ * @returns {{ iterations, seed, npv: { p10, p50, p90 }, irr: { p10, p50, p90 }, payback_months: { p10, p50, p90 } }}
+ */
+function runCashflowScenarios(baseConfig, opts: Record<string, any> = {}) {
+  const iterations = Math.max(10, Math.min(5000, opts.iterations || 500));
+  const seed = Number.isFinite(opts.seed) ? opts.seed : 1337;
+  const rand = makeRng(seed);
+
+  const npvSamples: number[] = [];
+  const irrSamples: number[] = [];
+  const paybackSamples: number[] = [];
+
+  const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+
+  for (let i = 0; i < iterations; i++) {
+    const zSavings = normal(rand);
+    const zGen = normal(rand);
+    const zOm = normal(rand);
+    const zTariff = normal(rand);
+    const zDiscount = normal(rand);
+
+    const cfg = { ...baseConfig };
+    cfg.year1Savings = (baseConfig.year1Savings || 0) * clamp(1 + 0.10 * zSavings, 0.5, 1.5);
+    cfg.year1GenKwh = (baseConfig.year1GenKwh || 0) * clamp(1 + 0.05 * zGen, 0.7, 1.3);
+    cfg.omAnnual = (baseConfig.omAnnual || 0) * clamp(1 + 0.15 * zOm, 0.5, 2.0);
+    cfg.tariffEscalationPct = clamp((baseConfig.tariffEscalationPct || 0) + 2 * zTariff, 0, 30);
+    cfg.discountRatePct = clamp((baseConfig.discountRatePct || 10) + 1.5 * zDiscount, 1, 30);
+
+    const out = calculate25YearCashflow(cfg);
+    npvSamples.push(out.npv);
+    irrSamples.push(out.irr);
+    paybackSamples.push(out.paybackMonths);
+  }
+
+  npvSamples.sort((a, b) => a - b);
+  irrSamples.sort((a, b) => a - b);
+  paybackSamples.sort((a, b) => a - b);
+
+  return {
+    iterations,
+    seed,
+    npv: {
+      p10: Math.round(percentile(npvSamples, 0.10)),
+      p50: Math.round(percentile(npvSamples, 0.50)),
+      p90: Math.round(percentile(npvSamples, 0.90)),
+    },
+    irr: {
+      p10: Math.round(percentile(irrSamples, 0.10) * 10) / 10,
+      p50: Math.round(percentile(irrSamples, 0.50) * 10) / 10,
+      p90: Math.round(percentile(irrSamples, 0.90) * 10) / 10,
+    },
+    payback_months: {
+      p10: Math.round(percentile(paybackSamples, 0.10)),
+      p50: Math.round(percentile(paybackSamples, 0.50)),
+      p90: Math.round(percentile(paybackSamples, 0.90)),
+    },
+  };
+}
+
 module.exports = {
   calculate25YearCashflow,
   calculateNPV,
   calculateIRR,
   calculateLCOE,
   compareFinancingOptions,
+  runCashflowScenarios,
 };

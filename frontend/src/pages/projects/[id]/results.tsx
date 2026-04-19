@@ -11,7 +11,7 @@ import SolarSchematic from '../../../components/SolarSchematic';
 import {
   RiArrowLeftLine, RiDownloadLine, RiShareLine, RiSunLine,
   RiBatteryLine, RiMoneyDollarCircleLine, RiFlashlightLine,
-  RiFileExcel2Line, RiFilePdf2Line, RiLinkM,
+  RiFileExcel2Line, RiFilePdf2Line, RiFolderZipLine, RiLinkM,
   RiRobot2Line, RiEditLine, RiCheckLine, RiPlugLine,
   RiAlertLine, RiErrorWarningLine, RiInformationLine,
 } from 'react-icons/ri';
@@ -157,6 +157,21 @@ export default function ResultsDashboard() {
     }
   };
 
+  const handleExportPack = async () => {
+    setExporting('pack');
+    try {
+      const res = await designReportAPI.downloadPack(projectId);
+      const safe = (project?.name || projectId).replace(/[^a-zA-Z0-9]+/g, '_');
+      const date = new Date().toISOString().slice(0, 10);
+      downloadBlob(res.data, `SolNuv_Export_${safe}_${date}.zip`);
+      toast.success('Export pack downloaded');
+    } catch (e) {
+      toast.error(e?.response?.data?.message || 'Export pack requires Pro plan');
+    } finally {
+      setExporting('');
+    }
+  };
+
   const handleShare = async () => {
     try {
       const { data: res } = await designReportAPI.createShareLink(projectId, { expires_hours: 72 });
@@ -240,6 +255,14 @@ export default function ResultsDashboard() {
             </button>
             <button onClick={handleExportExcel} disabled={exporting === 'excel'} className="btn-secondary text-sm flex items-center gap-1">
               {exporting === 'excel' ? <LoadingSpinner className="w-4 h-4" /> : <RiFileExcel2Line />} Excel
+            </button>
+            <button
+              onClick={handleExportPack}
+              disabled={exporting === 'pack'}
+              className="btn-secondary text-sm flex items-center gap-1"
+              title="Download a reproducibility pack (PDF + Excel + JSON inputs, results, and provenance)"
+            >
+              {exporting === 'pack' ? <LoadingSpinner className="w-4 h-4" /> : <RiFolderZipLine />} Export pack
             </button>
             <button onClick={handleShare} className="btn-secondary text-sm flex items-center gap-1">
               <RiShareLine /> Share
@@ -1026,9 +1049,246 @@ export default function ResultsDashboard() {
             )
           )}
         </div>
+
+        <FinancialRiskPanel risk={result?.extended_metrics?.financial_risk} currencySymbol={currSym} />
+        <LossWaterfallPanel waterfall={result?.extended_metrics?.pv_loss_waterfall} />
+        <RunProvenancePanel provenance={result?.run_provenance} runAt={result?.run_at} />
         </div>
       </MotionSection>
     </>
+  );
+}
+
+function FinancialRiskPanel({ risk, currencySymbol }: { risk?: any; currencySymbol: string }) {
+  const [open, setOpen] = useState(false);
+  if (!risk?.npv || !risk?.irr) return null;
+
+  const fmtMoney = (n: number) =>
+    `${currencySymbol}${Math.round(n).toLocaleString('en')}`;
+
+  const rows = [
+    { label: 'NPV', p10: fmtMoney(risk.npv.p10), p50: fmtMoney(risk.npv.p50), p90: fmtMoney(risk.npv.p90) },
+    { label: 'IRR', p10: `${risk.irr.p10}%`, p50: `${risk.irr.p50}%`, p90: `${risk.irr.p90}%` },
+    {
+      label: 'Payback',
+      p10: risk.payback_months ? `${(risk.payback_months.p10 / 12).toFixed(1)} yr` : '—',
+      p50: risk.payback_months ? `${(risk.payback_months.p50 / 12).toFixed(1)} yr` : '—',
+      p90: risk.payback_months ? `${(risk.payback_months.p90 / 12).toFixed(1)} yr` : '—',
+    },
+  ];
+
+  return (
+    <div className="mt-8 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700/50"
+      >
+        <div className="flex items-center gap-2 text-sm">
+          <RiMoneyDollarCircleLine className="text-emerald-500" />
+          <span className="font-semibold text-forest-900 dark:text-white">Financial risk band</span>
+          <span className="text-xs text-gray-500 dark:text-gray-400">
+            {risk.iterations} scenarios · seed {risk.seed}
+          </span>
+        </div>
+        <span className="text-xs text-gray-500">{open ? 'Hide' : 'Show'}</span>
+      </button>
+      {open && (
+        <div className="px-4 pb-4 pt-1">
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+            P10 is the pessimistic case (10% of scenarios are worse), P50 is the central estimate,
+            P90 is the optimistic case. Seeded Monte Carlo perturbing savings, generation, O&M,
+            tariff escalation, and discount rate.
+          </p>
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="text-gray-500 dark:text-gray-400 text-left">
+                <th className="py-1 font-medium">Metric</th>
+                <th className="py-1 font-medium text-right">P10 (low)</th>
+                <th className="py-1 font-medium text-right">P50 (central)</th>
+                <th className="py-1 font-medium text-right">P90 (high)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.label} className="border-t border-gray-100 dark:border-gray-700/50">
+                  <td className="py-2 text-gray-700 dark:text-gray-300">{r.label}</td>
+                  <td className="py-2 font-mono tabular-nums text-right text-gray-600 dark:text-gray-400">{r.p10}</td>
+                  <td className="py-2 font-mono tabular-nums text-right font-semibold text-gray-900 dark:text-white">{r.p50}</td>
+                  <td className="py-2 font-mono tabular-nums text-right text-gray-600 dark:text-gray-400">{r.p90}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+const LOSS_LABELS: Record<string, string> = {
+  iam_loss_pct: 'IAM (angle of incidence)',
+  spectral_delta_pct: 'Spectral mismatch',
+  thermal_loss_pct: 'Thermal (cell temperature)',
+  soiling_adjustment_pct: 'Soiling variation',
+  system_losses_pct: 'System losses (wiring, mismatch, shading)',
+  bifacial_gain_pct: 'Bifacial rear-side gain',
+  inverter_efficiency_loss_pct: 'Inverter efficiency',
+  inverter_clipping_loss_pct: 'Inverter clipping',
+  degradation_loss_pct: 'Year-1 degradation',
+};
+
+function LossWaterfallPanel({ waterfall }: { waterfall?: any }) {
+  const [open, setOpen] = useState(false);
+  if (!waterfall || !waterfall.steps) return null;
+
+  const steps = waterfall.steps as Record<string, number>;
+  const finalYield = Number(waterfall.final_yield_pct) || 0;
+  const entries = Object.keys(steps).map((k) => ({
+    key: k,
+    label: LOSS_LABELS[k] || k,
+    pct: Number(steps[k]) || 0,
+  }));
+  const maxAbs = Math.max(0.5, ...entries.map((e) => Math.abs(e.pct)));
+
+  return (
+    <div className="mt-8 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700/50"
+      >
+        <div className="flex items-center gap-2 text-sm">
+          <RiSunLine className="text-amber-500" />
+          <span className="font-semibold text-forest-900 dark:text-white">PV loss waterfall</span>
+          <span className="text-xs text-gray-500 dark:text-gray-400">
+            {finalYield.toFixed(1)}% of incident POA reaches AC output
+          </span>
+        </div>
+        <span className="text-xs text-gray-500">{open ? 'Hide' : 'Show'}</span>
+      </button>
+      {open && (
+        <div className="px-4 pb-4 pt-1 space-y-1.5">
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+            Percentages are expressed relative to plane-of-array (POA) irradiance incident on the
+            array. Negative bars are losses; positive bars are gains.
+          </p>
+          {entries.map((e) => {
+            const isGain = e.pct > 0;
+            const widthPct = Math.min(100, (Math.abs(e.pct) / maxAbs) * 100);
+            return (
+              <div key={e.key} className="grid grid-cols-12 items-center gap-2 text-xs">
+                <div className="col-span-5 text-gray-700 dark:text-gray-300 truncate" title={e.label}>
+                  {e.label}
+                </div>
+                <div className="col-span-5 h-2 rounded-full bg-gray-100 dark:bg-gray-700 relative overflow-hidden">
+                  <div
+                    className={`absolute top-0 h-full ${isGain ? 'bg-emerald-500' : 'bg-rose-500'}`}
+                    style={{
+                      width: `${widthPct / 2}%`,
+                      [isGain ? 'left' : 'right']: '50%',
+                    }}
+                  />
+                  <div className="absolute inset-y-0 left-1/2 w-px bg-gray-300 dark:bg-gray-600" />
+                </div>
+                <div className="col-span-2 text-right font-mono tabular-nums text-gray-800 dark:text-gray-200">
+                  {isGain ? '+' : ''}
+                  {e.pct.toFixed(2)}%
+                </div>
+              </div>
+            );
+          })}
+          <div className="pt-2 mt-2 border-t border-gray-200 dark:border-gray-700 flex justify-between text-xs">
+            <span className="text-gray-500 dark:text-gray-400">Net AC yield vs POA incident</span>
+            <span className="font-mono font-semibold text-forest-900 dark:text-white">
+              {finalYield.toFixed(2)}%
+            </span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function RunProvenancePanel({ provenance, runAt }: { provenance?: any; runAt?: string }) {
+  const [open, setOpen] = useState(false);
+  if (!provenance && !runAt) return null;
+
+  const engineVersion = provenance?.engine_version || 'unversioned';
+  const inputsHash = provenance?.inputs_hash as string | undefined;
+  const weather = provenance?.weather;
+  const tariff = provenance?.tariff;
+  const generatedAt = provenance?.generated_at || runAt;
+
+  return (
+    <div className="mt-8 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700/50"
+      >
+        <div className="flex items-center gap-2 text-sm">
+          <RiInformationLine className="text-forest-700 dark:text-emerald-400" />
+          <span className="font-semibold text-forest-900 dark:text-white">Run details</span>
+          <span className="text-xs text-gray-500 dark:text-gray-400">
+            engine v{engineVersion}
+            {generatedAt ? ` · ${new Date(generatedAt).toLocaleString()}` : ''}
+          </span>
+        </div>
+        <span className="text-xs text-gray-500">{open ? 'Hide' : 'Show'}</span>
+      </button>
+      {open && (
+        <dl className="px-4 pb-4 pt-1 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+          <ProvRow label="Engine version" value={engineVersion} />
+          <ProvRow
+            label="Inputs hash"
+            value={inputsHash ? `${inputsHash.slice(0, 12)}…${inputsHash.slice(-6)}` : '—'}
+            title={inputsHash}
+          />
+          {weather && (
+            <>
+              <ProvRow label="Weather source" value={weather.source || '—'} />
+              <ProvRow
+                label="Weather cell"
+                value={
+                  weather.lat_rounded != null && weather.lon_rounded != null
+                    ? `${weather.lat_rounded}, ${weather.lon_rounded}`
+                    : '—'
+                }
+              />
+              <ProvRow
+                label="Weather fetched"
+                value={weather.fetched_at ? new Date(weather.fetched_at).toLocaleString() : '—'}
+              />
+              <ProvRow
+                label="Weather cache"
+                value={weather.cache_hit ? 'cache hit' : weather.used_fallback ? 'fallback climatology' : 'fresh fetch'}
+              />
+            </>
+          )}
+          {tariff && (
+            <>
+              <ProvRow label="Tariff structure" value={tariff.structure_name || tariff.tariff_structure_id || '—'} />
+              <ProvRow label="Tariff rates" value={tariff.rates_count != null ? String(tariff.rates_count) : '—'} />
+            </>
+          )}
+        </dl>
+      )}
+    </div>
+  );
+}
+
+function ProvRow({ label, value, title }: { label: string; value: string; title?: string }) {
+  return (
+    <div className="flex items-start justify-between gap-2 py-1 border-b border-gray-100 dark:border-gray-700/50 last:border-b-0">
+      <dt className="text-gray-500 dark:text-gray-400">{label}</dt>
+      <dd
+        className="font-mono text-gray-800 dark:text-gray-200 text-right truncate max-w-[60%]"
+        title={title || value}
+      >
+        {value}
+      </dd>
+    </div>
   );
 }
 
