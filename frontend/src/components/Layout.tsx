@@ -55,7 +55,7 @@ const navItems: NavItem[] = [
   { href: "/blog", icon: RiArticleLine, label: "Blog" },
   { href: "/faq", icon: RiQuestionLine, label: "FAQ" },
   { href: "/advanced-app", icon: RiRocketLine, label: "Advanced App", soon: true },
-  { href: "/api-integration", icon: RiCodeSSlashLine, label: "API integration", soon: true },
+  { href: "/api-integration", icon: RiCodeSSlashLine, label: "API integration" },
   { href: "/settings", icon: RiSettingsLine, label: "Settings" },
 ];
 

@@ -207,24 +207,41 @@ export default function Home() {
           <MotionStagger className="grid lg:grid-cols-2 gap-8 items-end w-full min-w-0" delay={0.02}>
             <MotionItem className="min-w-0">
               <span className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-widest bg-white/10 text-emerald-200">
-                End-to-end solar lifecycle intelligence
+                Solar engineering, financials, and compliance — unified
               </span>
               <h1 className="marketing-hero-dark-title mt-4">
-                Design Solar Projects,
+                Design, finance, and track solar
                 <br />
-                Track & Recover Equipment.
+                projects with operational confidence.
               </h1>
               <p className="text-base md:text-lg text-white/75 leading-relaxed mt-5 max-w-2xl">
-                Run design workflows, financial scenario analysis, lifecycle tracking, and compliance-ready reporting from one connected environment.
+                One workspace for solar + BESS design, scenario-based financial modelling, lifecycle evidence, and compliance-ready reporting. Built for teams that need defensible outputs and auditable workflows.
               </p>
               <div className="marketing-cta-row">
                 <Link href="/register" className="btn-amber inline-flex items-center gap-2">
                   Create account <RiArrowRightLine />
                 </Link>
+                <Link href="/pricing" className="btn-on-dark w-full sm:w-auto">
+                  See plans and pricing
+                </Link>
                 <Link href="/contact" className="btn-on-dark w-full sm:w-auto">
-                  Partner with SolNuv
+                  Talk to sales
                 </Link>
               </div>
+              <ul className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-[12px] text-white/70">
+                <li className="flex items-center gap-1.5">
+                  <RiCheckLine className="text-emerald-300" /> Satellite irradiance data
+                </li>
+                <li className="flex items-center gap-1.5">
+                  <RiCheckLine className="text-emerald-300" /> Transparent simulation assumptions
+                </li>
+                <li className="flex items-center gap-1.5">
+                  <RiCheckLine className="text-emerald-300" /> NESREA-aware compliance exports
+                </li>
+                <li className="flex items-center gap-1.5">
+                  <RiCheckLine className="text-emerald-300" /> Naira-first pricing
+                </li>
+              </ul>
             </MotionItem>
             <MotionStagger className="grid grid-cols-1 min-[400px]:grid-cols-2 gap-3 sm:gap-4 w-full min-w-0" delay={0.08}>
               {heroStats.map((s) => (

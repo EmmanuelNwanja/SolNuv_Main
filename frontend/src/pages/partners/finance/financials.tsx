@@ -38,7 +38,10 @@ export default function PartnerFinanceFinancialsPage() {
             <li>Asset management: cross-check counts against your pipeline spreadsheet.</li>
             <li>Ops: jump to individual stories via linked funding requests when IDs are shared.</li>
           </ul>
-          <p className="mt-3">
+          <p className="mt-3 flex flex-wrap gap-x-5 gap-y-1">
+            <Link href="/partners/finance/escrow" className="font-semibold text-forest-800 dark:text-emerald-400 underline">
+              View individual escrow decisions →
+            </Link>
             <Link href="/partners/finance/funding" className="font-semibold text-forest-800 dark:text-emerald-400 underline">
               Open funding requests →
             </Link>

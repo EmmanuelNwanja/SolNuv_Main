@@ -153,6 +153,19 @@ function simulatePVGeneration(config) {
   let hourIndex = 0;
   const DAYS_PER_MONTH = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
 
+  // Loss-waterfall accumulators. All are STC-equivalent energies in kWh — the
+  // incident-POA term is the reference that every downstream loss is reported
+  // as a percentage of.
+  let ePoaRaw = 0;            // array-face POA incident (pre-IAM)
+  let ePoaEff = 0;            // POA after IAM
+  let eAfterSpectral = 0;     // × spectral factor
+  let eAfterThermal = 0;      // × temperature derate
+  let eAfterSoiling = 0;      // × soiling adjustment
+  let eDcPreBifacial = 0;     // × (1 − system_losses)
+  let eBifacial = 0;          // additive rear-side contribution
+  let eAcPreClip = 0;         // DC → AC before inverter clip
+  let eAcPostClip = 0;        // actual inverter output
+
   for (let month = 0; month < 12; month++) {
     for (let day = 0; day < DAYS_PER_MONTH[month]; day++) {
       dayOfYear++;
@@ -258,9 +271,22 @@ function simulatePVGeneration(config) {
         const soilingAdjustment = soilingDerate / avgSoiling;
         const soilingFinal = Math.max(0.92, Math.min(1.03, soilingAdjustment));
 
+        // Nominal-irradiance-equivalent power (STC reference, no derates). Used
+        // as the denominator for the loss waterfall below.
+        const pStcRaw = capacityKwp * (poaIrradiance / STC_IRRADIANCE);
+        const pStcEff = capacityKwp * (poaEffective / STC_IRRADIANCE);
+        ePoaRaw += pStcRaw;
+        ePoaEff += pStcEff;
+        const pAfterSpectral = pStcEff * spectralFactor;
+        eAfterSpectral += pAfterSpectral;
+        const pAfterThermal = pAfterSpectral * tempDerate;
+        eAfterThermal += pAfterThermal;
+        const pAfterSoiling = pAfterThermal * soilingFinal;
+        eAfterSoiling += pAfterSoiling;
+
         // DC power output with all derates applied
-        const dcPower = capacityKwp * (poaEffective / STC_IRRADIANCE)
-          * tempDerate * spectralFactor * soilingFinal * (1 - systemLosses);
+        const dcPower = pAfterSoiling * (1 - systemLosses);
+        eDcPreBifacial += dcPower;
 
         // ── Bifacial gain — PVsyst/SAM rear-side model ──
         // Bifacial modules harvest rear-side irradiance from ground reflection.
@@ -274,10 +300,16 @@ function simulatePVGeneration(config) {
           // Rear-side contributes proportionally to its irradiance share
           bifacialBoost = capacityKwp * (rearIrradiance / STC_IRRADIANCE) * midGain
             * tempDerate * (1 - systemLosses);
+          eBifacial += bifacialBoost;
         }
 
+        const dcTotal = dcPower + bifacialBoost;
+        const acPreClip = dcTotal * inverterEff;
+        eAcPreClip += acPreClip;
+
         // AC power output with inverter clipping
-        const acPower = Math.max(0, Math.min((dcPower + bifacialBoost) * inverterEff, inverterAcCapKw));
+        const acPower = Math.max(0, Math.min(acPreClip, inverterAcCapKw));
+        eAcPostClip += acPower;
 
         hourlyAcKw[idx] = acPower;
       }
@@ -317,12 +349,43 @@ function simulatePVGeneration(config) {
     monthlyKwh.push(Math.round(monthTotal * 10) / 10);
   }
 
+  // ── Loss waterfall (percentages of incident POA STC-equivalent energy) ──
+  // Each entry is the fraction of incident-POA "theoretical" energy gained or
+  // lost at that stage. Positive = gain, negative = loss, expressed as % so
+  // the results UI can render a clean waterfall chart.
+  const eDegradationLoss = eAcPostClip * (1 - degradationFactor);
+  const pct = (val) => (ePoaRaw > 0 ? (val / ePoaRaw) * 100 : 0);
+
+  const loss_waterfall = {
+    reference: 'incident_poa_stc_kwh',
+    incident_poa_kwh: Math.round(ePoaRaw * 10) / 10,
+    steps: {
+      iam_loss_pct: -Math.abs(pct(ePoaRaw - ePoaEff)),
+      spectral_delta_pct: pct(eAfterSpectral - ePoaEff),
+      thermal_loss_pct: pct(eAfterThermal - eAfterSpectral),
+      soiling_adjustment_pct: pct(eAfterSoiling - eAfterThermal),
+      system_losses_pct: pct(eDcPreBifacial - eAfterSoiling),
+      bifacial_gain_pct: pct(eBifacial),
+      inverter_efficiency_loss_pct: pct(eAcPreClip - (eDcPreBifacial + eBifacial)),
+      inverter_clipping_loss_pct: pct(eAcPostClip - eAcPreClip),
+      degradation_loss_pct: pct(-eDegradationLoss),
+    },
+    final_yield_pct: pct(eAcPostClip - eDegradationLoss),
+  };
+
+  // Round all step percentages to 2 decimals for payload stability.
+  for (const key of Object.keys(loss_waterfall.steps)) {
+    loss_waterfall.steps[key] = Math.round(loss_waterfall.steps[key] * 100) / 100;
+  }
+  loss_waterfall.final_yield_pct = Math.round(loss_waterfall.final_yield_pct * 100) / 100;
+
   return {
     hourlyAcKw,
     annualKwh: Math.round(annualKwh * 10) / 10,
     monthlyKwh,
     performanceRatio: Math.round(performanceRatio),
     degradationFactor: Math.round(degradationFactor * 10000) / 10000,
+    loss_waterfall,
   };
 }
 

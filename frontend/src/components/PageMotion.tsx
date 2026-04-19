@@ -2,25 +2,29 @@ import { motion, useReducedMotion } from "framer-motion";
 import type { ComponentProps, ReactNode } from "react";
 import { useEffect, useState } from "react";
 
+// Premium easing curve — matches Privado / Linear / Arc style: gentle accel,
+// soft settle. Avoids the "pop" feel of default springs.
+const PREMIUM_EASE = [0.16, 1, 0.3, 1] as const;
+
 const pageVariants = {
   hidden: { opacity: 0 },
   visible: {
     opacity: 1,
     transition: {
-      duration: 0.35,
-      ease: [0.22, 1, 0.36, 1],
+      duration: 0.4,
+      ease: PREMIUM_EASE,
       when: "beforeChildren" as const,
-      staggerChildren: 0.06,
+      staggerChildren: 0.05,
     },
   },
 };
 
 const sectionVariants = {
-  hidden: { opacity: 0, y: 8 },
+  hidden: { opacity: 0, y: 12 },
   visible: {
     opacity: 1,
     y: 0,
-    transition: { duration: 0.28, ease: [0.22, 1, 0.36, 1] },
+    transition: { duration: 0.55, ease: PREMIUM_EASE },
   },
 };
 
@@ -89,13 +93,13 @@ export function MotionSection({ children, className = "", ...rest }: MotionSecti
 }
 
 const staggerVariants = {
-  hidden: { opacity: 0, y: 10 },
+  hidden: { opacity: 0, y: 14 },
   visible: {
     opacity: 1,
     y: 0,
     transition: {
-      duration: 0.45,
-      ease: [0.22, 1, 0.36, 1],
+      duration: 0.6,
+      ease: PREMIUM_EASE,
       staggerChildren: 0.07,
     },
   },
@@ -149,12 +153,12 @@ export function MotionItem({ children, className = "" }: { children: ReactNode; 
   return (
     <motion.div
       variants={{
-        hidden: { opacity: 0, y: 12, scale: 0.985 },
+        hidden: { opacity: 0, y: 16, scale: 0.98 },
         visible: {
           opacity: 1,
           y: 0,
           scale: 1,
-          transition: { duration: 0.34, ease: [0.22, 1, 0.36, 1] },
+          transition: { duration: 0.55, ease: PREMIUM_EASE },
         },
       }}
       className={className}

@@ -7,6 +7,7 @@ import axios, {
 } from "axios";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "../utils/supabase";
+import { isPlanBlockCode, parseApiError } from "../utils/apiErrors";
 import type {
   NercAdminApplicationsResponse,
   NercAdminReportingCyclesResponse,
@@ -143,12 +144,24 @@ api.interceptors.response.use(
   (res: AxiosResponse) => res,
   async (error: unknown) => {
     const err = error as AxiosError;
-    if (err.response?.status === 401 && typeof window !== "undefined") {
-      window.dispatchEvent(
-        new CustomEvent("solnuv:unauthorized", {
-          detail: { url: err.config?.url ?? null },
-        })
-      );
+    const status = err.response?.status;
+    if (typeof window !== "undefined") {
+      if (status === 401) {
+        window.dispatchEvent(
+          new CustomEvent("solnuv:unauthorized", {
+            detail: { url: err.config?.url ?? null },
+          })
+        );
+      } else if (status === 402 || status === 403 || status === 429) {
+        const parsed = parseApiError(err);
+        if (isPlanBlockCode(parsed.code)) {
+          window.dispatchEvent(
+            new CustomEvent("solnuv:plan-blocked", {
+              detail: { parsed, url: err.config?.url ?? null },
+            })
+          );
+        }
+      }
     }
     return Promise.reject(error);
   }
@@ -496,6 +509,8 @@ export const partnerAPI = {
   listFinancierFunding: () => api.get("/partner/financier/funding-requests"),
   createFinancierFunding: (data: JsonRecord) => api.post("/partner/financier/funding-requests", data),
   financierFinancials: () => api.get("/partner/financier/financials-summary"),
+  listFinancierEscrowDecisions: (params?: JsonRecord) =>
+    api.get("/partner/financier/escrow-decisions", { params }),
 };
 
 export const v2API = {
@@ -531,6 +546,7 @@ export const loadProfileAPI = {
 
 export const simulationAPI = {
   run: (data: JsonRecord) => api.post("/simulation/run", data, { timeout: 120000 }),
+  preview: (data: JsonRecord) => api.post("/simulation/preview", data, { timeout: 20000 }),
   getDesignConfig: (projectId: string) => api.get(`/simulation/${projectId}/design-config`),
   getDesignVersions: (projectId: string) => api.get(`/simulation/${projectId}/design-versions`),
   restoreDesignVersion: (projectId: string, resultId: string) =>
@@ -552,11 +568,20 @@ export const designReportAPI = {
     api.get(`/design-reports/${projectId}/pdf`, { responseType: "blob" }),
   downloadExcel: (projectId: string) =>
     api.get(`/design-reports/${projectId}/excel`, { responseType: "blob" }),
+  downloadPack: (projectId: string) =>
+    api.get(`/design-reports/${projectId}/pack`, { responseType: "blob" }),
   createShareLink: (projectId: string, data: JsonRecord) =>
     api.post(`/design-reports/${projectId}/share`, data),
   getSharedReport: (token: string) => api.get(`/design-reports/shared/${token}`),
   downloadSharedReportPdf: (token: string) =>
     api.get(`/design-reports/shared/${token}/pdf`, { responseType: "blob" }),
+};
+
+export const apiKeyAPI = {
+  list: () => api.get("/api-keys"),
+  create: (data: { name: string; scopes?: string[]; expires_at?: string | null }) =>
+    api.post("/api-keys", data),
+  revoke: (id: string) => api.delete(`/api-keys/${id}`),
 };
 
 export function downloadBlob(blob: BlobPart, filename: string): void {

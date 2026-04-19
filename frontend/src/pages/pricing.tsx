@@ -1,66 +1,56 @@
 import Head from "next/head";
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { RiArrowRightLine, RiCheckLine } from "react-icons/ri";
 import { MotionItem, MotionSection, MotionStagger } from "../components/PageMotion";
 import { getPublicLayout } from "../components/Layout";
+import PlanFeatureMatrix from "../components/PlanFeatureMatrix";
+import {
+  FALLBACK_CATALOG,
+  fetchPlanCatalog,
+  mapCatalogToPricingCards,
+  type PlanCatalogEntry,
+  type PricingCard,
+} from "../utils/planCatalog";
+import { trackEvent } from "../utils/telemetry";
 
-const PUBLIC_PRICING = [
-  {
-    name: "Basic",
-    price: "₦15,000",
-    period: "/month",
-    cta: "Start Basic",
-    href: "/register",
-    features: [
-      "Solar + storage design workspace",
-      "Project and asset logging",
-      "Core financial scenario analysis",
-      "Guided lifecycle planning",
-    ],
-  },
-  {
-    name: "Pro",
-    price: "₦40,000",
-    period: "/month",
-    popular: true,
-    cta: "Choose Pro",
-    href: "/register?plan=pro",
-    features: [
-      "Everything in Basic",
-      "Advanced simulation and reports",
-      "AI design expert guidance",
-      "Team workflows for growing operators",
-    ],
-  },
-  {
-    name: "Elite",
-    price: "₦100,000",
-    period: "/month",
-    cta: "Go Elite",
-    href: "/register?plan=elite",
-    features: [
-      "Everything in Pro",
-      "Compliance-focused workflows",
-      "Priority support and onboarding",
-      "Multi-team operational controls",
-    ],
-  },
-  {
-    name: "Enterprise",
-    price: "Custom",
-    period: "engagement",
-    cta: "Talk to sales",
-    href: "/contact",
-    features: [
-      "Custom integrations and controls",
-      "Portfolio-level governance workflows",
-      "Dedicated account collaboration",
-      "Tailored onboarding and advisory",
-    ],
-  },
-];
+const FALLBACK_CARDS: PricingCard[] = mapCatalogToPricingCards(FALLBACK_CATALOG);
 
 export default function PricingPage() {
+  const [catalog, setCatalog] = useState<PlanCatalogEntry[]>(FALLBACK_CATALOG);
+  const [cards, setCards] = useState<PricingCard[]>(FALLBACK_CARDS);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+
+  useEffect(() => {
+    trackEvent("pricing_viewed", { source: "public_pricing_page" });
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchPlanCatalog()
+      .then((fetched) => {
+        if (cancelled) return;
+        const mapped = mapCatalogToPricingCards(fetched);
+        if (mapped.length > 0) {
+          setCatalog(fetched);
+          setCards(mapped);
+          setLoadError(false);
+        } else {
+          setLoadError(true);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setLoadError(true);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   return (
     <>
       <Head>
@@ -92,10 +82,15 @@ export default function PricingPage() {
       </MotionSection>
 
       <MotionSection className="marketing-section marketing-section-animated">
+        {loadError && (
+          <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-4 max-w-3xl mx-auto text-center">
+            We couldn&apos;t load the latest pricing just now, so we&apos;re showing our standard tiers. Refresh to retry.
+          </p>
+        )}
         <MotionStagger className="grid md:grid-cols-2 xl:grid-cols-4 gap-5" delay={0.04}>
-          {PUBLIC_PRICING.map((plan) => (
+          {cards.map((plan) => (
             <MotionItem
-              key={plan.name}
+              key={plan.id}
               className={`rounded-2xl overflow-hidden reveal-lift ${plan.popular ? "ring-2 ring-forest-900 shadow-xl" : "border border-slate-200"}`}
             >
               {plan.popular && (
@@ -104,8 +99,16 @@ export default function PricingPage() {
               <div className="p-6 bg-white h-full flex flex-col">
                 <h2 className="font-display text-xl font-bold text-forest-900">{plan.name}</h2>
                 <div className="mt-3 mb-5">
-                  <p className="font-display text-3xl font-bold text-forest-900">{plan.price}</p>
+                  <p className="font-display text-3xl font-bold text-forest-900">{plan.priceLabel}</p>
                   <p className="text-xs text-slate-500 mt-0.5">{plan.period}</p>
+                  {plan.monthlyNgn > 0 && plan.annualNgn > 0 && (
+                    <p className="text-[11px] text-emerald-600 mt-1">
+                      or ₦{plan.annualNgn.toLocaleString("en-NG")}/year (10% off)
+                    </p>
+                  )}
+                  {plan.teamSeats > 1 && (
+                    <p className="text-[11px] text-slate-400 mt-0.5">Up to {plan.teamSeats} team members</p>
+                  )}
                 </div>
                 <ul className="space-y-2.5 mb-6 flex-1">
                   {plan.features.map((feature) => (
@@ -116,20 +119,30 @@ export default function PricingPage() {
                   ))}
                 </ul>
                 <Link
-                  href={plan.href}
+                  href={plan.ctaHref}
                   className={`block text-center py-3 rounded-xl font-semibold text-sm transition-all ${
                     plan.popular ? "btn-primary" : "btn-outline"
                   }`}
                 >
-                  {plan.cta}
+                  {plan.ctaLabel}
                 </Link>
               </div>
             </MotionItem>
           ))}
         </MotionStagger>
-        <p className="text-sm text-slate-500 mt-6">
-          Need full plan logic, promo handling, or payment method selection? Sign in to access the workspace billing flow.
-        </p>
+        <div className="mt-6 text-sm text-slate-500 space-y-2">
+          <p>
+            {loading
+              ? "Loading the latest plan details..."
+              : "Sign in to access the full billing flow with promo codes, annual billing, and secure receipt upload."}
+          </p>
+          <p className="text-xs text-slate-400">
+            Direct Bank Transfer is the active payment method today; card and USSD payments via Paystack are coming soon.
+            Plans activate within 24 hours of receipt verification.
+          </p>
+        </div>
+
+        <PlanFeatureMatrix catalog={catalog} />
       </MotionSection>
     </>
   );

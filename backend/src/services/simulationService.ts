@@ -8,11 +8,12 @@ const logger = require('../utils/logger');
 const { getHourlySolarResource } = require('./solarResourceService');
 const { simulatePVGeneration, distributeHelioscapeToHourly } = require('./pvSimulationService');
 const { simulateBESS } = require('./bessSimulationService');
-const { buildHourlyTOUMap, calculateAnnualBill } = require('./tariffService');
-const { calculate25YearCashflow, calculateLCOE } = require('./financialService');
+const { buildHourlyTOUMap, calculateAnnualBill, resolveRatesForDate } = require('./tariffService');
+const { calculate25YearCashflow, calculateLCOE, runCashflowScenarios } = require('./financialService');
 const { calculateEnergyComparison } = require('./energyComparisonService');
 const { calculateProfileStats } = require('./loadProfileService');
 const { PANEL_TECHNOLOGIES, DEFAULT_PANEL_TECHNOLOGY, BATTERY_CHEMISTRIES, resolveChemistry } = require('../constants/technologyConstants');
+const { buildRunProvenance } = require('./simulationProvenance');
 
 const HOURS_PER_YEAR = 8760;
 const DAYS_PER_MONTH = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
@@ -35,17 +36,31 @@ async function runSimulation(projectDesignId) {
 
   if (dErr || !design) throw new Error('Project design not found');
 
-  // 2. Load tariff structure + rates + ancillary
+  // 2. Load tariff structure + rates + ancillary (effective as of design creation).
+  //    Using resolveRatesForDate so run_provenance can record the regime snapshot.
   let tariffStructure = null, tariffRates = [], ancillaryCharges = [];
+  let tariffMeta = null;
   if (design.tariff_structure_id) {
-    const [structRes, ratesRes, chargesRes] = await Promise.all([
-      supabase.from('tariff_structures').select('*').eq('id', design.tariff_structure_id).single(),
-      supabase.from('tariff_rates').select('*').eq('tariff_structure_id', design.tariff_structure_id),
-      supabase.from('tariff_ancillary_charges').select('*').eq('tariff_structure_id', design.tariff_structure_id),
-    ]);
-    tariffStructure = structRes.data;
-    tariffRates = ratesRes.data || [];
-    ancillaryCharges = chargesRes.data || [];
+    const asOf = design.created_at || new Date().toISOString();
+    const resolved = await resolveRatesForDate({
+      tariffStructureId: design.tariff_structure_id,
+      asOf,
+      supabase,
+    });
+    tariffStructure = resolved.structure;
+    tariffRates = resolved.rates;
+    ancillaryCharges = resolved.ancillaryCharges;
+    tariffMeta = {
+      tariff_structure_id: design.tariff_structure_id,
+      structure_name: tariffStructure?.name || null,
+      as_of: resolved.asOf,
+      band_hash: resolved.bandHash,
+      rates_count: tariffRates.length,
+      ancillary_count: ancillaryCharges.length,
+      effective_from: tariffStructure?.effective_from || null,
+      effective_to: tariffStructure?.effective_to || null,
+      out_of_window: Boolean(tariffStructure?.__out_of_window),
+    };
   }
 
   // 3. Load hourly load profile
@@ -73,6 +88,7 @@ async function runSimulation(projectDesignId) {
 
   // 5. Run PV simulation (use user-supplied specs if present)
   let hourlyPvKw;
+  let pvLossWaterfall = null;
   // Prefer user-supplied PV specs if present
   const pvCapacity = Number(design.pv_rated_power_kw) || Number(design.pv_capacity_kwp) || 0;
   const pvTech = design.pv_type || design.pv_technology || DEFAULT_PANEL_TECHNOLOGY;
@@ -103,6 +119,7 @@ async function runSimulation(projectDesignId) {
       current: pvCurrent,
     });
     hourlyPvKw = pvResult.hourlyAcKw;
+    pvLossWaterfall = pvResult.loss_waterfall || null;
   } else {
     hourlyPvKw = new Array(HOURS_PER_YEAR).fill(0);
   }
@@ -221,7 +238,7 @@ async function runSimulation(projectDesignId) {
   const annualPvKwh = bessResults.annual.solar_gen_kwh;
   const bessChemistryResolved = resolveChemistry(design.bess_chemistry);
 
-  const financials = calculate25YearCashflow({
+  const financialConfig = {
     analysisPeriodYears: Number(design.analysis_period_years) || 25,
     capexTotal,
     capexBreakdown: design.capex_breakdown || {},
@@ -243,7 +260,12 @@ async function runSimulation(projectDesignId) {
     ppaRatePerKwh: Number(design.ppa_rate_per_kwh) || 0,
     ppaEscalationPct: Number(design.ppa_escalation_pct) || 0,
     baselineAnnualCost,
-  });
+  };
+  const financials = calculate25YearCashflow(financialConfig);
+
+  // Monte Carlo risk envelope around the base case. Seeded so the same design
+  // always produces the same P10/P50/P90 band — CI-stable and audit-safe.
+  const financialRisk = runCashflowScenarios(financialConfig, { iterations: 500, seed: 1337 });
 
   // 10. Calculate LCOE
   const lcoeResult = calculateLCOE({
@@ -352,7 +374,7 @@ async function runSimulation(projectDesignId) {
   const feedInTariff = Number(design.feed_in_tariff_per_kwh) || 0;
   const feedInRevenue = feedInTariff > 0 ? Math.round(bessResults.annual.grid_export_kwh * feedInTariff * 100) / 100 : 0;
 
-  const results = {
+  const results: any = {
     project_design_id: projectDesignId,
     run_at: new Date().toISOString(),
     grid_topology: gridTopology,
@@ -446,6 +468,24 @@ async function runSimulation(projectDesignId) {
       feed_in_tariff_per_kwh: design.feed_in_tariff_per_kwh,
     },
   };
+
+  // 13b. Extended metrics: engine outputs that don't have dedicated columns.
+  //      Shape is versioned alongside run_provenance.engine_version.
+  results.extended_metrics = {
+    pv_loss_waterfall: pvLossWaterfall,
+    financial_risk: financialRisk,
+  };
+
+  // 13c. Provenance: stamp engine version, inputs hash, weather + tariff meta.
+  results.run_provenance = buildRunProvenance({
+    designSnapshot: results.design_snapshot,
+    weatherMeta: solarResource.meta || null,
+    tariffMeta,
+    extra: {
+      grid_topology: gridTopology,
+      analysis_period_years: Number(design.analysis_period_years) || 25,
+    },
+  });
 
   // 14. Store results
   const { data: stored, error: storeErr } = await supabase
@@ -576,6 +616,147 @@ function buildMonthlySummary(hourlyFlows, baselineBill, withSolarBill) {
   return monthly;
 }
 
+/**
+ * Lightweight "preview" simulation for the design wizard.
+ *
+ * Runs the same PV + BESS + finance engines as the full orchestrator but:
+ *   - Accepts an in-memory config (no project_designs / simulation_results row).
+ *   - Builds a flat load profile from annual_load_kwh (caller can later pass a
+ *     shape id once we productise that).
+ *   - Uses a simple flat tariff rate instead of TOU bands.
+ *   - Skips hourly persistence, AI narration, and energy-comparison modelling.
+ *
+ * The goal is sub-second feedback while the user tweaks slider inputs.
+ */
+async function runSimulationPreview(config) {
+  const {
+    lat = 6.5,
+    lon = 3.4,
+    pv_capacity_kwp = 0,
+    pv_technology = DEFAULT_PANEL_TECHNOLOGY,
+    tilt_deg,
+    azimuth_deg,
+    system_losses_pct = 14,
+    inverter_eff_pct = 96,
+    dc_ac_ratio = 1.2,
+    installation_type = 'rooftop_tilted',
+    bess_capacity_kwh = 0,
+    bess_chemistry = 'lfp',
+    bess_dod_pct = 80,
+    bess_c_rate = 0.5,
+    grid_topology = 'grid_tied_bess',
+    annual_load_kwh = 0,
+    baseline_tariff_per_kwh = 0,
+    capex_total = 0,
+    om_annual = 0,
+    om_escalation_pct = 5,
+    tariff_escalation_pct = 8,
+    discount_rate_pct = 10,
+    analysis_period_years = 25,
+    financing_type = 'cash',
+    include_risk = true,
+  } = config || {};
+
+  const solarResource = await getHourlySolarResource(Number(lat), Number(lon));
+
+  let hourlyPvKw = new Array(HOURS_PER_YEAR).fill(0);
+  let pvLossWaterfall = null;
+  if (pv_capacity_kwp > 0) {
+    const pvResult = simulatePVGeneration({
+      capacityKwp: Number(pv_capacity_kwp),
+      tiltDeg: Number(tilt_deg) || Math.abs(Number(lat)),
+      azimuthDeg: Number(azimuth_deg) || (Number(lat) >= 0 ? 180 : 0),
+      lat: Number(lat),
+      technology: pv_technology,
+      systemLossesPct: Number(system_losses_pct),
+      inverterEffPct: Number(inverter_eff_pct),
+      dcAcRatio: Number(dc_ac_ratio),
+      hourlyGhi: solarResource.hourlyGhi,
+      hourlyTemp: solarResource.hourlyTemp,
+      installationType: installation_type,
+      degradationYear: 1,
+    });
+    hourlyPvKw = pvResult.hourlyAcKw;
+    pvLossWaterfall = pvResult.loss_waterfall || null;
+  }
+
+  const avgLoadKw = Number(annual_load_kwh) > 0 ? Number(annual_load_kwh) / HOURS_PER_YEAR : 0;
+  const hourlyLoadKw = new Array(HOURS_PER_YEAR).fill(avgLoadKw);
+
+  let bessResults;
+  if (bess_capacity_kwh > 0 && grid_topology !== 'grid_tied') {
+    bessResults = simulateBESS({
+      capacityKwh: Number(bess_capacity_kwh),
+      chemistry: bess_chemistry,
+      dodPct: Number(bess_dod_pct),
+      cRate: Number(bess_c_rate),
+      strategy: 'self_consumption',
+      hourlyPvKw,
+      hourlyLoadKw,
+      gridTopology: grid_topology,
+    });
+  } else {
+    bessResults = calculatePVOnlyFlows(hourlyPvKw, hourlyLoadKw);
+  }
+
+  const annualPvKwh = bessResults.annual.solar_gen_kwh;
+  const solarUtilisedKwh = bessResults.annual.solar_utilised_kwh;
+  const gridImportKwh = bessResults.annual.grid_import_kwh;
+  const rate = Math.max(0, Number(baseline_tariff_per_kwh) || 0);
+  const baselineAnnualCost = Number(annual_load_kwh) * rate;
+  const withSolarAnnualCost = gridImportKwh * rate;
+  const year1Savings = baselineAnnualCost - withSolarAnnualCost;
+
+  const financialConfig = {
+    analysisPeriodYears: Number(analysis_period_years) || 25,
+    capexTotal: Number(capex_total) || 0,
+    omAnnual: Number(om_annual) || 0,
+    omEscalationPct: Number(om_escalation_pct) || 5,
+    tariffEscalationPct: Number(tariff_escalation_pct) || 8,
+    discountRatePct: Number(discount_rate_pct) || 10,
+    year1Savings,
+    year1GenKwh: annualPvKwh,
+    pvTechnology: pv_technology,
+    bessCapacityKwh: Number(bess_capacity_kwh) || 0,
+    bessChemistry: resolveChemistry(bess_chemistry),
+    bessDodPct: Number(bess_dod_pct) || 80,
+    annualBatteryCycles: bessResults.annual.battery_cycles || 0,
+    financingType: financing_type,
+    baselineAnnualCost,
+  };
+  const financials = calculate25YearCashflow(financialConfig);
+  const lcoe = calculateLCOE({
+    capexTotal: financialConfig.capexTotal,
+    omAnnual: financialConfig.omAnnual,
+    omEscalationPct: financialConfig.omEscalationPct,
+    discountRatePct: financialConfig.discountRatePct,
+    analysisPeriodYears: financialConfig.analysisPeriodYears,
+    year1GenKwh: annualPvKwh,
+    pvTechnology: pv_technology,
+  });
+
+  const financialRisk = include_risk
+    ? runCashflowScenarios(financialConfig, { iterations: 200, seed: 1337 })
+    : null;
+
+  return {
+    annual_solar_gen_kwh: annualPvKwh,
+    solar_utilised_kwh: solarUtilisedKwh,
+    grid_import_kwh: gridImportKwh,
+    year1_savings: Math.round(year1Savings),
+    baseline_annual_cost: Math.round(baselineAnnualCost),
+    npv_25yr: financials.npv,
+    irr_pct: financials.irr,
+    roi_pct: financials.roi,
+    simple_payback_months: financials.paybackMonths,
+    lcoe_normal: lcoe.lcoeNormal,
+    financial_risk: financialRisk,
+    pv_loss_waterfall: pvLossWaterfall,
+    weather_meta: solarResource.meta || null,
+  };
+}
+
 module.exports = {
   runSimulation,
+  runSimulationPreview,
 };

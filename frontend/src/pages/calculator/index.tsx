@@ -293,7 +293,6 @@ export default function Calculator() {
   }
 
   async function exportCalcPdf(type, inputs, results) {
-    const templateRef = useRef(null);
     const container = document.createElement('div');
     container.innerHTML = `
       <div style="display:none">

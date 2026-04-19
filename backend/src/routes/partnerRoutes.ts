@@ -10,5 +10,6 @@ router.get('/portal-events', requireAuth, partnerController.listPartnerEvents);
 router.get('/financier/funding-requests', requireAuth, partnerController.listFinancierFundingRequests);
 router.post('/financier/funding-requests', requireAuth, partnerController.createFinancierFundingRequest);
 router.get('/financier/financials-summary', requireAuth, partnerController.financierFinancialsSummary);
+router.get('/financier/escrow-decisions', requireAuth, partnerController.listFinancierEscrowDecisions);
 
 module.exports = router;

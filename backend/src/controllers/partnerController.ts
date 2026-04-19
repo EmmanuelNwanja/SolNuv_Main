@@ -306,6 +306,45 @@ exports.financierFinancialsSummary = async (req: Request, res: Response) => {
   }
 };
 
+exports.listFinancierEscrowDecisions = async (req: Request, res: Response) => {
+  try {
+    const userId = (req as unknown as { user?: { id: string } }).user?.id;
+    if (!userId) return sendError(res, 'Unauthorized', 401);
+
+    const memberships = await membershipsForUser(userId);
+    const financier = orgsOfType(memberships, 'financier');
+    if (!financier.length) return sendSuccess(res, { decisions: [] });
+
+    const orgIds = financier.map((m) => m.organization?.id).filter(Boolean) as string[];
+
+    const statusFilter = typeof req.query.status === 'string' ? req.query.status : null;
+    const limitRaw = Number(req.query.limit);
+    const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.min(limitRaw, 200) : 50;
+
+    let q = supabase
+      .from('v2_release_decisions')
+      .select(
+        'id, organization_id, project_id, escrow_account_id, decision_type, approved_release_amount_ngn, approved_hold_amount_ngn, failed_conditions, rationale, policy_version, condition_flags, tx_hash, chain_id, network_name, block_number, decided_at, created_at',
+      )
+      .in('organization_id', orgIds)
+      .order('decided_at', { ascending: false, nullsFirst: false })
+      .limit(limit);
+
+    if (statusFilter && ['RELEASE_APPROVED', 'PARTIAL_RELEASE', 'HOLD'].includes(statusFilter)) {
+      q = q.eq('decision_type', statusFilter);
+    }
+
+    const { data, error } = await q;
+    if (error) throw error;
+
+    return sendSuccess(res, { decisions: data || [] });
+  } catch (e: unknown) {
+    const err = e as { message?: string };
+    logger.error('listFinancierEscrowDecisions failed', { message: err.message });
+    return sendError(res, 'Failed to load escrow decisions', 500);
+  }
+};
+
 exports.listV2OrganizationsAdmin = async (req: Request, res: Response) => {
   try {
     const type = req.query?.organization_type as string | undefined;

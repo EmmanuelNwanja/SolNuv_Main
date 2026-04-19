@@ -8,6 +8,7 @@ import { LoadingSpinner } from '../components/ui/index';
 import { MotionSection } from '../components/PageMotion';
 import { RiCheckLine, RiArrowRightLine, RiBankLine, RiBankCardLine, RiUpload2Line, RiCloseLine } from 'react-icons/ri';
 import toast from 'react-hot-toast';
+import { trackEvent } from '../utils/telemetry';
 
 export default function Plans() {
   const { profile, plan: currentPlan, isPro } = useAuth();
@@ -68,6 +69,12 @@ export default function Plans() {
     setTransferFile(null);
     setTransferDone(false);
     setShowPaymentModal(true);
+    trackEvent('checkout_started', {
+      target_plan: planId,
+      current_plan: currentPlan,
+      billing_interval: billingInterval,
+      promo_code: promoResult?.plan_id === planId ? promoResult?.promo_code : null,
+    });
   }
 
   function closePaymentModal() {
@@ -82,23 +89,6 @@ export default function Plans() {
     if (!plan) return 0;
     if (promoResult?.plan_id === pendingPlan) return promoResult.payable_amount_ngn || 0;
     return billingInterval === 'annual' ? plan.annual_price_ngn : plan.monthly_price_ngn;
-  }
-
-  async function handlePaystackUpgrade() {
-    if (!pendingPlan) return;
-    setUpgrading(pendingPlan);
-    try {
-      const { data } = await paymentsAPI.initialize({
-        plan: pendingPlan,
-        billing_interval: billingInterval,
-        promo_code: promoResult?.plan_id === pendingPlan ? promoResult?.promo_code : null,
-      });
-      if (data.data?.authorization_url) {
-        window.location.href = data.data.authorization_url;
-      }
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to initialize payment');
-    } finally { setUpgrading(null); }
   }
 
   async function handleBankTransferSubmit() {
@@ -119,6 +109,12 @@ export default function Plans() {
 
       await paymentsAPI.submitBankTransfer(formData);
       setTransferDone(true);
+      trackEvent('checkout_submitted', {
+        target_plan: pendingPlan,
+        billing_interval: billingInterval,
+        amount_ngn: amount,
+        method: 'bank_transfer',
+      });
       toast.success('Submission received! An admin will verify and activate your plan within 24 hours.');
     } catch (err) {
       toast.error(err.response?.data?.message || err.message || 'Submission failed');

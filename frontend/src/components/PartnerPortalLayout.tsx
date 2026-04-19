@@ -25,6 +25,7 @@ import {
   RiMenuLine,
   RiLineChartLine,
   RiHandCoinLine,
+  RiShieldCheckLine,
 } from "react-icons/ri";
 import type { IconType } from "react-icons";
 import toast from "react-hot-toast";
@@ -112,6 +113,7 @@ export default function PartnerPortalLayout({ variant, children }: { variant: Va
       : [
           { href: base, icon: RiDashboardLine, label: "Dashboard", match: "exact" },
           { href: `${base}/financials`, icon: RiLineChartLine, label: "Financials", match: "prefix" },
+          { href: `${base}/escrow`, icon: RiShieldCheckLine, label: "Escrow decisions", match: "prefix" },
           { href: `${base}/funding`, icon: RiHandCoinLine, label: "Funding requests", match: "prefix" },
         ];
 
