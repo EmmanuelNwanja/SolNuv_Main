@@ -997,6 +997,135 @@ exports.verifyByQR = async (req, res) => {
   }
 };
 
+/**
+ * GET /api/projects/public/search?q=...
+ * Public portal search for tracked projects.
+ */
+exports.searchPublicProjects = async (req, res) => {
+  try {
+    const rawQuery = String(req.query.q || "").trim();
+    const limit = Math.min(20, Math.max(1, Number(req.query.limit) || 10));
+    const query = rawQuery.replace(/[,%]/g, "").slice(0, 80);
+
+    if (query.length < 3) {
+      return sendError(res, "Please enter at least 3 characters to search", 422);
+    }
+
+    const { data: projects, error } = await supabase
+      .from("projects")
+      .select(`
+        id,
+        user_id,
+        company_id,
+        name,
+        client_name,
+        status,
+        city,
+        state,
+        created_at,
+        installation_date,
+        qr_code_data,
+        geo_verified,
+        equipment(
+          equipment_type,
+          brand,
+          model,
+          quantity
+        )
+      `)
+      .or(`name.ilike.%${query}%,client_name.ilike.%${query}%,qr_code_data.ilike.%${query}%`)
+      .order("created_at", { ascending: false })
+      .limit(limit);
+
+    if (error) throw error;
+
+    const rows = projects || [];
+    const companyIds = [...new Set(rows.map((p) => p.company_id).filter(Boolean))];
+    const userIds = [...new Set(rows.map((p) => p.user_id).filter(Boolean))];
+
+    const [{ data: companies }, { data: users }] = await Promise.all([
+      companyIds.length
+        ? supabase
+            .from("companies")
+            .select("id,name,email,phone,address,city,state,logo_url,website,nesrea_registration_number")
+            .in("id", companyIds)
+        : Promise.resolve({ data: [] }),
+      userIds.length
+        ? supabase
+            .from("users")
+            .select("id,first_name,last_name,brand_name,verification_status,public_slug")
+            .in("id", userIds)
+        : Promise.resolve({ data: [] }),
+    ]);
+
+    const companyById = new Map((companies || []).map((c: any) => [c.id, c]));
+    const userById = new Map((users || []).map((u: any) => [u.id, u]));
+
+    const results = rows.map((project) => {
+      const company = project.company_id ? (companyById.get(project.company_id) as any) : null;
+      const owner = project.user_id ? (userById.get(project.user_id) as any) : null;
+      const equipment = project.equipment || [];
+      const manufacturers = {
+        panel: [...new Set(equipment.filter((e) => e.equipment_type === "panel").map((e) => e.brand).filter(Boolean))],
+        battery: [...new Set(equipment.filter((e) => e.equipment_type === "battery").map((e) => e.brand).filter(Boolean))],
+        inverter: [...new Set(equipment.filter((e) => e.equipment_type === "inverter").map((e) => e.brand).filter(Boolean))],
+      };
+
+      const installerName =
+        company?.name ||
+        owner?.brand_name ||
+        `${owner?.first_name || ""} ${owner?.last_name || ""}`.trim() ||
+        "Installer profile unavailable";
+
+      return {
+        project_id: project.id,
+        project_name: project.name,
+        client_name: project.client_name || null,
+        location: [project.city, project.state].filter(Boolean).join(", "),
+        state: project.state || null,
+        city: project.city || null,
+        tracked_on_solnuv: true,
+        tracking_status: project.status,
+        commissioning_date: project.installation_date || null,
+        added_for_tracking_at: project.created_at,
+        verification_status: project.geo_verified ? "verified" : "unverified",
+        equipment_count: equipment.length,
+        manufacturers,
+        equipment,
+        installer: {
+          name: installerName,
+          is_professionally_verified: owner?.verification_status === "verified",
+          verification_status: owner?.verification_status || "unknown",
+          public_slug: owner?.public_slug || null,
+        },
+        company_public_data: company
+          ? {
+              name: company.name || installerName,
+              email: company.email || null,
+              phone: company.phone || null,
+              address: company.address || null,
+              city: company.city || null,
+              state: company.state || null,
+              website: company.website || null,
+              logo_url: company.logo_url || null,
+              registration_number: company.nesrea_registration_number || null,
+            }
+          : null,
+        verify_url: project.qr_code_data ? `/projects/verify/${project.qr_code_data}` : null,
+      };
+    });
+
+    return sendSuccess(res, {
+      query,
+      count: results.length,
+      results,
+    });
+  } catch (error) {
+    logger.error("searchPublicProjects failed", { message: error.message });
+    return sendError(res, "Failed to search public projects", 500);
+  }
+};
+
 // ---------------------------------------------------------------------------
 // Equipment CRUD (only in draft / maintenance stages)
 // ---------------------------------------------------------------------------

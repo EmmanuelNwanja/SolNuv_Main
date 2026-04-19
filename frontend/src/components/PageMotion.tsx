@@ -1,4 +1,5 @@
 import { motion, useReducedMotion } from "framer-motion";
+import { useEffect, useRef } from "react";
 import type { ComponentProps, ReactNode } from "react";
 
 // Premium easing curve — matches Privado / Linear / Arc style: gentle accel,
@@ -50,6 +51,25 @@ const itemVariants = {
   },
 };
 
+function debugAnimLog(hypothesisId: string, location: string, message: string, data: Record<string, unknown>) {
+  fetch("http://127.0.0.1:7567/ingest/e8cc33b1-e17f-4a70-9052-be1634f820ff", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Debug-Session-Id": "fbdde2",
+    },
+    body: JSON.stringify({
+      sessionId: "fbdde2",
+      runId: "pre-fix",
+      hypothesisId,
+      location,
+      message,
+      data,
+      timestamp: Date.now(),
+    }),
+  }).catch(() => {});
+}
+
 // NOTE: the previous implementation used a `mounted` flag that rendered a
 // non-animated wrapper on the first render and only applied `initial="hidden"`
 // on re-render. That prevented animations from ever firing because
@@ -85,13 +105,38 @@ type MotionSectionProps = {
 
 export function MotionSection({ children, className = "", ...rest }: MotionSectionProps) {
   const reduceMotion = useReducedMotion();
+  const sectionLogIdRef = useRef(Math.random().toString(36).slice(2, 8));
   const sectionClass = `${className} w-full min-w-0`.trim();
+  const {
+    onViewportEnter: originalOnViewportEnter,
+    onViewportLeave: originalOnViewportLeave,
+    ...restProps
+  } = rest;
+
+  useEffect(() => {
+    // #region agent log
+    debugAnimLog("H1", "PageMotion.tsx:MotionSection", "MotionSection mounted", {
+      sectionId: sectionLogIdRef.current,
+      reduceMotion,
+      hasOriginalEnterHandler: typeof originalOnViewportEnter === "function",
+      hasOriginalLeaveHandler: typeof originalOnViewportLeave === "function",
+      className: sectionClass.slice(0, 120),
+      viewportOnce: true,
+    });
+    // #endregion
+  }, [originalOnViewportEnter, originalOnViewportLeave, reduceMotion, sectionClass]);
 
   if (reduceMotion) {
+    // #region agent log
+    debugAnimLog("H2", "PageMotion.tsx:MotionSection", "reduceMotion branch rendered", {
+      sectionId: sectionLogIdRef.current,
+      className: sectionClass.slice(0, 120),
+    });
+    // #endregion
     // Reuse motion.div so the rest props (onMouseMove, etc. — whose handler
     // signatures differ between HTMLAttributes and motion) remain type-compatible.
     return (
-      <motion.div className={sectionClass} {...rest}>
+      <motion.div className={sectionClass} {...restProps}>
         {children}
       </motion.div>
     );
@@ -103,8 +148,30 @@ export function MotionSection({ children, className = "", ...rest }: MotionSecti
       initial="hidden"
       whileInView="visible"
       viewport={{ once: true, amount: 0.15, margin: "0px 0px -80px 0px" }}
+      onViewportEnter={(...args) => {
+        // #region agent log
+        debugAnimLog("H3", "PageMotion.tsx:MotionSection", "viewport enter", {
+          sectionId: sectionLogIdRef.current,
+          className: sectionClass.slice(0, 120),
+        });
+        // #endregion
+        if (typeof originalOnViewportEnter === "function") {
+          originalOnViewportEnter(...args);
+        }
+      }}
+      onViewportLeave={(...args) => {
+        // #region agent log
+        debugAnimLog("H3", "PageMotion.tsx:MotionSection", "viewport leave", {
+          sectionId: sectionLogIdRef.current,
+          className: sectionClass.slice(0, 120),
+        });
+        // #endregion
+        if (typeof originalOnViewportLeave === "function") {
+          originalOnViewportLeave(...args);
+        }
+      }}
       className={sectionClass}
-      {...rest}
+      {...restProps}
     >
       {children}
     </motion.div>
@@ -121,9 +188,28 @@ export function MotionStagger({
   delay?: number;
 }) {
   const reduceMotion = useReducedMotion();
+  const staggerLogIdRef = useRef(Math.random().toString(36).slice(2, 8));
   const rootClass = `${className} w-full min-w-0`.trim();
 
+  useEffect(() => {
+    // #region agent log
+    debugAnimLog("H1", "PageMotion.tsx:MotionStagger", "MotionStagger mounted", {
+      staggerId: staggerLogIdRef.current,
+      reduceMotion,
+      delay,
+      viewportOnce: true,
+      className: rootClass.slice(0, 120),
+    });
+    // #endregion
+  }, [delay, reduceMotion, rootClass]);
+
   if (reduceMotion) {
+    // #region agent log
+    debugAnimLog("H2", "PageMotion.tsx:MotionStagger", "reduceMotion branch rendered", {
+      staggerId: staggerLogIdRef.current,
+      className: rootClass.slice(0, 120),
+    });
+    // #endregion
     return <div className={rootClass}>{children}</div>;
   }
 
@@ -143,6 +229,22 @@ export function MotionStagger({
       initial="hidden"
       whileInView="visible"
       viewport={{ once: true, amount: 0.15, margin: "0px 0px -80px 0px" }}
+      onViewportEnter={() => {
+        // #region agent log
+        debugAnimLog("H3", "PageMotion.tsx:MotionStagger", "viewport enter", {
+          staggerId: staggerLogIdRef.current,
+          className: rootClass.slice(0, 120),
+        });
+        // #endregion
+      }}
+      onViewportLeave={() => {
+        // #region agent log
+        debugAnimLog("H3", "PageMotion.tsx:MotionStagger", "viewport leave", {
+          staggerId: staggerLogIdRef.current,
+          className: rootClass.slice(0, 120),
+        });
+        // #endregion
+      }}
       variants={variants}
       className={rootClass}
     >

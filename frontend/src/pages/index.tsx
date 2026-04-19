@@ -1,6 +1,6 @@
 ﻿import Head from 'next/head';
 import Link from 'next/link';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, useMotionValue, useSpring, useTransform, useReducedMotion } from 'framer-motion';
 import {
   RiSunLine, RiLeafLine, RiFileTextLine, RiTrophyLine, RiArrowRightLine,
@@ -80,6 +80,25 @@ const EXPERIENCE_SNAPSHOTS = {
   },
 };
 
+function debugHomeLog(hypothesisId: string, location: string, message: string, data: Record<string, unknown>) {
+  fetch('http://127.0.0.1:7567/ingest/e8cc33b1-e17f-4a70-9052-be1634f820ff', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Debug-Session-Id': 'fbdde2',
+    },
+    body: JSON.stringify({
+      sessionId: 'fbdde2',
+      runId: 'pre-fix',
+      hypothesisId,
+      location,
+      message,
+      data,
+      timestamp: Date.now(),
+    }),
+  }).catch(() => {});
+}
+
 export default function Home() {
   const { session, loading, profileResolved, isOnboarded, isPlatformAdmin } = useAuth();
   const router = useRouter();
@@ -91,9 +110,34 @@ export default function Home() {
   const smoothY = useSpring(parallaxY, { stiffness: 60, damping: 18, mass: 0.8 });
   const mockupX = useTransform(smoothX, (v) => v * 18);
   const mockupY = useTransform(smoothY, (v) => v * 14);
+  const heroMoveLoggedRef = useRef(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    // #region agent log
+    debugHomeLog('H4', 'index.tsx:Home', 'home mounted env snapshot', {
+      reduceMotion,
+      viewportWidth: window.innerWidth,
+      viewportHeight: window.innerHeight,
+      prefersReducedMotion: window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+      hasHover: window.matchMedia('(hover: hover)').matches,
+      coarsePointer: window.matchMedia('(pointer: coarse)').matches,
+      anyCoarsePointer: window.matchMedia('(any-pointer: coarse)').matches,
+    });
+    // #endregion
+  }, [reduceMotion]);
 
   function handleHeroMouseMove(e: React.MouseEvent<HTMLDivElement>) {
     if (reduceMotion) return;
+    if (!heroMoveLoggedRef.current) {
+      heroMoveLoggedRef.current = true;
+      // #region agent log
+      debugHomeLog('H5', 'index.tsx:handleHeroMouseMove', 'first hero mouse move observed', {
+        reduceMotion,
+        viewportWidth: typeof window !== 'undefined' ? window.innerWidth : null,
+      });
+      // #endregion
+    }
     const rect = e.currentTarget.getBoundingClientRect();
     const nx = (e.clientX - rect.left) / rect.width - 0.5;
     const ny = (e.clientY - rect.top) / rect.height - 0.5;
@@ -246,12 +290,12 @@ export default function Home() {
           <MotionStagger className="grid lg:grid-cols-2 gap-8 items-end w-full min-w-0 relative z-10" delay={0.02}>
             <MotionItem className="min-w-0">
               <span className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-widest bg-white/10 text-emerald-200">
-                Solar engineering, financials, and compliance — unified
+                execute solar projects with operational confidence.
               </span>
               <AnimatedWords
                 as="h1"
                 className="marketing-hero-dark-title mt-4"
-                text={"Design. Track. Recover.\n solar projects with operational confidence."}
+                text={"Design. Track. Recover. Comply."}
                 initialDelay={0.15}
                 stagger={0.05}
               />
@@ -260,7 +304,7 @@ export default function Home() {
               </p>
               <div className="marketing-cta-row">
                 <Link href="/register" className="btn-amber inline-flex items-center gap-2">
-                  Create account <RiArrowRightLine />
+                  Get Started <RiArrowRightLine />
                 </Link>
                 <Link href="/pricing" className="btn-on-dark w-full sm:w-auto">
                   See plans and pricing
@@ -313,28 +357,49 @@ export default function Home() {
         </MotionSection>
 
         {/* PARTNERS / ECOSYSTEM */}
-        <section className="py-10 bg-white border-b border-slate-100 overflow-hidden">
-          <div className="max-w-7xl mx-auto px-4 mb-5 text-center">
-            <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">Ecosystem Leaders &amp; Brands</p>
-          </div>
-          <div className="relative overflow-hidden mb-3">
-            <div className="flex gap-3 w-max animate-partner-scroll hover:[animation-play-state:paused]">
-              {[...PARTNERS_ROW1, ...PARTNERS_ROW1].map((p, i) => (
-                <div key={i} className={`flex-shrink-0 flex items-center gap-2.5 px-4 py-2.5 rounded-xl border text-sm font-semibold whitespace-nowrap ${p.color}`}>
-                  <span>{p.name}</span>
-                  <span className="text-xs font-normal opacity-60">{p.tag}</span>
-                </div>
-              ))}
+        <section className="marketing-section py-0">
+          <div className="rounded-3xl border border-slate-200/70 bg-white/90 shadow-[0_14px_36px_rgba(15,23,42,0.06)] px-4 sm:px-6 lg:px-8 py-8 sm:py-9 overflow-hidden">
+            <div className="mb-6 text-center">
+              <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">Ecosystem Leaders &amp; Brands</p>
             </div>
-          </div>
-          <div className="relative overflow-hidden">
-            <div className="flex gap-3 w-max animate-partner-scroll-reverse hover:[animation-play-state:paused]">
-              {[...PARTNERS_ROW2, ...PARTNERS_ROW2].map((p, i) => (
-                <div key={i} className={`flex-shrink-0 flex items-center gap-2.5 px-4 py-2.5 rounded-xl border text-sm font-semibold whitespace-nowrap ${p.color}`}>
-                  <span>{p.name}</span>
-                  <span className="text-xs font-normal opacity-60">{p.tag}</span>
-                </div>
-              ))}
+
+            <div className="relative overflow-hidden mb-3 sm:mb-4">
+              <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-10 sm:w-16 bg-gradient-to-r from-white via-white/80 to-transparent" />
+              <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-10 sm:w-16 bg-gradient-to-l from-white via-white/80 to-transparent" />
+              <div className="flex gap-3 w-max animate-partner-scroll hover:[animation-play-state:paused]">
+                {[...PARTNERS_ROW1, ...PARTNERS_ROW1].map((p, i) => (
+                  <div key={i} className={`flex-shrink-0 flex items-center gap-2.5 px-4 py-2.5 rounded-xl border text-sm font-semibold whitespace-nowrap ${p.color}`}>
+                    <span>{p.name}</span>
+                    <span className="text-xs font-normal opacity-60">{p.tag}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="relative overflow-hidden mb-3 sm:mb-4">
+              <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-10 sm:w-16 bg-gradient-to-r from-white via-white/80 to-transparent" />
+              <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-10 sm:w-16 bg-gradient-to-l from-white via-white/80 to-transparent" />
+              <div className="flex gap-3 w-max animate-partner-scroll-reverse hover:[animation-play-state:paused]">
+                {[...PARTNERS_ROW2, ...PARTNERS_ROW2].map((p, i) => (
+                  <div key={i} className={`flex-shrink-0 flex items-center gap-2.5 px-4 py-2.5 rounded-xl border text-sm font-semibold whitespace-nowrap ${p.color}`}>
+                    <span>{p.name}</span>
+                    <span className="text-xs font-normal opacity-60">{p.tag}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="relative overflow-hidden">
+              <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-10 sm:w-16 bg-gradient-to-r from-white via-white/80 to-transparent" />
+              <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-10 sm:w-16 bg-gradient-to-l from-white via-white/80 to-transparent" />
+              <div className="flex gap-3 w-max animate-partner-scroll hover:[animation-play-state:paused]">
+                {[...PARTNERS_ROW3, ...PARTNERS_ROW3].map((p, i) => (
+                  <div key={i} className={`flex-shrink-0 flex items-center gap-2.5 px-4 py-2.5 rounded-xl border text-sm font-semibold whitespace-nowrap ${p.color}`}>
+                    <span>{p.name}</span>
+                    <span className="text-xs font-normal opacity-60">{p.tag}</span>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </section>

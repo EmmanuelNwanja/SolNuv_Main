@@ -15,6 +15,7 @@ const batteryLedgerLogLimiter = rateLimit({
 });
 
 router.get('/verify/:qrCode', projectController.verifyByQR); // public
+router.get('/public/search', projectController.searchPublicProjects); // public portal search
 router.get('/battery-ledger/:qrCode', projectController.getBatteryLedgerByQr); // public QR ledger
 router.post('/battery-ledger/:qrCode/log', batteryLedgerLogLimiter, optionalAuth, projectController.addBatteryHealthLogByQr); // token-authorized write submit
 router.use(requireAuth, requireProfile);

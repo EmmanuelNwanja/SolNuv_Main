@@ -31,6 +31,7 @@ import {
   RiCloseLine,
   RiRocketLine,
   RiCodeSSlashLine,
+  RiArrowDownSLine,
 } from "react-icons/ri";
 import type { IconType } from "react-icons";
 import toast from "react-hot-toast";
@@ -367,9 +368,15 @@ export function getPublicLayout(page: ReactElement): ReactElement {
       { href: "/#how-it-works", label: "How it works", activeHref: "/#how-it-works" },
       { href: "/#platform", label: "Platform", activeHref: "/#platform" },
       { href: "/pricing", label: "Pricing", activeHref: "/pricing" },
-      { href: "/blog", label: "Resources", activeHref: "/blog" },
       { href: "/contact", label: "Contact", activeHref: "/contact" },
     ] as const;
+    const resourceItems = [
+      { href: "/blog", label: "Blog", activeHref: "/blog" },
+      { href: "/faq", label: "FAQ", activeHref: "/faq" },
+      { href: "/jobs-opportunities", label: "Jobs & Opportunities", activeHref: "/jobs-opportunities" },
+      { href: "/project-verification", label: "Project Verification", activeHref: "/project-verification" },
+    ] as const;
+    const resourcesActive = resourceItems.some(({ activeHref }) => isActive(activeHref));
 
     useEffect(() => {
       function onRouteDone() {
@@ -408,6 +415,28 @@ export function getPublicLayout(page: ReactElement): ReactElement {
                   {label}
                 </Link>
               ))}
+              <div className="marketing-nav-dropdown">
+                <button
+                  type="button"
+                  className={resourcesActive ? "marketing-nav-link-active marketing-nav-dropdown-trigger" : "marketing-nav-dropdown-trigger"}
+                  aria-haspopup="menu"
+                  aria-expanded={resourcesActive}
+                >
+                  Resources <RiArrowDownSLine className="text-base" />
+                </button>
+                <div className="marketing-nav-dropdown-menu" role="menu" aria-label="Resources">
+                  {resourceItems.map(({ href, label, activeHref }) => (
+                    <Link
+                      key={href}
+                      href={href}
+                      role="menuitem"
+                      className={isActive(activeHref) ? "marketing-nav-dropdown-item marketing-nav-dropdown-item-active" : "marketing-nav-dropdown-item"}
+                    >
+                      {label}
+                    </Link>
+                  ))}
+                </div>
+              </div>
             </nav>
             <div className="marketing-nav-cta">
               <ThemeToggle compact />
@@ -445,6 +474,19 @@ export function getPublicLayout(page: ReactElement): ReactElement {
               >
                 <nav className="marketing-mobile-drawer-inner">
                   {publicNavItems.map(({ href, label, activeHref }) => (
+                    <Link
+                      key={href}
+                      href={href}
+                      className={isActive(activeHref) ? "marketing-mobile-link marketing-mobile-link-active" : "marketing-mobile-link"}
+                      onClick={() => setMobileNavOpen(false)}
+                    >
+                      {label}
+                    </Link>
+                  ))}
+                  <p className="marketing-mobile-link-secondary text-[11px] font-semibold uppercase tracking-widest text-slate-500 border-0 pt-2 mt-1">
+                    Resources
+                  </p>
+                  {resourceItems.map(({ href, label, activeHref }) => (
                     <Link
                       key={href}
                       href={href}
@@ -496,6 +538,8 @@ export function getPublicLayout(page: ReactElement): ReactElement {
               <div className="marketing-footer-links">
                 <Link href="/blog">Blog</Link>
                 <Link href="/faq">FAQ</Link>
+                <Link href="/jobs-opportunities">Jobs & Opportunities</Link>
+                <Link href="/project-verification">Project Verification</Link>
                 <Link href="/terms">Terms</Link>
                 <Link href="/privacy">Privacy</Link>
               </div>

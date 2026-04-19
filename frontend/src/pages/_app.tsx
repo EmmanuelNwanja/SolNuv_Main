@@ -12,6 +12,25 @@ import "../styles/globals.css";
 
 let _pvSession: string | null = null;
 
+function debugAppLog(hypothesisId: string, location: string, message: string, data: Record<string, unknown>) {
+  fetch("http://127.0.0.1:7567/ingest/e8cc33b1-e17f-4a70-9052-be1634f820ff", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Debug-Session-Id": "fbdde2",
+    },
+    body: JSON.stringify({
+      sessionId: "fbdde2",
+      runId: "pre-fix",
+      hypothesisId,
+      location,
+      message,
+      data,
+      timestamp: Date.now(),
+    }),
+  }).catch(() => {});
+}
+
 function getSessionId(): string {
   if (_pvSession) return _pvSession;
   try {
@@ -52,6 +71,15 @@ function AppShell({ Component, pageProps, router }: AppProps) {
     if (typeof window === "undefined") return;
     const buildVersion = process.env.NEXT_PUBLIC_APP_VERSION || "local";
     let hasReloadedForUpdate = false;
+    // #region agent log
+    debugAppLog("H1", "_app.tsx:service-worker", "service worker effect start", {
+      buildVersion,
+      nodeEnv: process.env.NODE_ENV,
+      hasServiceWorkerApi: "serviceWorker" in navigator,
+      hasController: Boolean(navigator.serviceWorker?.controller),
+      prefersReducedMotion: window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+    });
+    // #endregion
 
     // Previously we showed a toast asking the user to click "Reload now"
     // before the new SW could take control. Many returning visitors missed
@@ -63,6 +91,12 @@ function AppShell({ Component, pageProps, router }: AppProps) {
     function activateWaitingWorker(registration: ServiceWorkerRegistration) {
       const waiting = registration?.waiting;
       if (!waiting) return;
+      // #region agent log
+      debugAppLog("H1", "_app.tsx:service-worker", "activating waiting worker", {
+        hasWaitingWorker: true,
+        scope: registration.scope,
+      });
+      // #endregion
       try {
         waiting.postMessage({ type: "SKIP_WAITING" });
       } catch {
@@ -80,6 +114,11 @@ function AppShell({ Component, pageProps, router }: AppProps) {
     }
 
     function onControllerChange() {
+      // #region agent log
+      debugAppLog("H1", "_app.tsx:service-worker", "controllerchange fired", {
+        hasReloadedForUpdate,
+      });
+      // #endregion
       if (hasReloadedForUpdate) return;
       hasReloadedForUpdate = true;
       window.location.reload();
@@ -91,11 +130,23 @@ function AppShell({ Component, pageProps, router }: AppProps) {
         navigator.serviceWorker
           .register(`/sw.js?v=${encodeURIComponent(buildVersion)}`)
           .then((registration) => {
+            // #region agent log
+            debugAppLog("H1", "_app.tsx:service-worker", "service worker registered", {
+              scope: registration.scope,
+              hasWaitingWorker: Boolean(registration.waiting),
+              hasInstallingWorker: Boolean(registration.installing),
+            });
+            // #endregion
             if (registration.waiting) {
               activateWaitingWorker(registration);
             }
 
             registration.addEventListener("updatefound", () => {
+              // #region agent log
+              debugAppLog("H1", "_app.tsx:service-worker", "service worker updatefound", {
+                hasInstallingWorker: Boolean(registration.installing),
+              });
+              // #endregion
               watchInstallingWorker(registration.installing, registration);
             });
 

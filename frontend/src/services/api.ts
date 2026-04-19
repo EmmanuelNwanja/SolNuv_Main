@@ -216,6 +216,7 @@ export const projectsAPI = {
   requestRecovery: (id: string, data: JsonRecord) => api.post(`/projects/${id}/recovery`, data),
   exportCSV: () => api.get("/projects/export/csv", { responseType: "blob" }),
   verify: (qrCode: string) => api.get(`/projects/verify/${qrCode}`),
+  searchPublic: (params: JsonRecord) => api.get("/projects/public/search", { params }),
   getBatteryLedgerByQr: (qrCode: string) => api.get(`/projects/battery-ledger/${qrCode}`),
   addBatteryLogByQr: (qrCode: string, data: JsonRecord) =>
     api.post(`/projects/battery-ledger/${qrCode}/log`, data),
@@ -464,6 +465,29 @@ export const faqAPI = {
   adminCreate: (data: JsonRecord) => api.post("/faq/admin", data),
   adminUpdate: (id: string, data: JsonRecord) => api.patch(`/faq/admin/${id}`, data),
   adminDelete: (id: string) => api.delete(`/faq/admin/${id}`),
+};
+
+export const opportunitiesAPI = {
+  listPublic: (params?: JsonRecord) => api.get("/opportunities", { params }),
+  apply: (id: string, data: JsonRecord) => api.post(`/opportunities/${id}/apply`, data),
+  adminList: (params?: JsonRecord) => api.get("/opportunities/admin/list", { params }),
+  adminCreate: (data: JsonRecord) => api.post("/opportunities/admin", data),
+  adminUpdate: (id: string, data: JsonRecord) => api.patch(`/opportunities/admin/${id}`, data),
+  adminDelete: (id: string) => api.delete(`/opportunities/admin/${id}`),
+  adminListApplications: (params?: JsonRecord) => api.get("/opportunities/admin/applications/list", { params }),
+  adminUpdateApplication: (id: string, data: JsonRecord) =>
+    api.patch(`/opportunities/admin/applications/${id}`, data),
+};
+
+export const integrationAPI = {
+  list: () => api.get("/integrations"),
+  create: (data: JsonRecord) => api.post("/integrations", data),
+  update: (id: string, data: JsonRecord) => api.patch(`/integrations/${id}`, data),
+  delete: (id: string) => api.delete(`/integrations/${id}`),
+  test: (id: string) => api.post(`/integrations/${id}/test`),
+  previewDispatch: (id: string, data: JsonRecord) => api.post(`/integrations/${id}/dispatch/preview`, data),
+  dispatch: (id: string, data: JsonRecord) => api.post(`/integrations/${id}/dispatch`, data),
+  listLogs: (params?: JsonRecord) => api.get("/integrations/logs/list", { params }),
 };
 
 export const analyticsAPI = {
