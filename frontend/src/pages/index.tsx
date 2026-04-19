@@ -28,21 +28,30 @@ const PARTNERS_ROW1 = [
   { name: 'REA Nigeria', tag: 'Electrification', color: 'text-forest-900 bg-amber-50 border-amber-200' },
   { name: 'REAN', tag: 'Industry Body', color: 'text-emerald-800 bg-emerald-50 border-emerald-200' },
   { name: 'NERC', tag: 'Tariff Regulator', color: 'text-slate-800 bg-slate-50 border-slate-200' },
-  { name: 'Jinko Solar', tag: 'Panel Brand', color: 'text-forest-900 bg-white border-slate-200' },
-  { name: 'BYD', tag: 'Battery Brand', color: 'text-slate-800 bg-slate-50 border-slate-200' },
-  { name: 'Growatt', tag: 'Inverter Brand', color: 'text-emerald-800 bg-emerald-50 border-emerald-200' },
+  { name: 'Jinko Solar', tag: 'OEM', color: 'text-forest-900 bg-white border-slate-200' },
+  { name: 'BYD', tag: 'OEM', color: 'text-slate-800 bg-slate-50 border-slate-200' },
+  { name: 'Growatt', tag: 'OEM', color: 'text-emerald-800 bg-emerald-50 border-emerald-200' },
 ];
 const PARTNERS_ROW2 = [
-  { name: 'Schneider Electric', tag: 'Energy Systems', color: 'text-slate-800 bg-slate-50 border-slate-200' },
+  { name: 'Schneider Electric', tag: 'OEM', color: 'text-slate-800 bg-slate-50 border-slate-200' },
   { name: 'UNDP Nigeria', tag: 'Development', color: 'text-forest-900 bg-amber-50 border-amber-200' },
   { name: 'SolarAid', tag: 'Solar Access', color: 'text-amber-700 bg-amber-50 border-amber-200' },
-  { name: 'Longi Solar', tag: 'Panel Brand', color: 'text-forest-900 bg-emerald-50 border-emerald-200' },
-  { name: 'Victron Energy', tag: 'Power Systems', color: 'text-slate-800 bg-slate-50 border-slate-200' },
-  { name: 'Pylontech', tag: 'Storage', color: 'text-emerald-800 bg-emerald-50 border-emerald-200' },
-  { name: 'GreenTech Africa', tag: 'Impact Partner', color: 'text-forest-900 bg-white border-slate-200' },
-  { name: 'NAERG', tag: 'Renewable Energy', color: 'text-slate-800 bg-slate-50 border-slate-200' },
+  { name: 'Longi Solar', tag: 'OEM', color: 'text-forest-900 bg-emerald-50 border-emerald-200' },
+  { name: 'Victron Energy', tag: 'OEM', color: 'text-slate-800 bg-slate-50 border-slate-200' },
+  { name: 'Pylontech', tag: 'OEM', color: 'text-emerald-800 bg-emerald-50 border-emerald-200' },
+  { name: 'GreenTech Africa', tag: 'Impact Facilitator', color: 'text-forest-900 bg-white border-slate-200' },
+  { name: 'NAERG', tag: 'Renewables', color: 'text-slate-800 bg-slate-50 border-slate-200' },
 ];
-
+const PARTNERS_ROW3 = [
+  { name: 'Trina Solar', tag: 'EPR Framework', color: 'text-forest-900 bg-emerald-50 border-emerald-200' },
+  { name: 'Huawei', tag: 'OEM', color: 'text-slate-800 bg-slate-50 border-slate-200' },
+  { name: 'Deye', tag: 'OEM', color: 'text-forest-900 bg-amber-50 border-amber-200' },
+  { name: 'OCEL', tag: 'Recycler', color: 'text-emerald-800 bg-emerald-50 border-emerald-200' },
+  { name: 'MUST', tag: 'OEM', color: 'text-slate-800 bg-slate-50 border-slate-200' },
+  { name: 'JA Solar', tag: 'OEM', color: 'text-forest-900 bg-white border-slate-200' },
+  { name: 'Risen Solar', tag: 'OEM', color: 'text-slate-800 bg-slate-50 border-slate-200' },
+  { name: 'Luminous', tag: 'OEM', color: 'text-emerald-800 bg-emerald-50 border-emerald-200' },
+];
 const EXPERIENCE_SNAPSHOTS = {
   dashboard: {
     src: "/platform-snapshots/dashboard.png",
@@ -242,7 +251,7 @@ export default function Home() {
               <AnimatedWords
                 as="h1"
                 className="marketing-hero-dark-title mt-4"
-                text={"Design, finance, and track solar\nprojects with operational confidence."}
+                text={"Design. Track. Recover.\n solar projects with operational confidence."}
                 initialDelay={0.15}
                 stagger={0.05}
               />
@@ -306,7 +315,7 @@ export default function Home() {
         {/* PARTNERS / ECOSYSTEM */}
         <section className="py-10 bg-white border-b border-slate-100 overflow-hidden">
           <div className="max-w-7xl mx-auto px-4 mb-5 text-center">
-            <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">Ecosystem Partners &amp; Supported Brands</p>
+            <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">Ecosystem Leaders &amp; Brands</p>
           </div>
           <div className="relative overflow-hidden mb-3">
             <div className="flex gap-3 w-max animate-partner-scroll hover:[animation-play-state:paused]">

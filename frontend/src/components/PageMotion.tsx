@@ -1,6 +1,5 @@
 import { motion, useReducedMotion } from "framer-motion";
 import type { ComponentProps, ReactNode } from "react";
-import { useEffect, useState } from "react";
 
 // Premium easing curve — matches Privado / Linear / Arc style: gentle accel,
 // soft settle. Avoids the "pop" feel of default springs.
@@ -28,15 +27,39 @@ const sectionVariants = {
   },
 };
 
+const staggerVariants = {
+  hidden: { opacity: 0, y: 28 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.7,
+      ease: PREMIUM_EASE,
+      staggerChildren: 0.09,
+    },
+  },
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 32, scale: 0.97 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    transition: { duration: 0.65, ease: PREMIUM_EASE },
+  },
+};
+
+// NOTE: the previous implementation used a `mounted` flag that rendered a
+// non-animated wrapper on the first render and only applied `initial="hidden"`
+// on re-render. That prevented animations from ever firing because
+// framer-motion's `initial` only runs once (on first mount). We now render
+// the motion wrapper immediately and rely on `useReducedMotion` to opt out.
+
 export function PageMotion({ children }: { children: ReactNode }) {
   const reduceMotion = useReducedMotion();
-  const [mounted, setMounted] = useState(false);
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  if (!mounted || reduceMotion) {
+  if (reduceMotion) {
     return <div className="w-full min-w-0">{children}</div>;
   }
 
@@ -62,15 +85,11 @@ type MotionSectionProps = {
 
 export function MotionSection({ children, className = "", ...rest }: MotionSectionProps) {
   const reduceMotion = useReducedMotion();
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
   const sectionClass = `${className} w-full min-w-0`.trim();
 
-  if (!mounted || reduceMotion) {
+  if (reduceMotion) {
+    // Reuse motion.div so the rest props (onMouseMove, etc. — whose handler
+    // signatures differ between HTMLAttributes and motion) remain type-compatible.
     return (
       <motion.div className={sectionClass} {...rest}>
         {children}
@@ -83,7 +102,7 @@ export function MotionSection({ children, className = "", ...rest }: MotionSecti
       variants={sectionVariants}
       initial="hidden"
       whileInView="visible"
-      viewport={{ once: true, amount: "some", margin: "0px 0px -40px 0px" }}
+      viewport={{ once: true, amount: 0.15, margin: "0px 0px -80px 0px" }}
       className={sectionClass}
       {...rest}
     >
@@ -91,19 +110,6 @@ export function MotionSection({ children, className = "", ...rest }: MotionSecti
     </motion.div>
   );
 }
-
-const staggerVariants = {
-  hidden: { opacity: 0, y: 28 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: {
-      duration: 0.7,
-      ease: PREMIUM_EASE,
-      staggerChildren: 0.09,
-    },
-  },
-};
 
 export function MotionStagger({
   children,
@@ -115,14 +121,10 @@ export function MotionStagger({
   delay?: number;
 }) {
   const reduceMotion = useReducedMotion();
-  const [mounted, setMounted] = useState(false);
+  const rootClass = `${className} w-full min-w-0`.trim();
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  if (!mounted || reduceMotion) {
-    return <motion.div className={`${className} w-full min-w-0`.trim()}>{children}</motion.div>;
+  if (reduceMotion) {
+    return <div className={rootClass}>{children}</div>;
   }
 
   const variants = {
@@ -140,9 +142,9 @@ export function MotionStagger({
     <motion.div
       initial="hidden"
       whileInView="visible"
-      viewport={{ once: true, amount: "some", margin: "0px 0px -48px 0px" }}
+      viewport={{ once: true, amount: 0.15, margin: "0px 0px -80px 0px" }}
       variants={variants}
-      className={`${className} w-full min-w-0`.trim()}
+      className={rootClass}
     >
       {children}
     </motion.div>
@@ -150,19 +152,12 @@ export function MotionStagger({
 }
 
 export function MotionItem({ children, className = "" }: { children: ReactNode; className?: string }) {
+  const reduceMotion = useReducedMotion();
+  if (reduceMotion) {
+    return <div className={className}>{children}</div>;
+  }
   return (
-    <motion.div
-      variants={{
-        hidden: { opacity: 0, y: 32, scale: 0.97 },
-        visible: {
-          opacity: 1,
-          y: 0,
-          scale: 1,
-          transition: { duration: 0.65, ease: PREMIUM_EASE },
-        },
-      }}
-      className={className}
-    >
+    <motion.div variants={itemVariants} className={className}>
       {children}
     </motion.div>
   );
@@ -188,18 +183,22 @@ export function AnimatedWords({
   as = "h1",
 }: AnimatedWordsProps) {
   const reduceMotion = useReducedMotion();
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   const Tag = motion[as] as typeof motion.h1;
 
   const lines = text.split("\n");
 
-  if (!mounted || reduceMotion) {
-    return <Tag className={className}>{text}</Tag>;
+  if (reduceMotion) {
+    const PlainTag = as as keyof JSX.IntrinsicElements;
+    return (
+      <PlainTag className={className}>
+        {lines.map((line, i) => (
+          <span key={`pl-${i}`} style={{ display: "block" }}>
+            {line}
+          </span>
+        ))}
+      </PlainTag>
+    );
   }
 
   let wordIndex = 0;
