@@ -160,6 +160,21 @@ api.interceptors.response.use(
               detail: { parsed, url: err.config?.url ?? null },
             })
           );
+        } else if (status === 429) {
+          // Plain rate-limit 429 (express-rate-limit). Surface a distinct
+          // event so UI can show a throttled toast instead of silent failure.
+          const retryAfterHeader = err.response?.headers?.["retry-after"];
+          const retryAfter =
+            typeof retryAfterHeader === "string" ? Number(retryAfterHeader) : null;
+          window.dispatchEvent(
+            new CustomEvent("solnuv:rate-limited", {
+              detail: {
+                url: err.config?.url ?? null,
+                retryAfterSeconds: Number.isFinite(retryAfter) ? retryAfter : null,
+                message: parsed.message,
+              },
+            })
+          );
         }
       }
     }

@@ -1,6 +1,7 @@
 ﻿import Head from 'next/head';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
+import { motion, useMotionValue, useSpring, useTransform, useReducedMotion } from 'framer-motion';
 import {
   RiSunLine, RiLeafLine, RiFileTextLine, RiTrophyLine, RiArrowRightLine,
   RiCheckLine, RiShieldCheckLine, RiMapPinLine, RiFlashlightLine,
@@ -11,7 +12,7 @@ import {
 import { calculatorAPI, dashboardAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useRouter } from 'next/router';
-import { MotionItem, MotionSection, MotionStagger } from '../components/PageMotion';
+import { AnimatedWords, MotionItem, MotionSection, MotionStagger } from '../components/PageMotion';
 import { getPublicLayout } from '../components/Layout';
 
 const CLIMATE_ZONES = [
@@ -73,6 +74,27 @@ const EXPERIENCE_SNAPSHOTS = {
 export default function Home() {
   const { session, loading, profileResolved, isOnboarded, isPlatformAdmin } = useAuth();
   const router = useRouter();
+
+  const reduceMotion = useReducedMotion();
+  const parallaxX = useMotionValue(0);
+  const parallaxY = useMotionValue(0);
+  const smoothX = useSpring(parallaxX, { stiffness: 60, damping: 18, mass: 0.8 });
+  const smoothY = useSpring(parallaxY, { stiffness: 60, damping: 18, mass: 0.8 });
+  const mockupX = useTransform(smoothX, (v) => v * 18);
+  const mockupY = useTransform(smoothY, (v) => v * 14);
+
+  function handleHeroMouseMove(e: React.MouseEvent<HTMLDivElement>) {
+    if (reduceMotion) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const nx = (e.clientX - rect.left) / rect.width - 0.5;
+    const ny = (e.clientY - rect.top) / rect.height - 0.5;
+    parallaxX.set(nx);
+    parallaxY.set(ny);
+  }
+  function handleHeroMouseLeave() {
+    parallaxX.set(0);
+    parallaxY.set(0);
+  }
 
   const [calcTab, setCalcTab] = useState('panel');
   const [silverForm, setSilverForm] = useState({
@@ -203,17 +225,27 @@ export default function Home() {
       </Head>
 
       <div className="font-body relative">
-        <MotionSection className="marketing-section-dark marketing-section-animated rounded-3xl overflow-hidden mb-8" id="top">
-          <MotionStagger className="grid lg:grid-cols-2 gap-8 items-end w-full min-w-0" delay={0.02}>
+        <MotionSection
+          className="marketing-section-dark marketing-section-animated rounded-3xl overflow-hidden mb-8 relative"
+          id="top"
+          onMouseMove={handleHeroMouseMove}
+          onMouseLeave={handleHeroMouseLeave}
+        >
+          <span aria-hidden="true" className="hero-orb hero-orb-1" />
+          <span aria-hidden="true" className="hero-orb hero-orb-2" />
+          <span aria-hidden="true" className="hero-orb hero-orb-3" />
+          <MotionStagger className="grid lg:grid-cols-2 gap-8 items-end w-full min-w-0 relative z-10" delay={0.02}>
             <MotionItem className="min-w-0">
               <span className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-widest bg-white/10 text-emerald-200">
                 Solar engineering, financials, and compliance — unified
               </span>
-              <h1 className="marketing-hero-dark-title mt-4">
-                Design, finance, and track solar
-                <br />
-                projects with operational confidence.
-              </h1>
+              <AnimatedWords
+                as="h1"
+                className="marketing-hero-dark-title mt-4"
+                text={"Design, finance, and track solar\nprojects with operational confidence."}
+                initialDelay={0.15}
+                stagger={0.05}
+              />
               <p className="text-base md:text-lg text-white/75 leading-relaxed mt-5 max-w-2xl">
                 One workspace for solar + BESS design, scenario-based financial modelling, lifecycle evidence, and compliance-ready reporting. Built for teams that need defensible outputs and auditable workflows.
               </p>
@@ -250,24 +282,29 @@ export default function Home() {
                   <p className="text-xs text-white/65 mt-1">{s.label}</p>
                 </MotionItem>
               ))}
-              <MotionItem className="col-span-1 min-[400px]:col-span-2 marketing-snapshot-card reveal-lift min-w-0">
-                <img
-                  src={EXPERIENCE_SNAPSHOTS.dashboard.src}
-                  alt={EXPERIENCE_SNAPSHOTS.dashboard.title}
-                  className="marketing-snapshot-media"
-                  loading="lazy"
-                />
-                <div className="marketing-snapshot-meta">
-                  <h3 className="marketing-snapshot-title">{EXPERIENCE_SNAPSHOTS.dashboard.title}</h3>
-                  <p className="marketing-snapshot-copy">{EXPERIENCE_SNAPSHOTS.dashboard.copy}</p>
-                </div>
+              <MotionItem className="col-span-1 min-[400px]:col-span-2 min-w-0">
+                <motion.div
+                  className="marketing-snapshot-card reveal-lift"
+                  style={{ x: mockupX, y: mockupY }}
+                >
+                  <img
+                    src={EXPERIENCE_SNAPSHOTS.dashboard.src}
+                    alt={EXPERIENCE_SNAPSHOTS.dashboard.title}
+                    className="marketing-snapshot-media"
+                    loading="lazy"
+                  />
+                  <div className="marketing-snapshot-meta">
+                    <h3 className="marketing-snapshot-title">{EXPERIENCE_SNAPSHOTS.dashboard.title}</h3>
+                    <p className="marketing-snapshot-copy">{EXPERIENCE_SNAPSHOTS.dashboard.copy}</p>
+                  </div>
+                </motion.div>
               </MotionItem>
             </MotionStagger>
           </MotionStagger>
         </MotionSection>
 
-        {/* PARTNERS / ECOSYSTEM — hidden until signed partnership agreements are in place */}
-        {false && <section className="py-10 bg-white border-b border-slate-100 overflow-hidden">
+        {/* PARTNERS / ECOSYSTEM */}
+        <section className="py-10 bg-white border-b border-slate-100 overflow-hidden">
           <div className="max-w-7xl mx-auto px-4 mb-5 text-center">
             <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">Ecosystem Partners &amp; Supported Brands</p>
           </div>
@@ -291,7 +328,7 @@ export default function Home() {
               ))}
             </div>
           </div>
-        </section>}
+        </section>
 
         <MotionSection className="marketing-section marketing-section-animated">
           <span className="marketing-kicker">Portfolio Signals</span>
@@ -308,14 +345,14 @@ export default function Home() {
 
         {/* HOW IT WORKS */}
         <MotionSection id="how-it-works" className="marketing-section marketing-section-animated">
-          <div className="grid lg:grid-cols-2 gap-8 items-start">
-            <div>
+          <MotionStagger className="grid lg:grid-cols-2 gap-8 items-start" delay={0.02}>
+            <MotionItem>
               <span className="marketing-kicker">How It Works</span>
               <h2 className="marketing-headline">From setup to lifecycle governance</h2>
               <p className="marketing-subcopy">
                 SolNuv structures project operations into a clear sequence so technical work, partner communication, and compliance evidence remain synchronised.
               </p>
-            </div>
+            </MotionItem>
             <MotionItem className="marketing-snapshot-card reveal-lift">
               <img
                 src={EXPERIENCE_SNAPSHOTS.design.src}
@@ -328,7 +365,7 @@ export default function Home() {
                 <p className="marketing-snapshot-copy">{EXPERIENCE_SNAPSHOTS.design.copy}</p>
               </div>
             </MotionItem>
-          </div>
+          </MotionStagger>
           <MotionStagger className="marketing-card-grid" delay={0.03}>
               {[
                 { step: '01', icon: RiShieldCheckLine, title: 'Set roles & boundaries', desc: 'Configure clear permissions for your team, installers, managers, analysts, partners, and reviewers so every activity is attributable and auditable.' },
@@ -418,11 +455,11 @@ export default function Home() {
 
         {/* LIVE CALCULATOR */}
         <MotionSection id="calculator" className="marketing-section marketing-section-animated">
-            <div className="text-center mb-10">
+            <MotionItem className="text-center mb-10">
               <span className="text-xs font-semibold uppercase tracking-widest text-emerald-600">Try It Now</span>
               <h2 className="section-title mb-4 mt-2">See What Your Panels Are Worth</h2>
               <p className="text-slate-500">No account needed. Run a sample estimate to see lifecycle value signals for panel assets.</p>
-            </div>
+            </MotionItem>
             <div className="bg-white rounded-3xl shadow-lg overflow-hidden">
               <div className="marketing-tab-strip snap-x snap-mandatory sm:snap-none">
                 {[
@@ -568,11 +605,11 @@ export default function Home() {
 
         {/* FEATURES */}
         <MotionSection className="marketing-section marketing-section-animated" id="platform">
-            <div className="text-center mb-14">
+            <MotionItem className="text-center mb-14">
               <span className="text-xs font-semibold uppercase tracking-widest text-emerald-600">Platform Capabilities</span>
               <h2 className="section-title mb-4 mt-2">Built for technical teams and commercial outcomes</h2>
               <p className="text-slate-500 max-w-xl mx-auto">Core capabilities designed to improve delivery quality, stakeholder confidence, and operational consistency.</p>
-            </div>
+            </MotionItem>
             <MotionStagger className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6" delay={0.03}>
               {[
                 { icon: RiBatteryChargeLine, color: 'bg-forest-900', title: 'Solar + storage design workflows', desc: 'Create and refine technical configurations with structured inputs, comparison views, and consistent output formats.' },
@@ -613,10 +650,10 @@ export default function Home() {
 
         {/* WHO IT'S FOR */}
         <MotionSection className="marketing-section marketing-section-animated">
-            <div className="text-center mb-12">
+            <MotionItem className="text-center mb-12">
               <span className="text-xs font-semibold uppercase tracking-widest text-emerald-600">Who Uses SolNuv</span>
               <h2 className="section-title mb-4 mt-2">Built for modern solar stakeholders</h2>
-            </div>
+            </MotionItem>
             <MotionStagger className="grid sm:grid-cols-2 xl:grid-cols-4 gap-6" delay={0.03}>
               {[
                 {
@@ -658,18 +695,30 @@ export default function Home() {
 
         {/* CTA */}
         <MotionSection className="marketing-section-dark marketing-section-animated text-center">
-            <span className="text-xs font-semibold uppercase tracking-widest text-emerald-400 mb-3 block">Start in minutes</span>
-            <h2 className="marketing-hero-dark-title mb-4">Build higher-confidence solar workflows<br />with one connected platform</h2>
-            <p className="text-white/70 mb-8 max-w-xl mx-auto">Support technical decisions, partner communication, and lifecycle accountability with tools designed for modern solar operations.</p>
-            <div className="flex flex-col w-full max-w-md sm:max-w-none mx-auto sm:flex-row flex-wrap justify-center gap-3 sm:gap-4 px-1">
-              <Link href="/register" className="btn-amber inline-flex items-center justify-center gap-2 text-base px-8 py-4 rounded-2xl w-full sm:w-auto">
-                Create Your Account <RiArrowRightLine />
-              </Link>
-              <Link href="/contact" className="btn-on-dark px-6 py-4 rounded-2xl text-sm w-full sm:w-auto">
-                Partner With Us
-              </Link>
-            </div>
-            <p className="text-white/40 text-xs mt-6">No credit card required · Structured onboarding · Plan controls for teams and partners</p>
+          <MotionStagger delay={0.02}>
+            <MotionItem>
+              <span className="text-xs font-semibold uppercase tracking-widest text-emerald-400 mb-3 block">Start in minutes</span>
+            </MotionItem>
+            <MotionItem>
+              <h2 className="marketing-hero-dark-title mb-4">Build higher-confidence solar workflows<br />with one connected platform</h2>
+            </MotionItem>
+            <MotionItem>
+              <p className="text-white/70 mb-8 max-w-xl mx-auto">Support technical decisions, partner communication, and lifecycle accountability with tools designed for modern solar operations.</p>
+            </MotionItem>
+            <MotionItem>
+              <div className="flex flex-col w-full max-w-md sm:max-w-none mx-auto sm:flex-row flex-wrap justify-center gap-3 sm:gap-4 px-1">
+                <Link href="/register" className="btn-amber inline-flex items-center justify-center gap-2 text-base px-8 py-4 rounded-2xl w-full sm:w-auto">
+                  Create Your Account <RiArrowRightLine />
+                </Link>
+                <Link href="/contact" className="btn-on-dark px-6 py-4 rounded-2xl text-sm w-full sm:w-auto">
+                  Partner With Us
+                </Link>
+              </div>
+            </MotionItem>
+            <MotionItem>
+              <p className="text-white/40 text-xs mt-6">No credit card required · Structured onboarding · Plan controls for teams and partners</p>
+            </MotionItem>
+          </MotionStagger>
         </MotionSection>
       </div>
     </>

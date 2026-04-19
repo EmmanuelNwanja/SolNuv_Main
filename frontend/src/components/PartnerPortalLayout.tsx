@@ -82,7 +82,8 @@ export default function PartnerPortalLayout({ variant, children }: { variant: Va
       }
     }
     void load();
-    const t = setInterval(() => void load(), 60000);
+    const intervalMs = 90_000 + Math.floor(Math.random() * 30_000);
+    const t = setInterval(() => void load(), intervalMs);
     return () => {
       alive = false;
       clearInterval(t);
