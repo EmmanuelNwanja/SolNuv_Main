@@ -94,7 +94,10 @@ export default function Layout({ children }: { children: ReactNode }) {
     }
 
     void fetchNotifications();
-    const interval = setInterval(() => void fetchNotifications(), 60000);
+    // Jittered interval (90–120s) so multiple open tabs don't sync-fire and
+    // burst against the backend polling limiter.
+    const intervalMs = 90_000 + Math.floor(Math.random() * 30_000);
+    const interval = setInterval(() => void fetchNotifications(), intervalMs);
 
     return () => {
       isActive = false;

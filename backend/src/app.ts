@@ -60,12 +60,36 @@ app.options('*', cors(corsOptions));
 // ==============================
 // RATE LIMITING
 // ==============================
+// Key rate limits by authenticated user when possible so teammates behind a
+// single NAT / office IP and multi-tab users don't share one bucket. Parsing
+// the JWT without verifying is safe here because this key is only used for
+// bucketing — auth is still enforced by authMiddleware.
+function rateLimitKey(req) {
+  const header = req.headers && req.headers.authorization;
+  if (typeof header === 'string' && header.startsWith('Bearer ')) {
+    const token = header.slice(7);
+    const parts = token.split('.');
+    if (parts.length === 3) {
+      try {
+        const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'));
+        if (payload && typeof payload.sub === 'string' && payload.sub.length > 0) {
+          return `u:${payload.sub}`;
+        }
+      } catch {
+        /* fall through to IP */
+      }
+    }
+  }
+  return `ip:${req.ip}`;
+}
+
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 mins
-  max: 200,
+  max: 600, // ~40 req/min average — headroom for multi-tab users
   message: { success: false, message: 'Too many requests. Please try again in 15 minutes.' },
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: rateLimitKey,
   skip: (req) => {
     // Skip rate limiting for public read-only endpoints
     const publicPaths = [
@@ -86,6 +110,7 @@ const authSensitiveLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
   max: 20,
   message: { success: false, message: 'Too many auth attempts. Please try again later.' },
+  keyGenerator: rateLimitKey,
 });
 
 const pollingLimiter = rateLimit({
@@ -94,13 +119,18 @@ const pollingLimiter = rateLimit({
   message: { success: false, message: 'Too many requests. Please slow down.' },
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: rateLimitKey,
 });
 
 app.use(globalLimiter);
 
-// Higher limit for polling endpoints
+// Higher limit for polling / UI-critical read endpoints. These are hit on
+// every dashboard visit and navigation; share the more generous per-minute
+// bucket so a normal multi-tab session does not exhaust the 15-minute global.
 app.use('/api/auth/notifications', pollingLimiter);
 app.use('/api/dashboard/leaderboard', pollingLimiter);
+app.use('/api/dashboard', pollingLimiter);
+app.use('/api/calculator/saved', pollingLimiter);
 
 // ==============================
 // BODY PARSING

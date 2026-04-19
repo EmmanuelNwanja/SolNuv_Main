@@ -167,8 +167,26 @@ function AppShell({ Component, pageProps, router }: AppProps) {
     }
 
     window.addEventListener("solnuv:unauthorized", handleUnauthorized);
+
+    // Suppress a burst of rate-limit toasts; show at most once per minute.
+    let lastRateLimitAt = 0;
+    function handleRateLimited(ev: Event) {
+      const now = Date.now();
+      if (now - lastRateLimitAt < 60_000) return;
+      lastRateLimitAt = now;
+      const detail = (ev as CustomEvent<{ retryAfterSeconds: number | null }>).detail;
+      const retry = detail?.retryAfterSeconds;
+      const wait =
+        typeof retry === "number" && retry > 0
+          ? `Please retry in ${retry < 60 ? `${retry}s` : `${Math.ceil(retry / 60)}m`}.`
+          : "Please slow down and try again in a moment.";
+      toast.error(`Too many requests. ${wait}`, { duration: 5000 });
+    }
+    window.addEventListener("solnuv:rate-limited", handleRateLimited);
+
     return () => {
       window.removeEventListener("solnuv:unauthorized", handleUnauthorized);
+      window.removeEventListener("solnuv:rate-limited", handleRateLimited);
       if ("serviceWorker" in navigator) {
         navigator.serviceWorker.removeEventListener("controllerchange", onControllerChange);
       }
