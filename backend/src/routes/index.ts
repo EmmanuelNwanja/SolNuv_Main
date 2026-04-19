@@ -24,6 +24,8 @@ router.use('/v2', require('./v2Routes'));
 router.use('/partner', require('./partnerRoutes'));
 router.use('/api-keys', require('./apiKeyRoutes'));
 router.use('/v1/public', require('./publicApiRoutes'));
+router.use('/opportunities', require('./opportunityRoutes'));
+router.use('/integrations', require('./integrationRoutes'));
 
 // Public (unauthenticated) endpoints
 const adminController = require('../controllers/adminController');

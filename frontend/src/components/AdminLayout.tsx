@@ -22,6 +22,7 @@ import {
   RiSunLine,
   RiSearchEyeLine,
   RiTeamLine,
+  RiBriefcaseLine,
 } from "react-icons/ri";
 import type { IconType } from "react-icons";
 import { useAuth } from "../context/AuthContext";
@@ -66,6 +67,7 @@ const adminNavSections: AdminNavSection[] = [
       { href: "/admin/blog", label: "Blog & Ads", icon: RiArticleLine },
       { href: "/admin/contact", label: "Contact Inbox", icon: RiMailLine },
       { href: "/admin/faq", label: "FAQ Management", icon: RiQuestionLine },
+      { href: "/admin/opportunities", label: "Jobs & Opportunities", icon: RiBriefcaseLine },
     ],
   },
   {

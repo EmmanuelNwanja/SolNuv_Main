@@ -357,28 +357,49 @@ export default function Home() {
         </MotionSection>
 
         {/* PARTNERS / ECOSYSTEM */}
-        <section className="py-10 bg-white border-b border-slate-100 overflow-hidden">
-          <div className="max-w-7xl mx-auto px-4 mb-5 text-center">
-            <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">Ecosystem Leaders &amp; Brands</p>
-          </div>
-          <div className="relative overflow-hidden mb-3">
-            <div className="flex gap-3 w-max animate-partner-scroll hover:[animation-play-state:paused]">
-              {[...PARTNERS_ROW1, ...PARTNERS_ROW1].map((p, i) => (
-                <div key={i} className={`flex-shrink-0 flex items-center gap-2.5 px-4 py-2.5 rounded-xl border text-sm font-semibold whitespace-nowrap ${p.color}`}>
-                  <span>{p.name}</span>
-                  <span className="text-xs font-normal opacity-60">{p.tag}</span>
-                </div>
-              ))}
+        <section className="marketing-section py-0">
+          <div className="rounded-3xl border border-slate-200/70 bg-white/90 shadow-[0_14px_36px_rgba(15,23,42,0.06)] px-4 sm:px-6 lg:px-8 py-8 sm:py-9 overflow-hidden">
+            <div className="mb-6 text-center">
+              <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">Ecosystem Leaders &amp; Brands</p>
             </div>
-          </div>
-          <div className="relative overflow-hidden">
-            <div className="flex gap-3 w-max animate-partner-scroll-reverse hover:[animation-play-state:paused]">
-              {[...PARTNERS_ROW2, ...PARTNERS_ROW2].map((p, i) => (
-                <div key={i} className={`flex-shrink-0 flex items-center gap-2.5 px-4 py-2.5 rounded-xl border text-sm font-semibold whitespace-nowrap ${p.color}`}>
-                  <span>{p.name}</span>
-                  <span className="text-xs font-normal opacity-60">{p.tag}</span>
-                </div>
-              ))}
+
+            <div className="relative overflow-hidden mb-3 sm:mb-4">
+              <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-10 sm:w-16 bg-gradient-to-r from-white via-white/80 to-transparent" />
+              <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-10 sm:w-16 bg-gradient-to-l from-white via-white/80 to-transparent" />
+              <div className="flex gap-3 w-max animate-partner-scroll hover:[animation-play-state:paused]">
+                {[...PARTNERS_ROW1, ...PARTNERS_ROW1].map((p, i) => (
+                  <div key={i} className={`flex-shrink-0 flex items-center gap-2.5 px-4 py-2.5 rounded-xl border text-sm font-semibold whitespace-nowrap ${p.color}`}>
+                    <span>{p.name}</span>
+                    <span className="text-xs font-normal opacity-60">{p.tag}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="relative overflow-hidden mb-3 sm:mb-4">
+              <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-10 sm:w-16 bg-gradient-to-r from-white via-white/80 to-transparent" />
+              <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-10 sm:w-16 bg-gradient-to-l from-white via-white/80 to-transparent" />
+              <div className="flex gap-3 w-max animate-partner-scroll-reverse hover:[animation-play-state:paused]">
+                {[...PARTNERS_ROW2, ...PARTNERS_ROW2].map((p, i) => (
+                  <div key={i} className={`flex-shrink-0 flex items-center gap-2.5 px-4 py-2.5 rounded-xl border text-sm font-semibold whitespace-nowrap ${p.color}`}>
+                    <span>{p.name}</span>
+                    <span className="text-xs font-normal opacity-60">{p.tag}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="relative overflow-hidden">
+              <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-10 sm:w-16 bg-gradient-to-r from-white via-white/80 to-transparent" />
+              <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-10 sm:w-16 bg-gradient-to-l from-white via-white/80 to-transparent" />
+              <div className="flex gap-3 w-max animate-partner-scroll hover:[animation-play-state:paused]">
+                {[...PARTNERS_ROW3, ...PARTNERS_ROW3].map((p, i) => (
+                  <div key={i} className={`flex-shrink-0 flex items-center gap-2.5 px-4 py-2.5 rounded-xl border text-sm font-semibold whitespace-nowrap ${p.color}`}>
+                    <span>{p.name}</span>
+                    <span className="text-xs font-normal opacity-60">{p.tag}</span>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </section>
