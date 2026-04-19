@@ -123,7 +123,13 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
     applies_to_plans: ['free', 'pro', 'elite', 'enterprise'],
   });
 
-  const [newPush, setNewPush] = useState({ title: '', message: '', target_type: 'all', target_value: '' });
+  const [newPush, setNewPush] = useState({
+    title: '',
+    message: '',
+    target_type: 'all',
+    target_value: '',
+    delivery_mode: 'inbox',
+  });
 
   // Direct Bank Transfer state
   const [directPayments, setDirectPayments] = useState([]);
@@ -355,7 +361,7 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
     try {
       await adminAPI.sendPushNotification(newPush);
       toast.success('Push notification sent');
-      setNewPush({ title: '', message: '', target_type: 'all', target_value: '' });
+      setNewPush({ title: '', message: '', target_type: 'all', target_value: '', delivery_mode: 'inbox' });
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to send notification');
     }
@@ -1707,6 +1713,19 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
               <option value="user">Single User ID</option>
             </select>
             <input className="input" value={newPush.target_value} onChange={(e) => setNewPush((p) => ({ ...p, target_value: e.target.value }))} placeholder="Target value (optional)" />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <select
+              className="input"
+              value={newPush.delivery_mode}
+              onChange={(e) => setNewPush((p) => ({ ...p, delivery_mode: e.target.value }))}
+            >
+              <option value="inbox">Inbox only</option>
+              <option value="inbox_popup">Inbox + Popup</option>
+            </select>
+            <div className="text-xs text-slate-500 px-2 py-2">
+              Popup notifications appear instantly on active user sessions and are also saved to notifications.
+            </div>
           </div>
           <button type="submit" className="btn-primary">Send Notification</button>
         </form>

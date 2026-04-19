@@ -29,6 +29,22 @@ export default function NotificationsPage() {
       .finally(() => setLoading(false));
   }, []);
 
+  useEffect(() => {
+    function onNewNotification(ev) {
+      const detail = ev?.detail;
+      if (!detail?.id) return;
+      setNotifications((prev) => {
+        if (prev.some((n) => n.id === detail.id)) return prev;
+        return [detail, ...prev];
+      });
+    }
+    if (typeof window !== 'undefined') {
+      window.addEventListener('solnuv:notification:new', onNewNotification);
+      return () => window.removeEventListener('solnuv:notification:new', onNewNotification);
+    }
+    return;
+  }, []);
+
   return (
     <>
       <Head><title>Notifications — SolNuv</title></Head>
@@ -63,6 +79,11 @@ export default function NotificationsPage() {
                       <p className="text-sm font-semibold text-slate-800">{item.title}</p>
                       <p className="text-sm text-slate-600 mt-1 leading-relaxed">{item.message}</p>
                       <p className="text-xs text-slate-400 mt-2 capitalize">{String(item.type || '').replace('_', ' ')}</p>
+                      {item?.data?.delivery_mode === 'inbox_popup' && (
+                        <span className="inline-flex mt-2 text-[10px] px-2 py-0.5 rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700">
+                          Popup delivery
+                        </span>
+                      )}
                     </div>
                     <span className="text-xs text-slate-400 whitespace-nowrap">{formatDate(item.created_at)}</span>
                   </div>

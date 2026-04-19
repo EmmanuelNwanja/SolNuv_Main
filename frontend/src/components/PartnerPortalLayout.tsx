@@ -29,6 +29,7 @@ import {
 } from "react-icons/ri";
 import type { IconType } from "react-icons";
 import toast from "react-hot-toast";
+import { supabase } from "../utils/supabase";
 
 type Variant = "recycler" | "financier";
 
@@ -41,6 +42,10 @@ interface NavEntry {
 }
 
 interface NotificationRow {
+  id?: string;
+  title?: string;
+  message?: string;
+  data?: Record<string, unknown> | null;
   is_read?: boolean;
   [key: string]: unknown;
 }
@@ -89,6 +94,50 @@ export default function PartnerPortalLayout({ variant, children }: { variant: Va
       clearInterval(t);
     };
   }, [session]);
+
+  useEffect(() => {
+    if (!session || !profile?.id) return;
+    const shownIds = new Set<string>();
+
+    const channel = supabase
+      .channel(`partner-notifications-${profile.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "notifications",
+          filter: `user_id=eq.${profile.id}`,
+        },
+        (payload) => {
+          const row = (payload.new || {}) as NotificationRow;
+          setUnreadCount((c) => c + 1);
+          const notifId = String(row.id || "");
+          const deliveryMode = String((row.data as Record<string, unknown> | null)?.delivery_mode || "");
+          const popupDelivery = Boolean((row.data as Record<string, unknown> | null)?.popup_delivery);
+          if ((deliveryMode === "inbox_popup" || popupDelivery) && notifId && !shownIds.has(notifId)) {
+            shownIds.add(notifId);
+            toast.custom(
+              () => (
+                <div className="max-w-sm rounded-xl border border-emerald-200 bg-white shadow-lg px-4 py-3">
+                  <p className="text-sm font-semibold text-slate-900">{row.title || "Notification"}</p>
+                  <p className="text-xs text-slate-600 mt-1 leading-relaxed">{row.message || ""}</p>
+                </div>
+              ),
+              { duration: 8000 }
+            );
+          }
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(new CustomEvent("solnuv:notification:new", { detail: row }));
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [session, profile?.id]);
 
   useEffect(() => {
     if (router.pathname.endsWith("/notifications")) setUnreadCount(0);
