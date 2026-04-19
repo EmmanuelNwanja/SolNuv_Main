@@ -3,7 +3,7 @@ import type { ReactElement, ReactNode } from "react";
 import { AuthProvider } from "../context/AuthContext";
 import { ThemeProvider } from "../context/ThemeContext";
 import { FloatingThemeToggle } from "../components/ThemeToggle";
-import { toast, Toaster, type Toast } from "react-hot-toast";
+import { toast, Toaster } from "react-hot-toast";
 import ErrorBoundary from "../components/ErrorBoundary";
 import UpgradeModal from "../components/UpgradeModal";
 import { useEffect } from "react";
@@ -51,53 +51,30 @@ function AppShell({ Component, pageProps, router }: AppProps) {
   useEffect(() => {
     if (typeof window === "undefined") return;
     const buildVersion = process.env.NEXT_PUBLIC_APP_VERSION || "local";
-    const shownVersionKey = "snuv-update-toast-version";
     let hasReloadedForUpdate = false;
 
-    function promptForUpdate(registration: ServiceWorkerRegistration) {
+    // Previously we showed a toast asking the user to click "Reload now"
+    // before the new SW could take control. Many returning visitors missed
+    // it and kept running a stale bundle, which made post-deploy fixes
+    // invisible. We now apply updates automatically: as soon as a new
+    // worker finishes installing we tell it to skipWaiting, and the
+    // controllerchange listener below reloads the tab once the new worker
+    // takes control.
+    function activateWaitingWorker(registration: ServiceWorkerRegistration) {
+      const waiting = registration?.waiting;
+      if (!waiting) return;
       try {
-        if (sessionStorage.getItem(shownVersionKey) === buildVersion) return;
-        sessionStorage.setItem(shownVersionKey, buildVersion);
+        waiting.postMessage({ type: "SKIP_WAITING" });
       } catch {
         /* ignore */
       }
-
-      toast((t: Toast) => (
-        <div style={{ display: "grid", gap: "8px" }}>
-          <strong>New version available</strong>
-          <span style={{ fontSize: "13px" }}>Refresh to load the latest fixes and features.</span>
-          <button
-            type="button"
-            onClick={() => {
-              const waiting = registration?.waiting;
-              if (waiting) {
-                waiting.postMessage({ type: "SKIP_WAITING" });
-              } else {
-                window.location.reload();
-              }
-              toast.dismiss(t.id);
-            }}
-            style={{
-              border: "none",
-              borderRadius: "10px",
-              padding: "8px 10px",
-              background: "#0f766e",
-              color: "#fff",
-              fontWeight: 700,
-              cursor: "pointer",
-            }}
-          >
-            Reload now
-          </button>
-        </div>
-      ), { duration: 12000, position: "bottom-right" });
     }
 
     function watchInstallingWorker(worker: ServiceWorker | null, registration: ServiceWorkerRegistration) {
       if (!worker) return;
       worker.addEventListener("statechange", () => {
         if (worker.state === "installed" && navigator.serviceWorker.controller) {
-          promptForUpdate(registration);
+          activateWaitingWorker(registration);
         }
       });
     }
@@ -115,7 +92,7 @@ function AppShell({ Component, pageProps, router }: AppProps) {
           .register(`/sw.js?v=${encodeURIComponent(buildVersion)}`)
           .then((registration) => {
             if (registration.waiting) {
-              promptForUpdate(registration);
+              activateWaitingWorker(registration);
             }
 
             registration.addEventListener("updatefound", () => {

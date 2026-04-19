@@ -674,10 +674,30 @@ body {
   animation-delay: -7s;
 }
 
+/* Word-by-word headline reveal (AnimatedWords component).
+   Pure CSS so the hero always renders correctly even if client JS
+   fails to hydrate the motion wrapper. Delay is set inline per word. */
+@keyframes solnuvWordReveal {
+  from { opacity: 0; transform: translate3d(0, 18px, 0); }
+  to   { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+.anim-word {
+  display: inline-block;
+  opacity: 0;
+  transform: translate3d(0, 18px, 0);
+  animation: solnuvWordReveal 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: transform, opacity;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .marketing-section-animated::before,
   .marketing-section-animated::after,
   .hero-orb {
+    animation: none !important;
+  }
+  .anim-word {
+    opacity: 1 !important;
+    transform: none !important;
     animation: none !important;
   }
   .reveal-lift {

@@ -173,7 +173,10 @@ type AnimatedWordsProps = {
 };
 
 // Word-by-word staggered reveal — Privado.ai / Invisible.ai-style headline
-// animation. Preserves newlines so copy can be broken into stanzas.
+// animation. Uses a pure CSS keyframe (`solnuv-word-reveal`, defined in
+// globals.css) instead of framer-motion so the animation plays even if
+// JS hydration is delayed, fails, or a stale service worker serves an
+// older bundle. Preserves newlines so copy can be broken into stanzas.
 export function AnimatedWords({
   text,
   className = "",
@@ -182,37 +185,12 @@ export function AnimatedWords({
   stagger = 0.05,
   as = "h1",
 }: AnimatedWordsProps) {
-  const reduceMotion = useReducedMotion();
-
-  const Tag = motion[as] as typeof motion.h1;
-
+  const Tag = as as keyof JSX.IntrinsicElements;
   const lines = text.split("\n");
-
-  if (reduceMotion) {
-    const PlainTag = as as keyof JSX.IntrinsicElements;
-    return (
-      <PlainTag className={className}>
-        {lines.map((line, i) => (
-          <span key={`pl-${i}`} style={{ display: "block" }}>
-            {line}
-          </span>
-        ))}
-      </PlainTag>
-    );
-  }
 
   let wordIndex = 0;
   return (
-    <Tag
-      className={className}
-      initial="hidden"
-      animate="visible"
-      variants={{
-        hidden: {},
-        visible: { transition: { delayChildren: initialDelay, staggerChildren: stagger } },
-      }}
-      aria-label={text}
-    >
+    <Tag className={className} aria-label={text}>
       {lines.map((line, lineIdx) => (
         <span
           key={`line-${lineIdx}`}
@@ -221,27 +199,25 @@ export function AnimatedWords({
           {line.split(/(\s+)/).map((token) => {
             if (/^\s+$/.test(token)) {
               return (
-                <span key={`sp-${wordIndex++}`} style={{ whiteSpace: "pre" }} aria-hidden="true">
+                <span
+                  key={`sp-${wordIndex++}`}
+                  style={{ whiteSpace: "pre" }}
+                  aria-hidden="true"
+                >
                   {token}
                 </span>
               );
             }
+            const delay = initialDelay + wordIndex * stagger;
+            const key = `w-${wordIndex++}`;
             return (
-              <motion.span
-                key={`w-${wordIndex++}`}
-                className={wordClassName}
-                style={{ display: "inline-block" }}
-                variants={{
-                  hidden: { opacity: 0, y: 18 },
-                  visible: {
-                    opacity: 1,
-                    y: 0,
-                    transition: { duration: 0.55, ease: PREMIUM_EASE },
-                  },
-                }}
+              <span
+                key={key}
+                className={`anim-word ${wordClassName}`.trim()}
+                style={{ animationDelay: `${delay}s` }}
               >
                 {token}
-              </motion.span>
+              </span>
             );
           })}
         </span>
