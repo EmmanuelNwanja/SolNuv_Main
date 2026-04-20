@@ -11,6 +11,7 @@ import toast from 'react-hot-toast';
 
 export default function Settings() {
   const { profile, company, isPro, refreshProfile } = useAuth();
+  const isPartnerProfile = ['recycler', 'financier', 'training_institute'].includes(String(profile?.user_type || ''));
   const [activeTab, setActiveTab] = useState('profile');
   const [saving, setSaving] = useState(false);
 
@@ -164,10 +165,14 @@ export default function Settings() {
     }
   }
 
+  const effectiveTeamSeatCap = isPartnerProfile
+    ? Math.max(Number(company?.max_team_members || 0), 2)
+    : Number(company?.max_team_members || 1);
+
   const tabs = [
     { id: 'profile', label: 'Profile', icon: RiUserLine },
     { id: 'company', label: 'Company', icon: RiBuildingLine, show: !!company },
-    { id: 'team', label: 'Team', icon: RiTeamLine, show: !!company },
+    { id: 'team', label: 'Team', icon: RiTeamLine, show: !!company || isPartnerProfile },
     { id: 'notifications', label: 'Notifications', icon: RiLinksLine },
     { id: 'branding', label: 'Branding', icon: RiBuildingLine, show: !!company },
     { id: 'account', label: 'Account', icon: RiUserLine },
@@ -525,8 +530,19 @@ export default function Settings() {
         )}
 
         {/* Team Tab */}
-        {activeTab === 'team' && company && (
+        {activeTab === 'team' && (company || isPartnerProfile) && (
           <div className="space-y-4">
+            <div className="card">
+              <p className="text-sm text-slate-700">
+                Team seats: <span className="font-semibold">{team?.current_member_count ?? team?.members?.length ?? 0}</span> /{" "}
+                <span className="font-semibold">{team?.effective_max_team_members ?? effectiveTeamSeatCap}</span>
+              </p>
+              {isPartnerProfile && (
+                <p className="text-xs text-slate-500 mt-1">
+                  Partner portals include up to 2 seats by default. Additional seats can be upgraded by SolNuv Admin (fee-based, coming soon).
+                </p>
+              )}
+            </div>
             {['super_admin', 'admin'].includes(profile?.role) && (
               <div className="card">
                 <h2 className="font-semibold text-forest-900 mb-4">Invite Team Member</h2>
@@ -556,9 +572,14 @@ export default function Settings() {
                     </select>
                   </div>
                   <div className="sm:col-span-3">
-                    <button type="submit" disabled={saving} className="btn-primary">
+                    <button type="submit" disabled={saving || Boolean(team?.limit_reached)} className="btn-primary">
                       {saving ? 'Sending...' : 'Send Invitation'}
                     </button>
+                    {team?.limit_reached && (
+                      <p className="text-xs text-amber-700 mt-2">
+                        Team seat limit reached. Contact SolNuv Admin to request a paid seat expansion.
+                      </p>
+                    )}
                   </div>
                 </form>
               </div>

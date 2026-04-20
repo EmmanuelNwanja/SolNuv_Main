@@ -17,6 +17,7 @@ router.get('/financier/escrow-decisions', requireAuth, partnerController.listFin
 router.post('/training/import-graduates', requireAuth, upload.single('file'), verificationDirectoryController.importGraduates);
 router.get('/training/verification-requests', requireAuth, verificationDirectoryController.listTrainingVerificationRequests);
 router.patch('/training/verification-requests/:id/decision', requireAuth, verificationDirectoryController.decideTrainingVerificationRequest);
+router.get('/training/impact-summary', requireAuth, verificationDirectoryController.trainingImpactSummary);
 router.get('/training/institutes', verificationDirectoryController.listTrainingInstitutes);
 
 module.exports = router;

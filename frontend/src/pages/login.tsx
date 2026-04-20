@@ -19,6 +19,7 @@ export default function Login() {
   useEffect(() => {
     if (!router.isReady) return;
     if (session && !loading && profileResolved) {
+      if (!profile) return;
       const nextRaw = router.query.next;
       const next = typeof nextRaw === 'string' && nextRaw.startsWith('/') ? nextRaw : null;
       if (next) {

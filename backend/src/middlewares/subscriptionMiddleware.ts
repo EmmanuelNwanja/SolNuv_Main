@@ -72,7 +72,9 @@ async function checkTeamLimit(req, res, next) {
     .select('*', { count: 'exact', head: true })
     .eq('company_id', company.id);
 
-  const maxMembers = company.max_team_members || PLAN_LIMITS[company.subscription_plan] || 1;
+  const isPartnerUserType = ['recycler', 'financier', 'training_institute'].includes(String(req.user.user_type || ''));
+  const planCap = company.max_team_members || PLAN_LIMITS[company.subscription_plan] || 1;
+  const maxMembers = isPartnerUserType ? Math.max(planCap, 2) : planCap;
 
   if (count >= maxMembers) {
     return sendError(res, `Your ${company.subscription_plan} plan allows a maximum of ${maxMembers} team members. Upgrade to add more.`, 403, {

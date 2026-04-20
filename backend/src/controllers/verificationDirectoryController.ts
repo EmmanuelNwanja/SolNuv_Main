@@ -360,6 +360,151 @@ exports.listTrainingVerificationRequests = async (req, res) => {
   }
 };
 
+exports.trainingImpactSummary = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) return sendError(res, 'Unauthorized', 401);
+    const memberships = await membershipsForUser(userId);
+    const trainingMembership = pickTrainingOrg(memberships);
+    if (!trainingMembership) return sendError(res, 'Training institute access required', 403);
+
+    const { data: rows, error } = await supabase
+      .from('competency_verification_requests')
+      .select('id, status, target_user_id, match_confidence')
+      .eq('organization_id', trainingMembership.v2_organizations.id);
+    if (error) throw error;
+
+    const requests = rows || [];
+    const totalRequests = requests.length;
+    const approvedRequests = requests.filter((row) => row.status === 'approved').length;
+    const pendingRequests = requests.filter((row) => row.status === 'pending' || row.status === 'under_review').length;
+    const rejectedRequests = requests.filter((row) => row.status === 'rejected').length;
+    const avgConfidence = totalRequests
+      ? Math.round(
+          (requests.reduce((sum, row) => sum + Number(row.match_confidence || 0), 0) / totalRequests) * 100,
+        )
+      : 0;
+
+    const linkedUserIds = [
+      ...new Set(
+        requests.map((row) => row.target_user_id).filter(Boolean),
+      ),
+    ];
+    const verifiedUserIds = [
+      ...new Set(
+        requests.filter((row) => row.status === 'approved').map((row) => row.target_user_id).filter(Boolean),
+      ),
+    ];
+
+    let esg = {
+      total_impact_score: 0,
+      total_co2_avoided_kg: 0,
+      recycled_projects: 0,
+      active_projects: 0,
+      total_panels: 0,
+      total_batteries: 0,
+    };
+    let projects = {
+      total_verified_user_projects: 0,
+      pending_recovery_projects: 0,
+      recycled_projects: 0,
+    };
+    let topVerifiedTrainees = [];
+
+    if (verifiedUserIds.length) {
+      const { data: leaderboardRows } = await supabase
+        .from('leaderboard_cache')
+        .select(
+          'entity_id, impact_score, co2_avoided_kg, recycled_count, active_projects_count, total_panels, total_batteries',
+        )
+        .eq('entity_type', 'user')
+        .in('entity_id', verifiedUserIds);
+
+      for (const row of leaderboardRows || []) {
+        esg.total_impact_score += Number(row.impact_score || 0);
+        esg.total_co2_avoided_kg += Number(row.co2_avoided_kg || 0);
+        esg.recycled_projects += Number(row.recycled_count || 0);
+        esg.active_projects += Number(row.active_projects_count || 0);
+        esg.total_panels += Number(row.total_panels || 0);
+        esg.total_batteries += Number(row.total_batteries || 0);
+      }
+
+      const { data: projectRows } = await supabase
+        .from('projects')
+        .select('id, user_id, status')
+        .in('user_id', verifiedUserIds);
+      const verifiedProjects = projectRows || [];
+      projects.total_verified_user_projects = verifiedProjects.length;
+      projects.pending_recovery_projects = verifiedProjects.filter((project) => project.status === 'pending_recovery').length;
+      projects.recycled_projects = verifiedProjects.filter((project) => project.status === 'recycled').length;
+
+      const projectCountByUserId = {};
+      const recycledCountByUserId = {};
+      for (const project of verifiedProjects) {
+        const key = String(project.user_id || '');
+        if (!key) continue;
+        projectCountByUserId[key] = (projectCountByUserId[key] || 0) + 1;
+        if (project.status === 'recycled') {
+          recycledCountByUserId[key] = (recycledCountByUserId[key] || 0) + 1;
+        }
+      }
+
+      const leaderboardByUserId = {};
+      for (const row of leaderboardRows || []) {
+        const key = String(row.entity_id || '');
+        if (!key) continue;
+        leaderboardByUserId[key] = row;
+      }
+
+      const { data: verifiedUsers } = await supabase
+        .from('users')
+        .select('id, first_name, last_name, email')
+        .in('id', verifiedUserIds);
+
+      topVerifiedTrainees = (verifiedUsers || [])
+        .map((user) => {
+          const board = leaderboardByUserId[user.id] || {};
+          return {
+            user_id: user.id,
+            full_name: [user.first_name, user.last_name].filter(Boolean).join(' ') || 'Unknown user',
+            email: user.email || null,
+            projects_count: Number(projectCountByUserId[user.id] || 0),
+            recycled_projects_count: Number(recycledCountByUserId[user.id] || 0),
+            impact_score: Number(board.impact_score || 0),
+            co2_avoided_kg: Number(board.co2_avoided_kg || 0),
+          };
+        })
+        .sort((a, b) => {
+          if (b.impact_score !== a.impact_score) return b.impact_score - a.impact_score;
+          if (b.projects_count !== a.projects_count) return b.projects_count - a.projects_count;
+          return b.co2_avoided_kg - a.co2_avoided_kg;
+        })
+        .slice(0, 10);
+    }
+
+    return sendSuccess(res, {
+      institute_id: trainingMembership.v2_organizations.id,
+      institute_name: trainingMembership.v2_organizations.name,
+      summary: {
+        total_requests: totalRequests,
+        approved_requests: approvedRequests,
+        pending_requests: pendingRequests,
+        rejected_requests: rejectedRequests,
+        average_confidence_pct: avgConfidence,
+        jobs_created: linkedUserIds.length,
+        linked_users: linkedUserIds.length,
+        verified_professionals: verifiedUserIds.length,
+      },
+      esg,
+      projects,
+      top_verified_trainees: topVerifiedTrainees,
+    });
+  } catch (error) {
+    logger.error('verificationDirectory:trainingImpactSummary failed', { message: error.message });
+    return sendError(res, 'Failed to load institute impact summary', 500);
+  }
+};
+
 exports.decideTrainingVerificationRequest = async (req, res) => {
   try {
     const userId = req.user?.id;

@@ -145,6 +145,30 @@ api.interceptors.response.use(
   async (error: unknown) => {
     const err = error as AxiosError;
     const status = err.response?.status;
+    const originalRequest = err.config as (InternalAxiosRequestConfig & { _retryAuth?: boolean }) | undefined;
+
+    if (status === 401 && originalRequest && !originalRequest._retryAuth) {
+      originalRequest._retryAuth = true;
+      accessTokenCache = null;
+      try {
+        let session = await getSessionSafely(2000);
+        if (!session?.access_token || isTokenExpired(session.access_token)) {
+          const refreshResult = await supabase.auth.refreshSession();
+          session = refreshResult.data?.session || null;
+        }
+        const nextToken = session?.access_token || null;
+        if (nextToken) {
+          accessTokenCache = nextToken;
+          const headers = AxiosHeaders.from(originalRequest.headers ?? {});
+          headers.set("Authorization", `Bearer ${nextToken}`);
+          originalRequest.headers = headers;
+          return api(originalRequest);
+        }
+      } catch {
+        // Fall through and emit unauthorized event below.
+      }
+    }
+
     if (typeof window !== "undefined") {
       if (status === 401) {
         window.dispatchEvent(
@@ -560,6 +584,7 @@ export const partnerAPI = {
   listTrainingVerificationRequests: () => api.get("/partner/training/verification-requests"),
   decideTrainingVerificationRequest: (id: string, data: JsonRecord) =>
     api.patch(`/partner/training/verification-requests/${id}/decision`, data),
+  trainingImpactSummary: () => api.get("/partner/training/impact-summary"),
 };
 
 export const verificationAPI = {
