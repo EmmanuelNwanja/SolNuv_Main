@@ -55,6 +55,15 @@ export default function ProjectVerificationPortalPage() {
     training_date: "",
   });
   const [institutes, setInstitutes] = useState<Array<{ id: string; name: string }>>([]);
+  const [instituteSearch, setInstituteSearch] = useState("");
+
+  const filteredInstitutes = useMemo(() => {
+    const q = instituteSearch.trim().toLowerCase();
+    if (!q) return institutes;
+    return institutes.filter((inst) => inst.name.toLowerCase().includes(q));
+  }, [institutes, instituteSearch]);
+
+  const isOtherInstituteSelected = !requestForm.organization_id;
 
   const summary = useMemo(() => {
     const tracked = results.filter((r) => r.tracked_on_solnuv).length;
@@ -342,10 +351,28 @@ export default function ProjectVerificationPortalPage() {
               <select
                 className="input"
                 value={requestForm.organization_id}
-                onChange={(event) => setRequestForm((prev) => ({ ...prev, organization_id: event.target.value }))}
+                onChange={(event) =>
+                  setRequestForm((prev) => {
+                    const organization_id = event.target.value;
+                    if (organization_id) {
+                      // Selecting a registered institute should not require "other institute" details.
+                      return {
+                        ...prev,
+                        organization_id,
+                        training_institute_name: "",
+                        training_institute_email: "",
+                        training_institute_phone: "",
+                        training_institute_country: "",
+                        training_institute_state: "",
+                        training_institute_address: "",
+                      };
+                    }
+                    return { ...prev, organization_id };
+                  })
+                }
               >
                 <option value="">Other training institute</option>
-                {institutes.map((inst) => (
+                {filteredInstitutes.map((inst) => (
                   <option key={inst.id} value={inst.id}>
                     {inst.name}
                   </option>
@@ -353,47 +380,57 @@ export default function ProjectVerificationPortalPage() {
               </select>
               <input
                 className="input"
-                placeholder="Date of training/graduation (optional)"
-                type="date"
-                value={requestForm.training_date}
-                onChange={(event) => setRequestForm((prev) => ({ ...prev, training_date: event.target.value }))}
+                placeholder="Search institute..."
+                value={instituteSearch}
+                onChange={(event) => setInstituteSearch(event.target.value)}
               />
-              <input
-                className="input"
-                placeholder="Institute name"
-                value={requestForm.training_institute_name}
-                onChange={(event) => setRequestForm((prev) => ({ ...prev, training_institute_name: event.target.value }))}
-              />
-              <input
-                className="input"
-                placeholder="Institute email"
-                value={requestForm.training_institute_email}
-                onChange={(event) => setRequestForm((prev) => ({ ...prev, training_institute_email: event.target.value }))}
-              />
-              <input
-                className="input"
-                placeholder="Institute phone"
-                value={requestForm.training_institute_phone}
-                onChange={(event) => setRequestForm((prev) => ({ ...prev, training_institute_phone: event.target.value }))}
-              />
-              <input
-                className="input"
-                placeholder="Country"
-                value={requestForm.training_institute_country}
-                onChange={(event) => setRequestForm((prev) => ({ ...prev, training_institute_country: event.target.value }))}
-              />
-              <input
-                className="input"
-                placeholder="State"
-                value={requestForm.training_institute_state}
-                onChange={(event) => setRequestForm((prev) => ({ ...prev, training_institute_state: event.target.value }))}
-              />
-              <input
-                className="input sm:col-span-2"
-                placeholder="Address"
-                value={requestForm.training_institute_address}
-                onChange={(event) => setRequestForm((prev) => ({ ...prev, training_institute_address: event.target.value }))}
-              />
+              {isOtherInstituteSelected && (
+                <>
+                  <input
+                    className="input"
+                    placeholder="Date of training/graduation (optional)"
+                    type="date"
+                    value={requestForm.training_date}
+                    onChange={(event) => setRequestForm((prev) => ({ ...prev, training_date: event.target.value }))}
+                  />
+                  <input
+                    className="input"
+                    placeholder="Institute name"
+                    value={requestForm.training_institute_name}
+                    onChange={(event) => setRequestForm((prev) => ({ ...prev, training_institute_name: event.target.value }))}
+                  />
+                  <input
+                    className="input"
+                    placeholder="Institute email"
+                    value={requestForm.training_institute_email}
+                    onChange={(event) => setRequestForm((prev) => ({ ...prev, training_institute_email: event.target.value }))}
+                  />
+                  <input
+                    className="input"
+                    placeholder="Institute phone"
+                    value={requestForm.training_institute_phone}
+                    onChange={(event) => setRequestForm((prev) => ({ ...prev, training_institute_phone: event.target.value }))}
+                  />
+                  <input
+                    className="input"
+                    placeholder="Country"
+                    value={requestForm.training_institute_country}
+                    onChange={(event) => setRequestForm((prev) => ({ ...prev, training_institute_country: event.target.value }))}
+                  />
+                  <input
+                    className="input"
+                    placeholder="State"
+                    value={requestForm.training_institute_state}
+                    onChange={(event) => setRequestForm((prev) => ({ ...prev, training_institute_state: event.target.value }))}
+                  />
+                  <input
+                    className="input sm:col-span-2"
+                    placeholder="Address"
+                    value={requestForm.training_institute_address}
+                    onChange={(event) => setRequestForm((prev) => ({ ...prev, training_institute_address: event.target.value }))}
+                  />
+                </>
+              )}
             </div>
             <button type="button" className="btn-primary mt-4" onClick={() => void submitManualRequest()}>
               Submit request

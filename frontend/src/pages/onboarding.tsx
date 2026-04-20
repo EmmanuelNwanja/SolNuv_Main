@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '../context/AuthContext';
 import { authAPI, v2API } from '../services/api';
+import { getAppHomePath } from '../utils/partnerPortal';
 import { RiSunLine, RiCheckLine, RiArrowRightLine, RiArrowLeftLine } from 'react-icons/ri';
 import toast from 'react-hot-toast';
 
@@ -15,7 +16,7 @@ function isValidNigerianPhone(phone) {
 }
 
 export default function Onboarding() {
-  const { session, loading, setProfile, refreshProfile, isOnboarded, isPlatformAdmin, profileResolved } = useAuth();
+  const { session, profile, loading, setProfile, refreshProfile, isOnboarded, isPlatformAdmin, profileResolved } = useAuth();
   const router = useRouter();
   const redirectedRef = useRef(false);
   const [step, setStep] = useState(1);
@@ -59,9 +60,10 @@ export default function Onboarding() {
     if (loading) return;
     if (!session) { router.replace('/login'); return; }
     if (!profileResolved) return;
+    if (!profile) return;
     if (isPlatformAdmin) { router.replace('/admin'); return; }
-    if (isOnboarded && !redirectedRef.current) router.replace('/dashboard');
-  }, [loading, session, profileResolved, isPlatformAdmin, isOnboarded, router]);
+    if (isOnboarded && !redirectedRef.current) router.replace(getAppHomePath(profile));
+  }, [loading, session, profileResolved, profile, isPlatformAdmin, isOnboarded, router]);
 
   useEffect(() => {
     if (!session?.user) return;
@@ -195,6 +197,16 @@ export default function Onboarding() {
   }
 
   const stepLabels = ['Account Type', 'Your Details', isRegistered ? 'Company Details' : null].filter(Boolean);
+
+  if (session && profileResolved && !profile) {
+    return (
+      <div className="auth-shell">
+        <div className="auth-card max-w-lg w-full text-center">
+          <p className="text-sm text-slate-500">Loading your profile...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>

@@ -51,6 +51,54 @@ function sanitizeLeaderboardDisplayName(value) {
   return cleaned ? cleaned.slice(0, 120) : null;
 }
 
+function isPartnerUserType(value) {
+  return ['recycler', 'financier', 'training_institute'].includes(String(value || ''));
+}
+
+async function ensurePartnerCompanyContext(userRow) {
+  if (!userRow || !isPartnerUserType(userRow.user_type)) return { user: userRow, company: null };
+  if (userRow.company_id) {
+    const { data: existingCompany } = await supabase
+      .from('companies')
+      .select('*')
+      .eq('id', userRow.company_id)
+      .maybeSingle();
+    return { user: userRow, company: existingCompany || null };
+  }
+
+  const fallbackName =
+    String(userRow.brand_name || '').trim() ||
+    `${String(userRow.first_name || 'Partner').trim()} Workspace`;
+
+  const { data: newCompany, error: createErr } = await supabase
+    .from('companies')
+    .insert({
+      name: fallbackName,
+      email: userRow.email,
+      user_type: userRow.user_type,
+      business_type: userRow.business_type || 'solo',
+      subscription_plan: 'free',
+      max_team_members: 2,
+    })
+    .select('*')
+    .single();
+  if (createErr) throw createErr;
+
+  await supabase
+    .from('users')
+    .update({
+      company_id: newCompany.id,
+      role: userRow.role || 'super_admin',
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', userRow.id);
+
+  return {
+    user: { ...userRow, company_id: newCompany.id, role: userRow.role || 'super_admin' },
+    company: newCompany,
+  };
+}
+
 async function ensureUniquePublicSlug(base, userId = null) {
   const fallback = `engineer-${uuidv4().slice(0, 8)}`;
   const normalized = slugify(base) || fallback;
@@ -139,6 +187,7 @@ exports.createOrUpdateProfile = async (req, res) => {
     }
 
     let companyId = null;
+    const isPartnerType = isPartnerUserType(user_type);
 
     // Create company if registered business
     if (business_type === 'registered') {
@@ -183,7 +232,7 @@ exports.createOrUpdateProfile = async (req, res) => {
               user_type,
               business_type: 'registered',
               subscription_plan: 'free',
-              max_team_members: 1,
+              max_team_members: isPartnerType ? 2 : 1,
             })
             .select()
             .single();
@@ -194,6 +243,26 @@ exports.createOrUpdateProfile = async (req, res) => {
       }
 
       // Keep company profile details in sync from settings edits
+    }
+
+    // Partner users should always have at least a base company profile so team/settings work.
+    if (isPartnerType && !companyId && !preCheckUser?.company_id) {
+      const fallbackCompanyName =
+        String(company_name || brand_name || '').trim() || `${String(first_name || 'Partner').trim()} Workspace`;
+      const { data: partnerCompany, error: partnerCompanyError } = await supabase
+        .from('companies')
+        .insert({
+          name: fallbackCompanyName,
+          email: company_email || supabaseUser.email,
+          user_type,
+          business_type: business_type || 'solo',
+          subscription_plan: 'free',
+          max_team_members: 2,
+        })
+        .select()
+        .single();
+      if (partnerCompanyError) throw partnerCompanyError;
+      companyId = partnerCompany.id;
     }
 
     // Sync company details for ALL users who have a company — including solo users whose
@@ -238,6 +307,21 @@ exports.createOrUpdateProfile = async (req, res) => {
             error: companyUpdateError.message,
           });
         }
+      }
+    }
+
+    if (isPartnerType && resolvedCompanyId) {
+      const { data: companyRow } = await supabase
+        .from('companies')
+        .select('id, max_team_members')
+        .eq('id', resolvedCompanyId)
+        .maybeSingle();
+      const currentSeats = Number(companyRow?.max_team_members || 0);
+      if (currentSeats < 2) {
+        await supabase
+          .from('companies')
+          .update({ max_team_members: 2, updated_at: new Date().toISOString() })
+          .eq('id', resolvedCompanyId);
       }
     }
 
@@ -548,8 +632,16 @@ exports.getProfileStatus = async (req, res) => {
  */
 exports.inviteTeamMember = async (req, res) => {
   try {
-    if (!req.user?.company_id) return sendError(res, 'You need to be in a company to invite members', 400);
-    if (!['super_admin', 'admin'].includes(req.user.role)) return sendError(res, 'Only admins can invite members', 403);
+    let actor = req.user;
+    let actorCompany = req.company || req.user?.companies || null;
+    if (!actor?.company_id && isPartnerUserType(actor?.user_type)) {
+      const ensured = await ensurePartnerCompanyContext(actor);
+      actor = ensured.user;
+      actorCompany = ensured.company || actorCompany;
+    }
+
+    if (!actor?.company_id) return sendError(res, 'You need to be in a company to invite members', 400);
+    if (!['super_admin', 'admin'].includes(actor.role)) return sendError(res, 'Only admins can invite members', 403);
 
     const { email, phone, role, invite_channel = 'sms' } = req.body;
     if (!email) return sendError(res, 'Email is required', 400);
@@ -559,8 +651,8 @@ exports.inviteTeamMember = async (req, res) => {
     const { data: invite, error } = await supabase
       .from('team_invitations')
       .insert({
-        company_id: req.user.company_id,
-        invited_by: req.user.id,
+        company_id: actor.company_id,
+        invited_by: actor.id,
         email,
         role,
       })
@@ -570,9 +662,10 @@ exports.inviteTeamMember = async (req, res) => {
     if (error) throw error;
 
     const inviteLink = `https://solnuv.com/invite/${invite.token}`;
+    const companyName = actorCompany?.name || actor?.companies?.name || 'your organization';
 
     if (phone) {
-      const smsText = `SolNuv invite: ${req.user.first_name} invited you as ${role} to ${req.company.name}. Accept: ${inviteLink}`;
+      const smsText = `SolNuv invite: ${actor.first_name} invited you as ${role} to ${companyName}. Accept: ${inviteLink}`;
       await sendSms({
         to: phone,
         message: smsText,
@@ -581,8 +674,8 @@ exports.inviteTeamMember = async (req, res) => {
     } else {
       await sendTeamInvitation(
         email,
-        `${req.user.first_name} ${req.user.last_name || ''}`.trim(),
-        req.company.name,
+        `${actor.first_name} ${actor.last_name || ''}`.trim(),
+        companyName,
         inviteLink,
         role
       );
@@ -644,22 +737,43 @@ exports.acceptInvite = async (req, res) => {
  */
 exports.getTeamMembers = async (req, res) => {
   try {
-    if (!req.user?.company_id) return sendError(res, 'No organization found', 404);
+    let actor = req.user;
+    if (!actor?.company_id && isPartnerUserType(actor?.user_type)) {
+      const ensured = await ensurePartnerCompanyContext(actor);
+      actor = ensured.user;
+    }
+    if (!actor?.company_id) return sendError(res, 'No organization found', 404);
 
     const { data: members } = await supabase
       .from('users')
       .select('id, first_name, last_name, email, role, avatar_url, last_login_at, created_at')
-      .eq('company_id', req.user.company_id)
+      .eq('company_id', actor.company_id)
       .eq('is_active', true);
 
     const { data: pending } = await supabase
       .from('team_invitations')
       .select('email, role, created_at, expires_at')
-      .eq('company_id', req.user.company_id)
+      .eq('company_id', actor.company_id)
       .eq('accepted', false)
       .gt('expires_at', new Date().toISOString());
 
-    return sendSuccess(res, { members: members || [], pending_invitations: pending || [] });
+    const { data: company } = await supabase
+      .from('companies')
+      .select('id, max_team_members')
+      .eq('id', actor.company_id)
+      .maybeSingle();
+    const isPartnerType = isPartnerUserType(actor.user_type);
+    const baseLimit = Number(company?.max_team_members || 1);
+    const effectiveMaxTeamMembers = isPartnerType ? Math.max(baseLimit, 2) : baseLimit;
+    const memberCount = Array.isArray(members) ? members.length : 0;
+
+    return sendSuccess(res, {
+      members: members || [],
+      pending_invitations: pending || [],
+      effective_max_team_members: effectiveMaxTeamMembers,
+      current_member_count: memberCount,
+      limit_reached: memberCount >= effectiveMaxTeamMembers,
+    });
   } catch (error) {
     logger.error('Failed to fetch team members', { user_id: req.user?.id || null, company_id: req.user?.company_id || null, message: error.message });
     return sendError(res, 'Failed to fetch team', 500);
