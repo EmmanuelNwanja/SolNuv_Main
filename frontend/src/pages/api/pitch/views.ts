@@ -8,7 +8,7 @@ declare global {
   var __solnuvPitchViews: ViewStore | undefined;
 }
 
-const store: ViewStore = global.__solnuvPitchViews ?? { count: 18000 };
+const store: ViewStore = global.__solnuvPitchViews ?? { count: 50 };
 if (!global.__solnuvPitchViews) {
   global.__solnuvPitchViews = store;
 }

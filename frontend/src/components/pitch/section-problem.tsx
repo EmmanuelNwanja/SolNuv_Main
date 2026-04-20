@@ -9,7 +9,7 @@ export function SectionProblem() {
   return (
     <div className="min-h-[100svh] relative w-full">
       <div className="absolute left-4 right-4 md:left-8 md:right-8 top-4 flex justify-between text-sm md:text-lg">
-        <span>Current problem</span>
+        <span>Friction</span>
         <span className="text-[#878787]">
           <Link href="/">solnuv.com</Link>
         </span>
@@ -24,16 +24,14 @@ export function SectionProblem() {
                   d="M0 67.333V.667l5 5 5-5 5 5 5-5 5 5 5-5 5 5 5-5 5 5 5-5 5 5 5-5v66.666l-5-5-5 5-5-5-5 5-5-5-5 5-5-5-5 5-5-5-5 5-5-5-5 5Zm10-16.666h40V44H10v6.667Zm0-13.334h40v-6.666H10v6.666ZM10 24h40v-6.667H10V24ZM6.667 57.667h46.666V10.333H6.667v47.334Z"
                 />
               </svg>
-              <h2 className="text-2xl font-display text-emerald-100">Disorganization</h2>
+              <h2 className="text-2xl font-display text-emerald-100">Evidence sprawl</h2>
               <p className="text-emerald-50/75 text-sm text-center">
-                Running a business is tough, and one of the biggest challenges is
-                disorganization. From scattered files to misplaced documents, this
-                lack of structure hampers productivity and wastes time.
+                Designs, assumptions, approvals, and partner communications scatter across inboxes and files—so nobody shares the same “source of truth” when money moves.
               </p>
             </Card>
             <div className="px-2 md:px-8">
               <h2 className="text-3xl sm:text-5xl md:text-6xl text-center leading-tight font-display text-amber-100">
-                The current market for SMB financial tools is a mess.
+                Solar scaled faster than trust infrastructure.
               </h2>
             </div>
           </div>
@@ -61,11 +59,9 @@ export function SectionProblem() {
                   />
                 </g>
               </svg>
-              <h2 className="text-2xl font-display text-amber-100">Scattered workflow</h2>
+              <h2 className="text-2xl font-display text-amber-100">Fragmented workflows</h2>
               <p className="text-amber-50/75 text-sm text-center">
-                Existing services often compound the problem by residing on various
-                platforms, resulting in a fragmented workflow. This scattered
-                approach wastes time and money.
+                Technical tools, CRM, and chat don’t compose into an auditable chain—so diligence, compliance, and partner reporting become bespoke projects every time.
               </p>
             </Card>
             <Card className="min-h-[260px] md:min-h-[315px] border-emerald-500/25 bg-slate-900/80">
@@ -88,10 +84,9 @@ export function SectionProblem() {
                   />
                 </g>
               </svg>
-              <h2 className="text-2xl font-display text-slate-100">Old tech</h2>
+              <h2 className="text-2xl font-display text-slate-100">Unpriced risk</h2>
               <p className="text-slate-300 text-sm text-center">
-                Services are outdated and prioritize features tailored to specialists
-                rather than offering a user-friendly interface for business owners.
+                “Trust” is still informal—who was trained, what was verified, what changed, and who approved it rarely ships as structured data financiers and programs can reuse.
               </p>
             </Card>
           </div>

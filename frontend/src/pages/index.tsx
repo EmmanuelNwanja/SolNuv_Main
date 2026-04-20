@@ -55,28 +55,28 @@ const PARTNERS_ROW3 = [
 const EXPERIENCE_SNAPSHOTS = {
   dashboard: {
     src: "/platform-snapshots/dashboard.png",
-    title: "Operations dashboard pulse",
-    copy: "Track portfolio progress, recovery queues, and income signals from one command center.",
+    title: "Operations command center",
+    copy: "Portfolio pulse: queues, milestones, and delivery risk in one place—built for teams under scrutiny.",
   },
   design: {
     src: "/platform-snapshots/design-overview.png",
     title: "Design performance analytics",
-    copy: "Inspect energy splits, monthly performance, and technical specifications in one evidence panel.",
+    copy: "Energy splits, monthly behavior, and specs as evidence your financiers and partners can inspect.",
   },
   ai: {
     src: "/platform-snapshots/ai-analysis.png",
-    title: "AI design quality review",
-    copy: "AI expert analysis surfaces strengths, sizing concerns, and financial viability signals before decisions.",
+    title: "AI-assisted design QA",
+    copy: "Structured strengths, risks, and viability signals before procurement and capital lock in—humans stay in control.",
   },
   compliance: {
     src: "/platform-snapshots/compliance-reports.png",
-    title: "Compliance and reports studio",
-    copy: "Generate NESREA-ready outputs and maintain audit-grade report workflows per project cycle.",
+    title: "Compliance & reports studio",
+    copy: "NESREA-oriented outputs and repeatable report cycles so governance doesn’t depend on heroics.",
   },
   impact: {
     src: "/platform-snapshots/impact-panel.png",
-    title: "Lifecycle impact and recovery tracking",
-    copy: "Translate fleet activity into recovery and emissions visibility aligned to operational reporting.",
+    title: "Lifecycle impact & recovery",
+    copy: "Fleet activity translated into recovery and emissions visibility for operational and ESG reporting.",
   },
 };
 
@@ -229,12 +229,12 @@ export default function Home() {
       label: '10+ Simulation Runs',
     },
     {
-      value: formatWithThreshold(aiDefinitionsCount, 3, (v) => `${v}`, 'Multi-Agent'),
-      label: 'Dedicated AI Advisors',
+      value: formatWithThreshold(aiDefinitionsCount, 3, (v) => `${v}`, 'Multi-agent'),
+      label: 'Active AI advisor definitions',
     },
     {
       value: summaryAI?.provider_ready ? 'Live' : 'Standby',
-      label: 'Asset Tracking & Recovery',
+      label: 'AI provider readiness',
     },
     {
       value: formatWithThreshold(summaryV2?.serialized_assets, 20, (v) => `${v.toLocaleString()}+`, '1M Asset-Chase'),
@@ -244,35 +244,35 @@ export default function Home() {
 
   const impactStats = [
     {
-      label: 'Projects Registered',
-      value: formatWithThreshold(summaryTotals?.projects, 25, (v) => v.toLocaleString(), 'Growing Portfolio'),
+      label: 'Projects registered',
+      value: formatWithThreshold(summaryTotals?.projects, 25, (v) => v.toLocaleString(), 'Growing portfolio'),
     },
     {
-      label: 'Recovered / Decommissioned Projects',
-      value: formatWithThreshold(summaryTotals?.recovered_projects, 10, (v) => v.toLocaleString(), 'Lifecycle Active'),
+      label: 'Recovered / decommissioned projects',
+      value: formatWithThreshold(summaryTotals?.recovered_projects, 10, (v) => v.toLocaleString(), 'Lifecycle active'),
     },
     {
-      label: 'Escrow Transactions',
-      value: formatWithThreshold(summaryV2?.escrow_decisions, 10, (v) => v.toLocaleString(), 'Pilot In Progress'),
+      label: 'Trust & escrow decisions (V2 pilot)',
+      value: formatWithThreshold(summaryV2?.escrow_decisions, 10, (v) => v.toLocaleString(), 'Pilot in progress'),
     },
     {
-      label: 'AI Support Delevered',
-      value: formatWithThreshold(aiFeedbackCount, 20, (v) => `${v.toLocaleString()}+`, 'Live & Counting Up'),
+      label: 'AI-assisted design reviews',
+      value: formatWithThreshold(aiFeedbackCount, 20, (v) => `${v.toLocaleString()}+`, 'Live & counting up'),
     },
   ];
 
   return (
     <>
       <Head>
-        <title>SolNuv — Solar Verification, Training &amp; Lifecycle Intelligence</title>
-        <meta name="description" content="SolNuv helps solar teams design and evaluate systems, verify projects and professionals, collaborate with training institutes, and track lifecycle outcomes in one secure workspace." />
-        <meta name="keywords" content="solar design software, solar BESS sizing tool, solar engineering platform, NESREA EPR workflow, solar financial modelling, PV simulation, load profile analysis, tariff analysis, solar project management, lifecycle tracking" />
-        <meta property="og:title" content="SolNuv — Solar Engineering &amp; Lifecycle Intelligence" />
-        <meta property="og:description" content="A unified platform for solar project design, financial scenario modelling, compliance support, and lifecycle traceability." />
+        <title>SolNuv — AI-Native Solar OS: Design, Verification &amp; Lifecycle Intelligence</title>
+        <meta name="description" content="SolNuv is the AI-native operating system for solar and BESS: modelling and scenarios, project verification, institute-backed competency checks, partner workflows, and lifecycle evidence—in one auditable workspace." />
+        <meta name="keywords" content="solar design software, solar BESS sizing tool, solar engineering platform, NESREA EPR workflow, solar financial modelling, PV simulation, load profile analysis, tariff analysis, solar project management, lifecycle tracking, AI solar software, professional verification" />
+        <meta property="og:title" content="SolNuv — AI-Native Solar Operations &amp; Trust" />
+        <meta property="og:description" content="Unify technical planning, verification, partners, and compliance-grade evidence. AI accelerates review; your team keeps control." />
         <meta property="og:type" content="website" />
         <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content="SolNuv — Solar Engineering &amp; Lifecycle Intelligence" />
-        <meta name="twitter:description" content="Design and evaluate systems, run financial scenarios, support compliance workflows, and track assets across the lifecycle." />
+        <meta name="twitter:title" content="SolNuv — AI-Native Solar OS" />
+        <meta name="twitter:description" content="Design and evaluate systems, verify projects and people, run scenarios, and govern the lifecycle—with AI inside the workflow, not beside it." />
         <link rel="canonical" href="https://solnuv.com" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
@@ -290,17 +290,17 @@ export default function Home() {
           <MotionStagger className="grid lg:grid-cols-2 gap-8 items-end w-full min-w-0 relative z-10" delay={0.02}>
             <MotionItem className="min-w-0">
               <span className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-widest bg-white/10 text-emerald-200">
-                execute solar projects with operational confidence.
+                AI-native solar operating system
               </span>
               <AnimatedWords
                 as="h1"
                 className="marketing-hero-dark-title mt-4"
-                text={"Design. Track. Recover. Comply."}
+                text={"Model the system. Prove the work. Govern the lifecycle."}
                 initialDelay={0.15}
                 stagger={0.05}
               />
               <p className="text-base md:text-lg text-white/75 leading-relaxed mt-5 max-w-2xl">
-                One workspace for solar + BESS design, project authenticity checks, professional competency verification, and lifecycle evidence. Built for teams that need defensible outputs and auditable workflows.
+                One workspace for solar + BESS execution: structured design and financial scenarios, project verification, institute-backed competency checks, partner coordination, and lifecycle reporting. AI speeds technical review and documentation—your team keeps authority, attribution, and auditability.
               </p>
               <div className="marketing-cta-row">
                 <Link href="/register" className="btn-amber inline-flex items-center gap-2">
@@ -315,19 +315,22 @@ export default function Home() {
               </div>
               <ul className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-[12px] text-white/70">
                 <li className="flex items-center gap-1.5">
-                  <RiCheckLine className="text-emerald-300" /> Satellite irradiance data
+                  <RiCheckLine className="text-emerald-300" /> AI-assisted design QA before capital and procurement lock-in
                 </li>
                 <li className="flex items-center gap-1.5">
-                  <RiCheckLine className="text-emerald-300" /> Transparent simulation assumptions
+                  <RiCheckLine className="text-emerald-300" /> Project verification with traceable evidence
                 </li>
                 <li className="flex items-center gap-1.5">
-                  <RiCheckLine className="text-emerald-300" /> NESREA-aware compliance exports
+                  <RiCheckLine className="text-emerald-300" /> Institute-backed competency verification
                 </li>
                 <li className="flex items-center gap-1.5">
-                  <RiCheckLine className="text-emerald-300" /> Training institute competency verification
+                  <RiCheckLine className="text-emerald-300" /> Satellite irradiance &amp; transparent assumptions
                 </li>
                 <li className="flex items-center gap-1.5">
-                  <RiCheckLine className="text-emerald-300" /> Naira-first pricing
+                  <RiCheckLine className="text-emerald-300" /> NESREA-aware reporting posture
+                </li>
+                <li className="flex items-center gap-1.5">
+                  <RiCheckLine className="text-emerald-300" /> Naira-first commercial framing
                 </li>
               </ul>
             </MotionItem>
@@ -363,7 +366,8 @@ export default function Home() {
         <section className="marketing-section py-0">
           <div className="rounded-3xl border border-slate-200/70 bg-white/90 shadow-[0_14px_36px_rgba(15,23,42,0.06)] px-5 sm:px-7 lg:px-10 py-8 sm:py-9 overflow-hidden">
             <div className="mb-6 text-center">
-              <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">Ecosystem Leaders &amp; Brands</p>
+              <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">Ecosystem &amp; standards alignment</p>
+              <p className="text-xs text-slate-500 mt-2 max-w-2xl mx-auto">Programs, OEMs, and market infrastructure SolNuv interoperates with—so your workflows stay credible across stakeholders.</p>
             </div>
 
             <div className="relative overflow-hidden rounded-2xl px-1 sm:px-2 mb-3 sm:mb-4">
@@ -408,8 +412,8 @@ export default function Home() {
         </section>
 
         <MotionSection className="marketing-section marketing-section-animated">
-          <span className="marketing-kicker">Portfolio Signals</span>
-          <h2 className="marketing-headline">Proof of operational momentum</h2>
+          <span className="marketing-kicker">Live platform signals</span>
+          <h2 className="marketing-headline">Proof you can measure</h2>
           <MotionStagger className="mt-6 grid sm:grid-cols-2 lg:grid-cols-4 gap-4" delay={0.05}>
             {impactStats.map(s => (
               <MotionItem key={s.label} className="marketing-proof-card reveal-lift">
@@ -424,10 +428,10 @@ export default function Home() {
         <MotionSection id="how-it-works" className="marketing-section marketing-section-animated">
           <MotionStagger className="grid lg:grid-cols-2 gap-8 items-start" delay={0.02}>
             <MotionItem>
-              <span className="marketing-kicker">How It Works</span>
-              <h2 className="marketing-headline">From setup to lifecycle governance</h2>
+              <span className="marketing-kicker">How it works</span>
+              <h2 className="marketing-headline">From first design to governed lifecycle</h2>
               <p className="marketing-subcopy">
-                SolNuv structures project operations into a clear sequence so technical work, partner communication, and compliance evidence remain synchronised.
+                SolNuv sequences technical work, verification, partners, and evidence so financing, compliance, and handovers stay synchronized—without losing the thread across chat and spreadsheets.
               </p>
             </MotionItem>
             <MotionItem className="marketing-snapshot-card reveal-lift">
@@ -450,7 +454,7 @@ export default function Home() {
                 { step: '03', icon: RiLineChartLine, title: 'Model flexible financial outcomes', desc: 'Run scenario-based projections across tariffs, demand profiles, and cost assumptions to support planning and investment conversations.' },
                 { step: '04', icon: RiSunLine, title: 'Register assets for traceability', desc: 'Capture equipment records and project identifiers early, so your lifecycle evidence remains organised from commissioning through end-of-life.' },
                 { step: '05', icon: RiMapPinLine, title: 'Track operational & degradation data', desc: 'Use location-aware and usage-aware signals to improve maintenance planning, replacement decisions, and performance reviews.' },
-                { step: '06', icon: RiRobotLine, title: 'Scale productivity with AI Advisors', desc: 'Use guided assistants to speed up drafts, validation checks, and report preparation while keeping humans in control of final decisions.' },
+                { step: '06', icon: RiRobotLine, title: 'AI Advisors (human-in-the-loop)', desc: 'Accelerate drafts, consistency checks, and report prep inside governed workflows—models assist; people approve.' },
                 { step: '07', icon: RiFileTextLine, title: 'Manage evidence & approval workflows', desc: 'Record milestone evidence, support partner reviews, and maintain decision logs for structured execution and handover.' },
                 { step: '08', icon: RiRecycleLine, title: 'Control lifecycle compliance', desc: 'Plan and recover equipment, generate compliance-facing reports and evaluate end-of-life routes with clearer visibility into recovery pathways.' },
               ].map((item, i) => (
@@ -472,19 +476,19 @@ export default function Home() {
         <MotionSection id="impact" className="marketing-section-dark marketing-section-animated">
             <MotionStagger className="grid lg:grid-cols-2 gap-8 lg:gap-16 items-start w-full min-w-0" delay={0.02}>
               <MotionItem className="min-w-0">
-                <span className="text-xs font-semibold uppercase tracking-widest text-emerald-400">Why This Matters</span>
+                <span className="text-xs font-semibold uppercase tracking-widest text-emerald-400">Why this matters</span>
                 <h2 className="marketing-hero-dark-title mt-3 mb-6">
-                  High-growth solar markets need<br />
-                  <span className="text-amber-400">operational discipline, not more tools.</span>
+                  High-growth markets punish<br />
+                  <span className="text-amber-400">fragmentation and informal trust.</span>
                 </h2>
                 <p className="text-white/70 leading-relaxed mb-6">
-                  Teams often work across disconnected spreadsheets, messaging apps, and isolated tools. That fragmentation slows delivery, weakens audit trails, and creates risk during financing, compliance, and partner reporting.
+                  Solar scales faster than documentation culture. When design, verification, partners, and reporting live in different places, teams lose speed and credibility—especially under financing, diligence, and program compliance.
                 </p>
                 <p className="text-white/70 leading-relaxed mb-8">
-                  SolNuv unifies technical planning, financial communication, and lifecycle documentation so teams can execute with greater consistency, credibility, and speed.
+                  SolNuv unifies execution so outputs are consistent, explainable, and portable. AI reduces review latency; structured data and roles preserve governance.
                 </p>
                 <p className="text-emerald-300 font-semibold leading-relaxed">
-                  Built for serious solar operators who need dependable workflows across projects, portfolios, and partnerships.
+                  For operators who need dependable workflows across projects, portfolios, partnerships—and proof that holds up.
                 </p>
               </MotionItem>
               <MotionStagger className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full min-w-0 isolate" delay={0.08}>
@@ -533,9 +537,9 @@ export default function Home() {
         {/* LIVE CALCULATOR */}
         <MotionSection id="calculator" className="marketing-section marketing-section-animated">
             <MotionItem className="text-center mb-10">
-              <span className="text-xs font-semibold uppercase tracking-widest text-emerald-600">Try It Now</span>
-              <h2 className="section-title mb-4 mt-2">See What Your Panels Are Worth</h2>
-              <p className="text-slate-500">No account needed. Run a sample estimate to see lifecycle value signals for panel assets.</p>
+              <span className="text-xs font-semibold uppercase tracking-widest text-emerald-600">Try it now</span>
+              <h2 className="section-title mb-4 mt-2">See what your panels are worth—in minutes</h2>
+              <p className="text-slate-500">No account needed. A transparent preview of lifecycle value signals with explicit assumptions (climate band, age, route economics).</p>
             </MotionItem>
             <div className="bg-white rounded-3xl shadow-lg overflow-hidden">
               <div className="marketing-tab-strip snap-x snap-mandatory sm:snap-none">
@@ -683,9 +687,9 @@ export default function Home() {
         {/* FEATURES */}
         <MotionSection className="marketing-section marketing-section-animated" id="platform">
             <MotionItem className="text-center mb-14">
-              <span className="text-xs font-semibold uppercase tracking-widest text-emerald-600">Platform Capabilities</span>
-              <h2 className="section-title mb-4 mt-2">Built for technical teams and commercial outcomes</h2>
-              <p className="text-slate-500 max-w-xl mx-auto">Core capabilities designed to improve delivery quality, stakeholder confidence, and operational consistency.</p>
+              <span className="text-xs font-semibold uppercase tracking-widest text-emerald-600">Platform capabilities</span>
+              <h2 className="section-title mb-4 mt-2">Built for technical rigor and commercial outcomes</h2>
+              <p className="text-slate-500 max-w-xl mx-auto">Everything below is designed to raise delivery quality, stakeholder confidence, and operational consistency—with AI inside workflows, not bolted on the side.</p>
             </MotionItem>
             <MotionStagger className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6" delay={0.03}>
               {[
@@ -697,7 +701,7 @@ export default function Home() {
                 { icon: RiBarChartLine, color: 'bg-forest-900', title: 'Load and usage analysis', desc: 'Work with measured or estimated demand profiles to improve system sizing logic and planning confidence.' },
                 { icon: RiShieldCheckLine, color: 'bg-amber-500', title: 'Compliance workflow support', desc: 'Prepare evidence-backed records and structured documents to support external compliance and internal governance needs.' },
                 { icon: RiCalculatorLine, color: 'bg-emerald-500', title: 'Tariff and return analysis', desc: 'Model commercial outcomes across energy pricing structures with outputs suitable for business decision-making.' },
-                { icon: RiRobotLine, color: 'bg-forest-900', title: 'AI assistants for execution', desc: 'Use built-in assistants to accelerate drafting, interpretation, and workflow support while keeping expert oversight in place.' },
+                { icon: RiRobotLine, color: 'bg-forest-900', title: 'AI-native execution assistance', desc: 'Advisors accelerate drafting, checks, and interpretation inside governed workflows—experts stay accountable for approvals.' },
                 { icon: RiTrophyLine, color: 'bg-amber-500', title: 'Performance visibility tools', desc: 'Monitor portfolio and team performance indicators with controls for public or private visibility by account settings.' },
                 { icon: RiTeamLine, color: 'bg-emerald-500', title: 'Organisation and team controls', desc: 'Manage workspace members, responsibilities, and workflow accountability as your projects and partnerships expand.' },
                 { icon: RiRecycleLine, color: 'bg-forest-900', title: 'Asset health and lifecycle records', desc: 'Maintain operational histories and condition snapshots to support quality assurance, warranty conversations, and handovers.' },
@@ -736,7 +740,7 @@ export default function Home() {
                 {
                   emoji: '🔧',
                   title: 'Solar Design Engineers',
-                  points: ['Size solar+BESS systems with satellite irradiance data', 'Model 25-year financials under real tariffs', 'Generate professional design reports in minutes', 'Let AI auto-optimise system configuration'],
+                  points: ['Size solar+BESS with satellite irradiance data', 'Model multi-year scenarios under real tariffs', 'Generate professional design reports in minutes', 'Use AI-assisted QA before you freeze configuration'],
                 },
                 {
                   emoji: '⚡',
@@ -777,10 +781,10 @@ export default function Home() {
               <span className="text-xs font-semibold uppercase tracking-widest text-emerald-400 mb-3 block">Start in minutes</span>
             </MotionItem>
             <MotionItem>
-              <h2 className="marketing-hero-dark-title mb-4">Build higher-confidence solar workflows<br />with one connected platform</h2>
+              <h2 className="marketing-hero-dark-title mb-4">Run higher-confidence solar workflows<br />on one AI-native platform</h2>
             </MotionItem>
             <MotionItem>
-              <p className="text-white/70 mb-8 max-w-xl mx-auto">Support technical decisions, partner communication, and lifecycle accountability with tools designed for modern solar operations.</p>
+              <p className="text-white/70 mb-8 max-w-xl mx-auto">Unify technical decisions, verification, partner communication, and lifecycle accountability—so proof is structured, portable, and ready for scrutiny.</p>
             </MotionItem>
             <MotionItem>
               <div className="flex flex-col w-full max-w-md sm:max-w-none mx-auto sm:flex-row flex-wrap justify-center gap-3 sm:gap-4 px-1">

@@ -2,7 +2,7 @@ export function SectionStart() {
   return (
     <div className="min-h-[100svh]">
       <span className="absolute right-4 md:right-8 top-4 text-sm md:text-lg text-emerald-300">
-        Pitch/2024
+        Investor narrative · 2026
       </span>
 
       <div className="container min-h-[100svh] relative pt-20 pb-28 md:py-0">
@@ -24,6 +24,9 @@ export function SectionStart() {
         <h1 className="absolute bottom-28 left-2 md:left-auto md:right-0 md:bottom-8 text-[clamp(4rem,22vw,26rem)] leading-none font-display bg-gradient-to-r from-emerald-300 via-white to-amber-300 bg-clip-text text-transparent">
           SolNuv
         </h1>
+        <p className="absolute bottom-10 left-2 right-2 md:left-auto md:right-8 md:bottom-[5.5rem] max-w-xl text-left md:text-right text-xs md:text-sm text-white/55 leading-snug">
+          The homepage sells the product. This deck sells the category: AI-native trust and execution for solar—before capital, procurement, and compliance harden their positions.
+        </p>
       </div>
     </div>
   );
