@@ -15,8 +15,8 @@ export function SectionProblem() {
         </span>
       </div>
       <div className="flex flex-col min-h-[100svh] justify-center container">
-        <div className="grid md:grid-cols-3 gap-4 md:gap-8 px-4 md:px-0 pt-20 md:pt-0 pb-28 md:pb-0">
-          <div className="space-y-8">
+        <div className="grid md:grid-cols-3 gap-4 md:gap-6 xl:gap-8 px-4 md:px-0 pt-20 md:pt-12 lg:pt-8 pb-28 md:pb-6 items-stretch max-w-[1280px] mx-auto">
+          <div className="space-y-8 min-w-0">
             <Card className="border-emerald-500/35 bg-forest-900/30">
               <svg xmlns="http://www.w3.org/2000/svg" width={60} height={68} fill="none">
                 <path
@@ -35,10 +35,10 @@ export function SectionProblem() {
               </h2>
             </div>
           </div>
-          <div>
-            <Image src={receiptImage} alt="Receipt" width={650} height={875} quality={100} />
+          <div className="min-w-0">
+            <Image src={receiptImage} alt="Receipt" width={650} height={875} quality={100} className="w-full h-auto" />
           </div>
-          <div className="ml-auto w-full space-y-8">
+          <div className="ml-auto min-w-0 w-full space-y-8">
             <Card className="min-h-[260px] md:min-h-[315px] border-amber-500/35 bg-amber-900/15">
               <svg xmlns="http://www.w3.org/2000/svg" width={80} height={80} fill="none">
                 <mask

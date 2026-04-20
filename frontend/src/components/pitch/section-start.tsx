@@ -25,7 +25,7 @@ export function SectionStart() {
           SolNuv
         </h1>
         <p className="absolute bottom-10 left-2 right-2 md:left-auto md:right-8 md:bottom-[5.5rem] max-w-xl text-left md:text-right text-xs md:text-sm text-white/55 leading-snug">
-          The homepage sells the product. This deck sells the category: AI-native trust and execution for solar—before capital, procurement, and compliance harden their positions.
+          AI-native trust and execution for solar teams.
         </p>
       </div>
     </div>

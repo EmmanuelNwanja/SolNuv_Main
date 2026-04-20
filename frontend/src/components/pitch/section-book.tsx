@@ -12,7 +12,7 @@ export function SectionBook() {
         </Link>
       </div>
       <div className="flex flex-col min-h-[100svh] justify-center container">
-        <div className="min-h-[360px] h-[58svh] md:h-[600px] px-4 md:px-0 pt-20 md:pt-0 pb-28 md:pb-0 text-center flex flex-col items-center justify-center">
+        <div className="min-h-[360px] h-[58svh] md:h-[70svh] xl:h-[600px] max-w-[1280px] w-full mx-auto px-4 md:px-0 pt-20 md:pt-0 pb-28 md:pb-0 text-center flex flex-col items-center justify-center">
           <CalEmbed calLink={process.env.NEXT_PUBLIC_SOLNUV_CAL_LINK || "solnuv/solnuv"} />
         </div>
       </div>
