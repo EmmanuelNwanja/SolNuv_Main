@@ -225,8 +225,8 @@ export default function Home() {
 
   const heroStats = [
     {
-      value: formatWithThreshold(summaryTotals?.simulation_runs, 50, (v) => `${v.toLocaleString()}+`, 'Scaling Fast'),
-      label: '10+ Simulation Runs',
+      value: formatWithThreshold(summaryTotals?.simulation_runs, 50, (v) => `${v.toLocaleString()}+`, 'Growing dataset'),
+      label: 'Simulation runs executed',
     },
     {
       value: formatWithThreshold(aiDefinitionsCount, 3, (v) => `${v}`, 'Multi-agent'),
@@ -237,8 +237,8 @@ export default function Home() {
       label: 'AI provider readiness',
     },
     {
-      value: formatWithThreshold(summaryV2?.serialized_assets, 20, (v) => `${v.toLocaleString()}+`, '1M Asset-Chase'),
-      label: 'On Track to Recover 1M Assets'
+      value: formatWithThreshold(summaryV2?.serialized_assets, 20, (v) => `${v.toLocaleString()}+`, 'Lifecycle scaling'),
+      label: 'Serialized lifecycle assets (V2)',
     },
   ];
 
@@ -732,30 +732,30 @@ export default function Home() {
         {/* WHO IT'S FOR */}
         <MotionSection className="marketing-section marketing-section-animated">
             <MotionItem className="text-center mb-12">
-              <span className="text-xs font-semibold uppercase tracking-widest text-emerald-600">Who Uses SolNuv</span>
-              <h2 className="section-title mb-4 mt-2">Built for modern solar stakeholders</h2>
+              <span className="text-xs font-semibold uppercase tracking-widest text-emerald-600">Who runs on SolNuv</span>
+              <h2 className="section-title mb-4 mt-2">Built for high-accountability solar stakeholders</h2>
             </MotionItem>
             <MotionStagger className="grid sm:grid-cols-2 xl:grid-cols-4 gap-6" delay={0.03}>
               {[
                 {
                   emoji: '🔧',
                   title: 'Solar Design Engineers',
-                  points: ['Size solar+BESS with satellite irradiance data', 'Model multi-year scenarios under real tariffs', 'Generate professional design reports in minutes', 'Use AI-assisted QA before you freeze configuration'],
+                  points: ['Size solar+BESS with satellite irradiance inputs', 'Model multi-year scenarios under real tariffs', 'Generate share-ready design reports in minutes', 'Use AI-assisted QA before freezing configuration'],
                 },
                 {
                   emoji: '⚡',
                   title: 'Solar Installers & EPCs',
-                  points: ['Log projects in under 2 minutes — works offline', 'Get climate-specific decommission timelines', 'Close deals with bankable ROI proposals', 'Stay NESREA-compliant automatically'],
+                  points: ['Register and track projects with clear evidence trails', 'Get climate-aware decommission and recovery guidance', 'Improve close rates with defensible ROI scenarios', 'Stay aligned with NESREA-oriented reporting workflows'],
                 },
                 {
                   emoji: '🏢',
                   title: 'Asset Managers & Corporates',
-                  points: ['Track your entire panel + battery fleet', 'Monitor degradation across all sites', 'Forecast end-of-life material recovery value', 'Exportable audit trails for due diligence'],
+                  points: ['Track panel and battery fleets in one workspace', 'Monitor degradation and lifecycle risk across sites', 'Forecast end-of-life material recovery pathways', 'Export audit-ready records for diligence and governance'],
                 },
                 {
                   emoji: '🌍',
                   title: 'Investors & Development Finance',
-                  points: ['Validate project designs with independent modelling', 'Evidence for ESG and green finance reporting', 'Lifecycle data for circular economy mandates', 'First-mover access to Africa\'s e-waste recovery market'],
+                  points: ['Validate project narratives with model-backed evidence', 'Use structured outputs for ESG and green-finance reporting', 'Access lifecycle and recovery data for mandate tracking', 'Review partner and competency verification signals in context'],
                 },
               ].map((persona, i) => (
                 <MotionItem key={i} className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm reveal-lift">
