@@ -1,0 +1,56 @@
+import Image from "next/image";
+import Link from "next/link";
+import { Card } from "./ui";
+
+const foundersImage =
+  "https://raw.githubusercontent.com/EmmanuelNwanja/pitchdeck/main/src/components/pitch/founders.png";
+const pontusImage =
+  "https://raw.githubusercontent.com/EmmanuelNwanja/pitchdeck/main/src/components/pitch/pontus.png";
+const viktorImage =
+  "https://raw.githubusercontent.com/EmmanuelNwanja/pitchdeck/main/src/components/pitch/viktor.png";
+
+export function SectionTeam() {
+  return (
+    <div className="min-h-screen relative w-screen">
+      <div className="absolute left-4 right-4 md:left-8 md:right-8 top-4 flex justify-between text-lg">
+        <span>Who we are</span>
+        <span className="text-[#878787]">
+          <Link href="/">solnuv.com</Link>
+        </span>
+      </div>
+      <div className="flex flex-col min-h-screen justify-center container">
+        <div className="grid md:grid-cols-3 gap-8 px-4 md:px-0 md:pt-0 h-[580px] md:h-auto overflow-auto pb-[100px] md:pb-0">
+          <div className="space-y-8">
+            <Card className="items-start space-y-0">
+              <Image src={pontusImage} alt="Pontus" width={76} height={76} quality={100} className="mb-4" />
+              <h2 className="text-xl">Pontus Abrahamsson</h2>
+              <span>Co-founder</span>
+              <p className="text-[#878787] text-sm !mt-2">
+                Fullstack developer with years of studio experience serving major
+                product teams.
+              </p>
+            </Card>
+
+            <Card className="items-start space-y-0">
+              <Image src={viktorImage} alt="Viktor" width={76} height={76} quality={100} className="mb-4" />
+              <h2 className="text-xl">Viktor Hofte</h2>
+              <span className="mb-4">Co-founder</span>
+              <p className="text-[#878787] text-sm !mt-2">
+                Designer and product builder with deep startup and enterprise brand
+                experience.
+              </p>
+            </Card>
+          </div>
+          <div>
+            <Image src={foundersImage} alt="Founders" width={650} height={875} quality={100} />
+          </div>
+          <div className="ml-auto w-full space-y-8 items-center flex">
+            <h2 className="text-[64px] font-medium text-center leading-tight">
+              “The speed and velocity we have together is unmatched.”
+            </h2>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

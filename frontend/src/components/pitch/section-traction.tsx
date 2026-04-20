@@ -1,0 +1,162 @@
+"use client";
+
+import Image from "next/image";
+import Link from "next/link";
+import { useEffect, useState } from "react";
+import { FaXTwitter } from "react-icons/fa6";
+
+import { Button } from "../ui/button";
+import { Card } from "./ui";
+
+const customersImage =
+  "https://raw.githubusercontent.com/EmmanuelNwanja/pitchdeck/main/src/components/pitch/customers.png";
+
+type LiveStats = {
+  users: number;
+  transactions: number;
+  source: string;
+  updatedAt: string;
+};
+
+export function SectionTraction() {
+  const [stars, setStars] = useState(0);
+  const [users, setUsers] = useState(0);
+  const [transactions, setTransactions] = useState(0);
+  const [liveMeta, setLiveMeta] = useState<{ source: string; updatedAt: string } | null>(null);
+
+  useEffect(() => {
+    async function fetchStars() {
+      try {
+        const response = await fetch("https://api.github.com/repos/EmmanuelNwanja/pitchdeck");
+        const data = await response.json();
+        setStars(Number(data?.stargazers_count ?? 0));
+      } catch {
+        // ignore
+      }
+    }
+
+    async function fetchCount() {
+      try {
+        const response = await fetch("/api/pitch/stats");
+        const data = (await response.json()) as LiveStats;
+        setUsers(Number(data.users ?? 0));
+        setTransactions(Number(data.transactions ?? 0));
+        setLiveMeta({ source: data.source, updatedAt: data.updatedAt });
+      } catch {
+        // ignore
+      }
+    }
+
+    void fetchStars();
+    void fetchCount();
+  }, []);
+
+  return (
+    <div className="min-h-screen relative w-screen">
+      <div className="absolute left-4 right-4 md:left-8 md:right-8 top-4 flex justify-between text-lg">
+        <span>Where we are</span>
+        <span className="text-[#878787]">
+          <Link href="/">solnuv.com</Link>
+        </span>
+      </div>
+      <div className="flex flex-col min-h-screen justify-center container">
+        <div className="grid md:grid-cols-3 gap-8 px-4 md:px-0 md:pt-0 h-[580px] md:h-auto overflow-auto pb-[100px] md:pb-0">
+          <div className="space-y-8">
+            <Card className="min-h-[365px]">
+              <h2 className="text-2xl">Waitlist sign ups</h2>
+              <p className="text-[#878787] text-sm text-center">
+                We have built in public and amassed early demand before broad release.
+              </p>
+              <span className="mt-auto font-mono text-[80px] md:text-[122px]">3453</span>
+            </Card>
+
+            <Card className="min-h-[365px]">
+              <h2 className="text-2xl">GitHub stars</h2>
+              <p className="text-[#878787] text-sm text-center">
+                Community interest around the deck and product.
+              </p>
+              <div className="flex items-center space-x-4">
+                <span className="relative ml-auto flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 bg-green-400" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
+                </span>
+                <span className="mt-auto font-mono text-[80px] md:text-[122px]">
+                  {Intl.NumberFormat("en", {
+                    notation: "compact",
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 1,
+                  }).format(stars ?? 0)}
+                </span>
+              </div>
+            </Card>
+          </div>
+          <div className="space-y-8">
+            <Card className="min-h-[365px]">
+              <h2 className="text-2xl">Private beta users</h2>
+              <p className="text-[#878787] text-sm text-center">
+                Live-fetched user count from SolNuv public summary.
+              </p>
+              <div className="flex items-center space-x-4">
+                <span className="relative ml-auto flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 bg-green-400" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
+                </span>
+                <span className="mt-auto font-mono text-[80px] md:text-[122px]">{users}</span>
+              </div>
+            </Card>
+
+            <Card className="min-h-[365px]">
+              <h2 className="text-2xl">Transactions</h2>
+              <p className="text-[#878787] text-sm text-center">
+                Live-fetched transaction workload from SolNuv public summary.
+              </p>
+              <div className="flex items-center space-x-4">
+                <span className="relative ml-auto flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 bg-green-400" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
+                </span>
+                <span className="mt-auto font-mono text-[80px] md:text-[122px]">
+                  {Intl.NumberFormat("en", { notation: "compact" }).format(transactions || 0)}
+                </span>
+              </div>
+            </Card>
+          </div>
+
+          <div className="ml-auto w-full max-w-[820px] h-full border border-border p-6 bg-[#0C0C0C] relative">
+            <div className="mb-8 flex items-center justify-between gap-4">
+              <h2 className="block text-[38px] font-medium">What people say</h2>
+              <span className="inline-flex items-center gap-2 text-[11px] uppercase tracking-wider text-green-400">
+                <span className="relative flex h-2 w-2">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-green-500" />
+                </span>
+                live fetched
+              </span>
+            </div>
+
+            {liveMeta && (
+              <p className="mb-8 text-[11px] text-[#878787]">
+                source: {liveMeta.source} · updated: {new Date(liveMeta.updatedAt).toLocaleString()}
+              </p>
+            )}
+
+            <div className="absolute w-[220px] bottom-6 left-[50%] -mt-5 -ml-[110px] flex justify-center">
+              <a
+                href="https://twitter.com/search?q=solnuv&src=typed_query&f=top"
+                target="_blank"
+                rel="noreferrer"
+              >
+                <Button className="w-full flex items-center space-x-2 h-10">
+                  <span>More posts on</span>
+                  <FaXTwitter />
+                </Button>
+              </a>
+            </div>
+
+            <Image src={customersImage} width={698} height={900} alt="Customers" quality={100} />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
