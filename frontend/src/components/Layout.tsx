@@ -8,6 +8,7 @@ import PartnerPortalLayout from "./PartnerPortalLayout";
 import AdminLayout from "./AdminLayout";
 import { ThemeToggle } from "./ThemeToggle";
 import { PageMotion } from "./PageMotion";
+import CmsRuntimeContent from "./CmsRuntimeContent";
 import AIChatPanel from "./AIChatPanel";
 import { PWAInstallBanner } from "./PWAInstallBanner";
 import { authAPI } from "../services/api";
@@ -359,6 +360,7 @@ export default function Layout({ children }: { children: ReactNode }) {
         )}
 
         <main className="flex-1 p-4 lg:p-8 overflow-auto">
+          <CmsRuntimeContent routePath={router.pathname} />
           <PageMotion>{children}</PageMotion>
         </main>
       </div>
@@ -397,6 +399,16 @@ export function getPartnerFinancierLayout(page: ReactElement): ReactElement {
   );
 }
 
+export function getPartnerTrainingLayout(page: ReactElement): ReactElement {
+  return (
+    <ProtectedRoute>
+      <PartnerProtectedRoute allowed={["training_institute"]}>
+        <PartnerPortalLayout variant="training_institute">{page}</PartnerPortalLayout>
+      </PartnerProtectedRoute>
+    </ProtectedRoute>
+  );
+}
+
 export function getPublicLayout(page: ReactElement): ReactElement {
   function PublicSiteLayout({ children }: { children: ReactNode }) {
     const router = useRouter();
@@ -424,6 +436,12 @@ export function getPublicLayout(page: ReactElement): ReactElement {
       { href: "/faq", label: "FAQ", activeHref: "/faq" },
       { href: "/jobs-opportunities", label: "Jobs & Opportunities", activeHref: "/jobs-opportunities" },
       { href: "/project-verification", label: "Project Verification", activeHref: "/project-verification" },
+      {
+        href: "/project-verification?tab=professional",
+        label: "Professional Verification",
+        activeHref: "/project-verification",
+      },
+      { href: "/partners/training/signup", label: "Training Institutes", activeHref: "/partners/training/signup" },
     ] as const;
     const resourcesActive = resourceItems.some(({ activeHref }) => isActive(activeHref));
 
@@ -558,6 +576,7 @@ export function getPublicLayout(page: ReactElement): ReactElement {
           )}
         </header>
         <main className="marketing-main">
+          <CmsRuntimeContent routePath={router.pathname} />
           <PageMotion>{children}</PageMotion>
         </main>
         <footer className="marketing-footer">
@@ -589,6 +608,7 @@ export function getPublicLayout(page: ReactElement): ReactElement {
                 <Link href="/faq">FAQ</Link>
                 <Link href="/jobs-opportunities">Jobs & Opportunities</Link>
                 <Link href="/project-verification">Project Verification</Link>
+                <Link href="/project-verification?tab=professional">Professional Verification</Link>
                 <Link href="/terms">Terms</Link>
                 <Link href="/privacy">Privacy</Link>
               </div>

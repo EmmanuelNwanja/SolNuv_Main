@@ -550,6 +550,62 @@ export const partnerAPI = {
   financierFinancials: () => api.get("/partner/financier/financials-summary"),
   listFinancierEscrowDecisions: (params?: JsonRecord) =>
     api.get("/partner/financier/escrow-decisions", { params }),
+  listTrainingInstitutes: () => api.get("/partner/training/institutes"),
+  importTrainingGraduates: (formData: FormData) =>
+    api.post("/partner/training/import-graduates", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    }),
+  listTrainingVerificationRequests: () => api.get("/partner/training/verification-requests"),
+  decideTrainingVerificationRequest: (id: string, data: JsonRecord) =>
+    api.patch(`/partner/training/verification-requests/${id}/decision`, data),
+};
+
+export const verificationAPI = {
+  searchProfessionals: (params: JsonRecord) => api.get("/public/professionals/search", { params }),
+  searchCompanies: (params: JsonRecord) => api.get("/public/companies/search", { params }),
+  listTrainingInstitutes: () => api.get("/public/training-institutes"),
+  submitCompetencyRequest: (data: JsonRecord) => api.post("/public/requests", data),
+};
+
+export const pitchdeckAPI = {
+  getPublicDeck: (slug = "pitch") => api.get(`/pitchdeck/public/${slug}`),
+  listAdminDecks: () => api.get("/pitchdeck/admin/decks"),
+  getAdminDeck: (id: string) => api.get(`/pitchdeck/admin/decks/${id}`),
+  saveDeck: (data: JsonRecord) => (data.id
+    ? api.put(`/pitchdeck/admin/decks/${String(data.id)}`, data)
+    : api.post("/pitchdeck/admin/decks", data)),
+  saveSlide: (data: JsonRecord) => (data.id
+    ? api.put(`/pitchdeck/admin/slides/${String(data.id)}`, data)
+    : api.post("/pitchdeck/admin/slides", data)),
+  deleteSlide: (id: string) => api.delete(`/pitchdeck/admin/slides/${id}`),
+  saveCard: (data: JsonRecord) => (data.id
+    ? api.put(`/pitchdeck/admin/cards/${String(data.id)}`, data)
+    : api.post("/pitchdeck/admin/cards", data)),
+  deleteCard: (id: string) => api.delete(`/pitchdeck/admin/cards/${id}`),
+  saveMetric: (data: JsonRecord) => (data.id
+    ? api.put(`/pitchdeck/admin/metrics/${String(data.id)}`, data)
+    : api.post("/pitchdeck/admin/metrics", data)),
+};
+
+export const cmsAPI = {
+  resolvePage: (route_path: string) => api.get("/cms/resolve", { params: { route_path } }),
+  listAdminPages: () => api.get("/cms/admin/pages"),
+  getAdminPage: (id: string) => api.get(`/cms/admin/pages/${id}`),
+  savePage: (data: JsonRecord) =>
+    data.id ? api.put(`/cms/admin/pages/${String(data.id)}`, data) : api.post("/cms/admin/pages", data),
+  saveSection: (data: JsonRecord) =>
+    data.id ? api.put(`/cms/admin/sections/${String(data.id)}`, data) : api.post("/cms/admin/sections", data),
+  deleteSection: (id: string) => api.delete(`/cms/admin/sections/${id}`),
+  saveCard: (data: JsonRecord) =>
+    data.id ? api.put(`/cms/admin/cards/${String(data.id)}`, data) : api.post("/cms/admin/cards", data),
+  deleteCard: (id: string) => api.delete(`/cms/admin/cards/${id}`),
+  saveLink: (data: JsonRecord) =>
+    data.id ? api.put(`/cms/admin/links/${String(data.id)}`, data) : api.post("/cms/admin/links", data),
+  deleteLink: (id: string) => api.delete(`/cms/admin/links/${id}`),
+  publishPage: (id: string) => api.post(`/cms/admin/pages/${id}/publish`),
+  unpublishPage: (id: string) => api.post(`/cms/admin/pages/${id}/unpublish`),
+  rollbackPage: (id: string, revision_number: number) =>
+    api.post(`/cms/admin/pages/${id}/rollback`, { revision_number }),
 };
 
 export const v2API = {

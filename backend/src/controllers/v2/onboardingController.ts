@@ -6,6 +6,7 @@ const ALLOWED_ACTOR_TYPES = [
   'epc',
   'financier',
   'recycler',
+  'training_institute',
   'buyer',
   'regulator',
   'solnuv_admin',

@@ -23,11 +23,13 @@ import {
   RiSearchEyeLine,
   RiTeamLine,
   RiBriefcaseLine,
+  RiEditLine,
 } from "react-icons/ri";
 import type { IconType } from "react-icons";
 import { useAuth } from "../context/AuthContext";
 import { ThemeToggle } from "./ThemeToggle";
 import { PageMotion } from "./PageMotion";
+import CmsRuntimeContent from "./CmsRuntimeContent";
 import toast from "react-hot-toast";
 
 interface AdminNavItem {
@@ -65,6 +67,8 @@ const adminNavSections: AdminNavSection[] = [
     label: "Content",
     items: [
       { href: "/admin/blog", label: "Blog & Ads", icon: RiArticleLine },
+      { href: "/admin/pitchdeck", label: "Pitchdeck CMS", icon: RiFileList3Line },
+      { href: "/admin/content-studio", label: "Content Studio", icon: RiEditLine },
       { href: "/admin/contact", label: "Contact Inbox", icon: RiMailLine },
       { href: "/admin/faq", label: "FAQ Management", icon: RiQuestionLine },
       { href: "/admin/opportunities", label: "Jobs & Opportunities", icon: RiBriefcaseLine },
@@ -192,6 +196,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         </header>
 
         <main className="flex-1 p-4 lg:p-8 admin-content overflow-auto">
+          <CmsRuntimeContent routePath={router.pathname} />
           <PageMotion>{children}</PageMotion>
         </main>
       </div>
