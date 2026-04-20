@@ -387,6 +387,8 @@ export const adminAPI = {
   approveDecommission: (id: string, data?: JsonRecord) =>
     api.patch(`/admin/recovery-requests/${id}/approve`, data ?? {}),
   listV2Organizations: (params?: JsonRecord) => api.get("/admin/v2-organizations", { params }),
+  updateV2OrganizationStatus: (id: string, verification_status: string, reason?: string) =>
+    api.patch(`/admin/v2-organizations/${id}/status`, { verification_status, reason: reason || null }),
   assignRecoveryPartner: (id: string, organization_id: string) =>
     api.patch(`/admin/recovery-requests/${id}/assign-partner`, { organization_id }),
   getEnvironmentMode: () => api.get("/admin/settings/environment"),

@@ -52,6 +52,8 @@ export default function AdminPitchdeckPage() {
   const [selectedDeckId, setSelectedDeckId] = useState<string>("");
   const [selectedDeck, setSelectedDeck] = useState<Deck | null>(null);
   const [busy, setBusy] = useState(false);
+  const [bootstrapping, setBootstrapping] = useState(false);
+  const [autoBootstrapAttempted, setAutoBootstrapAttempted] = useState(false);
   const [newSlideKey, setNewSlideKey] = useState("");
   const [newCardKeyBySlide, setNewCardKeyBySlide] = useState<Record<string, string>>({});
 
@@ -60,9 +62,95 @@ export default function AdminPitchdeckPage() {
       const response = await pitchdeckAPI.listAdminDecks();
       const rows = (response.data?.data?.decks || []) as Deck[];
       setDecks(rows);
-      if (!selectedDeckId && rows[0]?.id) setSelectedDeckId(rows[0].id);
+      const selectedStillExists = rows.some((row) => row.id === selectedDeckId);
+      if ((!selectedDeckId || !selectedStillExists) && rows[0]?.id) setSelectedDeckId(rows[0].id);
+      if (!rows.length) {
+        setSelectedDeck(null);
+        setSelectedDeckId("");
+        if (!autoBootstrapAttempted) {
+          setAutoBootstrapAttempted(true);
+          await bootstrapStarterDeck();
+          return;
+        }
+      }
     } catch {
       toast.error("Could not load pitch decks");
+    }
+  }
+
+  async function bootstrapStarterDeck() {
+    setBootstrapping(true);
+    try {
+      const deckRes = await pitchdeckAPI.saveDeck({
+        slug: "pitch",
+        title: "SolNuv Pitch Deck",
+        description: "Starter pitch deck for CMS editing",
+        is_published: true,
+        is_active: true,
+        version: 1,
+      });
+      const deck = deckRes.data?.data as Deck | undefined;
+      if (!deck?.id) throw new Error("Deck bootstrap failed");
+
+      const slideKeys = [
+        "start",
+        "problem",
+        "solution",
+        "demo",
+        "traction",
+        "team",
+        "subscription",
+        "vision",
+        "next",
+        "book",
+      ];
+
+      for (let index = 0; index < slideKeys.length; index += 1) {
+        const key = slideKeys[index];
+        const slideRes = await pitchdeckAPI.saveSlide({
+          deck_id: deck.id,
+          slide_key: key,
+          title: key.charAt(0).toUpperCase() + key.slice(1),
+          subtitle: "Edit this slide subtitle",
+          order_index: index,
+          is_visible: true,
+        });
+        const slide = slideRes.data?.data as Slide | undefined;
+        if (slide?.id) {
+          await pitchdeckAPI.saveCard({
+            slide_id: slide.id,
+            card_key: `${key}_card`,
+            card_type: "generic",
+            title: "Edit card title",
+            body: "Edit card body copy from dashboard",
+            order_index: 0,
+          });
+        }
+      }
+
+      const starterMetrics: Array<{
+        metric_key: string;
+        label: string;
+        source_mode: Metric["source_mode"];
+        manual_value: number | null;
+      }> = [
+        { metric_key: "github_stars", label: "GitHub stars", source_mode: "live", manual_value: null },
+        { metric_key: "private_beta_users", label: "Private beta users", source_mode: "empty_fallback_live", manual_value: null },
+        { metric_key: "transactions", label: "Transactions", source_mode: "empty_fallback_live", manual_value: null },
+      ];
+
+      for (const metric of starterMetrics) {
+        await pitchdeckAPI.saveMetric({ deck_id: deck.id, ...metric });
+      }
+
+      toast.success("Starter deck created");
+      await loadDecks();
+      setSelectedDeckId(deck.id);
+      await loadDeck(deck.id);
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || "Could not create starter deck");
+    } finally {
+      setBootstrapping(false);
     }
   }
 
@@ -189,14 +277,30 @@ export default function AdminPitchdeckPage() {
               value={selectedDeckId}
               onChange={(event) => setSelectedDeckId(event.target.value)}
             >
+              {!decks.length && <option value="">No decks available yet</option>}
               {decks.map((deck) => (
                 <option key={deck.id} value={deck.id}>
                   {deck.title} ({deck.slug})
                 </option>
               ))}
             </select>
+            <button
+              type="button"
+              className="btn-ghost border border-slate-700"
+              onClick={() => void bootstrapStarterDeck()}
+              disabled={bootstrapping}
+            >
+              {bootstrapping ? "Creating..." : "Create starter deck"}
+            </button>
           </div>
         </div>
+
+        {!decks.length && (
+          <div className="rounded-xl border border-amber-700/40 bg-amber-900/10 p-4 text-sm text-amber-200">
+            No editable pitch deck exists yet. Click <span className="font-semibold">Create starter deck</span> to generate
+            one and start editing immediately.
+          </div>
+        )}
 
         {selectedDeck && (
           <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-4 space-y-3">
