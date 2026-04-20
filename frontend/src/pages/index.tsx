@@ -264,8 +264,8 @@ export default function Home() {
   return (
     <>
       <Head>
-        <title>SolNuv — Solar Engineering, Compliance &amp; Lifecycle Intelligence</title>
-        <meta name="description" content="SolNuv helps solar teams design and evaluate systems, manage project evidence, support compliance workflows, and track lifecycle outcomes in one secure workspace." />
+        <title>SolNuv — Solar Verification, Training &amp; Lifecycle Intelligence</title>
+        <meta name="description" content="SolNuv helps solar teams design and evaluate systems, verify projects and professionals, collaborate with training institutes, and track lifecycle outcomes in one secure workspace." />
         <meta name="keywords" content="solar design software, solar BESS sizing tool, solar engineering platform, NESREA EPR workflow, solar financial modelling, PV simulation, load profile analysis, tariff analysis, solar project management, lifecycle tracking" />
         <meta property="og:title" content="SolNuv — Solar Engineering &amp; Lifecycle Intelligence" />
         <meta property="og:description" content="A unified platform for solar project design, financial scenario modelling, compliance support, and lifecycle traceability." />
@@ -300,7 +300,7 @@ export default function Home() {
                 stagger={0.05}
               />
               <p className="text-base md:text-lg text-white/75 leading-relaxed mt-5 max-w-2xl">
-                One workspace for solar + BESS design, scenario-based financial modelling, lifecycle evidence, and compliance-ready reporting. Built for teams that need defensible outputs and auditable workflows.
+                One workspace for solar + BESS design, project authenticity checks, professional competency verification, and lifecycle evidence. Built for teams that need defensible outputs and auditable workflows.
               </p>
               <div className="marketing-cta-row">
                 <Link href="/register" className="btn-amber inline-flex items-center gap-2">
@@ -322,6 +322,9 @@ export default function Home() {
                 </li>
                 <li className="flex items-center gap-1.5">
                   <RiCheckLine className="text-emerald-300" /> NESREA-aware compliance exports
+                </li>
+                <li className="flex items-center gap-1.5">
+                  <RiCheckLine className="text-emerald-300" /> Training institute competency verification
                 </li>
                 <li className="flex items-center gap-1.5">
                   <RiCheckLine className="text-emerald-300" /> Naira-first pricing

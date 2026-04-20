@@ -4,6 +4,7 @@ import { useRouter } from "next/router";
 import { useAuth } from "../context/AuthContext";
 import { ThemeToggle } from "./ThemeToggle";
 import { PageMotion } from "./PageMotion";
+import CmsRuntimeContent from "./CmsRuntimeContent";
 import AIChatPanel from "./AIChatPanel";
 import { PWAInstallBanner } from "./PWAInstallBanner";
 import { authAPI } from "../services/api";
@@ -31,7 +32,7 @@ import type { IconType } from "react-icons";
 import toast from "react-hot-toast";
 import { supabase } from "../utils/supabase";
 
-type Variant = "recycler" | "financier";
+type Variant = "recycler" | "financier" | "training_institute";
 
 interface NavEntry {
   href: string;
@@ -60,7 +61,12 @@ function NavSection({ label, children }: { label: string; children: ReactNode })
 }
 
 export default function PartnerPortalLayout({ variant, children }: { variant: Variant; children: ReactNode }) {
-  const base = variant === "recycler" ? "/partners/recycling" : "/partners/finance";
+  const base =
+    variant === "recycler"
+      ? "/partners/recycling"
+      : variant === "financier"
+        ? "/partners/finance"
+        : "/partners/training";
   const { profile, company, signOut, session } = useAuth();
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -160,12 +166,19 @@ export default function PartnerPortalLayout({ variant, children }: { variant: Va
           { href: `${base}/esg`, icon: RiLeafLine, label: "ESG & impact", match: "prefix" },
           { href: `${base}/portfolio`, icon: RiUserLine, label: "Portfolio", match: "prefix" },
         ]
-      : [
-          { href: base, icon: RiDashboardLine, label: "Dashboard", match: "exact" },
-          { href: `${base}/financials`, icon: RiLineChartLine, label: "Financials", match: "prefix" },
-          { href: `${base}/escrow`, icon: RiShieldCheckLine, label: "Escrow decisions", match: "prefix" },
-          { href: `${base}/funding`, icon: RiHandCoinLine, label: "Funding requests", match: "prefix" },
-        ];
+      : variant === "financier"
+        ? [
+            { href: base, icon: RiDashboardLine, label: "Dashboard", match: "exact" },
+            { href: `${base}/financials`, icon: RiLineChartLine, label: "Financials", match: "prefix" },
+            { href: `${base}/escrow`, icon: RiShieldCheckLine, label: "Escrow decisions", match: "prefix" },
+            { href: `${base}/funding`, icon: RiHandCoinLine, label: "Funding requests", match: "prefix" },
+          ]
+        : [
+            { href: base, icon: RiDashboardLine, label: "Dashboard", match: "exact" },
+            { href: `${base}/graduates`, icon: RiUserLine, label: "Trained professionals", match: "prefix" },
+            { href: `${base}/requests`, icon: RiShieldCheckLine, label: "Verification queue", match: "prefix" },
+            { href: `${base}/impact`, icon: RiLeafLine, label: "Impact", match: "prefix" },
+          ];
 
   const resources: NavEntry[] = [
     { href: "/blog", icon: RiArticleLine, label: "Blog", match: "prefix" },
@@ -205,7 +218,12 @@ export default function PartnerPortalLayout({ variant, children }: { variant: Va
     );
   }
 
-  const portalTitle = variant === "recycler" ? "Recycling partner" : "Finance partner";
+  const portalTitle =
+    variant === "recycler"
+      ? "Recycling partner"
+      : variant === "financier"
+        ? "Finance partner"
+        : "Training institute";
 
   return (
     <div className="min-h-screen min-h-[100dvh] bg-slate-50 dark:bg-slate-950 flex">
@@ -301,6 +319,7 @@ export default function PartnerPortalLayout({ variant, children }: { variant: Va
         </header>
 
         <main className="flex-1 p-4 lg:p-8 overflow-auto">
+          <CmsRuntimeContent routePath={router.pathname} />
           <PageMotion>{children}</PageMotion>
         </main>
       </div>

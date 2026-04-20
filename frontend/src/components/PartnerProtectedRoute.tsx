@@ -1,9 +1,14 @@
 import { useEffect, type ReactNode } from "react";
 import { useRouter } from "next/router";
 import { useAuth } from "../context/AuthContext";
-import { getPartnerPortalPath, hasPartnerFinancier, hasPartnerRecycler } from "../utils/partnerPortal";
+import {
+  getPartnerPortalPath,
+  hasPartnerFinancier,
+  hasPartnerRecycler,
+  hasPartnerTrainingInstitute,
+} from "../utils/partnerPortal";
 
-type PartnerKind = "recycler" | "financier";
+type PartnerKind = "recycler" | "financier" | "training_institute";
 
 export default function PartnerProtectedRoute({
   children,
@@ -25,7 +30,9 @@ export default function PartnerProtectedRoute({
     }
     const okRecycler = allowed.includes("recycler") && hasPartnerRecycler(profile);
     const okFinancier = allowed.includes("financier") && hasPartnerFinancier(profile);
-    if (okRecycler || okFinancier) return;
+    const okTraining =
+      allowed.includes("training_institute") && hasPartnerTrainingInstitute(profile);
+    if (okRecycler || okFinancier || okTraining) return;
 
     const fallback = getPartnerPortalPath(profile);
     if (fallback) {
@@ -33,7 +40,11 @@ export default function PartnerProtectedRoute({
       return;
     }
     const signup =
-      allowed[0] === "recycler" ? "/partners/recycling/signup" : "/partners/finance/signup";
+      allowed[0] === "recycler"
+        ? "/partners/recycling/signup"
+        : allowed[0] === "financier"
+          ? "/partners/finance/signup"
+          : "/partners/training/signup";
     void router.replace(signup);
   }, [ready, session, profile, allowed, router]);
 
@@ -60,7 +71,8 @@ export default function PartnerProtectedRoute({
 
   const okRecycler = allowed.includes("recycler") && hasPartnerRecycler(profile);
   const okFinancier = allowed.includes("financier") && hasPartnerFinancier(profile);
-  if (okRecycler || okFinancier) {
+  const okTraining = allowed.includes("training_institute") && hasPartnerTrainingInstitute(profile);
+  if (okRecycler || okFinancier || okTraining) {
     return <>{children}</>;
   }
 

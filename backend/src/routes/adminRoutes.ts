@@ -3,6 +3,7 @@ const router = express.Router();
 const adminController = require('../controllers/adminController');
 const partnerController = require('../controllers/partnerController');
 const nercController = require('../controllers/nercController');
+const verificationDirectoryController = require('../controllers/verificationDirectoryController');
 const { requireAuth, requireProfile } = require('../middlewares/authMiddleware');
 const { requireAdmin, requireAdminRole } = require('../middlewares/adminMiddleware');
 const { attachEnvironment } = require('../middlewares/environmentMiddleware');
@@ -36,6 +37,8 @@ router.post('/otps', requireAdminRole('super_admin', 'operations'), adminControl
 router.get('/verification-requests', requireAdminRole('super_admin', 'operations'), adminController.listVerificationRequests);
 router.patch('/users/:id/verify', requireAdminRole('super_admin', 'operations'), adminController.verifyUser);
 router.patch('/users/:id/reject-verification', requireAdminRole('super_admin', 'operations'), adminController.rejectVerification);
+router.get('/competency-verification-requests', requireAdminRole('super_admin', 'operations'), verificationDirectoryController.adminListCompetencyVerificationRequests);
+router.patch('/competency-verification-requests/:id/decision', requireAdminRole('super_admin', 'operations'), verificationDirectoryController.adminDecideCompetencyVerificationRequest);
 
 router.get('/projects', requireAdminRole('super_admin', 'operations', 'analytics'), adminController.listAllProjects);
 router.patch('/projects/bulk', requireAdminRole('super_admin', 'operations'), adminController.adminBulkUpdateProjects);

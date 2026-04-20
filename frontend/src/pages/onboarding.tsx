@@ -82,7 +82,10 @@ export default function Onboarding() {
 
   const update = (field, val) => setForm(f => ({ ...f, [field]: val }));
   const isRegistered = form.business_type === 'registered';
-  const isPartnerRole = form.user_type === 'recycler' || form.user_type === 'financier';
+  const isPartnerRole =
+    form.user_type === 'recycler' ||
+    form.user_type === 'financier' ||
+    form.user_type === 'training_institute';
 
   // Persist step + form so browser refresh doesn't lose progress
   useEffect(() => {
@@ -171,7 +174,13 @@ export default function Onboarding() {
         }
         await refreshProfile();
         toast.success('Partner profile saved! Opening your portal…');
-        router.push(form.user_type === 'financier' ? '/partners/finance' : '/partners/recycling');
+        router.push(
+          form.user_type === 'financier'
+            ? '/partners/finance'
+            : form.user_type === 'training_institute'
+              ? '/partners/training'
+              : '/partners/recycling'
+        );
         return;
       }
 
@@ -241,6 +250,7 @@ export default function Onboarding() {
                       { value: 'developer', label: 'Developer', emoji: '💻' },
                       { value: 'recycler', label: 'Recycling partner', emoji: '♻️' },
                       { value: 'financier', label: 'Finance partner', emoji: '🏦' },
+                      { value: 'training_institute', label: 'Training institute', emoji: '🎓' },
                     ].map(opt => (
                       <button key={opt.value} type="button" onClick={() => update('user_type', opt.value)}
                         className={`p-4 rounded-xl border-2 text-center transition-all ${form.user_type === opt.value ? 'border-forest-900 bg-forest-900/5' : 'border-slate-200 hover:border-slate-300'}`}>
