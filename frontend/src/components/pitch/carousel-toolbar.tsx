@@ -135,7 +135,7 @@ export function CarouselToolbar({ views, loading }: Props) {
                     </button>
                   </TooltipTrigger>
                   <TooltipContent className="py-1 px-3 rounded-sm" sideOffset={25}>
-                    <span className="text-xs">Book a meeting</span>
+                    <span className="text-xs">Start diligence call</span>
                   </TooltipContent>
                 </Tooltip>
 

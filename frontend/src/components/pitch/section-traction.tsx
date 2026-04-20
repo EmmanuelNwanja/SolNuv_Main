@@ -126,7 +126,7 @@ export function SectionTraction() {
           <div className="ml-auto w-full border border-emerald-500/25 p-4 md:p-6 bg-[#0C0C0C] relative">
             <div className="mb-8 flex items-center justify-between gap-4">
               <h2 className="block text-2xl sm:text-3xl md:text-[38px] font-display text-emerald-100 font-medium">
-                AI throughput signal
+                AI review throughput
               </h2>
               <span className="inline-flex items-center gap-2 text-[11px] uppercase tracking-wider text-green-400">
                 <span className="relative flex h-2 w-2">
@@ -155,7 +155,7 @@ export function SectionTraction() {
                 rel="noreferrer"
               >
                 <Button className="w-full flex items-center space-x-2 h-10">
-                  <span>More posts on</span>
+                  <span>Public conversation on</span>
                   <FaXTwitter />
                 </Button>
               </a>
