@@ -6,9 +6,9 @@ export function SectionBook() {
   return (
     <div className="min-h-[100svh] relative w-full">
       <div className="absolute left-4 right-4 md:left-8 md:right-8 top-4 flex justify-between items-center gap-3 text-sm md:text-lg">
-        <span>Book a meeting</span>
+        <span>Start diligence conversation</span>
         <Link href="/register">
-          <Button variant="outline" className="h-9 px-3 text-xs sm:text-sm sm:h-10 sm:px-4">Sign up</Button>
+          <Button variant="outline" className="h-9 px-3 text-xs sm:text-sm sm:h-10 sm:px-4">Create workspace</Button>
         </Link>
       </div>
       <div className="flex flex-col min-h-[100svh] justify-center container">

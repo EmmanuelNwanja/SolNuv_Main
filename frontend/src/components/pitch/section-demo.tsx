@@ -61,7 +61,7 @@ export function SectionDemo({ playVideo }: Props) {
   return (
     <div className="min-h-[100svh] relative w-full">
       <div className="absolute left-4 right-4 md:left-8 md:right-8 top-4 flex justify-between text-sm md:text-lg gap-3">
-        <span className="truncate">Product walkthrough · private beta</span>
+        <span className="truncate">Product reality · private beta</span>
         <span className="text-[#878787]">
           <Link href="/">solnuv.com</Link>
         </span>

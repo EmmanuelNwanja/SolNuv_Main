@@ -17,7 +17,7 @@ export function SectionNext() {
   return (
     <div className="min-h-[100svh] relative w-full">
       <div className="absolute left-4 right-4 md:left-8 md:right-8 top-4 flex justify-between text-sm md:text-lg">
-        <span>Roadmap tension</span>
+        <span>What comes next</span>
         <span className="text-[#878787]">
           <Link href="/">solnuv.com</Link>
         </span>
