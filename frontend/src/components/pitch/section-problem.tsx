@@ -17,22 +17,22 @@ export function SectionProblem() {
       <div className="flex flex-col min-h-[100svh] justify-center container">
         <div className="grid md:grid-cols-3 gap-4 md:gap-8 px-4 md:px-0 pt-20 md:pt-0 pb-28 md:pb-0">
           <div className="space-y-8">
-            <Card>
+            <Card className="border-emerald-500/35 bg-forest-900/30">
               <svg xmlns="http://www.w3.org/2000/svg" width={60} height={68} fill="none">
                 <path
                   fill="#F5F5F3"
                   d="M0 67.333V.667l5 5 5-5 5 5 5-5 5 5 5-5 5 5 5-5 5 5 5-5 5 5 5-5v66.666l-5-5-5 5-5-5-5 5-5-5-5 5-5-5-5 5-5-5-5 5-5-5-5 5Zm10-16.666h40V44H10v6.667Zm0-13.334h40v-6.666H10v6.666ZM10 24h40v-6.667H10V24ZM6.667 57.667h46.666V10.333H6.667v47.334Z"
                 />
               </svg>
-              <h2 className="text-2xl">Disorganization</h2>
-              <p className="text-[#878787] text-sm text-center">
+              <h2 className="text-2xl font-display text-emerald-100">Disorganization</h2>
+              <p className="text-emerald-50/75 text-sm text-center">
                 Running a business is tough, and one of the biggest challenges is
                 disorganization. From scattered files to misplaced documents, this
                 lack of structure hampers productivity and wastes time.
               </p>
             </Card>
             <div className="px-2 md:px-8">
-              <h2 className="text-3xl sm:text-5xl md:text-6xl text-center leading-tight">
+              <h2 className="text-3xl sm:text-5xl md:text-6xl text-center leading-tight font-display text-amber-100">
                 The current market for SMB financial tools is a mess.
               </h2>
             </div>
@@ -41,7 +41,7 @@ export function SectionProblem() {
             <Image src={receiptImage} alt="Receipt" width={650} height={875} quality={100} />
           </div>
           <div className="ml-auto w-full space-y-8">
-            <Card className="min-h-[260px] md:min-h-[315px]">
+            <Card className="min-h-[260px] md:min-h-[315px] border-amber-500/35 bg-amber-900/15">
               <svg xmlns="http://www.w3.org/2000/svg" width={80} height={80} fill="none">
                 <mask
                   id="problemMaskA"
@@ -61,14 +61,14 @@ export function SectionProblem() {
                   />
                 </g>
               </svg>
-              <h2 className="text-2xl">Scattered workflow</h2>
-              <p className="text-[#878787] text-sm text-center">
+              <h2 className="text-2xl font-display text-amber-100">Scattered workflow</h2>
+              <p className="text-amber-50/75 text-sm text-center">
                 Existing services often compound the problem by residing on various
                 platforms, resulting in a fragmented workflow. This scattered
                 approach wastes time and money.
               </p>
             </Card>
-            <Card className="min-h-[260px] md:min-h-[315px]">
+            <Card className="min-h-[260px] md:min-h-[315px] border-emerald-500/25 bg-slate-900/80">
               <svg xmlns="http://www.w3.org/2000/svg" width={80} height={80} fill="none">
                 <mask
                   id="problemMaskB"
@@ -88,8 +88,8 @@ export function SectionProblem() {
                   />
                 </g>
               </svg>
-              <h2 className="text-2xl">Old tech</h2>
-              <p className="text-[#878787] text-sm text-center">
+              <h2 className="text-2xl font-display text-slate-100">Old tech</h2>
+              <p className="text-slate-300 text-sm text-center">
                 Services are outdated and prioritize features tailored to specialists
                 rather than offering a user-friendly interface for business owners.
               </p>

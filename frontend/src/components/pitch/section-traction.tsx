@@ -62,17 +62,17 @@ export function SectionTraction() {
       <div className="flex flex-col min-h-[100svh] justify-center container">
         <div className="grid md:grid-cols-3 gap-4 md:gap-8 px-4 md:px-0 pt-20 md:pt-0 pb-28 md:pb-0">
           <div className="space-y-8">
-            <Card className="min-h-[250px] sm:min-h-[300px] md:min-h-[365px]">
-              <h2 className="text-2xl">Waitlist sign ups</h2>
-              <p className="text-[#878787] text-sm text-center">
+            <Card className="min-h-[250px] sm:min-h-[300px] md:min-h-[365px] border-emerald-500/35 bg-forest-900/30">
+              <h2 className="text-2xl font-display text-emerald-100">Waitlist sign ups</h2>
+              <p className="text-emerald-50/75 text-sm text-center">
                 We have built in public and amassed early demand before broad release.
               </p>
               <span className="mt-auto font-mono text-5xl sm:text-7xl md:text-[122px]">3453</span>
             </Card>
 
-            <Card className="min-h-[250px] sm:min-h-[300px] md:min-h-[365px]">
-              <h2 className="text-2xl">GitHub stars</h2>
-              <p className="text-[#878787] text-sm text-center">
+            <Card className="min-h-[250px] sm:min-h-[300px] md:min-h-[365px] border-amber-500/35 bg-amber-900/15">
+              <h2 className="text-2xl font-display text-amber-100">GitHub stars</h2>
+              <p className="text-amber-50/75 text-sm text-center">
                 Community interest around the deck and product.
               </p>
               <div className="flex items-center space-x-4">
@@ -91,9 +91,9 @@ export function SectionTraction() {
             </Card>
           </div>
           <div className="space-y-8">
-            <Card className="min-h-[250px] sm:min-h-[300px] md:min-h-[365px]">
-              <h2 className="text-2xl">Private beta users</h2>
-              <p className="text-[#878787] text-sm text-center">
+            <Card className="min-h-[250px] sm:min-h-[300px] md:min-h-[365px] border-emerald-500/25 bg-slate-900/80">
+              <h2 className="text-2xl font-display text-slate-100">Private beta users</h2>
+              <p className="text-slate-300 text-sm text-center">
                 Live-fetched user count from SolNuv public summary.
               </p>
               <div className="flex items-center space-x-4">
@@ -105,9 +105,9 @@ export function SectionTraction() {
               </div>
             </Card>
 
-            <Card className="min-h-[250px] sm:min-h-[300px] md:min-h-[365px]">
-              <h2 className="text-2xl">Transactions</h2>
-              <p className="text-[#878787] text-sm text-center">
+            <Card className="min-h-[250px] sm:min-h-[300px] md:min-h-[365px] border-amber-500/25 bg-slate-900/90">
+              <h2 className="text-2xl font-display text-slate-100">Transactions</h2>
+              <p className="text-slate-300 text-sm text-center">
                 Live-fetched transaction workload from SolNuv public summary.
               </p>
               <div className="flex items-center space-x-4">
@@ -122,9 +122,11 @@ export function SectionTraction() {
             </Card>
           </div>
 
-          <div className="ml-auto w-full border border-border p-4 md:p-6 bg-[#0C0C0C] relative">
+          <div className="ml-auto w-full border border-emerald-500/25 p-4 md:p-6 bg-[#0C0C0C] relative">
             <div className="mb-8 flex items-center justify-between gap-4">
-              <h2 className="block text-2xl sm:text-3xl md:text-[38px] font-medium">What people say</h2>
+              <h2 className="block text-2xl sm:text-3xl md:text-[38px] font-display text-emerald-100 font-medium">
+                What people say
+              </h2>
               <span className="inline-flex items-center gap-2 text-[11px] uppercase tracking-wider text-green-400">
                 <span className="relative flex h-2 w-2">
                   <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75" />

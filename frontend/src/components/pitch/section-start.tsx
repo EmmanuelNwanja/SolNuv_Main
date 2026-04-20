@@ -1,7 +1,9 @@
 export function SectionStart() {
   return (
     <div className="min-h-[100svh]">
-      <span className="absolute right-4 md:right-8 top-4 text-sm md:text-lg">Pitch/2024</span>
+      <span className="absolute right-4 md:right-8 top-4 text-sm md:text-lg text-emerald-300">
+        Pitch/2024
+      </span>
 
       <div className="container min-h-[100svh] relative pt-20 pb-28 md:py-0">
         <div className="absolute top-24 left-2 scale-[0.4] sm:scale-50 md:scale-100 md:top-auto md:bottom-[650px] md:left-0">
@@ -19,7 +21,7 @@ export function SectionStart() {
             />
           </svg>
         </div>
-        <h1 className="absolute bottom-28 left-2 md:left-auto md:right-0 md:bottom-8 text-[clamp(4rem,22vw,26rem)] leading-none">
+        <h1 className="absolute bottom-28 left-2 md:left-auto md:right-0 md:bottom-8 text-[clamp(4rem,22vw,26rem)] leading-none font-display bg-gradient-to-r from-emerald-300 via-white to-amber-300 bg-clip-text text-transparent">
           SolNuv
         </h1>
       </div>
