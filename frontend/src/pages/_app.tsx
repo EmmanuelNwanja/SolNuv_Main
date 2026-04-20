@@ -166,6 +166,8 @@ function AppShell({ Component, pageProps, router }: AppProps) {
 
     const unprotectedPaths = [
       "/",
+      "/pitch",
+      "/pitchdeck",
       "/login",
       "/register",
       "/reset-password",

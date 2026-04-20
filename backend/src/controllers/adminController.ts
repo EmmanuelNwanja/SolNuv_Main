@@ -831,13 +831,23 @@ exports.getFinance = async (req, res) => {
 
 exports.sendPushNotification = async (req, res) => {
   try {
-    const { title, message, target_type = 'all', target_value = null } = req.body;
+    const {
+      title,
+      message,
+      target_type = 'all',
+      target_value = null,
+      delivery_mode = 'inbox', // inbox | inbox_popup
+    } = req.body;
     if (!title || !message) return sendError(res, 'title and message are required', 400);
 
     // Validate target_type and target_value
     const validTargetTypes = ['all', 'user', 'plan', 'company'];
     if (!validTargetTypes.includes(target_type)) {
       return sendError(res, 'Invalid target_type. Must be one of: all, user, plan, company', 400);
+    }
+    const validDeliveryModes = ['inbox', 'inbox_popup'];
+    if (!validDeliveryModes.includes(delivery_mode)) {
+      return sendError(res, 'Invalid delivery_mode. Must be one of: inbox, inbox_popup', 400);
     }
 
     // Validate target_value based on target_type
@@ -868,7 +878,7 @@ exports.sendPushNotification = async (req, res) => {
       sent_by: req.user.id,
       sent_at: new Date().toISOString(),
       status: 'sent',
-      metadata: { source: 'admin_dashboard' },
+      metadata: { source: 'admin_dashboard', delivery_mode },
     };
 
     const { data: pushRow, error: pushError } = await supabase
@@ -879,16 +889,36 @@ exports.sendPushNotification = async (req, res) => {
 
     if (pushError) throw pushError;
 
+    // Use a schema-agnostic recipient query. Previous relation-based query could fail
+    // on environments with FK alias differences and silently result in no deliveries.
     let notificationQuery = supabase
       .from('users')
-      .select('id, company_id, companies(subscription_plan)')
+      .select('id, company_id')
       .eq('is_active', true);
 
-    if (target_type === 'user' && target_value) notificationQuery = notificationQuery.eq('id', target_value);
-    const { data: users } = await notificationQuery;
+    if (target_type === 'user' && target_value) {
+      notificationQuery = notificationQuery.eq('id', target_value);
+    }
+    const { data: users, error: usersError } = await notificationQuery;
+    if (usersError) throw usersError;
 
-    const recipients = (users || []).filter((u) => {
-      if (target_type === 'plan') return u.companies?.subscription_plan === target_value;
+    const rows = users || [];
+    const companyIds = [...new Set(rows.map((u) => u.company_id).filter(Boolean))];
+    let companyPlanById = new Map();
+    if (companyIds.length > 0) {
+      const { data: companies, error: companiesError } = await supabase
+        .from('companies')
+        .select('id, subscription_plan')
+        .in('id', companyIds);
+      if (companiesError) throw companiesError;
+      companyPlanById = new Map((companies || []).map((c) => [c.id, c.subscription_plan]));
+    }
+
+    const recipients = rows.filter((u) => {
+      if (target_type === 'plan') {
+        const plan = u.company_id ? companyPlanById.get(u.company_id) : null;
+        return plan === target_value;
+      }
       if (target_type === 'company') return u.company_id === target_value;
       return true;
     });
@@ -900,7 +930,13 @@ exports.sendPushNotification = async (req, res) => {
           type: 'report_ready',
           title,
           message,
-          data: { push_notification_id: pushRow.id, target_type, target_value },
+          data: {
+            push_notification_id: pushRow.id,
+            target_type,
+            target_value,
+            delivery_mode,
+            popup_delivery: delivery_mode === 'inbox_popup',
+          },
         }))
       );
 
