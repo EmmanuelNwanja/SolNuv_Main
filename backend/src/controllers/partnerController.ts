@@ -360,6 +360,69 @@ exports.listV2OrganizationsAdmin = async (req: Request, res: Response) => {
   }
 };
 
+exports.adminUpdateV2OrganizationStatus = async (req: Request, res: Response) => {
+  try {
+    const adminUser = (req as unknown as { user?: { id: string } }).user;
+    const admin = (req as unknown as { admin?: { role?: string } }).admin;
+    const adminRole = String(admin?.role || '');
+    if (!adminUser?.id) return sendError(res, 'Unauthorized', 401);
+
+    const organizationId = String(req.params?.id || '').trim();
+    const body = (req.body || {}) as { verification_status?: string; reason?: string };
+    const nextStatus = String(body.verification_status || '').trim().toLowerCase();
+    const reason = String(body.reason || '').trim();
+
+    if (!organizationId) return sendError(res, 'organization id required', 400);
+
+    const allowedStatuses = new Set(['pending', 'verified', 'rejected', 'revoked']);
+    if (!allowedStatuses.has(nextStatus)) {
+      return sendError(res, 'verification_status must be one of pending, verified, rejected, revoked', 400);
+    }
+
+    if ((nextStatus === 'rejected' || nextStatus === 'revoked') && adminRole !== 'super_admin') {
+      return sendError(res, 'Only super_admin can reject or revoke organization verification', 403);
+    }
+
+    if ((nextStatus === 'rejected' || nextStatus === 'revoked') && !reason) {
+      return sendError(res, 'reason is required for rejected/revoked actions', 400);
+    }
+
+    const { data: currentOrg, error: readErr } = await supabase
+      .from('v2_organizations')
+      .select('id, metadata')
+      .eq('id', organizationId)
+      .maybeSingle();
+    if (readErr) throw readErr;
+    if (!currentOrg?.id) return sendError(res, 'Organization not found', 404);
+
+    const currentMetadata =
+      currentOrg.metadata && typeof currentOrg.metadata === 'object' ? currentOrg.metadata : {};
+    const moderationMeta = {
+      last_status_update_at: new Date().toISOString(),
+      last_status_updated_by: adminUser.id,
+      last_status_reason: reason || null,
+    };
+
+    const { data, error } = await supabase
+      .from('v2_organizations')
+      .update({
+        verification_status: nextStatus,
+        metadata: { ...currentMetadata, moderation: moderationMeta },
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', organizationId)
+      .select('*')
+      .single();
+
+    if (error) throw error;
+    return sendSuccess(res, { organization: data }, 'Organization status updated');
+  } catch (e: unknown) {
+    const err = e as { message?: string };
+    logger.error('adminUpdateV2OrganizationStatus failed', { message: err.message });
+    return sendError(res, 'Failed to update organization status', 500);
+  }
+};
+
 exports.assignRecoveryPartner = async (req: Request, res: Response) => {
   try {
     const adminUser = (req as unknown as { user?: { id: string } }).user;

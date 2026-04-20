@@ -78,13 +78,34 @@ export default function AdminContentStudioPage() {
   const [newLinkByOwner, setNewLinkByOwner] = useState<Record<string, string>>({});
   const [draggingSectionId, setDraggingSectionId] = useState<string | null>(null);
   const [draggingCardKey, setDraggingCardKey] = useState<string | null>(null);
+  const [autoBootstrapAttempted, setAutoBootstrapAttempted] = useState(false);
 
   async function loadPages() {
     try {
       const response = await cmsAPI.listAdminPages();
       const rows = (response.data?.data?.pages || []) as CmsPage[];
       setPages(rows);
-      if (!selectedPageId && rows[0]?.id) setSelectedPageId(rows[0].id);
+      const selectedStillExists = rows.some((row) => row.id === selectedPageId);
+      if ((!selectedPageId || !selectedStillExists) && rows[0]?.id) {
+        setSelectedPageId(rows[0].id);
+      }
+      if (!rows.length) {
+        setSelectedPageId("");
+        setSelectedPage(null);
+        if (!autoBootstrapAttempted) {
+          setAutoBootstrapAttempted(true);
+          try {
+            await cmsAPI.bootstrapSeeds();
+            const refreshed = await cmsAPI.listAdminPages();
+            const nextRows = (refreshed.data?.data?.pages || []) as CmsPage[];
+            setPages(nextRows);
+            if (nextRows[0]?.id) setSelectedPageId(nextRows[0].id);
+            toast.success("Major routes bootstrapped for editing");
+          } catch {
+            // Keep explicit manual bootstrap as fallback.
+          }
+        }
+      }
     } catch {
       toast.error("Could not load CMS pages");
     }
@@ -342,6 +363,7 @@ export default function AdminContentStudioPage() {
         <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-4 space-y-3">
           <div className="flex items-center gap-2 flex-wrap">
             <select className="input min-w-[260px] bg-slate-950 border-slate-700 text-slate-100" value={selectedPageId} onChange={(e) => setSelectedPageId(e.target.value)}>
+              {!pages.length && <option value="">No pages yet</option>}
               {pages.map((p) => (
                 <option key={p.id} value={p.id}>
                   [{p.scope}] {p.title} ({p.route_path})
@@ -362,6 +384,13 @@ export default function AdminContentStudioPage() {
               </>
             )}
           </div>
+
+          {!pages.length && (
+            <div className="rounded-lg border border-amber-700/40 bg-amber-900/10 px-3 py-2 text-xs text-amber-200">
+              No CMS pages found. Click <span className="font-semibold">Bootstrap major routes</span> above to create
+              editable pages for public, partner, and app surfaces.
+            </div>
+          )}
 
           {selectedPage && (
             <div className="grid sm:grid-cols-2 gap-2">

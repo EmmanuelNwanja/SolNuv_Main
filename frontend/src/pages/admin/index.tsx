@@ -67,6 +67,7 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
   const [approvedPickups, setApprovedPickups] = useState([]);
   const [recyclerOrgsPickups, setRecyclerOrgsPickups] = useState([]);
   const [v2Organizations, setV2Organizations] = useState([]);
+  const [partnerOrgActionBusyId, setPartnerOrgActionBusyId] = useState(null);
   const [pickupApprovingId, setPickupApprovingId] = useState(null);
   const [partnerAssignBusyId, setPartnerAssignBusyId] = useState(null);
   const [operationalAlerts, setOperationalAlerts] = useState([]);
@@ -151,6 +152,8 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
   // Document viewer modal
   const [docViewerUrl, setDocViewerUrl] = useState(null);
   const [docViewerType, setDocViewerType] = useState('image'); // 'image' | 'pdf'
+  const canModeratePartnerOrgs = platformAdminRole === 'super_admin' || platformAdminRole === 'operations';
+  const canRevokeOrRejectPartnerOrgs = platformAdminRole === 'super_admin';
 
   function openDocViewer(url) {
     const ext = (url || '').split('?')[0].toLowerCase();
@@ -257,6 +260,62 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
   async function refreshProjects() {
     const { data } = await adminAPI.listAllProjects({ page: 1, limit: 100, search: projectSearch, status: projectStatusFilter, geo_verified: projectGeoFilter });
     setProjects(data.data?.projects || []);
+  }
+
+  async function refreshV2Organizations() {
+    const { data } = await adminAPI.listV2Organizations();
+    setV2Organizations(data?.data?.organizations || []);
+  }
+
+  function orgStatusBadge(statusRaw) {
+    const status = String(statusRaw || 'pending').toLowerCase();
+    if (status === 'verified') {
+      return { label: 'Verified', className: 'bg-emerald-100 text-emerald-700 border border-emerald-200' };
+    }
+    if (status === 'rejected') {
+      return { label: 'Rejected', className: 'bg-red-100 text-red-700 border border-red-200' };
+    }
+    if (status === 'revoked') {
+      return { label: 'Revoked', className: 'bg-rose-100 text-rose-700 border border-rose-200' };
+    }
+    return { label: 'Pending', className: 'bg-amber-100 text-amber-700 border border-amber-200' };
+  }
+
+  async function handlePartnerOrgStatusAction(org, nextStatus) {
+    const status = String(nextStatus || '').toLowerCase();
+    const needsReason = status === 'rejected' || status === 'revoked';
+    let reason = '';
+
+    if (needsReason) {
+      const promptReason = window.prompt(`Provide a reason for ${status} status`, '') || '';
+      reason = promptReason.trim();
+      if (!reason) {
+        toast.error('Reason is required for this action');
+        return;
+      }
+      const proceed = window.confirm(`Confirm ${status} action for ${org.name}?`);
+      if (!proceed) return;
+    }
+
+    setPartnerOrgActionBusyId(`${org.id}:${status}`);
+    try {
+      await adminAPI.updateV2OrganizationStatus(org.id, status, reason || undefined);
+      setV2Organizations((prev) =>
+        prev.map((row) =>
+          row.id === org.id
+            ? {
+                ...row,
+                verification_status: status,
+              }
+            : row
+        )
+      );
+      toast.success(`${org.name} marked ${status}`);
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Failed to update organization status');
+    } finally {
+      setPartnerOrgActionBusyId(null);
+    }
   }
 
   async function handleAdminProjectUpdate(projectId, patch) {
@@ -1967,8 +2026,7 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
               className="btn-ghost text-sm"
               onClick={async () => {
                 try {
-                  const { data } = await adminAPI.listV2Organizations();
-                  setV2Organizations(data?.data?.organizations || []);
+                  await refreshV2Organizations();
                 } catch {
                   toast.error('Failed to refresh');
                 }
@@ -1977,6 +2035,11 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
               Refresh
             </button>
           </div>
+          {!canModeratePartnerOrgs && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              Your role can view partner organizations but cannot modify their status.
+            </div>
+          )}
           {v2Organizations.length === 0 ? (
             <p className="text-slate-500 text-sm">No organizations loaded.</p>
           ) : (
@@ -1989,10 +2052,55 @@ export function AdminConsole({ forcedTab = 'overview', showTabs = false }) {
                   <div>
                     <p className="font-semibold text-slate-800">{org.name}</p>
                     <p className="text-xs text-slate-500">
-                      {org.organization_type} · {org.verification_status || 'unknown'} · {org.jurisdiction || '—'}
+                      {org.organization_type} · {org.jurisdiction || '—'}
                     </p>
+                    <span className={`mt-2 inline-flex text-[11px] px-2 py-0.5 rounded-full font-semibold ${orgStatusBadge(org.verification_status).className}`}>
+                      {orgStatusBadge(org.verification_status).label}
+                    </span>
                   </div>
-                  <span className="text-xs font-mono text-slate-400">{org.id}</span>
+                  <div className="flex flex-col items-end gap-2">
+                    <span className="text-xs font-mono text-slate-400">{org.id}</span>
+                    {canModeratePartnerOrgs && (
+                      <div className="flex flex-wrap justify-end gap-2">
+                      <button
+                        type="button"
+                        className="text-xs px-2.5 py-1 rounded-lg font-semibold bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-60"
+                        onClick={() => handlePartnerOrgStatusAction(org, 'verified')}
+                        disabled={Boolean(partnerOrgActionBusyId)}
+                      >
+                        Verify
+                      </button>
+                      <button
+                        type="button"
+                        className="text-xs px-2.5 py-1 rounded-lg font-semibold border border-amber-300 text-amber-700 hover:bg-amber-50 disabled:opacity-60"
+                        onClick={() => handlePartnerOrgStatusAction(org, 'pending')}
+                        disabled={Boolean(partnerOrgActionBusyId)}
+                      >
+                        Set Pending
+                      </button>
+                      {canRevokeOrRejectPartnerOrgs && (
+                        <>
+                          <button
+                            type="button"
+                            className="text-xs px-2.5 py-1 rounded-lg font-semibold border border-rose-300 text-rose-700 hover:bg-rose-50 disabled:opacity-60"
+                            onClick={() => handlePartnerOrgStatusAction(org, 'revoked')}
+                            disabled={Boolean(partnerOrgActionBusyId)}
+                          >
+                            {partnerOrgActionBusyId === `${org.id}:revoked` ? 'Revoking...' : 'Revoke'}
+                          </button>
+                          <button
+                            type="button"
+                            className="text-xs px-2.5 py-1 rounded-lg font-semibold border border-red-300 text-red-700 hover:bg-red-50 disabled:opacity-60"
+                            onClick={() => handlePartnerOrgStatusAction(org, 'rejected')}
+                            disabled={Boolean(partnerOrgActionBusyId)}
+                          >
+                            {partnerOrgActionBusyId === `${org.id}:rejected` ? 'Rejecting...' : 'Reject'}
+                          </button>
+                        </>
+                      )}
+                      </div>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>

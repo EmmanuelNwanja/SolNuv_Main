@@ -48,6 +48,7 @@ router.get('/recovery-requests', requireAdminRole('super_admin', 'operations'), 
 router.patch('/recovery-requests/:id/approve', requireAdminRole('super_admin', 'operations'), adminController.approveDecommission);
 router.patch('/recovery-requests/:id/assign-partner', requireAdminRole('super_admin', 'operations'), partnerController.assignRecoveryPartner);
 router.get('/v2-organizations', requireAdminRole('super_admin', 'operations', 'analytics'), partnerController.listV2OrganizationsAdmin);
+router.patch('/v2-organizations/:id/status', requireAdminRole('super_admin', 'operations'), partnerController.adminUpdateV2OrganizationStatus);
 
 // Platform settings (test/live mode)
 router.get('/settings/environment', requireAdminRole('super_admin'), adminController.getEnvironmentMode);
