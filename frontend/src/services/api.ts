@@ -606,6 +606,9 @@ export const cmsAPI = {
   unpublishPage: (id: string) => api.post(`/cms/admin/pages/${id}/unpublish`),
   rollbackPage: (id: string, revision_number: number) =>
     api.post(`/cms/admin/pages/${id}/rollback`, { revision_number }),
+  reorder: (entity: "sections" | "cards" | "links", items: Array<{ id: string; order_index: number }>) =>
+    api.post("/cms/admin/reorder", { entity, items }),
+  bootstrapSeeds: () => api.post("/cms/admin/bootstrap-seeds"),
 };
 
 export const v2API = {
