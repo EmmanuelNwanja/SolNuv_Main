@@ -99,7 +99,7 @@ exports.searchProfessionals = async (req, res) => {
     const last = rest.join(' ');
     let query = supabase
       .from('users')
-      .select('id, first_name, last_name, email, user_type, verification_status, competency_verification_status, public_profile_slug')
+      .select('id, first_name, last_name, email, user_type, verification_status, competency_verification_status, public_slug')
       .order('first_name', { ascending: true })
       .limit(limit);
 
@@ -122,7 +122,7 @@ exports.searchProfessionals = async (req, res) => {
         user_type: u.user_type,
         verification_status: u.verification_status || 'unverified',
         professional_status: u.competency_verification_status || 'unverified',
-        public_profile_slug: u.public_profile_slug || null,
+        public_profile_slug: u.public_slug || null,
       })),
     });
   } catch (error) {
@@ -139,22 +139,28 @@ exports.searchCompanies = async (req, res) => {
 
     const { data, error } = await supabase
       .from('companies')
-      .select('id, name, email, phone, registration_number, website, verified_at')
+      .select('id, name, email, phone, nesrea_registration_number, website, epr_compliance_status')
       .or(`name.ilike.%${q}%,email.ilike.%${q}%`)
       .order('name', { ascending: true })
       .limit(limit);
     if (error) throw error;
 
     return sendSuccess(res, {
-      results: (data || []).map((c) => ({
-        id: c.id,
-        name: c.name,
-        email: c.email,
-        phone: c.phone,
-        registration_number: c.registration_number,
-        website: c.website,
-        professional_status: c.verified_at ? 'verified_professional' : 'unverified_professional',
-      })),
+      results: (data || []).map((c) => {
+        const isCompliant = c.epr_compliance_status === 'compliant';
+        const professionalStatus = isCompliant ? 'verified_professional' : 'unverified_professional';
+        return {
+          id: c.id,
+          name: c.name,
+          email: c.email,
+          phone: c.phone,
+          registration_number: c.nesrea_registration_number,
+          website: c.website,
+          professional_status: professionalStatus,
+          professional_status_label: isCompliant ? 'Verified professional' : 'Unverified professional',
+          verification_basis: isCompliant ? 'epr_compliant' : 'epr_not_compliant',
+        };
+      }),
     });
   } catch (error) {
     logger.error('verificationDirectory:searchCompanies failed', { message: error.message });

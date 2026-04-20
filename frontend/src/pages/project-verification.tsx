@@ -335,7 +335,10 @@ export default function ProjectVerificationPortalPage() {
                         : "border-amber-200 bg-amber-50 text-amber-700"
                     }`}
                   >
-                    {String(item.professional_status || "unverified").replace(/_/g, " ")}
+                    {String(
+                      item.professional_status_label ||
+                        String(item.professional_status || "unverified").replace(/_/g, " ")
+                    )}
                   </span>
                 </div>
               </div>
