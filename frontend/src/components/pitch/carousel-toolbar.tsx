@@ -93,14 +93,14 @@ export function CarouselToolbar({ views, loading }: Props) {
 
   return (
     <Dialog>
-      <div className="fixed flex justify-center left-0 bottom-5 w-full z-50">
+      <div className="fixed flex justify-center left-0 bottom-3 sm:bottom-5 w-full z-50 px-2 sm:px-0">
         <AnimatePresence>
           <motion.div animate={{ y: views > 0 ? 0 : 100 }} initial={{ y: 100 }}>
             <TooltipProvider delayDuration={20}>
-              <div className="flex backdrop-filter backdrop-blur-lg bg-[#1A1A1A]/80 h-10 px-4 py-2 border border-[#2C2C2C] items-center space-x-4">
+              <div className="flex backdrop-filter backdrop-blur-lg bg-[#1A1A1A]/80 min-h-10 px-2 sm:px-4 py-2 border border-[#2C2C2C] items-center gap-2 sm:gap-4 max-w-[96vw] overflow-x-auto">
                 <Tooltip>
                   <TooltipTrigger>
-                    <div className="text-[#878787] flex items-center space-x-2 border-r-[1px] border-border pr-4">
+                    <div className="text-[#878787] flex items-center space-x-2 border-r-[1px] border-border pr-2 sm:pr-4 shrink-0">
                       <Icons.Visibility size={18} />
                       <span className="text-sm">
                         {Intl.NumberFormat("en", {
@@ -153,7 +153,7 @@ export function CarouselToolbar({ views, loading }: Props) {
                   </TooltipContent>
                 </Tooltip>
 
-                <div className="flex items-center border-l-[1px] border-border pl-4">
+                <div className="flex items-center border-l-[1px] border-border pl-2 sm:pl-4 shrink-0">
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <button

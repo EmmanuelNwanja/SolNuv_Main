@@ -1,10 +1,10 @@
 export function SectionStart() {
   return (
-    <div className="min-h-screen">
-      <span className="absolute right-4 md:right-8 top-4 text-lg">Pitch/2024</span>
+    <div className="min-h-[100svh]">
+      <span className="absolute right-4 md:right-8 top-4 text-sm md:text-lg">Pitch/2024</span>
 
-      <div className="container min-h-screen relative">
-        <div className="absolute bottom-auto mt-[150px] -ml-[35px] md:ml-0 md:mt-0 md:bottom-[650px] scale-50 md:scale-100">
+      <div className="container min-h-[100svh] relative pt-20 pb-28 md:py-0">
+        <div className="absolute top-24 left-2 scale-[0.4] sm:scale-50 md:scale-100 md:top-auto md:bottom-[650px] md:left-0">
           <svg
             xmlns="http://www.w3.org/2000/svg"
             width={193}
@@ -19,7 +19,7 @@ export function SectionStart() {
             />
           </svg>
         </div>
-        <h1 className="text-[110px] bottom-[250px] left-2 md:text-[426px] absolute md:right-0 md:bottom-8 md:left-auto">
+        <h1 className="absolute bottom-28 left-2 md:left-auto md:right-0 md:bottom-8 text-[clamp(4rem,22vw,26rem)] leading-none">
           SolNuv
         </h1>
       </div>
