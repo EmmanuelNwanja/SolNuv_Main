@@ -10,7 +10,10 @@ const axios = require('axios');
 async function main() {
   const base = (process.argv[2] || 'http://localhost:5000').replace(/\/$/, '');
   const url = `${base}/api/v2/health`;
-  const response = await axios.get(url, { timeout: 15000 });
+  const response = await axios.get(url, { timeout: 15000, validateStatus: () => true });
+  if (response.status < 200 || response.status >= 300) {
+    throw new Error(`Health endpoint returned ${response.status}: ${JSON.stringify(response.data || {})}`);
+  }
   const payload = response.data || {};
 
   if (!payload?.success || payload?.data?.platform !== 'SolNuv V2 Oracle') {
@@ -21,7 +24,16 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error('V2 smoke check failed:', err.message);
+  const message = err?.message || String(err || 'Unknown failure');
+  const status = err?.response?.status;
+  const data = err?.response?.data;
+  const debug = {
+    message,
+    status: status || null,
+    data: data || null,
+    code: err?.code || null,
+  };
+  console.error('V2 smoke check failed:', JSON.stringify(debug));
   process.exit(1);
 });
 

@@ -10,6 +10,23 @@ const runtimeMetrics = {
   fallback_hits: 0,
 };
 
+const MAJOR_PAGE_SEEDS = [
+  { page_key: 'home', title: 'Homepage', route_path: '/', scope: 'public' },
+  { page_key: 'pricing', title: 'Pricing', route_path: '/pricing', scope: 'public' },
+  { page_key: 'contact', title: 'Contact', route_path: '/contact', scope: 'public' },
+  { page_key: 'blog_index', title: 'Blog', route_path: '/blog', scope: 'public' },
+  { page_key: 'faq', title: 'FAQ', route_path: '/faq', scope: 'public' },
+  { page_key: 'project_verification', title: 'Project Verification', route_path: '/project-verification', scope: 'public' },
+  { page_key: 'pitch', title: 'Pitch', route_path: '/pitch', scope: 'public' },
+  { page_key: 'dashboard', title: 'Dashboard', route_path: '/dashboard', scope: 'app' },
+  { page_key: 'projects', title: 'Projects', route_path: '/projects', scope: 'app' },
+  { page_key: 'reports', title: 'Reports', route_path: '/reports', scope: 'app' },
+  { page_key: 'settings', title: 'Settings', route_path: '/settings', scope: 'app' },
+  { page_key: 'partner_recycling', title: 'Partner Recycling', route_path: '/partners/recycling', scope: 'partner' },
+  { page_key: 'partner_finance', title: 'Partner Finance', route_path: '/partners/finance', scope: 'partner' },
+  { page_key: 'partner_training', title: 'Partner Training', route_path: '/partners/training', scope: 'partner' },
+];
+
 function getCacheKey(routePath) {
   return String(routePath || '').trim().toLowerCase();
 }
@@ -42,6 +59,18 @@ function requiredBySectionType(section) {
   }
   if (sectionType === 'stats') {
     if (!String(section?.title || '').trim()) return 'Stats section requires title';
+  }
+  return null;
+}
+
+function requiredByCardType(card) {
+  const cardType = String(card?.card_type || 'generic');
+  if (cardType === 'metric') {
+    if (!String(card?.title || '').trim()) return 'Metric card requires title';
+    if (!String(card?.body || '').trim()) return 'Metric card requires body';
+  }
+  if (cardType === 'testimonial') {
+    if (!String(card?.body || '').trim()) return 'Testimonial card requires body';
   }
   return null;
 }
@@ -215,6 +244,85 @@ exports.adminListPages = async (_req, res) => {
   }
 };
 
+exports.adminBootstrapSeeds = async (req, res) => {
+  try {
+    const actorId = req.user?.id || null;
+    const createdPages = [];
+    const existingPages = [];
+
+    for (const seed of MAJOR_PAGE_SEEDS) {
+      const { data: existing } = await supabase
+        .from('cms_pages')
+        .select('id, page_key')
+        .eq('page_key', seed.page_key)
+        .maybeSingle();
+
+      if (existing?.id) {
+        existingPages.push(existing.page_key);
+        continue;
+      }
+
+      const { data: page, error } = await supabase
+        .from('cms_pages')
+        .insert({
+          ...seed,
+          description: `${seed.title} managed via Content Studio`,
+          is_enabled: true,
+          is_published: false,
+          current_revision: 1,
+          schema_version: 1,
+          metadata: {},
+          created_by: actorId,
+          updated_by: actorId,
+        })
+        .select('*')
+        .single();
+      if (error) throw error;
+
+      const { data: section } = await supabase
+        .from('cms_sections')
+        .insert({
+          page_id: page.id,
+          section_key: 'hero',
+          section_type: 'hero',
+          title: seed.title,
+          subtitle: 'Editable heading',
+          body: `Content for ${seed.title}`,
+          order_index: 0,
+          is_visible: true,
+          metadata: {},
+        })
+        .select('id')
+        .single();
+
+      if (section?.id) {
+        await supabase.from('cms_cards').insert({
+          section_id: section.id,
+          card_key: 'intro_card',
+          card_type: 'feature',
+          title: 'Intro card',
+          body: `Update this card for ${seed.title}`,
+          order_index: 0,
+          is_visible: true,
+          metadata: {},
+        });
+      }
+
+      await logCmsEvent(page.id, actorId, 'save', { entity: 'seed_bootstrap' }, 1, 1);
+      createdPages.push(page.page_key);
+    }
+
+    return sendSuccess(res, {
+      created_count: createdPages.length,
+      created_pages: createdPages,
+      existing_pages: existingPages,
+    }, 'CMS seeds bootstrapped');
+  } catch (error) {
+    logger.error('cms:adminBootstrapSeeds failed', { message: error.message });
+    return sendError(res, 'Failed to bootstrap CMS seeds', 500);
+  }
+};
+
 exports.adminGetPage = async (req, res) => {
   try {
     const id = String(req.params?.id || '');
@@ -365,6 +473,8 @@ exports.adminUpsertCard = async (req, res) => {
       updated_at: new Date().toISOString(),
     };
     if (!patch.section_id || !patch.card_key) return sendError(res, 'section_id and card_key are required', 400);
+    const cardRequiredError = requiredByCardType(patch);
+    if (cardRequiredError) return sendError(res, cardRequiredError, 400);
 
     let result;
     if (id) {

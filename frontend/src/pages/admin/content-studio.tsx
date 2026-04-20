@@ -60,6 +60,9 @@ type CmsPage = {
   revisions?: CmsRevision[];
 };
 
+const SECTION_TYPE_OPTIONS = ["generic", "hero", "stats", "faq", "cta", "feature_grid"] as const;
+const CARD_TYPE_OPTIONS = ["generic", "feature", "metric", "testimonial", "cta"] as const;
+
 export default function AdminContentStudioPage() {
   const [pages, setPages] = useState<CmsPage[]>([]);
   const [selectedPageId, setSelectedPageId] = useState("");
@@ -73,6 +76,8 @@ export default function AdminContentStudioPage() {
   const [newSectionKey, setNewSectionKey] = useState("");
   const [newCardKeyBySection, setNewCardKeyBySection] = useState<Record<string, string>>({});
   const [newLinkByOwner, setNewLinkByOwner] = useState<Record<string, string>>({});
+  const [draggingSectionId, setDraggingSectionId] = useState<string | null>(null);
+  const [draggingCardKey, setDraggingCardKey] = useState<string | null>(null);
 
   async function loadPages() {
     try {
@@ -106,6 +111,39 @@ export default function AdminContentStudioPage() {
 
   const sections = useMemo(() => selectedPage?.sections || [], [selectedPage]);
 
+  function arrayMove<T>(arr: T[], from: number, to: number) {
+    const clone = [...arr];
+    const [item] = clone.splice(from, 1);
+    clone.splice(to, 0, item);
+    return clone;
+  }
+
+  async function persistSectionOrder(nextSections: CmsSection[]) {
+    const payload = nextSections
+      .filter((section) => section.id)
+      .map((section, index) => ({ id: String(section.id), order_index: index }));
+    if (!payload.length) return;
+    await cmsAPI.reorder("sections", payload);
+  }
+
+  async function persistCardOrder(sectionId: string, nextCards: CmsCard[]) {
+    const payload = nextCards
+      .filter((card) => card.id)
+      .map((card, index) => ({ id: String(card.id), order_index: index }));
+    if (!payload.length) return;
+    await cmsAPI.reorder("cards", payload);
+    setSelectedPage((prev) =>
+      prev
+        ? {
+            ...prev,
+            sections: (prev.sections || []).map((section) =>
+              section.id === sectionId ? { ...section, cards: nextCards } : section
+            ),
+          }
+        : prev
+    );
+  }
+
   async function createPage() {
     if (!newPage.page_key || !newPage.title || !newPage.route_path) {
       toast.error("page_key, title and route_path are required");
@@ -118,6 +156,17 @@ export default function AdminContentStudioPage() {
       await loadPages();
     } catch (error: any) {
       toast.error(error?.response?.data?.message || "Could not create page");
+    }
+  }
+
+  async function bootstrapMajorPages() {
+    try {
+      const response = await cmsAPI.bootstrapSeeds();
+      const createdCount = Number(response.data?.data?.created_count || 0);
+      toast.success(`Bootstrap complete (${createdCount} created)`);
+      await loadPages();
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || "Could not bootstrap seed pages");
     }
   }
 
@@ -268,7 +317,12 @@ export default function AdminContentStudioPage() {
         </div>
 
         <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
-          <h2 className="font-semibold text-slate-100 mb-3">Create page</h2>
+          <div className="flex items-center justify-between gap-2 mb-3">
+            <h2 className="font-semibold text-slate-100">Create page</h2>
+            <button type="button" className="btn-ghost border border-slate-700 text-xs" onClick={() => void bootstrapMajorPages()}>
+              Bootstrap major routes
+            </button>
+          </div>
           <div className="grid sm:grid-cols-4 gap-2">
             <input className="input bg-slate-950 border-slate-700 text-slate-100" placeholder="page_key" value={newPage.page_key} onChange={(e) => setNewPage((p) => ({ ...p, page_key: e.target.value }))} />
             <input className="input bg-slate-950 border-slate-700 text-slate-100" placeholder="title" value={newPage.title} onChange={(e) => setNewPage((p) => ({ ...p, title: e.target.value }))} />
@@ -369,7 +423,33 @@ export default function AdminContentStudioPage() {
 
           <div className="space-y-3">
             {sections.map((section) => (
-              <div key={section.id} className="rounded-lg border border-slate-800 bg-slate-950/50 p-3">
+              <div
+                key={section.id}
+                draggable={Boolean(section.id)}
+                onDragStart={() => setDraggingSectionId(section.id || null)}
+                onDragOver={(event) => event.preventDefault()}
+                onDrop={async () => {
+                  try {
+                    if (!draggingSectionId || !section.id || draggingSectionId === section.id) return;
+                    const fromIndex = sections.findIndex((s) => s.id === draggingSectionId);
+                    const toIndex = sections.findIndex((s) => s.id === section.id);
+                    if (fromIndex < 0 || toIndex < 0) return;
+                    const nextSections = arrayMove(sections, fromIndex, toIndex).map((item, idx) => ({ ...item, order_index: idx }));
+                    setSelectedPage((prev) => (prev ? { ...prev, sections: nextSections } : prev));
+                    await persistSectionOrder(nextSections);
+                    if (selectedPage?.id) await loadPage(selectedPage.id);
+                    toast.success("Section order updated");
+                  } catch {
+                    toast.error("Could not reorder sections");
+                  } finally {
+                    setDraggingSectionId(null);
+                  }
+                }}
+                onDragEnd={() => setDraggingSectionId(null)}
+                className={`rounded-lg border bg-slate-950/50 p-3 ${
+                  draggingSectionId === section.id ? "border-emerald-500/70" : "border-slate-800"
+                }`}
+              >
                 <div className="grid sm:grid-cols-4 gap-2">
                   <input className="input bg-slate-900 border-slate-700 text-slate-100" value={section.section_key || ""} onChange={(e) => setSelectedPage((p) => p ? { ...p, sections: (p.sections || []).map((s) => s.id === section.id ? { ...s, section_key: e.target.value } : s) } : p)} />
                   <input className="input bg-slate-900 border-slate-700 text-slate-100" value={section.title || ""} onChange={(e) => setSelectedPage((p) => p ? { ...p, sections: (p.sections || []).map((s) => s.id === section.id ? { ...s, title: e.target.value } : s) } : p)} />
@@ -378,17 +458,174 @@ export default function AdminContentStudioPage() {
                     Save section
                   </button>
                 </div>
+                <div className="grid sm:grid-cols-4 gap-2 mt-2">
+                  <select
+                    className="input bg-slate-900 border-slate-700 text-slate-100"
+                    value={section.section_type || "generic"}
+                    onChange={(e) =>
+                      setSelectedPage((p) =>
+                        p
+                          ? {
+                              ...p,
+                              sections: (p.sections || []).map((s) =>
+                                s.id === section.id ? { ...s, section_type: e.target.value } : s
+                              ),
+                            }
+                          : p
+                      )
+                    }
+                  >
+                    {SECTION_TYPE_OPTIONS.map((type) => (
+                      <option key={type} value={type}>
+                        {type}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    className="input bg-slate-900 border-slate-700 text-slate-100"
+                    value={section.order_index ?? 0}
+                    onChange={(e) =>
+                      setSelectedPage((p) =>
+                        p
+                          ? {
+                              ...p,
+                              sections: (p.sections || []).map((s) =>
+                                s.id === section.id ? { ...s, order_index: Number(e.target.value || 0) } : s
+                              ),
+                            }
+                          : p
+                      )
+                    }
+                    type="number"
+                  />
+                  <div className="text-xs text-slate-400 sm:col-span-2 flex items-center">
+                    Drag and drop section cards to reorder.
+                  </div>
+                </div>
                 <textarea className="input mt-2 bg-slate-900 border-slate-700 text-slate-100 min-h-[80px]" value={section.body || ""} onChange={(e) => setSelectedPage((p) => p ? { ...p, sections: (p.sections || []).map((s) => s.id === section.id ? { ...s, body: e.target.value } : s) } : p)} />
+                {section.section_type === "hero" && (
+                  <div className="mt-2 text-xs text-amber-300 border border-amber-700/40 rounded p-2">
+                    Hero schema: `title` and `body` are required.
+                  </div>
+                )}
+                {section.section_type === "stats" && (
+                  <div className="mt-2 text-xs text-sky-300 border border-sky-700/40 rounded p-2">
+                    Stats schema: section should include metric-type cards with numeric body values.
+                  </div>
+                )}
+                {section.section_type === "cta" && (
+                  <div className="mt-2 text-xs text-emerald-300 border border-emerald-700/40 rounded p-2">
+                    CTA schema: add at least one page or card link for action buttons.
+                  </div>
+                )}
                 <div className="space-y-2 mt-2">
                   {(section.cards || []).map((card) => (
-                    <div key={card.id} className="grid sm:grid-cols-4 gap-2">
+                    <div
+                      key={card.id}
+                      draggable={Boolean(card.id)}
+                      onDragStart={() => setDraggingCardKey(`${section.id}:${card.id || ""}`)}
+                      onDragOver={(event) => event.preventDefault()}
+                      onDrop={async () => {
+                        try {
+                          if (!section.id || !card.id || !draggingCardKey) return;
+                          const [sourceSectionId, sourceCardId] = draggingCardKey.split(":");
+                          if (sourceSectionId !== section.id || !sourceCardId || sourceCardId === card.id) return;
+                          const cards = section.cards || [];
+                          const fromIndex = cards.findIndex((c) => c.id === sourceCardId);
+                          const toIndex = cards.findIndex((c) => c.id === card.id);
+                          if (fromIndex < 0 || toIndex < 0) return;
+                          const nextCards = arrayMove(cards, fromIndex, toIndex).map((item, idx) => ({ ...item, order_index: idx }));
+                          await persistCardOrder(section.id, nextCards);
+                          if (selectedPage?.id) await loadPage(selectedPage.id);
+                          toast.success("Card order updated");
+                        } catch {
+                          toast.error("Could not reorder cards");
+                        } finally {
+                          setDraggingCardKey(null);
+                        }
+                      }}
+                      onDragEnd={() => setDraggingCardKey(null)}
+                      className={`grid sm:grid-cols-4 gap-2 border rounded p-2 ${
+                        draggingCardKey === `${section.id}:${card.id || ""}`
+                          ? "border-emerald-500/70"
+                          : "border-slate-800"
+                      }`}
+                    >
                       <input className="input bg-slate-900 border-slate-700 text-slate-100" value={card.card_key || ""} onChange={(e) => setSelectedPage((p) => p ? { ...p, sections: (p.sections || []).map((s) => s.id === section.id ? { ...s, cards: (s.cards || []).map((c) => c.id === card.id ? { ...c, card_key: e.target.value } : c) } : s) } : p)} />
                       <input className="input bg-slate-900 border-slate-700 text-slate-100" value={card.title || ""} onChange={(e) => setSelectedPage((p) => p ? { ...p, sections: (p.sections || []).map((s) => s.id === section.id ? { ...s, cards: (s.cards || []).map((c) => c.id === card.id ? { ...c, title: e.target.value } : c) } : s) } : p)} />
                       <input className="input bg-slate-900 border-slate-700 text-slate-100" value={card.image_url || ""} placeholder="image_url" onChange={(e) => setSelectedPage((p) => p ? { ...p, sections: (p.sections || []).map((s) => s.id === section.id ? { ...s, cards: (s.cards || []).map((c) => c.id === card.id ? { ...c, image_url: e.target.value } : c) } : s) } : p)} />
                       <button type="button" className="btn-ghost border border-slate-700" onClick={() => void saveCard(card)}>
                         Save card
                       </button>
+                      <select
+                        className="input sm:col-span-2 bg-slate-900 border-slate-700 text-slate-100"
+                        value={card.card_type || "generic"}
+                        onChange={(e) =>
+                          setSelectedPage((p) =>
+                            p
+                              ? {
+                                  ...p,
+                                  sections: (p.sections || []).map((s) =>
+                                    s.id === section.id
+                                      ? {
+                                          ...s,
+                                          cards: (s.cards || []).map((c) =>
+                                            c.id === card.id ? { ...c, card_type: e.target.value } : c
+                                          ),
+                                        }
+                                      : s
+                                  ),
+                                }
+                              : p
+                          )
+                        }
+                      >
+                        {CARD_TYPE_OPTIONS.map((type) => (
+                          <option key={type} value={type}>
+                            {type}
+                          </option>
+                        ))}
+                      </select>
+                      <input
+                        className="input sm:col-span-2 bg-slate-900 border-slate-700 text-slate-100"
+                        type="number"
+                        value={card.order_index ?? 0}
+                        onChange={(e) =>
+                          setSelectedPage((p) =>
+                            p
+                              ? {
+                                  ...p,
+                                  sections: (p.sections || []).map((s) =>
+                                    s.id === section.id
+                                      ? {
+                                          ...s,
+                                          cards: (s.cards || []).map((c) =>
+                                            c.id === card.id ? { ...c, order_index: Number(e.target.value || 0) } : c
+                                          ),
+                                        }
+                                      : s
+                                  ),
+                                }
+                              : p
+                          )
+                        }
+                      />
                       <textarea className="input sm:col-span-4 bg-slate-900 border-slate-700 text-slate-100 min-h-[72px]" value={card.body || ""} onChange={(e) => setSelectedPage((p) => p ? { ...p, sections: (p.sections || []).map((s) => s.id === section.id ? { ...s, cards: (s.cards || []).map((c) => c.id === card.id ? { ...c, body: e.target.value } : c) } : s) } : p)} />
+                      {card.card_type === "metric" && (
+                        <div className="sm:col-span-4 text-xs text-sky-300 border border-sky-700/40 rounded p-2">
+                          Metric schema: use `title` as metric label and `body` as numeric/stat string.
+                        </div>
+                      )}
+                      {card.card_type === "testimonial" && (
+                        <div className="sm:col-span-4 text-xs text-amber-300 border border-amber-700/40 rounded p-2">
+                          Testimonial schema: use `title` as person/company and `body` as quote.
+                        </div>
+                      )}
+                      {card.card_type === "cta" && (
+                        <div className="sm:col-span-4 text-xs text-emerald-300 border border-emerald-700/40 rounded p-2">
+                          CTA schema: ensure this card includes at least one link.
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>

@@ -9,6 +9,7 @@ router.get('/resolve', cmsController.resolveRuntimePage);
 router.use(requireAuth, requireProfile, requireAdmin);
 
 router.get('/admin/pages', requireAdminRole('super_admin', 'operations'), cmsController.adminListPages);
+router.post('/admin/bootstrap-seeds', requireAdminRole('super_admin', 'operations'), cmsController.adminBootstrapSeeds);
 router.get('/admin/pages/:id', requireAdminRole('super_admin', 'operations'), cmsController.adminGetPage);
 router.post('/admin/pages', requireAdminRole('super_admin', 'operations'), cmsController.adminUpsertPage);
 router.put('/admin/pages/:id', requireAdminRole('super_admin', 'operations'), cmsController.adminUpsertPage);
