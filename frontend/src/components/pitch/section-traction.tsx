@@ -52,25 +52,25 @@ export function SectionTraction() {
   }, []);
 
   return (
-    <div className="min-h-screen relative w-screen">
-      <div className="absolute left-4 right-4 md:left-8 md:right-8 top-4 flex justify-between text-lg">
+    <div className="min-h-[100svh] relative w-full">
+      <div className="absolute left-4 right-4 md:left-8 md:right-8 top-4 flex justify-between text-sm md:text-lg">
         <span>Where we are</span>
         <span className="text-[#878787]">
           <Link href="/">solnuv.com</Link>
         </span>
       </div>
-      <div className="flex flex-col min-h-screen justify-center container">
-        <div className="grid md:grid-cols-3 gap-8 px-4 md:px-0 md:pt-0 h-[580px] md:h-auto overflow-auto pb-[100px] md:pb-0">
+      <div className="flex flex-col min-h-[100svh] justify-center container">
+        <div className="grid md:grid-cols-3 gap-4 md:gap-8 px-4 md:px-0 pt-20 md:pt-0 pb-28 md:pb-0">
           <div className="space-y-8">
-            <Card className="min-h-[365px]">
+            <Card className="min-h-[250px] sm:min-h-[300px] md:min-h-[365px]">
               <h2 className="text-2xl">Waitlist sign ups</h2>
               <p className="text-[#878787] text-sm text-center">
                 We have built in public and amassed early demand before broad release.
               </p>
-              <span className="mt-auto font-mono text-[80px] md:text-[122px]">3453</span>
+              <span className="mt-auto font-mono text-5xl sm:text-7xl md:text-[122px]">3453</span>
             </Card>
 
-            <Card className="min-h-[365px]">
+            <Card className="min-h-[250px] sm:min-h-[300px] md:min-h-[365px]">
               <h2 className="text-2xl">GitHub stars</h2>
               <p className="text-[#878787] text-sm text-center">
                 Community interest around the deck and product.
@@ -80,7 +80,7 @@ export function SectionTraction() {
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 bg-green-400" />
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
                 </span>
-                <span className="mt-auto font-mono text-[80px] md:text-[122px]">
+                <span className="mt-auto font-mono text-5xl sm:text-7xl md:text-[122px]">
                   {Intl.NumberFormat("en", {
                     notation: "compact",
                     minimumFractionDigits: 0,
@@ -91,7 +91,7 @@ export function SectionTraction() {
             </Card>
           </div>
           <div className="space-y-8">
-            <Card className="min-h-[365px]">
+            <Card className="min-h-[250px] sm:min-h-[300px] md:min-h-[365px]">
               <h2 className="text-2xl">Private beta users</h2>
               <p className="text-[#878787] text-sm text-center">
                 Live-fetched user count from SolNuv public summary.
@@ -101,11 +101,11 @@ export function SectionTraction() {
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 bg-green-400" />
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
                 </span>
-                <span className="mt-auto font-mono text-[80px] md:text-[122px]">{users}</span>
+                <span className="mt-auto font-mono text-5xl sm:text-7xl md:text-[122px]">{users}</span>
               </div>
             </Card>
 
-            <Card className="min-h-[365px]">
+            <Card className="min-h-[250px] sm:min-h-[300px] md:min-h-[365px]">
               <h2 className="text-2xl">Transactions</h2>
               <p className="text-[#878787] text-sm text-center">
                 Live-fetched transaction workload from SolNuv public summary.
@@ -115,16 +115,16 @@ export function SectionTraction() {
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 bg-green-400" />
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
                 </span>
-                <span className="mt-auto font-mono text-[80px] md:text-[122px]">
+                <span className="mt-auto font-mono text-5xl sm:text-7xl md:text-[122px]">
                   {Intl.NumberFormat("en", { notation: "compact" }).format(transactions || 0)}
                 </span>
               </div>
             </Card>
           </div>
 
-          <div className="ml-auto w-full max-w-[820px] h-full border border-border p-6 bg-[#0C0C0C] relative">
+          <div className="ml-auto w-full border border-border p-4 md:p-6 bg-[#0C0C0C] relative">
             <div className="mb-8 flex items-center justify-between gap-4">
-              <h2 className="block text-[38px] font-medium">What people say</h2>
+              <h2 className="block text-2xl sm:text-3xl md:text-[38px] font-medium">What people say</h2>
               <span className="inline-flex items-center gap-2 text-[11px] uppercase tracking-wider text-green-400">
                 <span className="relative flex h-2 w-2">
                   <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75" />
@@ -140,7 +140,7 @@ export function SectionTraction() {
               </p>
             )}
 
-            <div className="absolute w-[220px] bottom-6 left-[50%] -mt-5 -ml-[110px] flex justify-center">
+            <div className="static md:absolute md:w-[220px] md:bottom-6 md:left-[50%] md:-mt-5 md:-ml-[110px] flex justify-center mt-6 md:mt-0">
               <a
                 href="https://twitter.com/search?q=solnuv&src=typed_query&f=top"
                 target="_blank"

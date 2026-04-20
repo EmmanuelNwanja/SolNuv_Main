@@ -11,15 +11,15 @@ const viktorImage =
 
 export function SectionTeam() {
   return (
-    <div className="min-h-screen relative w-screen">
-      <div className="absolute left-4 right-4 md:left-8 md:right-8 top-4 flex justify-between text-lg">
+    <div className="min-h-[100svh] relative w-full">
+      <div className="absolute left-4 right-4 md:left-8 md:right-8 top-4 flex justify-between text-sm md:text-lg">
         <span>Who we are</span>
         <span className="text-[#878787]">
           <Link href="/">solnuv.com</Link>
         </span>
       </div>
-      <div className="flex flex-col min-h-screen justify-center container">
-        <div className="grid md:grid-cols-3 gap-8 px-4 md:px-0 md:pt-0 h-[580px] md:h-auto overflow-auto pb-[100px] md:pb-0">
+      <div className="flex flex-col min-h-[100svh] justify-center container">
+        <div className="grid md:grid-cols-3 gap-4 md:gap-8 px-4 md:px-0 pt-20 md:pt-0 pb-28 md:pb-0">
           <div className="space-y-8">
             <Card className="items-start space-y-0">
               <Image src={pontusImage} alt="Pontus" width={76} height={76} quality={100} className="mb-4" />
@@ -45,7 +45,7 @@ export function SectionTeam() {
             <Image src={foundersImage} alt="Founders" width={650} height={875} quality={100} />
           </div>
           <div className="ml-auto w-full space-y-8 items-center flex">
-            <h2 className="text-[64px] font-medium text-center leading-tight">
+            <h2 className="text-3xl sm:text-5xl md:text-[64px] font-medium text-center leading-tight">
               “The speed and velocity we have together is unmatched.”
             </h2>
           </div>

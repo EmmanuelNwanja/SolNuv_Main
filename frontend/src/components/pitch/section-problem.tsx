@@ -7,15 +7,15 @@ const receiptImage =
 
 export function SectionProblem() {
   return (
-    <div className="min-h-screen relative w-screen">
-      <div className="absolute left-4 right-4 md:left-8 md:right-8 top-4 flex justify-between text-lg">
+    <div className="min-h-[100svh] relative w-full">
+      <div className="absolute left-4 right-4 md:left-8 md:right-8 top-4 flex justify-between text-sm md:text-lg">
         <span>Current problem</span>
         <span className="text-[#878787]">
           <Link href="/">solnuv.com</Link>
         </span>
       </div>
-      <div className="flex flex-col min-h-screen justify-center container">
-        <div className="grid md:grid-cols-3 gap-8 px-4 md:px-0 md:pt-0 h-[580px] md:h-auto overflow-auto pb-[100px] md:pb-0">
+      <div className="flex flex-col min-h-[100svh] justify-center container">
+        <div className="grid md:grid-cols-3 gap-4 md:gap-8 px-4 md:px-0 pt-20 md:pt-0 pb-28 md:pb-0">
           <div className="space-y-8">
             <Card>
               <svg xmlns="http://www.w3.org/2000/svg" width={60} height={68} fill="none">
@@ -31,8 +31,8 @@ export function SectionProblem() {
                 lack of structure hampers productivity and wastes time.
               </p>
             </Card>
-            <div className="px-8">
-              <h2 className="text-6xl text-center leading-tight">
+            <div className="px-2 md:px-8">
+              <h2 className="text-3xl sm:text-5xl md:text-6xl text-center leading-tight">
                 The current market for SMB financial tools is a mess.
               </h2>
             </div>
@@ -41,7 +41,7 @@ export function SectionProblem() {
             <Image src={receiptImage} alt="Receipt" width={650} height={875} quality={100} />
           </div>
           <div className="ml-auto w-full space-y-8">
-            <Card className="min-h-[315px]">
+            <Card className="min-h-[260px] md:min-h-[315px]">
               <svg xmlns="http://www.w3.org/2000/svg" width={80} height={80} fill="none">
                 <mask
                   id="problemMaskA"
@@ -68,7 +68,7 @@ export function SectionProblem() {
                 approach wastes time and money.
               </p>
             </Card>
-            <Card className="min-h-[315px]">
+            <Card className="min-h-[260px] md:min-h-[315px]">
               <svg xmlns="http://www.w3.org/2000/svg" width={80} height={80} fill="none">
                 <mask
                   id="problemMaskB"
