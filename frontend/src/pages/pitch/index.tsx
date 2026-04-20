@@ -1,23 +1,21 @@
 import Head from "next/head";
-import type { ReactElement } from "react";
-import { getPublicLayout } from "../../components/Layout";
-import { PitchCarousel } from "../../components/pitchdeck/pitch-carousel";
+import { PitchCarusel } from "../../components/pitch/pitch-carousel";
+import { Grid } from "../../components/pitch/ui";
 
 export default function PitchPage() {
   return (
     <>
       <Head>
-        <title>SolNuv Pitch Deck — Solar Lifecycle Intelligence</title>
+        <title>SolNuv Pitch Deck</title>
         <meta
           name="description"
-          content="Explore SolNuv's pitch deck: the lifecycle intelligence platform for dependable solar operations, compliance, and partner coordination."
+          content="Pitch deck experience mirrored from the source fork, adapted for SolNuv branding."
         />
       </Head>
-      <PitchCarousel />
+      <div className="min-h-screen bg-[#0C0C0C] text-white relative overflow-hidden font-['Inter',sans-serif]">
+        <Grid />
+        <PitchCarusel />
+      </div>
     </>
   );
 }
-
-PitchPage.getLayout = function getLayout(page: ReactElement) {
-  return getPublicLayout(page);
-};
