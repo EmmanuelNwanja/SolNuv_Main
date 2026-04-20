@@ -57,9 +57,9 @@ export function SectionTraction() {
         </span>
       </div>
       <div className="flex flex-col min-h-[100svh] justify-center container">
-        <div className="grid md:grid-cols-3 gap-4 md:gap-8 px-4 md:px-0 pt-20 md:pt-0 pb-28 md:pb-0">
-          <div className="space-y-8">
-            <Card className="min-h-[250px] sm:min-h-[300px] md:min-h-[365px] border-emerald-500/35 bg-forest-900/30">
+        <div className="grid md:grid-cols-3 gap-4 md:gap-6 xl:gap-8 px-4 md:px-0 pt-20 md:pt-12 lg:pt-8 pb-28 md:pb-6 items-stretch max-w-[1280px] mx-auto">
+          <div className="space-y-8 min-w-0">
+            <Card className="min-h-[240px] sm:min-h-[280px] md:min-h-[250px] xl:min-h-[320px] border-emerald-500/35 bg-forest-900/30">
               <h2 className="text-2xl font-display text-emerald-100">Projects registered</h2>
               <p className="text-emerald-50/75 text-sm text-center">
                 Portfolio objects flowing through the platform’s structured lifecycle—not slide decks pretending to be systems.
@@ -69,13 +69,13 @@ export function SectionTraction() {
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 bg-green-400" />
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
                 </span>
-                <span className="mt-auto font-mono text-5xl sm:text-7xl md:text-[122px]">
+                <span className="mt-auto font-mono text-[clamp(2.75rem,7.5vw,7rem)] leading-none">
                   {Intl.NumberFormat("en", { notation: "compact" }).format(projects || 0)}
                 </span>
               </div>
             </Card>
 
-            <Card className="min-h-[250px] sm:min-h-[300px] md:min-h-[365px] border-amber-500/35 bg-amber-900/15">
+            <Card className="min-h-[240px] sm:min-h-[280px] md:min-h-[250px] xl:min-h-[320px] border-amber-500/35 bg-amber-900/15">
               <h2 className="text-2xl font-display text-amber-100">Lifecycle recoveries</h2>
               <p className="text-amber-50/75 text-sm text-center">
                 Decommissioned / recycled project records—proof the OS tracks outcomes, not just origination.
@@ -85,14 +85,14 @@ export function SectionTraction() {
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 bg-green-400" />
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
                 </span>
-                <span className="mt-auto font-mono text-5xl sm:text-7xl md:text-[122px]">
+                <span className="mt-auto font-mono text-[clamp(2.75rem,7.5vw,7rem)] leading-none">
                   {Intl.NumberFormat("en", { notation: "compact" }).format(recoveredProjects || 0)}
                 </span>
               </div>
             </Card>
           </div>
-          <div className="space-y-8">
-            <Card className="min-h-[250px] sm:min-h-[300px] md:min-h-[365px] border-emerald-500/25 bg-slate-900/80">
+          <div className="space-y-8 min-w-0">
+            <Card className="min-h-[240px] sm:min-h-[280px] md:min-h-[250px] xl:min-h-[320px] border-emerald-500/25 bg-slate-900/80">
               <h2 className="text-2xl font-display text-slate-100">Operator accounts</h2>
               <p className="text-slate-300 text-sm text-center">
                 Teams with identities inside the workspace—foundation for seats, partners, and audit trails.
@@ -102,11 +102,11 @@ export function SectionTraction() {
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 bg-green-400" />
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
                 </span>
-                <span className="mt-auto font-mono text-5xl sm:text-7xl md:text-[122px]">{users}</span>
+                <span className="mt-auto font-mono text-[clamp(2.75rem,7.5vw,7rem)] leading-none">{users}</span>
               </div>
             </Card>
 
-            <Card className="min-h-[250px] sm:min-h-[300px] md:min-h-[365px] border-amber-500/25 bg-slate-900/90">
+            <Card className="min-h-[240px] sm:min-h-[280px] md:min-h-[250px] xl:min-h-[320px] border-amber-500/25 bg-slate-900/90">
               <h2 className="text-2xl font-display text-slate-100">Modelling depth</h2>
               <p className="text-slate-300 text-sm text-center">
                 Simulation runs executed on-platform—where AI-assisted review compounds over time.
@@ -116,14 +116,14 @@ export function SectionTraction() {
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 bg-green-400" />
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
                 </span>
-                <span className="mt-auto font-mono text-5xl sm:text-7xl md:text-[122px]">
+                <span className="mt-auto font-mono text-[clamp(2.75rem,7.5vw,7rem)] leading-none">
                   {Intl.NumberFormat("en", { notation: "compact" }).format(simulationRuns || 0)}
                 </span>
               </div>
             </Card>
           </div>
 
-          <div className="ml-auto w-full border border-emerald-500/25 p-4 md:p-6 bg-[#0C0C0C] relative">
+          <div className="ml-auto min-w-0 w-full border border-emerald-500/25 p-4 md:p-6 bg-[#0C0C0C] relative">
             <div className="mb-8 flex items-center justify-between gap-4">
               <h2 className="block text-2xl sm:text-3xl md:text-[38px] font-display text-emerald-100 font-medium">
                 AI review throughput

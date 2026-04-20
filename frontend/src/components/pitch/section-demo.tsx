@@ -67,7 +67,7 @@ export function SectionDemo({ playVideo }: Props) {
         </span>
       </div>
       <div className="flex flex-col min-h-[100svh] justify-center container">
-        <div className="group pt-20 md:pt-0 pb-28 md:pb-0">
+        <div className="group min-w-0 pt-20 md:pt-0 pb-28 md:pb-0">
           <div className="absolute top-[50%] left-[50%] w-[200px] h-[50px] -ml-[100px] -mt-[50px] group-hover:opacity-100 hidden lg:flex space-x-4 items-center justify-center opacity-0 z-30 transition-all">
             <Button
               size="icon"

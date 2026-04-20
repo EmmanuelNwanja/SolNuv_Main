@@ -97,7 +97,7 @@ export function CarouselToolbar({ views, loading }: Props) {
         <AnimatePresence>
           <motion.div animate={{ y: views > 0 ? 0 : 100 }} initial={{ y: 100 }}>
             <TooltipProvider delayDuration={20}>
-              <div className="flex backdrop-filter backdrop-blur-lg bg-[#1A1A1A]/80 min-h-10 px-2 sm:px-4 py-2 border border-[#2C2C2C] items-center gap-2 sm:gap-4 max-w-[96vw] overflow-x-auto">
+              <div className="flex w-fit backdrop-filter backdrop-blur-lg bg-[#1A1A1A]/80 min-h-10 px-2 sm:px-4 py-2 border border-[#2C2C2C] items-center gap-2 sm:gap-4 max-w-[96vw] overflow-x-auto sm:overflow-visible">
                 <Tooltip>
                   <TooltipTrigger>
                     <div className="text-[#878787] flex items-center space-x-2 border-r-[1px] border-border pr-2 sm:pr-4 shrink-0">

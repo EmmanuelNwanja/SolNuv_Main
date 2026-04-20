@@ -11,12 +11,12 @@ export function SectionSubscription() {
         </span>
       </div>
       <div className="flex flex-col min-h-[100svh] justify-center container">
-        <div className="px-4 md:px-0 pt-20 md:pt-0 pb-28 md:pb-0">
+        <div className="px-4 md:px-0 pt-20 md:pt-0 pb-28 md:pb-0 max-w-[1280px] mx-auto">
           <div className="mb-4">
             <h2 className="text-2xl font-display text-emerald-100">Plans</h2>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-4 md:gap-8 px-0 md:px-0 md:pt-0 md:mb-[80px] mb-12">
+          <div className="grid md:grid-cols-3 gap-4 md:gap-8 px-0 md:px-0 md:pt-0 md:mb-[80px] mb-12 items-stretch">
             <Card className="pb-8 border-emerald-500/35 bg-forest-900/30">
               <span className="py-1 px-4 bg-emerald-300 text-forest-900 rounded-lg text-sm font-medium mb-4">
                 Starter
@@ -52,7 +52,7 @@ export function SectionSubscription() {
             <h2 className="text-2xl font-display text-amber-100">Add-ons</h2>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-4 md:gap-8 px-0 md:px-0 md:pt-0">
+          <div className="grid md:grid-cols-3 gap-4 md:gap-8 px-0 md:px-0 md:pt-0 items-stretch">
             <Card className="pb-8 border-emerald-500/30 bg-slate-900/80">
               <h2 className="font-display text-emerald-100">Partner seats</h2>
               <p className="text-slate-300 text-sm text-center">
@@ -77,7 +77,7 @@ export function SectionSubscription() {
 
           <div className="px-0 md:px-0">
             <a href="https://solnuv.com" target="_blank" rel="noreferrer" className="block">
-              <div className="ful-w p-4 border border-emerald-500/25 bg-[#121212] px-6 mt-8 text-center flex flex-col justify-center items-center space-y-4 pb-8">
+              <div className="w-full p-4 border border-emerald-500/25 bg-[#121212] px-6 mt-8 text-center flex flex-col justify-center items-center space-y-4 pb-8">
                 <h2 className="font-display text-emerald-100">SolNuv graph</h2>
                 <p className="text-slate-300 text-sm text-center max-w-[800px]">
                   Every approval, verification, and lifecycle event strengthens a reusable data graph—the real long-term moat behind the AI-native multiple.

@@ -15,8 +15,8 @@ export function SectionSolution() {
         </span>
       </div>
       <div className="flex flex-col min-h-[100svh] justify-center container">
-        <div className="grid md:grid-cols-3 gap-4 md:gap-8 px-4 md:px-0 pt-20 md:pt-0 pb-28 md:pb-0">
-          <div className="space-y-8">
+        <div className="grid md:grid-cols-3 gap-4 md:gap-6 xl:gap-8 px-4 md:px-0 pt-20 md:pt-12 lg:pt-8 pb-28 md:pb-6 items-stretch max-w-[1280px] mx-auto">
+          <div className="space-y-8 min-w-0">
             <Card className="border-emerald-500/35 bg-forest-900/30">
               <h2 className="text-2xl font-display text-emerald-100">One operating system</h2>
               <p className="text-emerald-50/75 text-sm text-center">
@@ -31,7 +31,7 @@ export function SectionSolution() {
               </p>
             </Card>
           </div>
-          <div className="space-y-8">
+          <div className="space-y-8 min-w-0">
             <div className="px-2 md:px-8">
               <h2 className="text-2xl sm:text-3xl md:text-[42px] text-center leading-tight md:leading-[58px] font-display text-slate-100">
                 AI-native doesn’t mean “chat everywhere.” It means models accelerate review, matching, and documentation inside governed workflows—with humans owning approvals.
@@ -46,8 +46,8 @@ export function SectionSolution() {
             </Card>
           </div>
 
-          <div className="ml-auto w-full">
-            <Image src={overviewImage} alt="Overview" width={650} height={875} quality={100} />
+          <div className="ml-auto min-w-0 w-full">
+            <Image src={overviewImage} alt="Overview" width={650} height={875} quality={100} className="w-full h-auto" />
           </div>
         </div>
       </div>
