@@ -1078,7 +1078,10 @@ export default function DesignWizard() {
                   <label className="label">Peak Demand (kW)</label>
                   <NumericInput value={form.peak_kw}
                     onChange={v => updateForm('peak_kw', v)} placeholder="Optional" />
-                  <p className="text-xs text-gray-400 mt-1">Target peak demand for the site. The profile shape will be adjusted to match. Leave blank to derive from load shape.</p>
+                  <p className="text-xs text-gray-400 mt-1">
+                    Peak demand is the highest hourly demand (kW) over the modeled year (not day/week/month average).
+                    The synthetic profile will shape toward this annual peak target. Leave blank to derive from load shape.
+                  </p>
                 </div>
                 <div>
                   <label className="label">Business Type</label>

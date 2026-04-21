@@ -542,10 +542,12 @@ export default function SharedReport() {
                     <div className="p-3 bg-slate-50 rounded-lg">
                       <p className="text-gray-400 mb-1">Requested peak</p>
                       <p className="font-semibold">{loadConsistency.requested_peak_kw != null ? `${fmt(Number(loadConsistency.requested_peak_kw), 2)} kW` : '—'}</p>
+                      <p className="text-[10px] text-gray-400 mt-1">Annual max hourly demand</p>
                     </div>
                     <div className="p-3 bg-slate-50 rounded-lg">
                       <p className="text-gray-400 mb-1">Achieved peak</p>
                       <p className="font-semibold">{loadConsistency.achieved_peak_kw != null ? `${fmt(Number(loadConsistency.achieved_peak_kw), 2)} kW` : '—'}</p>
+                      <p className="text-[10px] text-gray-400 mt-1">Annual max hourly demand</p>
                     </div>
                     <div className="p-3 bg-slate-50 rounded-lg">
                       <p className="text-gray-400 mb-1">Requested annual</p>
@@ -836,10 +838,12 @@ export default function SharedReport() {
                   <div className="p-4 bg-gray-50 rounded-xl">
                     <p className="text-xs text-gray-400 mb-1">Peak Demand (Before Solar)</p>
                     <p className="text-xl font-bold">{fmt(result.peak_demand_before_kw, 1)} kW</p>
+                    <p className="text-[10px] text-gray-400 mt-1">Highest hourly demand over modeled year</p>
                   </div>
                   <div className="p-4 bg-green-50 rounded-xl">
                     <p className="text-xs text-gray-400 mb-1">Peak Demand (After Solar)</p>
                     <p className="text-xl font-bold text-green-600">{fmt(result.peak_demand_after_kw, 1)} kW</p>
+                    <p className="text-[10px] text-gray-400 mt-1">Highest hourly demand over modeled year</p>
                   </div>
                 </div>
               )}
