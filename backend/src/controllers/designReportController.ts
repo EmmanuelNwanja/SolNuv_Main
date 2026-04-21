@@ -8,7 +8,12 @@ const supabase = require('../config/database');
 const { sendSuccess, sendError } = require('../utils/responseHelper');
 const { generateDesignReportPdf: generatePdfkitPdf, generateDesignReportExcel, generateSharedReportPdf } = require('../services/designReportService');
 const { buildExportPack } = require('../services/exportPackService');
+const { computeDesignReportV2 } = require('../services/reportComputeService');
 const logger = require('../utils/logger');
+
+function isV2ReportsEnabled() {
+  return String(process.env.REPORTS_V2_ENABLED || 'true').toLowerCase() !== 'false';
+}
 
 /** Verify ownership supporting orphaned projects (created before user joined a company) */
 async function verifyProjectOwnership(projectId, user) {
@@ -123,6 +128,81 @@ exports.downloadExcel = async (req, res) => {
 };
 
 /**
+ * GET /api/design-reports/:projectId/v2/json
+ * Canonical typed report payload for bankable integrations.
+ */
+exports.getV2Json = async (req, res) => {
+  const { projectId } = req.params;
+  try {
+    if (!isV2ReportsEnabled()) return sendError(res, 'V2 reports are currently disabled', 404);
+    const project = await verifyProjectOwnership(projectId, req.user);
+    if (!project) return sendError(res, 'Project not found', 404);
+
+    const result = await getLatestSimulationResult(projectId);
+    if (!result) return sendError(res, 'No simulation results found. Run a simulation first.', 404);
+
+    const report = await computeDesignReportV2(result.id);
+    return sendSuccess(res, report, 'V2 report data retrieved');
+  } catch (err) {
+    logger.error('getV2Json error', {
+      message: err.message,
+      stack: err.stack,
+      projectId,
+      userId: req.user?.id,
+    });
+    return sendError(res, 'Failed to build V2 report');
+  }
+};
+
+exports.downloadV2Pdf = async (req, res) => {
+  const { projectId } = req.params;
+  try {
+    if (!isV2ReportsEnabled()) return sendError(res, 'V2 reports are currently disabled', 404);
+    const project = await verifyProjectOwnership(projectId, req.user);
+    if (!project) return sendError(res, 'Project not found', 404);
+    const result = await getLatestSimulationResult(projectId);
+    if (!result) return sendError(res, 'No simulation results found. Run a simulation first.', 404);
+
+    // Compute payload eagerly so this endpoint guarantees full v2 traceability
+    // even when rendering currently reuses the stable PDF generator.
+    await computeDesignReportV2(result.id);
+    const pdfBuffer = await generatePdfkitPdf(result.id);
+    const filename = `SolNuv_Design_Report_V2_${project.name.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
+    res.setHeader('X-Solnuv-Report-Schema', '2.0.0');
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Length', pdfBuffer.length);
+    return res.send(pdfBuffer);
+  } catch (err) {
+    logger.error('downloadV2Pdf error', { message: err.message, stack: err.stack, projectId, userId: req.user?.id });
+    return sendError(res, 'Failed to generate V2 PDF report');
+  }
+};
+
+exports.downloadV2Excel = async (req, res) => {
+  const { projectId } = req.params;
+  try {
+    if (!isV2ReportsEnabled()) return sendError(res, 'V2 reports are currently disabled', 404);
+    const project = await verifyProjectOwnership(projectId, req.user);
+    if (!project) return sendError(res, 'Project not found', 404);
+    const result = await getLatestSimulationResult(projectId);
+    if (!result) return sendError(res, 'No simulation results found', 404);
+
+    await computeDesignReportV2(result.id);
+    const buffer = await generateDesignReportExcel(result.id);
+    const filename = `SolNuv_Design_Report_V2_${project.name.replace(/[^a-zA-Z0-9]/g, '_')}.xlsx`;
+    res.setHeader('X-Solnuv-Report-Schema', '2.0.0');
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Length', buffer.length);
+    return res.send(Buffer.from(buffer));
+  } catch (err) {
+    logger.error('downloadV2Excel error', { message: err.message, stack: err.stack, projectId, userId: req.user?.id });
+    return sendError(res, 'Failed to generate V2 Excel report');
+  }
+};
+
+/**
  * GET /api/design-reports/:projectId/pack
  * Download a reproducibility pack (ZIP) with PDF, Excel, and JSON inputs /
  * results / provenance. Pro+ plan.
@@ -199,6 +279,13 @@ exports.getHtmlData = async (req, res) => {
       tariff = t;
     }
 
+    const { data: importedReports } = await supabase
+      .from('project_imported_design_reports')
+      .select('id, source, file_name, file_public_url, report_label, created_at')
+      .eq('project_id', projectId)
+      .eq('is_active', true)
+      .order('created_at', { ascending: false });
+
     return sendSuccess(res, {
       project,
       design: result.project_designs,
@@ -207,6 +294,7 @@ exports.getHtmlData = async (req, res) => {
         project_designs: undefined, // Remove nested duplicate
       },
       tariff,
+      imported_reports: importedReports || [],
     }, 'Report data retrieved');
   } catch (err) {
     logger.error('getHtmlData error', { message: err.message });
@@ -360,6 +448,13 @@ exports.getSharedReport = async (req, res) => {
       equipmentData = equipment;
     }
 
+    const { data: importedReports } = await supabase
+      .from('project_imported_design_reports')
+      .select('id, source, file_name, file_public_url, report_label, created_at')
+      .eq('project_id', projectId)
+      .eq('is_active', true)
+      .order('created_at', { ascending: false });
+
     return sendSuccess(res, {
       project: { 
         id: projectData?.id,
@@ -416,6 +511,7 @@ exports.getSharedReport = async (req, res) => {
         rates: tariffData.tariff_rates,
       } : null,
       equipment: equipmentData,
+      imported_reports: importedReports || [],
       result: {
         pv_capacity_kwp: result.pv_capacity_kwp,
         annual_solar_gen_kwh: result.annual_solar_gen_kwh,
@@ -504,5 +600,87 @@ exports.downloadSharedReportPdf = async (req, res) => {
   } catch (err) {
     logger.error('downloadSharedReportPdf error', { message: err.message, stack: err.stack });
     return sendError(res, 'Failed to generate PDF: ' + err.message);
+  }
+};
+
+exports.uploadImportedDesignReport = async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const project = await verifyProjectOwnership(projectId, req.user);
+    if (!project) return sendError(res, 'Project not found', 404);
+    if (!req.file) return sendError(res, 'File is required', 400);
+
+    const maxBytes = 20 * 1024 * 1024;
+    if (req.file.size > maxBytes) return sendError(res, 'File exceeds 20MB max size', 400);
+    const name = String(req.file.originalname || '').toLowerCase();
+    if (!name.endsWith('.pdf') && !name.endsWith('.xls') && !name.endsWith('.xlsx')) {
+      return sendError(res, 'Only PDF/Excel reports are supported', 400);
+    }
+
+    const path = `${projectId}/${Date.now()}-${req.file.originalname.replace(/\s+/g, '_')}`;
+    const { error: uploadErr } = await supabase.storage
+      .from('design-report-imports')
+      .upload(path, req.file.buffer, {
+        contentType: req.file.mimetype || 'application/octet-stream',
+        upsert: false,
+      });
+    if (uploadErr) {
+      logger.error('uploadImportedDesignReport storage upload failed', { projectId, message: uploadErr.message });
+      return sendError(res, 'Failed to upload report file', 500);
+    }
+
+    const { data: urlData } = supabase.storage.from('design-report-imports').getPublicUrl(path);
+    const reportLabel = req.body?.report_label ? String(req.body.report_label).slice(0, 80) : 'imported';
+
+    const { data, error } = await supabase
+      .from('project_imported_design_reports')
+      .insert({
+        project_id: projectId,
+        user_id: req.user.id,
+        company_id: req.user.company_id || null,
+        source: 'pvsyst',
+        report_label: reportLabel,
+        file_name: req.file.originalname,
+        mime_type: req.file.mimetype || null,
+        file_size_bytes: req.file.size || null,
+        file_path: path,
+        file_public_url: urlData?.publicUrl || null,
+        parsed_summary: req.body?.summary && typeof req.body.summary === 'object' ? req.body.summary : null,
+        is_active: true,
+      })
+      .select('id, project_id, source, report_label, file_name, file_public_url, created_at')
+      .single();
+
+    if (error) {
+      logger.error('uploadImportedDesignReport DB insert failed', { projectId, message: error.message });
+      return sendError(res, 'Failed to save imported report metadata', 500);
+    }
+
+    return sendSuccess(res, data, 'Imported design report uploaded', 201);
+  } catch (err) {
+    logger.error('uploadImportedDesignReport error', { message: err.message, stack: err.stack });
+    return sendError(res, 'Failed to upload imported design report');
+  }
+};
+
+exports.listImportedDesignReports = async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const project = await verifyProjectOwnership(projectId, req.user);
+    if (!project) return sendError(res, 'Project not found', 404);
+
+    const { data, error } = await supabase
+      .from('project_imported_design_reports')
+      .select('id, source, report_label, file_name, file_public_url, created_at, is_active')
+      .eq('project_id', projectId)
+      .order('created_at', { ascending: false });
+    if (error) {
+      logger.error('listImportedDesignReports error', { projectId, message: error.message });
+      return sendError(res, 'Failed to fetch imported reports', 500);
+    }
+    return sendSuccess(res, data || [], 'Imported design reports retrieved');
+  } catch (err) {
+    logger.error('listImportedDesignReports exception', { message: err.message, stack: err.stack });
+    return sendError(res, 'Failed to fetch imported reports');
   }
 };

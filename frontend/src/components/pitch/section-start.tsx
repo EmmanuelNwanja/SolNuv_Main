@@ -1,11 +1,11 @@
 export function SectionStart() {
   return (
-    <div className="min-h-[100svh]">
+    <div className="min-h-[100svh] md:h-[100svh] md:overflow-hidden">
       <span className="absolute right-4 md:right-8 top-4 text-sm md:text-lg text-emerald-300">
         Investor narrative · 2026
       </span>
 
-      <div className="container min-h-[100svh] relative pt-20 pb-28 md:py-0">
+      <div className="container min-h-[100svh] md:h-[100svh] relative pt-20 pb-28 md:py-0">
         <div className="absolute top-24 left-2 scale-[0.4] sm:scale-50 md:scale-100 md:top-auto md:bottom-[650px] md:left-0">
           <svg
             xmlns="http://www.w3.org/2000/svg"

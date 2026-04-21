@@ -12,6 +12,8 @@
     "typecheck": "tsc --noEmit",
     "test:nerc-regression": "tsx scripts/nerc-regression-smoke.js",
     "test:simulation-golden": "tsx tests/simulation-golden/pv.golden.js",
+    "test:simulation-golden:all": "tsx tests/simulation-golden/pv.golden.js && tsx tests/simulation-golden/integration.golden.js",
+    "test:simulation-invariants": "tsx tests/invariants/simulation.invariants.js",
     "test:v2-smoke": "node scripts/v2-smoke.js",
     "v2:outbox-worker": "node scripts/v2-outbox-worker.js"
   },

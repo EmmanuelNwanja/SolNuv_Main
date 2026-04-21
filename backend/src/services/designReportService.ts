@@ -410,6 +410,32 @@ async function generateDesignReportPdf(simulationResultId) {
     addKV(doc, 'Grid Export', fmt(totalExport) + ' kWh');
   }
 
+  // ━━━━━━━━━━━━━━━ UNCERTAINTY & TRACEABILITY ━━━━━━━━━━━━━━━
+  addPageBreak(doc);
+  addHeader(doc, 'Uncertainty & Traceability', { topPad: 0.2 });
+  const uncertainty = result?.extended_metrics?.uncertainty || null;
+  const prov = result?.run_provenance || {};
+  if (uncertainty?.annual_generation_mwh) {
+    addSubHeader(doc, 'Energy Probabilistic Band');
+    addKV(doc, 'P50 generation', fmt(uncertainty.annual_generation_mwh.p50, 2) + ' MWh');
+    addKV(doc, 'P90 generation', fmt(uncertainty.annual_generation_mwh.p90, 2) + ' MWh');
+    addKV(doc, 'P95 generation', fmt(uncertainty.annual_generation_mwh.p95, 2) + ' MWh');
+  }
+  addSubHeader(doc, 'Run Provenance');
+  addKV(doc, 'Engine version', prov.engine_version || '—');
+  addKV(doc, 'Input snapshot hash', prov.input_snapshot_hash || prov.inputs_hash || '—');
+  addKV(doc, 'Formula bundle hash', prov.formula_bundle_hash || '—');
+  addKV(doc, 'Weather dataset hash', prov.weather_dataset_hash || '—');
+  const references = result?.extended_metrics?.formula_references || {};
+  const referenceItems = Object.entries(references).slice(0, 8);
+  if (referenceItems.length > 0) {
+    doc.moveDown(0.4);
+    doc.fontSize(9).fillColor(hex(BRAND.muted)).text('KPI Formula References');
+    referenceItems.forEach(([kpi, formula]) => {
+      doc.fontSize(9).fillColor(hex(BRAND.text)).text(`• ${kpi}: ${formula}`, { indent: 10, lineGap: 2 });
+    });
+  }
+
   // ━━━━━━━━━━━━━━━ DISCLAIMER ━━━━━━━━━━━━━━━
   addPageBreak(doc);
   addHeader(doc, 'Assumptions & Disclaimer', { topPad: 0.2 });
@@ -885,6 +911,32 @@ async function generateSharedReportPdf(token) {
     addKV(doc, 'Self-Consumption', fmt(totalSelf) + ' kWh');
     addKV(doc, 'Grid Import', fmt(totalImport) + ' kWh');
     addKV(doc, 'Grid Export', fmt(totalExport) + ' kWh');
+  }
+
+  // ━━━━━━━━━━━━━━━ UNCERTAINTY & TRACEABILITY ━━━━━━━━━━━━━━━
+  addPageBreak(doc);
+  addHeader(doc, 'Uncertainty & Traceability', { topPad: 0.2 });
+  const uncertainty = result?.extended_metrics?.uncertainty || null;
+  const prov = result?.run_provenance || {};
+  if (uncertainty?.annual_generation_mwh) {
+    addSubHeader(doc, 'Energy Probabilistic Band');
+    addKV(doc, 'P50 generation', fmt(uncertainty.annual_generation_mwh.p50, 2) + ' MWh');
+    addKV(doc, 'P90 generation', fmt(uncertainty.annual_generation_mwh.p90, 2) + ' MWh');
+    addKV(doc, 'P95 generation', fmt(uncertainty.annual_generation_mwh.p95, 2) + ' MWh');
+  }
+  addSubHeader(doc, 'Run Provenance');
+  addKV(doc, 'Engine version', prov.engine_version || '—');
+  addKV(doc, 'Input snapshot hash', prov.input_snapshot_hash || prov.inputs_hash || '—');
+  addKV(doc, 'Formula bundle hash', prov.formula_bundle_hash || '—');
+  addKV(doc, 'Weather dataset hash', prov.weather_dataset_hash || '—');
+  const references = result?.extended_metrics?.formula_references || {};
+  const referenceItems = Object.entries(references).slice(0, 8);
+  if (referenceItems.length > 0) {
+    doc.moveDown(0.4);
+    doc.fontSize(9).fillColor(hex(BRAND.muted)).text('KPI Formula References');
+    referenceItems.forEach(([kpi, formula]) => {
+      doc.fontSize(9).fillColor(hex(BRAND.text)).text(`• ${kpi}: ${formula}`, { indent: 10, lineGap: 2 });
+    });
   }
 
   // ━━━━━━━━━━━━━━━ DISCLAIMER ━━━━━━━━━━━━━━━

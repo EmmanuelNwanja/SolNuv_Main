@@ -7,14 +7,14 @@ const receiptImage =
 
 export function SectionProblem() {
   return (
-    <div className="min-h-[100svh] relative w-full">
+    <div className="min-h-[100svh] md:h-[100svh] md:overflow-hidden relative w-full">
       <div className="absolute left-4 right-4 md:left-8 md:right-8 top-4 flex justify-between text-sm md:text-lg">
         <span>Friction</span>
         <span className="text-[#878787]">
           <Link href="/">solnuv.com</Link>
         </span>
       </div>
-      <div className="flex flex-col min-h-[100svh] justify-center container">
+      <div className="flex flex-col min-h-[100svh] md:h-[100svh] justify-center container">
         <div className="grid md:grid-cols-3 gap-4 md:gap-6 xl:gap-8 px-4 md:px-0 pt-20 md:pt-12 lg:pt-8 pb-28 md:pb-6 items-stretch max-w-[1280px] mx-auto">
           <div className="space-y-8 min-w-0">
             <Card className="border-emerald-500/35 bg-forest-900/30">
@@ -39,7 +39,7 @@ export function SectionProblem() {
             <Image src={receiptImage} alt="Receipt" width={650} height={875} quality={100} className="w-full h-auto" />
           </div>
           <div className="ml-auto min-w-0 w-full space-y-8">
-            <Card className="min-h-[260px] md:min-h-[315px] border-amber-500/35 bg-amber-900/15">
+            <Card className="min-h-[260px] md:min-h-[245px] xl:min-h-[315px] border-amber-500/35 bg-amber-900/15 md:px-5 md:pt-6 md:pb-5">
               <svg xmlns="http://www.w3.org/2000/svg" width={80} height={80} fill="none">
                 <mask
                   id="problemMaskA"
@@ -64,7 +64,7 @@ export function SectionProblem() {
                 Technical tools, CRM, and chat don’t compose into an auditable chain—so diligence, compliance, and partner reporting become bespoke projects every time.
               </p>
             </Card>
-            <Card className="min-h-[260px] md:min-h-[315px] border-emerald-500/25 bg-slate-900/80">
+            <Card className="min-h-[260px] md:min-h-[245px] xl:min-h-[315px] border-emerald-500/25 bg-slate-900/80 md:px-5 md:pt-6 md:pb-5">
               <svg xmlns="http://www.w3.org/2000/svg" width={80} height={80} fill="none">
                 <mask
                   id="problemMaskB"

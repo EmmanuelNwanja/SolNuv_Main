@@ -11,14 +11,14 @@ const viktorImage =
 
 export function SectionTeam() {
   return (
-    <div className="min-h-[100svh] relative w-full">
+    <div className="min-h-[100svh] md:h-[100svh] md:overflow-hidden relative w-full">
       <div className="absolute left-4 right-4 md:left-8 md:right-8 top-4 flex justify-between text-sm md:text-lg">
         <span>Execution</span>
         <span className="text-[#878787]">
           <Link href="/">solnuv.com</Link>
         </span>
       </div>
-      <div className="flex flex-col min-h-[100svh] justify-center container">
+      <div className="flex flex-col min-h-[100svh] md:h-[100svh] justify-center container">
         <div className="grid md:grid-cols-3 gap-4 md:gap-6 xl:gap-8 px-4 md:px-0 pt-20 md:pt-12 lg:pt-8 pb-28 md:pb-6 items-stretch max-w-[1280px] mx-auto">
           <div className="space-y-8 min-w-0">
             <Card className="items-start space-y-0 border-emerald-500/35 bg-forest-900/30">

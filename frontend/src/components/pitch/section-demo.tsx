@@ -59,14 +59,14 @@ export function SectionDemo({ playVideo }: Props) {
   };
 
   return (
-    <div className="min-h-[100svh] relative w-full">
+    <div className="min-h-[100svh] md:h-[100svh] md:overflow-hidden relative w-full">
       <div className="absolute left-4 right-4 md:left-8 md:right-8 top-4 flex justify-between text-sm md:text-lg gap-3">
         <span className="truncate">Product reality · private beta</span>
         <span className="text-[#878787]">
           <Link href="/">solnuv.com</Link>
         </span>
       </div>
-      <div className="flex flex-col min-h-[100svh] justify-center container">
+      <div className="flex flex-col min-h-[100svh] md:h-[100svh] justify-center container">
         <div className="group min-w-0 pt-20 md:pt-0 pb-28 md:pb-0">
           <div className="absolute top-[50%] left-[50%] w-[200px] h-[50px] -ml-[100px] -mt-[50px] group-hover:opacity-100 hidden lg:flex space-x-4 items-center justify-center opacity-0 z-30 transition-all">
             <Button

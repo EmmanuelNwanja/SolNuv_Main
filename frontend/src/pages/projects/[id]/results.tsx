@@ -8,6 +8,7 @@ import { getDashboardLayout } from '../../../components/Layout';
 import { LoadingSpinner } from '../../../components/ui/index';
 import { MotionSection } from '../../../components/PageMotion';
 import SolarSchematic from '../../../components/SolarSchematic';
+import ReportGovernancePanels from '../../../components/reports/ReportGovernancePanels';
 import {
   RiArrowLeftLine, RiDownloadLine, RiShareLine, RiSunLine,
   RiBatteryLine, RiMoneyDollarCircleLine, RiFlashlightLine,
@@ -103,6 +104,8 @@ export default function ResultsDashboard() {
   const [aiLoading, setAiLoading] = useState(false);
   const [editingFeedback, setEditingFeedback] = useState(false);
   const [editedFeedbackText, setEditedFeedbackText] = useState('');
+  const [importedReports, setImportedReports] = useState<any[]>([]);
+  const [uploadingImport, setUploadingImport] = useState(false);
   const reportRef = useRef(null);
 
   useEffect(() => {
@@ -110,7 +113,9 @@ export default function ResultsDashboard() {
     (async () => {
       try {
         const { data: res } = await designReportAPI.getHtmlData(projectId);
-        setData(res?.data || res);
+        const payload = res?.data || res;
+        setData(payload);
+        setImportedReports(payload?.imported_reports || []);
       } catch {
         toast.error('No simulation results found');
         router.push(`/projects/${projectId}`);
@@ -183,6 +188,21 @@ export default function ResultsDashboard() {
       }
     } catch (e) {
       toast.error(e?.response?.data?.message || 'Share requires Pro plan');
+    }
+  };
+
+  const handleUploadImportedReport = async (file?: File | null) => {
+    if (!file || !projectId) return;
+    setUploadingImport(true);
+    try {
+      const { data: res } = await designReportAPI.uploadImportedReport(projectId, file, 'imported');
+      const item = res?.data || res;
+      setImportedReports((prev) => [item, ...prev]);
+      toast.success('Imported report uploaded');
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || 'Failed to upload imported report');
+    } finally {
+      setUploadingImport(false);
     }
   };
 
@@ -267,6 +287,16 @@ export default function ResultsDashboard() {
             <button onClick={handleShare} className="btn-secondary text-sm flex items-center gap-1">
               <RiShareLine /> Share
             </button>
+            <label className="btn-secondary text-sm flex items-center gap-1 cursor-pointer">
+              {uploadingImport ? <LoadingSpinner className="w-4 h-4" /> : <RiDownloadLine />}
+              Import PVSyst
+              <input
+                type="file"
+                accept=".pdf,.xls,.xlsx"
+                className="hidden"
+                onChange={(e) => handleUploadImportedReport(e.target.files?.[0] || null)}
+              />
+            </label>
           </div>
         </div>
 
@@ -279,6 +309,26 @@ export default function ResultsDashboard() {
               className="flex-1 bg-transparent outline-none text-blue-700 dark:text-blue-300"
               onClick={(e) => (e.target as HTMLInputElement).select()}
             />
+          </div>
+        )}
+
+        {importedReports.length > 0 && (
+          <div className="mb-4 p-3 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 rounded-xl">
+            <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700 mb-2">Imported Design Reports</p>
+            <div className="space-y-1">
+              {importedReports.slice(0, 3).map((report, idx) => (
+                <div key={idx} className="text-sm flex items-center justify-between">
+                  <span className="text-gray-700 dark:text-gray-200 truncate pr-3">
+                    {report?.file_name || 'Imported report'} <span className="text-xs text-gray-500">({report?.report_label || 'imported'})</span>
+                  </span>
+                  {report?.file_public_url ? (
+                    <a href={report.file_public_url} target="_blank" rel="noopener noreferrer" className="text-emerald-700 hover:underline text-xs">
+                      Open
+                    </a>
+                  ) : null}
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
@@ -1053,6 +1103,21 @@ export default function ResultsDashboard() {
         <FinancialRiskPanel risk={result?.extended_metrics?.financial_risk} currencySymbol={currSym} />
         <LossWaterfallPanel waterfall={result?.extended_metrics?.pv_loss_waterfall} />
         <RunProvenancePanel provenance={result?.run_provenance} runAt={result?.run_at} />
+        <ReportGovernancePanels
+          formulaEntries={
+            (result?.extended_metrics?.formula_registry_entries as Array<{
+              id: string;
+              version: string;
+              expression_ref: string;
+              output_unit: string;
+              rounding_mode: string;
+            }> | undefined) || []
+          }
+          assumptions={(result?.extended_metrics?.assumptions as string[] | undefined) || []}
+          limitations={(result?.extended_metrics?.limitations as string[] | undefined) || []}
+          uncertainty={result?.extended_metrics?.uncertainty || null}
+          provenance={result?.run_provenance || null}
+        />
         </div>
       </MotionSection>
     </>

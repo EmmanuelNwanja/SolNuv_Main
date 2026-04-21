@@ -24,6 +24,7 @@ const {
   generateDesignReportPdf,
   generateDesignReportExcel,
 } = require('./designReportService');
+const { computeDesignReportV2 } = require('./reportComputeService');
 const { SIMULATION_ENGINE_VERSION } = require('../constants/simulationVersion');
 const logger = require('../utils/logger');
 
@@ -217,6 +218,12 @@ async function buildExportPack(simulationResultId: string) {
   archive.append(safeStringify(resultsPayload), { name: 'results.json' });
   archive.append(safeStringify(provenancePayload), { name: 'provenance.json' });
   archive.append(safeStringify(extendedPayload), { name: 'extended_metrics.json' });
+  try {
+    const reportV2 = await computeDesignReportV2(simulationResultId);
+    archive.append(safeStringify(reportV2), { name: 'report_v2.json' });
+  } catch (err: any) {
+    logger.warn('Export pack: V2 report generation failed', { message: err?.message });
+  }
   if (pdfBuffer) archive.append(pdfBuffer, { name: 'report.pdf' });
   if (excelBuffer) archive.append(Buffer.from(excelBuffer), { name: 'report.xlsx' });
   if (hourly_flows) {

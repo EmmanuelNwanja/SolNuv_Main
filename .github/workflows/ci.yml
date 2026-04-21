@@ -40,7 +40,11 @@ jobs:
 
       - name: Run simulation golden regression
         working-directory: backend
-        run: npm run test:simulation-golden --if-present
+        run: npm run test:simulation-golden:all --if-present
+
+      - name: Run simulation invariant regression
+        working-directory: backend
+        run: npm run test:simulation-invariants --if-present
 
       - name: Install frontend deps
         working-directory: frontend
