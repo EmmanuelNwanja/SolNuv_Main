@@ -149,6 +149,7 @@ export default function DesignWizard() {
     annual_kwh: '',
     peak_kw: '',
     business_type: 'office',
+    load_priority_mode: 'annual',
     monthly_kwh: Array(12).fill(''),
     // PV
     pv_capacity_kwp: '',
@@ -474,6 +475,7 @@ export default function DesignWizard() {
         annual_kwh: parseFloat(form.annual_kwh),
         peak_kw: parseFloat(form.peak_kw) || undefined,
         country: form.country,
+        priority_mode: form.load_priority_mode,
       });
       setLoadProfileStats(data?.data);
       setProfileStale(false);
@@ -492,6 +494,7 @@ export default function DesignWizard() {
         annual_kwh: parseFloat(form.annual_kwh),
         peak_kw: parseFloat(form.peak_kw) || undefined,
         country: form.country,
+        priority_mode: form.load_priority_mode,
       });
       setLoadProfileStats(data?.data);
       setProfileStale(false);
@@ -1084,6 +1087,37 @@ export default function DesignWizard() {
                   </select>
                   <p className="text-xs text-gray-400 mt-1">Determines the hourly load shape pattern used to build the synthetic profile.</p>
                 </div>
+                <div>
+                  <label className="label">Priority Mode</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => updateForm('load_priority_mode', 'annual')}
+                      className={`px-3 py-2 rounded-lg text-sm border ${
+                        form.load_priority_mode === 'annual'
+                          ? 'bg-forest-900 text-white border-forest-900'
+                          : 'bg-white dark:bg-gray-800 text-gray-600 border-gray-200 dark:border-gray-700'
+                      }`}
+                    >
+                      Prioritize annual
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => updateForm('load_priority_mode', 'peak')}
+                      className={`px-3 py-2 rounded-lg text-sm border ${
+                        form.load_priority_mode === 'peak'
+                          ? 'bg-forest-900 text-white border-forest-900'
+                          : 'bg-white dark:bg-gray-800 text-gray-600 border-gray-200 dark:border-gray-700'
+                      }`}
+                    >
+                      Prioritize peak
+                    </button>
+                  </div>
+                  <p className="text-xs text-gray-400 mt-1">
+                    Annual mode keeps yearly energy fixed and warns when requested peak is infeasible.
+                    Peak mode enforces exact peak and warns if annual must drift.
+                  </p>
+                </div>
               </div>
 
               {loadMethod === 'synthetic' && (
@@ -1104,6 +1138,15 @@ export default function DesignWizard() {
                         <div><span className="text-gray-500">Avg. Daily:</span> {loadProfileStats.stats?.avgDailyKwh?.toFixed(1)} kWh</div>
                         <div><span className="text-gray-500">Load Factor:</span> {(loadProfileStats.stats?.loadFactor * 100)?.toFixed(1)}%</div>
                       </div>
+                      {Array.isArray(loadProfileStats.warnings) && loadProfileStats.warnings.length > 0 && (
+                        <div className="mb-3 space-y-2">
+                          {loadProfileStats.warnings.map((warning, idx) => (
+                            <div key={idx} className="p-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg text-xs text-amber-800 dark:text-amber-200">
+                              {warning}
+                            </div>
+                          ))}
+                        </div>
+                      )}
                       {loadProfileStats.monthly_kwh && (
                         <div className="grid grid-cols-6 gap-1 text-xs">
                           {MONTHS.map((m, i) => (
@@ -1116,7 +1159,8 @@ export default function DesignWizard() {
                       )}
                       {form.peak_kw && (
                         <div className="mt-3 p-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg text-xs text-blue-700 dark:text-blue-300">
-                          ℹ Profile shaped to target peak of {parseFloat(form.peak_kw).toLocaleString()} kW (load factor: {((loadProfileStats.stats?.annualKwh / (parseFloat(form.peak_kw) * 8760)) * 100)?.toFixed(1)}%).
+                          ℹ Priority: {String(loadProfileStats.priority_mode || form.load_priority_mode)}. Requested peak: {Number(loadProfileStats.requested_peak_kw || form.peak_kw || 0).toLocaleString()} kW.
+                          Achieved peak: {Number(loadProfileStats.achieved_peak_kw || loadProfileStats.stats?.peakKw || 0).toLocaleString()} kW.
                         </div>
                       )}
                       <button onClick={handleConfirmProfile} className="btn-primary text-sm mt-3">Confirm & Save Profile</button>

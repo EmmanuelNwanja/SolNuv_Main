@@ -176,20 +176,22 @@ exports.manualEntry = async (req, res) => {
  */
 exports.generateSynthetic = async (req, res) => {
   try {
-    const { project_id, business_type, annual_kwh, peak_kw, country } = req.body;
+    const { project_id, business_type, annual_kwh, peak_kw, country, priority_mode } = req.body;
     if (!project_id) return sendError(res, 'project_id is required', 400);
     if (!annual_kwh) return sendError(res, 'annual_kwh is required', 400);
 
     const project = await verifyProjectOwnership(project_id, req.user);
     if (!project) return sendError(res, 'Project not found or access denied', 404);
 
-    const hourlyKw = generateSyntheticProfile({
+    const synthetic = generateSyntheticProfile({
       businessType: business_type || 'office',
       annualKwh: Number(annual_kwh),
       peakKw: Number(peak_kw) || 0,
       country: country || 'NG',
+      priorityMode: String(priority_mode || 'annual').toLowerCase() === 'peak' ? 'peak' : 'annual',
     });
 
+    const hourlyKw = synthetic.hourlyKw || [];
     const stats = calculateProfileStats(hourlyKw);
 
     // Return preview — user must confirm before saving
@@ -197,6 +199,11 @@ exports.generateSynthetic = async (req, res) => {
       preview: true,
       stats,
       business_type: business_type || 'office',
+      priority_mode: synthetic.priorityMode,
+      warnings: synthetic.warnings || [],
+      requested_peak_kw: synthetic.requestedPeakKw || 0,
+      achieved_peak_kw: synthetic.achievedPeakKw || stats.peakKw,
+      achieved_annual_kwh: synthetic.achievedAnnualKwh || stats.annualKwh,
       // Return hourly summary (monthly breakdown) rather than full 8760 array
       monthly_kwh: stats.monthlyKwh,
     }, 'Synthetic profile generated — confirm to save');
@@ -212,18 +219,20 @@ exports.generateSynthetic = async (req, res) => {
  */
 exports.confirmSynthetic = async (req, res) => {
   try {
-    const { project_id, business_type, annual_kwh, peak_kw, country } = req.body;
+    const { project_id, business_type, annual_kwh, peak_kw, country, priority_mode } = req.body;
     if (!project_id) return sendError(res, 'project_id is required', 400);
 
     const project = await verifyProjectOwnership(project_id, req.user);
     if (!project) return sendError(res, 'Project not found or access denied', 404);
 
-    const hourlyKw = generateSyntheticProfile({
+    const synthetic = generateSyntheticProfile({
       businessType: business_type || 'office',
       annualKwh: Number(annual_kwh),
       peakKw: Number(peak_kw) || 0,
       country: country || 'NG',
+      priorityMode: String(priority_mode || 'annual').toLowerCase() === 'peak' ? 'peak' : 'annual',
     });
+    const hourlyKw = synthetic.hourlyKw || [];
     const stats = calculateProfileStats(hourlyKw);
 
     await supabase.from('load_profiles').delete().eq('project_id', project_id);
@@ -238,6 +247,12 @@ exports.confirmSynthetic = async (req, res) => {
         peak_demand_kw: stats.peakKw,
         load_factor: stats.loadFactor,
         business_type: business_type || null,
+        synthetic_priority_mode: synthetic.priorityMode || 'annual',
+        synthetic_requested_peak_kw: synthetic.requestedPeakKw || Number(peak_kw) || 0,
+        synthetic_achieved_peak_kw: synthetic.achievedPeakKw || stats.peakKw,
+        synthetic_requested_annual_kwh: Number(annual_kwh) || 0,
+        synthetic_achieved_annual_kwh: synthetic.achievedAnnualKwh || stats.annualKwh,
+        synthetic_warnings: synthetic.warnings?.length ? synthetic.warnings : null,
         confirmed_by_user: true,
       })
       .select()
@@ -256,7 +271,15 @@ exports.confirmSynthetic = async (req, res) => {
       .update({ load_profile_id: profile.id })
       .eq('project_id', project_id);
 
-    return sendSuccess(res, { profile_id: profile.id, stats }, 'Synthetic profile saved', 201);
+    return sendSuccess(res, {
+      profile_id: profile.id,
+      stats,
+      priority_mode: synthetic.priorityMode,
+      warnings: synthetic.warnings || [],
+      requested_peak_kw: synthetic.requestedPeakKw || 0,
+      achieved_peak_kw: synthetic.achievedPeakKw || stats.peakKw,
+      achieved_annual_kwh: synthetic.achievedAnnualKwh || stats.annualKwh,
+    }, 'Synthetic profile saved', 201);
   } catch (err) {
     logger.error('confirmSynthetic error', { message: err.message });
     return sendError(res, 'Failed to save synthetic profile');

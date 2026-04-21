@@ -67,7 +67,15 @@ async function runSimulation(projectDesignId) {
 
   // 3. Load hourly load profile
   let hourlyLoadKw = new Array(HOURS_PER_YEAR).fill(0);
+  let loadProfileMeta = null;
   if (design.load_profile_id) {
+    const { data: profileMeta } = await supabase
+      .from('load_profiles')
+      .select('id, source_type, annual_consumption_kwh, peak_demand_kw, load_factor, synthetic_priority_mode, synthetic_requested_peak_kw, synthetic_achieved_peak_kw, synthetic_requested_annual_kwh, synthetic_achieved_annual_kwh, synthetic_warnings')
+      .eq('id', design.load_profile_id)
+      .maybeSingle();
+    loadProfileMeta = profileMeta || null;
+
     const { data: profileData } = await supabase
       .from('load_profile_data')
       .select('hourly_kw')
@@ -494,6 +502,18 @@ async function runSimulation(projectDesignId) {
     financial_risk: financialRisk,
     uncertainty: energyUncertainty,
     formula_references: getKpiFormulaReferences(),
+    load_profile_consistency: loadProfileMeta ? {
+      source_type: loadProfileMeta.source_type || null,
+      annual_consumption_kwh: loadProfileMeta.annual_consumption_kwh,
+      peak_demand_kw: loadProfileMeta.peak_demand_kw,
+      load_factor: loadProfileMeta.load_factor,
+      priority_mode: loadProfileMeta.synthetic_priority_mode || null,
+      requested_peak_kw: loadProfileMeta.synthetic_requested_peak_kw,
+      achieved_peak_kw: loadProfileMeta.synthetic_achieved_peak_kw,
+      requested_annual_kwh: loadProfileMeta.synthetic_requested_annual_kwh,
+      achieved_annual_kwh: loadProfileMeta.synthetic_achieved_annual_kwh,
+      warnings: Array.isArray(loadProfileMeta.synthetic_warnings) ? loadProfileMeta.synthetic_warnings : [],
+    } : null,
   };
 
   // 13c. Provenance: stamp engine version, inputs hash, weather + tariff meta.

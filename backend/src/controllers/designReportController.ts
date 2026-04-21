@@ -420,6 +420,7 @@ exports.getSharedReport = async (req, res) => {
     const projectId = share.project_id || fullDesign?.project_id;
     let projectData = null;
     let tariffData = null;
+    let loadProfileData = null;
     
     if (projectId) {
       const { data: project } = await supabase
@@ -428,6 +429,15 @@ exports.getSharedReport = async (req, res) => {
         .eq('id', projectId)
         .single();
       projectData = project;
+    }
+
+    if (fullDesign?.load_profile_id) {
+      const { data: lp } = await supabase
+        .from('load_profiles')
+        .select('source_type, annual_consumption_kwh, peak_demand_kw, load_factor, synthetic_priority_mode, synthetic_requested_peak_kw, synthetic_achieved_peak_kw, synthetic_requested_annual_kwh, synthetic_achieved_annual_kwh, synthetic_warnings')
+        .eq('id', fullDesign.load_profile_id)
+        .maybeSingle();
+      loadProfileData = lp || null;
     }
 
     // Get tariff data
@@ -577,6 +587,20 @@ exports.getSharedReport = async (req, res) => {
           if (typeof ec !== 'object') return null;
           return ec;
         })(),
+        load_profile_consistency:
+          result?.extended_metrics?.load_profile_consistency ||
+          (loadProfileData ? {
+            source_type: loadProfileData.source_type || null,
+            annual_consumption_kwh: loadProfileData.annual_consumption_kwh,
+            peak_demand_kw: loadProfileData.peak_demand_kw,
+            load_factor: loadProfileData.load_factor,
+            priority_mode: loadProfileData.synthetic_priority_mode || null,
+            requested_peak_kw: loadProfileData.synthetic_requested_peak_kw,
+            achieved_peak_kw: loadProfileData.synthetic_achieved_peak_kw,
+            requested_annual_kwh: loadProfileData.synthetic_requested_annual_kwh,
+            achieved_annual_kwh: loadProfileData.synthetic_achieved_annual_kwh,
+            warnings: Array.isArray(loadProfileData.synthetic_warnings) ? loadProfileData.synthetic_warnings : [],
+          } : null),
       },
     }, 'Shared report retrieved');
   } catch (err) {
