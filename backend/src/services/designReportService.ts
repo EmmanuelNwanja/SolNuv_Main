@@ -435,6 +435,22 @@ async function generateDesignReportPdf(simulationResultId) {
       doc.fontSize(9).fillColor(hex(BRAND.text)).text(`• ${kpi}: ${formula}`, { indent: 10, lineGap: 2 });
     });
   }
+  const loadConsistency = result?.extended_metrics?.load_profile_consistency || null;
+  if (loadConsistency) {
+    addSubHeader(doc, 'Load Profile Consistency');
+    addKV(doc, 'Priority mode', loadConsistency.priority_mode || '—');
+    addKV(doc, 'Requested annual', loadConsistency.requested_annual_kwh != null ? fmt(loadConsistency.requested_annual_kwh, 2) + ' kWh' : '—');
+    addKV(doc, 'Achieved annual', loadConsistency.achieved_annual_kwh != null ? fmt(loadConsistency.achieved_annual_kwh, 2) + ' kWh' : '—');
+    addKV(doc, 'Requested peak', loadConsistency.requested_peak_kw != null ? fmt(loadConsistency.requested_peak_kw, 2) + ' kW' : '—');
+    addKV(doc, 'Achieved peak', loadConsistency.achieved_peak_kw != null ? fmt(loadConsistency.achieved_peak_kw, 2) + ' kW' : '—');
+    if (Array.isArray(loadConsistency.warnings) && loadConsistency.warnings.length > 0) {
+      doc.moveDown(0.3);
+      doc.fontSize(9).fillColor(hex(BRAND.muted)).text('Consistency warnings');
+      loadConsistency.warnings.slice(0, 3).forEach((warning) => {
+        doc.fontSize(9).fillColor(hex(BRAND.text)).text(`• ${String(warning)}`, { indent: 10, lineGap: 2 });
+      });
+    }
+  }
 
   // ━━━━━━━━━━━━━━━ DISCLAIMER ━━━━━━━━━━━━━━━
   addPageBreak(doc);
@@ -943,6 +959,22 @@ async function generateSharedReportPdf(token) {
     referenceItems.forEach(([kpi, formula]) => {
       doc.fontSize(9).fillColor(hex(BRAND.text)).text(`• ${kpi}: ${formula}`, { indent: 10, lineGap: 2 });
     });
+  }
+  const loadConsistency = result?.extended_metrics?.load_profile_consistency || null;
+  if (loadConsistency) {
+    addSubHeader(doc, 'Load Profile Consistency');
+    addKV(doc, 'Priority mode', loadConsistency.priority_mode || '—');
+    addKV(doc, 'Requested annual', loadConsistency.requested_annual_kwh != null ? fmt(loadConsistency.requested_annual_kwh, 2) + ' kWh' : '—');
+    addKV(doc, 'Achieved annual', loadConsistency.achieved_annual_kwh != null ? fmt(loadConsistency.achieved_annual_kwh, 2) + ' kWh' : '—');
+    addKV(doc, 'Requested peak', loadConsistency.requested_peak_kw != null ? fmt(loadConsistency.requested_peak_kw, 2) + ' kW' : '—');
+    addKV(doc, 'Achieved peak', loadConsistency.achieved_peak_kw != null ? fmt(loadConsistency.achieved_peak_kw, 2) + ' kW' : '—');
+    if (Array.isArray(loadConsistency.warnings) && loadConsistency.warnings.length > 0) {
+      doc.moveDown(0.3);
+      doc.fontSize(9).fillColor(hex(BRAND.muted)).text('Consistency warnings');
+      loadConsistency.warnings.slice(0, 3).forEach((warning) => {
+        doc.fontSize(9).fillColor(hex(BRAND.text)).text(`• ${String(warning)}`, { indent: 10, lineGap: 2 });
+      });
+    }
   }
 
   // ━━━━━━━━━━━━━━━ DISCLAIMER ━━━━━━━━━━━━━━━

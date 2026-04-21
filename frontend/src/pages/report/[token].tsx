@@ -208,6 +208,7 @@ export default function SharedReport() {
   const treesOffset = annualCO2 * treesFactor;
   const uncertainty = (result?.extended_metrics as Record<string, unknown> | undefined)?.uncertainty as Record<string, unknown> | undefined;
   const provenance = (result?.run_provenance as Record<string, unknown> | undefined) || {};
+  const loadConsistency = (result?.load_profile_consistency as Record<string, unknown> | undefined) || null;
   const formulaEntries =
     ((result?.extended_metrics as Record<string, unknown> | undefined)?.formula_registry_entries as Array<Record<string, unknown>> | undefined) ||
     ((result?.run_provenance as Record<string, unknown> | undefined)?.formula_registry_entries as Array<Record<string, unknown>> | undefined) ||
@@ -530,6 +531,42 @@ export default function SharedReport() {
                 <p><span className="font-medium text-gray-700">Formula Hash:</span> {String(provenance?.formula_bundle_hash || "—")}</p>
                 <p><span className="font-medium text-gray-700">Weather Hash:</span> {String(provenance?.weather_dataset_hash || "—")}</p>
               </div>
+              {loadConsistency && (
+                <div className="mt-5 pt-4 border-t border-gray-100">
+                  <h3 className="text-sm font-semibold text-[#0D3B2E] mb-2">Load Profile Consistency</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-xs">
+                    <div className="p-3 bg-slate-50 rounded-lg">
+                      <p className="text-gray-400 mb-1">Priority mode</p>
+                      <p className="font-semibold">{String(loadConsistency.priority_mode || '—')}</p>
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-lg">
+                      <p className="text-gray-400 mb-1">Requested peak</p>
+                      <p className="font-semibold">{loadConsistency.requested_peak_kw != null ? `${fmt(Number(loadConsistency.requested_peak_kw), 2)} kW` : '—'}</p>
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-lg">
+                      <p className="text-gray-400 mb-1">Achieved peak</p>
+                      <p className="font-semibold">{loadConsistency.achieved_peak_kw != null ? `${fmt(Number(loadConsistency.achieved_peak_kw), 2)} kW` : '—'}</p>
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-lg">
+                      <p className="text-gray-400 mb-1">Requested annual</p>
+                      <p className="font-semibold">{loadConsistency.requested_annual_kwh != null ? `${fmt(Number(loadConsistency.requested_annual_kwh), 2)} kWh` : '—'}</p>
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-lg">
+                      <p className="text-gray-400 mb-1">Achieved annual</p>
+                      <p className="font-semibold">{loadConsistency.achieved_annual_kwh != null ? `${fmt(Number(loadConsistency.achieved_annual_kwh), 2)} kWh` : '—'}</p>
+                    </div>
+                  </div>
+                  {Array.isArray(loadConsistency.warnings) && loadConsistency.warnings.length > 0 && (
+                    <div className="mt-3 space-y-2">
+                      {loadConsistency.warnings.map((warning, idx) => (
+                        <p key={idx} className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-2">
+                          {String(warning)}
+                        </p>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </section>
 
             <ReportGovernancePanels

@@ -271,6 +271,7 @@ function generateSyntheticProfile({
   annualKwh = 100000,
   peakKw = 0,
   country = 'NG',
+  priorityMode = 'annual',
 }) {
   const shape = LOAD_SHAPES[businessType] || LOAD_SHAPES.office;
   const seasonal = SEASONAL_MULTIPLIER[country] || SEASONAL_MULTIPLIER.default;
@@ -310,22 +311,40 @@ function generateSyntheticProfile({
   // Uses exponent shaping: normalized^alpha adjusts peakiness while preserving shape.
   // If peak > natural: makes profile spikier (alpha > 1).
   // If peak < natural: flattens profile and clips (alpha < 1 + clip).
+  const warnings = [];
   if (peakKw > 0) {
     const currentPeak = Math.max(...hourlyKw);
     const tolerance = 0.02; // 2% tolerance
 
-    if (Math.abs(currentPeak - peakKw) / Math.max(currentPeak, peakKw) > tolerance) {
+    if (priorityMode === 'peak') {
+      // Strict peak mode: enforce exact peak, allow annual drift and warn.
+      if (currentPeak > 0) {
+        const peakScale = peakKw / currentPeak;
+        for (let i = 0; i < hourlyKw.length; i++) {
+          hourlyKw[i] *= peakScale;
+        }
+        const annualAfterPeakMatch = hourlyKw.reduce((s, v) => s + v, 0);
+        const driftPct = annualKwh > 0 ? Math.abs(annualAfterPeakMatch - annualKwh) / annualKwh : 0;
+        if (driftPct > tolerance) {
+          warnings.push(
+            `Annual and peak inputs are physically inconsistent for the selected load shape. ` +
+            `Peak is enforced at ${peakKw.toFixed(1)} kW; annual changes to ${annualAfterPeakMatch.toFixed(2)} kWh ` +
+            `(${(driftPct * 100).toFixed(1)}% drift from requested annual).`
+          );
+        }
+      }
+    } else if (Math.abs(currentPeak - peakKw) / Math.max(currentPeak, peakKw) > tolerance) {
       // Normalize profile to 0..1 range (max = 1.0)
       const normalized = hourlyKw.map(v => v / currentPeak);
       const MIN_ALPHA = 0.05;
       const MAX_ALPHA = 20.0;
 
-      // Guardrail: if requested peak is physically infeasible for the annual energy,
-      // clamp to the maximum peak achievable by this shape family instead of exploding
-      // annual energy far above user input.
-      const minShapeSum = normalized.reduce((s, v) => s + Math.pow(v, MAX_ALPHA), 0);
-      const maxFeasiblePeak = minShapeSum > 0 ? annualKwh / minShapeSum : peakKw;
-      const effectivePeakKw = peakKw > maxFeasiblePeak ? maxFeasiblePeak : peakKw;
+      // Annual-priority mode: keep annual fixed and clamp target peak into feasible range.
+      const shapeSumAtMaxAlpha = normalized.reduce((s, v) => s + Math.pow(v, MAX_ALPHA), 0); // spikiest, smallest sum
+      const shapeSumAtMinAlpha = normalized.reduce((s, v) => s + Math.pow(v, MIN_ALPHA), 0); // flattest, largest sum
+      const maxFeasiblePeak = shapeSumAtMaxAlpha > 0 ? annualKwh / shapeSumAtMaxAlpha : peakKw;
+      const minFeasiblePeak = shapeSumAtMinAlpha > 0 ? annualKwh / shapeSumAtMinAlpha : peakKw;
+      const effectivePeakKw = Math.min(Math.max(peakKw, minFeasiblePeak), maxFeasiblePeak);
 
       // Binary search for exponent alpha.
       // shaped[h] = normalized[h]^alpha, then scaled so max = peakKw.
@@ -376,10 +395,29 @@ function generateSyntheticProfile({
           }
         }
       }
+
+      if (Math.abs(effectivePeakKw - peakKw) / Math.max(peakKw, 1) > tolerance) {
+        const direction = peakKw > effectivePeakKw ? 'higher' : 'lower';
+        warnings.push(
+          `Annual and peak inputs are physically inconsistent for the selected load shape. ` +
+          `With annual prioritized, the closest feasible peak is ${effectivePeakKw.toFixed(1)} kW ` +
+          `(requested ${peakKw.toFixed(1)} kW is ${direction} than feasible).`
+        );
+      }
     }
   }
 
-  return hourlyKw.slice(0, HOURS_PER_YEAR);
+  const achievedAnnualKwh = hourlyKw.reduce((s, v) => s + v, 0);
+  const achievedPeakKw = Math.max(...hourlyKw);
+
+  return {
+    hourlyKw: hourlyKw.slice(0, HOURS_PER_YEAR),
+    warnings,
+    requestedPeakKw: Number(peakKw) || 0,
+    achievedPeakKw,
+    achievedAnnualKwh,
+    priorityMode,
+  };
 }
 
 /**
