@@ -7,6 +7,7 @@ import { queryParamToString } from '../../utils/nextRouter';
 import { RiSunLine, RiBatteryLine, RiMoneyDollarCircleLine, RiFlashlightLine, RiLeafLine, RiBarChartBoxLine, RiTimeLine, RiFileChartLine, RiGlobalLine, RiLockLine, RiArrowRightSLine, RiRobot2Line } from 'react-icons/ri';
 import dynamic from 'next/dynamic';
 import SolarSchematic from '../../components/SolarSchematic';
+import ReportGovernancePanels from '../../components/reports/ReportGovernancePanels';
 
 const Bar = dynamic(() => import('react-chartjs-2').then(m => m.Bar), { ssr: false });
 const Doughnut = dynamic(() => import('react-chartjs-2').then(m => m.Doughnut), { ssr: false });
@@ -207,6 +208,10 @@ export default function SharedReport() {
   const treesOffset = annualCO2 * treesFactor;
   const uncertainty = (result?.extended_metrics as Record<string, unknown> | undefined)?.uncertainty as Record<string, unknown> | undefined;
   const provenance = (result?.run_provenance as Record<string, unknown> | undefined) || {};
+  const formulaEntries =
+    ((result?.extended_metrics as Record<string, unknown> | undefined)?.formula_registry_entries as Array<Record<string, unknown>> | undefined) ||
+    ((result?.run_provenance as Record<string, unknown> | undefined)?.formula_registry_entries as Array<Record<string, unknown>> | undefined) ||
+    [];
 
   const energySplitChart = {
     labels: ['Self-Consumed', 'Grid Import', 'Grid Export'],
@@ -526,6 +531,14 @@ export default function SharedReport() {
                 <p><span className="font-medium text-gray-700">Weather Hash:</span> {String(provenance?.weather_dataset_hash || "—")}</p>
               </div>
             </section>
+
+            <ReportGovernancePanels
+              formulaEntries={formulaEntries as Array<{ id: string; version: string; expression_ref: string; output_unit: string; rounding_mode: string }>}
+              assumptions={((result?.extended_metrics as Record<string, unknown> | undefined)?.assumptions as string[] | undefined) || []}
+              limitations={((result?.extended_metrics as Record<string, unknown> | undefined)?.limitations as string[] | undefined) || []}
+              uncertainty={uncertainty || null}
+              provenance={provenance || null}
+            />
 
             {/* Imported Third-Party Reports */}
             {importedReports.length > 0 && (

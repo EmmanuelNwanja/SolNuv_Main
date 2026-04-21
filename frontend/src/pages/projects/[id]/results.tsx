@@ -8,6 +8,7 @@ import { getDashboardLayout } from '../../../components/Layout';
 import { LoadingSpinner } from '../../../components/ui/index';
 import { MotionSection } from '../../../components/PageMotion';
 import SolarSchematic from '../../../components/SolarSchematic';
+import ReportGovernancePanels from '../../../components/reports/ReportGovernancePanels';
 import {
   RiArrowLeftLine, RiDownloadLine, RiShareLine, RiSunLine,
   RiBatteryLine, RiMoneyDollarCircleLine, RiFlashlightLine,
@@ -1102,6 +1103,21 @@ export default function ResultsDashboard() {
         <FinancialRiskPanel risk={result?.extended_metrics?.financial_risk} currencySymbol={currSym} />
         <LossWaterfallPanel waterfall={result?.extended_metrics?.pv_loss_waterfall} />
         <RunProvenancePanel provenance={result?.run_provenance} runAt={result?.run_at} />
+        <ReportGovernancePanels
+          formulaEntries={
+            (result?.extended_metrics?.formula_registry_entries as Array<{
+              id: string;
+              version: string;
+              expression_ref: string;
+              output_unit: string;
+              rounding_mode: string;
+            }> | undefined) || []
+          }
+          assumptions={(result?.extended_metrics?.assumptions as string[] | undefined) || []}
+          limitations={(result?.extended_metrics?.limitations as string[] | undefined) || []}
+          uncertainty={result?.extended_metrics?.uncertainty || null}
+          provenance={result?.run_provenance || null}
+        />
         </div>
       </MotionSection>
     </>
