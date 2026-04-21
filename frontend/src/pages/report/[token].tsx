@@ -176,7 +176,9 @@ export default function SharedReport() {
     tariff: Record<string, unknown> | null | undefined;
     equipment: Array<Record<string, unknown>> | undefined;
     result: Record<string, unknown> | undefined;
+    imported_reports?: Array<Record<string, unknown>>;
   };
+  const importedReports = (data?.imported_reports as Array<Record<string, unknown>> | undefined) || [];
   const monthly = (result?.monthly_summary as Array<Record<string, number>> | undefined) || [];
   const cashflow = result?.yearly_cashflow || [];
   const energyComp = result?.energy_comparison || {};
@@ -203,6 +205,8 @@ export default function SharedReport() {
   const treesFactor = 0.02;
   const annualCO2 = (result?.annual_generation_kwh || 0) * co2Factor;
   const treesOffset = annualCO2 * treesFactor;
+  const uncertainty = (result?.extended_metrics as Record<string, unknown> | undefined)?.uncertainty as Record<string, unknown> | undefined;
+  const provenance = (result?.run_provenance as Record<string, unknown> | undefined) || {};
 
   const energySplitChart = {
     labels: ['Self-Consumed', 'Grid Import', 'Grid Export'],
@@ -494,6 +498,58 @@ export default function SharedReport() {
                 </div>
               </div>
             </section>
+
+            {/* Uncertainty + Traceability */}
+            <section className="bg-white rounded-2xl shadow-sm border p-6">
+              <h2 className="text-lg font-semibold text-[#0D3B2E] mb-4">Uncertainty & Traceability</h2>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="p-4 bg-slate-50 rounded-xl">
+                  <p className="text-xs text-gray-400 mb-1">P50 (MWh)</p>
+                  <p className="text-lg font-semibold">{fmt((uncertainty?.annual_generation_mwh as Record<string, number> | undefined)?.p50, 2)}</p>
+                </div>
+                <div className="p-4 bg-slate-50 rounded-xl">
+                  <p className="text-xs text-gray-400 mb-1">P90 (MWh)</p>
+                  <p className="text-lg font-semibold">{fmt((uncertainty?.annual_generation_mwh as Record<string, number> | undefined)?.p90, 2)}</p>
+                </div>
+                <div className="p-4 bg-slate-50 rounded-xl">
+                  <p className="text-xs text-gray-400 mb-1">P95 (MWh)</p>
+                  <p className="text-lg font-semibold">{fmt((uncertainty?.annual_generation_mwh as Record<string, number> | undefined)?.p95, 2)}</p>
+                </div>
+                <div className="p-4 bg-slate-50 rounded-xl">
+                  <p className="text-xs text-gray-400 mb-1">Engine Version</p>
+                  <p className="text-sm font-semibold">{String(provenance?.engine_version || "—")}</p>
+                </div>
+              </div>
+              <div className="mt-4 text-xs text-gray-500 space-y-1">
+                <p><span className="font-medium text-gray-700">Input Hash:</span> {String(provenance?.input_snapshot_hash || provenance?.inputs_hash || "—")}</p>
+                <p><span className="font-medium text-gray-700">Formula Hash:</span> {String(provenance?.formula_bundle_hash || "—")}</p>
+                <p><span className="font-medium text-gray-700">Weather Hash:</span> {String(provenance?.weather_dataset_hash || "—")}</p>
+              </div>
+            </section>
+
+            {/* Imported Third-Party Reports */}
+            {importedReports.length > 0 && (
+              <section className="bg-white rounded-2xl shadow-sm border p-6">
+                <h2 className="text-lg font-semibold text-[#0D3B2E] mb-4">Imported Design Reports</h2>
+                <div className="space-y-2">
+                  {importedReports.map((item, idx) => (
+                    <div key={idx} className="flex items-center justify-between border rounded-lg px-3 py-2">
+                      <div>
+                        <p className="text-sm font-medium">{String(item.file_name || "Imported report")}</p>
+                        <p className="text-xs text-gray-500">Label: {String(item.report_label || "imported")} · Source: {String(item.source || "external")}</p>
+                      </div>
+                      {item.file_public_url ? (
+                        <a href={String(item.file_public_url)} target="_blank" rel="noopener noreferrer" className="text-sm text-[#10B981] hover:underline">
+                          Open
+                        </a>
+                      ) : (
+                        <span className="text-xs text-gray-400">No file URL</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
 
             {/* PV System Configuration */}
             <section id="pv-system" ref={(el) => { sectionRefs.current['pv-system'] = el; }} className="bg-white rounded-2xl shadow-sm border p-6">

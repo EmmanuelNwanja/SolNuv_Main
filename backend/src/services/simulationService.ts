@@ -14,6 +14,8 @@ const { calculateEnergyComparison } = require('./energyComparisonService');
 const { calculateProfileStats } = require('./loadProfileService');
 const { PANEL_TECHNOLOGIES, DEFAULT_PANEL_TECHNOLOGY, BATTERY_CHEMISTRIES, resolveChemistry } = require('../constants/technologyConstants');
 const { buildRunProvenance } = require('./simulationProvenance');
+const { getKpiFormulaReferences } = require('./formulaRegistry');
+const { computeEnergyUncertainty } = require('./uncertaintyService');
 
 const HOURS_PER_YEAR = 8760;
 const DAYS_PER_MONTH = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
@@ -305,6 +307,9 @@ async function runSimulation(projectDesignId) {
     batteryDischargedKwh: bessResults.annual.battery_discharged_kwh,
     feedInRevenue: 0, // calculated below
   });
+  const energyUncertainty = computeEnergyUncertainty({
+    annualGenerationKwh: annualPvKwh,
+  });
 
   // 12c. Generate design validation warnings
   const designWarnings = [];
@@ -474,6 +479,8 @@ async function runSimulation(projectDesignId) {
   results.extended_metrics = {
     pv_loss_waterfall: pvLossWaterfall,
     financial_risk: financialRisk,
+    uncertainty: energyUncertainty,
+    formula_references: getKpiFormulaReferences(),
   };
 
   // 13c. Provenance: stamp engine version, inputs hash, weather + tariff meta.

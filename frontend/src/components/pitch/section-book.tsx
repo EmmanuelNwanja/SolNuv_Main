@@ -4,14 +4,14 @@ import { Button } from "../ui/button";
 
 export function SectionBook() {
   return (
-    <div className="min-h-[100svh] relative w-full">
+    <div className="min-h-[100svh] md:h-[100svh] md:overflow-hidden relative w-full">
       <div className="absolute left-4 right-4 md:left-8 md:right-8 top-4 flex justify-between items-center gap-3 text-sm md:text-lg">
         <span>Start diligence conversation</span>
         <Link href="/register">
           <Button variant="outline" className="h-9 px-3 text-xs sm:text-sm sm:h-10 sm:px-4">Create workspace</Button>
         </Link>
       </div>
-      <div className="flex flex-col min-h-[100svh] justify-center container">
+      <div className="flex flex-col min-h-[100svh] md:h-[100svh] justify-center container">
         <div className="min-h-[360px] h-[58svh] md:h-[70svh] xl:h-[600px] max-w-[1280px] w-full mx-auto px-4 md:px-0 pt-20 md:pt-0 pb-28 md:pb-0 text-center flex flex-col items-center justify-center">
           <CalEmbed calLink={process.env.NEXT_PUBLIC_SOLNUV_CAL_LINK || "solnuv/solnuv"} />
         </div>

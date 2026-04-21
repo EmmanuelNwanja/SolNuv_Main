@@ -13,6 +13,7 @@
 
 const crypto = require('crypto');
 const { SIMULATION_ENGINE_VERSION } = require('../constants/simulationVersion');
+const { getFormulaBundleHash } = require('./formulaRegistry');
 
 /**
  * Recursively sort object keys so JSON stringification is deterministic.
@@ -41,6 +42,19 @@ function hashInputs(snapshot) {
   return crypto.createHash('sha256').update(serialized).digest('hex');
 }
 
+function hashWeatherDataset(weatherMeta: any): string | null {
+  if (!weatherMeta || typeof weatherMeta !== 'object') return null;
+  const candidate = {
+    source: weatherMeta.source || null,
+    lat_rounded: weatherMeta.lat_rounded || null,
+    lon_rounded: weatherMeta.lon_rounded || null,
+    fetched_at: weatherMeta.fetched_at || null,
+    cache_hit: weatherMeta.cache_hit ?? null,
+  };
+  const serialized = JSON.stringify(canonicalize(candidate));
+  return crypto.createHash('sha256').update(serialized).digest('hex');
+}
+
 /**
  * Build the run_provenance blob. Each sub-object is optional — callers pass
  * whatever metadata they have, and unknown sections are omitted.
@@ -54,9 +68,14 @@ function hashInputs(snapshot) {
  */
 function buildRunProvenance(opts: any = {}) {
   const { designSnapshot, weatherMeta, tariffMeta, extra } = opts;
+  const inputsHash = hashInputs(designSnapshot);
+  const weatherHash = hashWeatherDataset(weatherMeta);
   const provenance: any = {
     engine_version: SIMULATION_ENGINE_VERSION,
-    inputs_hash: hashInputs(designSnapshot),
+    inputs_hash: inputsHash,
+    input_snapshot_hash: inputsHash,
+    formula_bundle_hash: getFormulaBundleHash(),
+    weather_dataset_hash: weatherHash,
     generated_at: new Date().toISOString(),
   };
   if (weatherMeta) provenance.weather = weatherMeta;
@@ -68,6 +87,7 @@ function buildRunProvenance(opts: any = {}) {
 module.exports = {
   buildRunProvenance,
   hashInputs,
+  hashWeatherDataset,
   canonicalize,
   SIMULATION_ENGINE_VERSION,
 };
