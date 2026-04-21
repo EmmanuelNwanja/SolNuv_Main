@@ -317,15 +317,24 @@ function generateSyntheticProfile({
     if (Math.abs(currentPeak - peakKw) / Math.max(currentPeak, peakKw) > tolerance) {
       // Normalize profile to 0..1 range (max = 1.0)
       const normalized = hourlyKw.map(v => v / currentPeak);
+      const MIN_ALPHA = 0.05;
+      const MAX_ALPHA = 20.0;
+
+      // Guardrail: if requested peak is physically infeasible for the annual energy,
+      // clamp to the maximum peak achievable by this shape family instead of exploding
+      // annual energy far above user input.
+      const minShapeSum = normalized.reduce((s, v) => s + Math.pow(v, MAX_ALPHA), 0);
+      const maxFeasiblePeak = minShapeSum > 0 ? annualKwh / minShapeSum : peakKw;
+      const effectivePeakKw = peakKw > maxFeasiblePeak ? maxFeasiblePeak : peakKw;
 
       // Binary search for exponent alpha.
       // shaped[h] = normalized[h]^alpha, then scaled so max = peakKw.
       // Annual total = peakKw * sum(normalized^alpha).
       // We need peakKw * sum(normalized^alpha) = annualKwh.
       // Target sum = annualKwh / peakKw.
-      const targetSum = annualKwh / peakKw;
+      const targetSum = annualKwh / effectivePeakKw;
 
-      let lo = 0.05, hi = 20.0;
+      let lo = MIN_ALPHA, hi = MAX_ALPHA;
       let alpha = 1.0;
 
       for (let iter = 0; iter < 60; iter++) {
@@ -344,25 +353,25 @@ function generateSyntheticProfile({
 
       // Apply shaping and scale so peak = peakKw
       for (let i = 0; i < hourlyKw.length; i++) {
-        hourlyKw[i] = Math.pow(normalized[i], alpha) * peakKw;
+        hourlyKw[i] = Math.pow(normalized[i], alpha) * effectivePeakKw;
       }
 
       // If target peak < natural peak, clip any residual > peakKw and redistribute
       const newPeak = Math.max(...hourlyKw);
-      if (newPeak > peakKw * 1.01) {
+      if (newPeak > effectivePeakKw * 1.01) {
         let clipped = 0;
         for (let i = 0; i < hourlyKw.length; i++) {
-          if (hourlyKw[i] > peakKw) {
-            clipped += hourlyKw[i] - peakKw;
-            hourlyKw[i] = peakKw;
+          if (hourlyKw[i] > effectivePeakKw) {
+            clipped += hourlyKw[i] - effectivePeakKw;
+            hourlyKw[i] = effectivePeakKw;
           }
         }
         if (clipped > 0) {
-          const belowSum = hourlyKw.filter(v => v < peakKw).reduce((s, v) => s + v, 0);
+          const belowSum = hourlyKw.filter(v => v < effectivePeakKw).reduce((s, v) => s + v, 0);
           if (belowSum > 0) {
             const factor = 1 + clipped / belowSum;
             for (let i = 0; i < hourlyKw.length; i++) {
-              if (hourlyKw[i] < peakKw) hourlyKw[i] = Math.min(hourlyKw[i] * factor, peakKw);
+              if (hourlyKw[i] < effectivePeakKw) hourlyKw[i] = Math.min(hourlyKw[i] * factor, effectivePeakKw);
             }
           }
         }

@@ -80,6 +80,23 @@ exports.runProjectSimulation = async (req, res) => {
       grid_outage_hours_day,
       feed_in_tariff_per_kwh,
       project_horizon_years,
+      user_pv_module_make,
+      user_pv_module_model,
+      user_pv_module_power_w,
+      user_pv_module_vmp,
+      user_pv_module_imp,
+      user_battery_make,
+      user_battery_model,
+      user_battery_capacity_kwh,
+      user_battery_voltage,
+      user_battery_max_discharge_kw,
+      user_pcs_make,
+      user_pcs_model,
+      user_pcs_power_kw,
+      user_inverter_make,
+      user_inverter_model,
+      user_inverter_power_kw,
+      user_inverter_voltage,
     } = req.body;
 
     if (!project_id) return sendError(res, 'project_id is required', 400);
@@ -117,6 +134,11 @@ exports.runProjectSimulation = async (req, res) => {
       'Flow (Vanadium)': 'flow_vrfb',
     };
 
+    const bessRoundTripInput = parseFloat(bess_round_trip_efficiency);
+    const bessRoundTripPct = Number.isFinite(bessRoundTripInput)
+      ? (bessRoundTripInput <= 1 ? bessRoundTripInput * 100 : bessRoundTripInput)
+      : 92;
+
     const designRow = {
       project_id,
       tariff_structure_id: tariff_id || null,
@@ -129,11 +151,35 @@ exports.runProjectSimulation = async (req, res) => {
       pv_generation_source: pv_generation_source === 'modelled' ? 'calculated' : pv_generation_source || 'calculated',
       pv_system_losses_pct: parseFloat(system_losses_pct) || 14,
       pv_degradation_annual_pct: parseFloat(annual_degradation_pct) || 0.5,
+      pv_brand: user_pv_module_make || null,
+      pv_model: user_pv_module_model || null,
+      pv_rated_power_kw: user_pv_module_power_w ? parseFloat(user_pv_module_power_w) / 1000 : null,
+      pv_type: panel_technology || null,
+      pv_voltage: user_pv_module_vmp ? parseFloat(user_pv_module_vmp) : null,
+      pv_current: user_pv_module_imp ? parseFloat(user_pv_module_imp) : null,
       bess_capacity_kwh: grid_topology === 'grid_tied' ? 0 : (parseFloat(bess_capacity_kwh) || 0),
+      bess_power_kw: grid_topology === 'grid_tied' ? 0 : (parseFloat(bess_power_kw) || null),
       bess_chemistry: chemMap[battery_chemistry] || 'lfp',
       bess_dod_pct: bess_min_soc != null ? (100 - parseFloat(bess_min_soc) * 100) : 80,
-      bess_round_trip_eff_pct: bess_round_trip_efficiency != null ? parseFloat(bess_round_trip_efficiency) * 100 : 92,
+      bess_round_trip_eff_pct: bessRoundTripPct,
       bess_dispatch_strategy: bess_dispatch_strategy || 'self_consumption',
+      battery_brand: user_battery_make || null,
+      battery_model: user_battery_model || null,
+      battery_chemistry: battery_chemistry ? String(battery_chemistry).toLowerCase() : null,
+      battery_capacity_kwh: user_battery_capacity_kwh ? parseFloat(user_battery_capacity_kwh) : null,
+      battery_power_kw: user_battery_max_discharge_kw ? parseFloat(user_battery_max_discharge_kw) : null,
+      battery_voltage: user_battery_voltage ? parseFloat(user_battery_voltage) : null,
+      battery_crate:
+        user_battery_capacity_kwh && user_battery_max_discharge_kw
+          ? parseFloat(user_battery_max_discharge_kw) / Math.max(parseFloat(user_battery_capacity_kwh), 0.0001)
+          : null,
+      battery_is_complete_package: !!(user_battery_make || user_battery_model || user_pcs_make || user_pcs_model),
+      pcs_power_kw: user_pcs_power_kw ? parseFloat(user_pcs_power_kw) : null,
+      pcs_type: user_pcs_model || user_pcs_make || null,
+      inverter_brand: user_inverter_make || null,
+      inverter_model: user_inverter_model || null,
+      inverter_rated_power_kw: user_inverter_power_kw ? parseFloat(user_inverter_power_kw) : null,
+      inverter_max_voltage: user_inverter_voltage ? parseFloat(user_inverter_voltage) : null,
       capex_total: parseFloat(total_cost) || 0,
       om_annual: parseFloat(om_cost_annual) || 0,
       discount_rate_pct: parseFloat(discount_rate_pct) || 10,

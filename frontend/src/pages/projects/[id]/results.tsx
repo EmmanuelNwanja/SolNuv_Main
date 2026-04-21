@@ -171,7 +171,7 @@ export default function ResultsDashboard() {
       downloadBlob(res.data, `SolNuv_Export_${safe}_${date}.zip`);
       toast.success('Export pack downloaded');
     } catch (e) {
-      toast.error(e?.response?.data?.message || 'Export pack requires Pro plan');
+      toast.error(e?.response?.data?.message || 'Export pack requires Pro or higher');
     } finally {
       setExporting('');
     }

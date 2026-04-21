@@ -41,6 +41,8 @@ async function getLatestSimulationResult(projectId, selectCols = 'id') {
     .from('project_designs')
     .select('id')
     .eq('project_id', projectId)
+    .order('updated_at', { ascending: false })
+    .limit(1)
     .maybeSingle();
   if (designErr || !design) {
     logger.error('getLatestSimulationResult: design lookup failed', {
@@ -391,6 +393,8 @@ exports.getSharedReport = async (req, res) => {
       .from('project_designs')
       .select('id')
       .eq('project_id', share.project_id)
+      .order('updated_at', { ascending: false })
+      .limit(1)
       .maybeSingle();
 
     if (!design) return sendError(res, 'No design found for this project', 404);
