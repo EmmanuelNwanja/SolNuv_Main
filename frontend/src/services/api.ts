@@ -689,10 +689,15 @@ export const simulationAPI = {
 
 export const designReportAPI = {
   getHtmlData: (projectId: string) => api.get(`/design-reports/${projectId}/html`),
+  getV2Json: (projectId: string) => api.get(`/design-reports/${projectId}/v2/json`),
   downloadPdf: (projectId: string) =>
     api.get(`/design-reports/${projectId}/pdf`, { responseType: "blob" }),
+  downloadV2Pdf: (projectId: string) =>
+    api.get(`/design-reports/${projectId}/v2/pdf`, { responseType: "blob" }),
   downloadExcel: (projectId: string) =>
     api.get(`/design-reports/${projectId}/excel`, { responseType: "blob" }),
+  downloadV2Excel: (projectId: string) =>
+    api.get(`/design-reports/${projectId}/v2/excel`, { responseType: "blob" }),
   downloadPack: (projectId: string) =>
     api.get(`/design-reports/${projectId}/pack`, { responseType: "blob" }),
   createShareLink: (projectId: string, data: JsonRecord) =>
@@ -700,6 +705,15 @@ export const designReportAPI = {
   getSharedReport: (token: string) => api.get(`/design-reports/shared/${token}`),
   downloadSharedReportPdf: (token: string) =>
     api.get(`/design-reports/shared/${token}/pdf`, { responseType: "blob" }),
+  listImportedReports: (projectId: string) => api.get(`/design-reports/${projectId}/imported-reports`),
+  uploadImportedReport: (projectId: string, file: File, reportLabel = "imported") => {
+    const form = new FormData();
+    form.append("file", file);
+    form.append("report_label", reportLabel);
+    return api.post(`/design-reports/${projectId}/imported-reports`, form, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+  },
 };
 
 export const apiKeyAPI = {
