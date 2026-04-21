@@ -596,16 +596,22 @@ async function generateSharedReportPdf(token) {
   }
 
   const designId = share.project_id
-    ? (await supabase.from('project_designs').select('id').eq('project_id', share.project_id).order('created_at', { ascending: false }).limit(1).single())?.data?.id
-    : share.simulation_result_id;
+    ? (await supabase.from('project_designs').select('id').eq('project_id', share.project_id).order('updated_at', { ascending: false }).limit(1).single())?.data?.id
+    : null;
 
-  const { data: result } = await supabase
+  let resultQuery = supabase
     .from('simulation_results')
     .select('*')
-    .eq('project_design_id', designId)
     .order('run_at', { ascending: false })
-    .limit(1)
-    .single();
+    .limit(1);
+
+  if (designId) {
+    resultQuery = resultQuery.eq('project_design_id', designId);
+  } else if (share.simulation_result_id) {
+    resultQuery = resultQuery.eq('id', share.simulation_result_id);
+  }
+
+  const { data: result } = await resultQuery.single();
 
   if (!result) throw new Error('No simulation results found');
 

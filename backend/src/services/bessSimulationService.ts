@@ -35,6 +35,7 @@ function simulateBESS(config) {
     chemistry = 'lfp',
     dodPct = 80,
     cRate = 0.5,
+    roundTripEff: roundTripEffOverride = null,
     strategy = 'self_consumption',
     peakShaveThresholdKw = Infinity,
     allowGridCharge = false,
@@ -49,7 +50,10 @@ function simulateBESS(config) {
   const isHybrid = gridTopology === 'hybrid';
 
   const chem = BATTERY_CHEMISTRIES[resolveChemistry(chemistry)];
-  const roundTripEff = chem ? chem.round_trip_eff : 0.95;
+  const roundTripEff =
+    Number.isFinite(roundTripEffOverride) && roundTripEffOverride > 0
+      ? (roundTripEffOverride > 1 ? roundTripEffOverride / 100 : roundTripEffOverride)
+      : (chem ? chem.round_trip_eff : 0.95);
   // Asymmetric efficiency: charging has more loss than discharging
   // Typical LFP: charge ~97%, discharge ~99.5% → RTE ~96.5%
   // For other chemistries, weight 60% loss on charge, 40% on discharge

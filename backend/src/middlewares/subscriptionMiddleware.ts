@@ -20,7 +20,8 @@ function requirePlan(minPlan) {
     // Get subscription plan from company if available, otherwise from user record
     // req.company is set by authMiddleware and is the preferred source
     const company = req.company || req.user.companies;
-    const userPlan = company?.subscription_plan || req.user.subscription_plan || 'free';
+    const rawPlan = company?.subscription_plan || req.user.subscription_plan || 'free';
+    const userPlan = String(rawPlan).toLowerCase().trim();
     const userPlanLevel = PLAN_HIERARCHY_LOCAL[userPlan] ?? 0;
     const requiredLevel = PLAN_HIERARCHY_LOCAL[minPlan] ?? 0;
 

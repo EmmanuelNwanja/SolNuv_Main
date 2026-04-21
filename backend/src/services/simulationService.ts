@@ -92,7 +92,7 @@ async function runSimulation(projectDesignId) {
   let hourlyPvKw;
   let pvLossWaterfall = null;
   // Prefer user-supplied PV specs if present
-  const pvCapacity = Number(design.pv_rated_power_kw) || Number(design.pv_capacity_kwp) || 0;
+  const pvCapacity = Number(design.pv_capacity_kwp) || Number(design.pv_rated_power_kw) || 0;
   const pvTech = design.pv_type || design.pv_technology || DEFAULT_PANEL_TECHNOLOGY;
   const pvModuleCount = Number(design.pv_module_count) || null;
   const pvEfficiency = Number(design.pv_efficiency) || null;
@@ -137,9 +137,21 @@ async function runSimulation(projectDesignId) {
   // Prefer user-supplied battery specs if present
   const bessCapacity = Number(design.battery_capacity_kwh) || Number(design.bess_capacity_kwh) || 0;
   const bessChemistry = design.battery_chemistry || design.bess_chemistry || 'lfp';
-  const bessPowerKw = Number(design.battery_power_kw) || null;
+  const bessPowerKw =
+    Number(design.bess_power_kw) ||
+    Number(design.battery_power_kw) ||
+    Number(design.pcs_power_kw) ||
+    Number(design.inverter_rated_power_kw) ||
+    null;
   const bessDodPct = Number(design.battery_dod_pct) || Number(design.bess_dod_pct) || 80;
   const bessCRate = Number(design.battery_crate) || Number(design.bess_c_rate) || 0.5;
+  const bessRoundTripEff = (() => {
+    const pct = Number(design.bess_round_trip_eff_pct);
+    if (Number.isFinite(pct) && pct > 0) return pct / 100;
+    const ratio = Number(design.bess_round_trip_efficiency);
+    if (Number.isFinite(ratio) && ratio > 0) return ratio <= 1 ? ratio : ratio / 100;
+    return 0.9;
+  })();
   const batteryIsCompletePackage = !!design.battery_is_complete_package;
   const pcsPowerKw = Number(design.pcs_power_kw) || null;
   const pcsEfficiency = Number(design.pcs_efficiency) || null;
@@ -168,6 +180,7 @@ async function runSimulation(projectDesignId) {
       capacityKwh: bessCapacity,
       chemistry: bessChemistry,
       dodPct: bessDodPct,
+      roundTripEff: bessRoundTripEff,
       cRate: bessCRate,
       powerKw: bessPowerKw,
       pcsPowerKw: batteryIsCompletePackage ? pcsPowerKw : undefined,
