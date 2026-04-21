@@ -389,6 +389,9 @@ export default function ResultsDashboard() {
         <p className="text-xs text-slate-500 mb-6">
           Financial metrics may show near-zero values when the selected horizon is short, CAPEX dominates early years, or cashflow stays negative over the analysis window.
         </p>
+        <p className="text-xs text-slate-500 mb-6">
+          Peak demand values in SolNuv are based on the highest hourly demand over the modeled year (not day/week/month averages).
+        </p>
 
         {/* Topology-specific metrics */}
         {(result?.grid_topology === 'off_grid' || result?.grid_topology === 'hybrid') && (

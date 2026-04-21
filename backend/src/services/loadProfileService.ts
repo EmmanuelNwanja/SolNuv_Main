@@ -317,19 +317,79 @@ function generateSyntheticProfile({
     const tolerance = 0.02; // 2% tolerance
 
     if (priorityMode === 'peak') {
-      // Strict peak mode: enforce exact peak, allow annual drift and warn.
+      // Strict peak mode: enforce exact peak.
+      // Then try to reconcile annual by sparsifying low-load hours while preserving
+      // the requested peak. If still inconsistent, return with a clear warning.
       if (currentPeak > 0) {
         const peakScale = peakKw / currentPeak;
         for (let i = 0; i < hourlyKw.length; i++) {
           hourlyKw[i] *= peakScale;
         }
-        const annualAfterPeakMatch = hourlyKw.reduce((s, v) => s + v, 0);
-        const driftPct = annualKwh > 0 ? Math.abs(annualAfterPeakMatch - annualKwh) / annualKwh : 0;
-        if (driftPct > tolerance) {
+
+        let annualAfterPeakMatch = hourlyKw.reduce((s, v) => s + v, 0);
+
+        // If annual is too high relative to target, zero out weakest-load hours first.
+        // This creates an intermittent duty-cycle profile that can satisfy both
+        // annual and peak constraints better than a fully "always-on" template.
+        if (annualKwh > 0 && annualAfterPeakMatch > annualKwh * (1 + tolerance)) {
+          const maxVal = Math.max(...hourlyKw);
+          const normalized = hourlyKw.map(v => (maxVal > 0 ? v / maxVal : 0));
+          let lo = 0;
+          let hi = 1;
+          let threshold = 0;
+
+          for (let iter = 0; iter < 40; iter++) {
+            threshold = (lo + hi) / 2;
+            let sum = 0;
+            for (let i = 0; i < normalized.length; i++) {
+              const gated = normalized[i] >= threshold ? normalized[i] : 0;
+              sum += gated;
+            }
+            const annualAtThreshold = sum * peakKw;
+            if (annualAtThreshold > annualKwh) {
+              lo = threshold;
+            } else {
+              hi = threshold;
+            }
+          }
+
+          for (let i = 0; i < hourlyKw.length; i++) {
+            if (normalized[i] < threshold) hourlyKw[i] = 0;
+          }
+          annualAfterPeakMatch = hourlyKw.reduce((s, v) => s + v, 0);
+
+          // Fine-tune remaining non-zero values to match annual exactly while
+          // preserving enforced peak cap.
+          if (annualAfterPeakMatch > 0) {
+            const factor = annualKwh / annualAfterPeakMatch;
+            for (let i = 0; i < hourlyKw.length; i++) {
+              hourlyKw[i] *= factor;
+            }
+
+            const newPeak = Math.max(...hourlyKw);
+            if (newPeak > peakKw && newPeak > 0) {
+              const rescale = peakKw / newPeak;
+              for (let i = 0; i < hourlyKw.length; i++) {
+                hourlyKw[i] *= rescale;
+              }
+            }
+            annualAfterPeakMatch = hourlyKw.reduce((s, v) => s + v, 0);
+          }
+        }
+
+        const achievedPeak = Math.max(...hourlyKw);
+        const annualDriftPct = annualKwh > 0 ? Math.abs(annualAfterPeakMatch - annualKwh) / annualKwh : 0;
+        const peakDriftPct = peakKw > 0 ? Math.abs(achievedPeak - peakKw) / peakKw : 0;
+
+        if (annualDriftPct > tolerance || peakDriftPct > tolerance) {
           warnings.push(
-            `Annual and peak inputs are physically inconsistent for the selected load shape. ` +
-            `Peak is enforced at ${peakKw.toFixed(1)} kW; annual changes to ${annualAfterPeakMatch.toFixed(2)} kWh ` +
-            `(${(driftPct * 100).toFixed(1)}% drift from requested annual).`
+            `Annual and peak inputs remain partially inconsistent for the selected load shape. ` +
+            `Peak target ${peakKw.toFixed(1)} kW, achieved ${achievedPeak.toFixed(1)} kW; ` +
+            `annual target ${annualKwh.toFixed(2)} kWh, achieved ${annualAfterPeakMatch.toFixed(2)} kWh.`
+          );
+        } else {
+          warnings.push(
+            `Peak priority applied with duty-cycle shaping to keep annual and peak jointly feasible.`
           );
         }
       }
