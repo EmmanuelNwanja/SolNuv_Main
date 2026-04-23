@@ -112,7 +112,7 @@ export default function ContactPage() {
                   </span>
                   <div>
                     <p className="text-xs uppercase tracking-wide text-slate-400 dark:text-slate-500 font-semibold">Address</p>
-                    <p className="text-slate-800 dark:text-slate-100 font-medium">Victoria Garden City, Road 67, Z124</p>
+                    <p className="text-slate-800 dark:text-slate-100 font-medium">Nigeria, Lagos, Lekki, Victoria Garden City, Road 67, Z124</p>
                   </div>
                 </div>
 
