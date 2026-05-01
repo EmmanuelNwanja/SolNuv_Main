@@ -6,6 +6,7 @@ import axios, {
   type InternalAxiosRequestConfig,
 } from "axios";
 import type { Session } from "@supabase/supabase-js";
+import toast from "react-hot-toast";
 import { supabase } from "../utils/supabase";
 import { isPlanBlockCode, parseApiError } from "../utils/apiErrors";
 import type {
@@ -130,6 +131,42 @@ async function getAccessToken(): Promise<string | null> {
   return accessTokenCache;
 }
 
+function requestSentBearerToken(config: InternalAxiosRequestConfig | undefined): boolean {
+  if (!config?.headers) return false;
+  const h = AxiosHeaders.from(config.headers);
+  const v = h.get("Authorization") ?? h.get("authorization");
+  return typeof v === "string" && v.startsWith("Bearer ");
+}
+
+/** Clears Supabase session when the API rejects our JWT (any protected route — same root cause app-wide). */
+let invalidateSessionAfter401Promise: Promise<void> | null = null;
+let lastSessionInvalidationToastAt = 0;
+
+function invalidateSessionAfterRejectedBearer(err: AxiosError): void {
+  if (typeof window === "undefined") return;
+  const cfg = err.config as InternalAxiosRequestConfig | undefined;
+  if (!requestSentBearerToken(cfg)) return;
+
+  if (invalidateSessionAfter401Promise) return;
+
+  invalidateSessionAfter401Promise = (async () => {
+    try {
+      const session = await getSessionSafely(2000);
+      if (!session?.access_token) return;
+
+      const now = Date.now();
+      if (now - lastSessionInvalidationToastAt > 4000) {
+        lastSessionInvalidationToastAt = now;
+        toast.error("Your session is not valid for the app. Please sign in again.");
+      }
+      accessTokenCache = null;
+      await supabase.auth.signOut();
+    } finally {
+      invalidateSessionAfter401Promise = null;
+    }
+  })();
+}
+
 api.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {
   const token = await getAccessToken();
   if (token) {
@@ -171,6 +208,7 @@ api.interceptors.response.use(
 
     if (typeof window !== "undefined") {
       if (status === 401) {
+        invalidateSessionAfterRejectedBearer(err);
         window.dispatchEvent(
           new CustomEvent("solnuv:unauthorized", {
             detail: { url: err.config?.url ?? null },
