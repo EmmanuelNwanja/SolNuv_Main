@@ -19,7 +19,12 @@ export default function Login() {
   useEffect(() => {
     if (!router.isReady) return;
     if (session && !loading && profileResolved) {
-      if (!profile) return;
+      // If auth session exists but profile is still warming/fetching, move to
+      // protected app routes so guards can complete the flow.
+      if (!profile) {
+        void router.replace('/dashboard');
+        return;
+      }
       const nextRaw = router.query.next;
       const next = typeof nextRaw === 'string' && nextRaw.startsWith('/') ? nextRaw : null;
       if (next) {
