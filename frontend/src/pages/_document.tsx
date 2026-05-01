@@ -50,6 +50,7 @@ export default function Document() {
         <link rel="shortcut icon" href="/favicon.svg" />
         <meta name="theme-color" content="#10B981" />
         <link rel="manifest" href="/manifest.json" />
+        <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="SolNuv" />

@@ -68,36 +68,27 @@
   "lang": "en",
   "dir": "ltr",
   "prefer_related_applications": false,
-  "screenshots": [
-    {
-      "src": "/screenshot-dashboard.png",
-      "sizes": "1280x720",
-      "type": "image/png",
-      "form_factor": "wide",
-      "label": "SolNuv Dashboard"
-    }
-  ],
   "shortcuts": [
     {
       "name": "Dashboard",
       "short_name": "Dashboard",
       "description": "View your dashboard",
       "url": "/dashboard",
-      "icons": [{ "src": "/icons/icon-96.png", "sizes": "96x96" }]
+      "icons": [{ "src": "/icons/icon-96.svg", "sizes": "96x96", "type": "image/svg+xml" }]
     },
     {
       "name": "Projects",
       "short_name": "Projects",
       "description": "View all projects",
       "url": "/projects",
-      "icons": [{ "src": "/icons/icon-96.png", "sizes": "96x96" }]
+      "icons": [{ "src": "/icons/icon-96.svg", "sizes": "96x96", "type": "image/svg+xml" }]
     },
     {
       "name": "Calculator",
       "short_name": "Calculator",
       "description": "Open engineering calculators",
       "url": "/calculator",
-      "icons": [{ "src": "/icons/icon-96.png", "sizes": "96x96" }]
+      "icons": [{ "src": "/icons/icon-96.svg", "sizes": "96x96", "type": "image/svg+xml" }]
     }
   ]
 }

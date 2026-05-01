@@ -1,6 +1,6 @@
 import Head from 'next/head';
 import Link from 'next/link';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '../context/AuthContext';
 import { getAppHomePath, getPartnerPortalPath } from '../utils/partnerPortal';
@@ -9,8 +9,9 @@ import toast from 'react-hot-toast';
 import { MotionItem, MotionSection, MotionStagger } from '../components/PageMotion';
 
 export default function Login() {
-  const { session, profile, isOnboarded, isPlatformAdmin, profileResolved, signInWithGoogle, signInWithEmail, loading } = useAuth();
+  const { session, profile, isOnboarded, isPlatformAdmin, profileResolved, signInWithGoogle, signInWithEmail, refreshProfile, loading } = useAuth();
   const router = useRouter();
+  const attemptedProfileHydrationRef = useRef(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPw, setShowPw] = useState(false);
@@ -18,13 +19,18 @@ export default function Login() {
 
   useEffect(() => {
     if (!router.isReady) return;
+    if (!session) {
+      attemptedProfileHydrationRef.current = false;
+    }
     if (session && !loading && profileResolved) {
-      // If auth session exists but profile is still warming/fetching, move to
-      // protected app routes so guards can complete the flow.
       if (!profile) {
-        void router.replace('/dashboard');
+        if (!attemptedProfileHydrationRef.current) {
+          attemptedProfileHydrationRef.current = true;
+          void refreshProfile();
+        }
         return;
       }
+      attemptedProfileHydrationRef.current = false;
       const nextRaw = router.query.next;
       const next = typeof nextRaw === 'string' && nextRaw.startsWith('/') ? nextRaw : null;
       if (next) {
@@ -39,7 +45,7 @@ export default function Login() {
           : partnerPath || '/onboarding';
       void router.replace(redirectUrl);
     }
-  }, [session, loading, profileResolved, isOnboarded, isPlatformAdmin, profile, router, router.isReady, router.query.next]);
+  }, [session, loading, profileResolved, isOnboarded, isPlatformAdmin, profile, refreshProfile, router, router.isReady, router.query.next]);
 
   async function handleGoogle() {
     setSubmitting(true);
