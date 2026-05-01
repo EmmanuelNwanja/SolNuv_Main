@@ -13,6 +13,7 @@ import "../styles/globals.css";
 let _pvSession: string | null = null;
 
 function debugAppLog(hypothesisId: string, location: string, message: string, data: Record<string, unknown>) {
+  if (process.env.NODE_ENV !== "development") return;
   fetch("http://127.0.0.1:7567/ingest/e8cc33b1-e17f-4a70-9052-be1634f820ff", {
     method: "POST",
     headers: {
