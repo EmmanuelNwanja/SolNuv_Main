@@ -8,6 +8,7 @@ import {
   type SetStateAction,
 } from "react";
 import type { Session, User } from "@supabase/supabase-js";
+import toast from "react-hot-toast";
 import { getAuthCallbackUrl, supabase } from "../utils/supabase";
 import { authAPI } from "../services/api";
 import type { AppUserProfile } from "../types/contracts";
@@ -220,12 +221,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setProfileResolved(true);
             setWakingServer(false);
             writeProfileCache(body);
-          } catch {
-            const cached = getMatchingCachedProfile(activeSessionUserRef.current);
-            setProfile((prev) => prev ?? cached ?? null);
-            setProfileResolved(true);
-            setWakingServer(false);
+          } catch (retryErr: unknown) {
+            const retryStatus = isAxiosLike(retryErr) ? retryErr.response?.status : undefined;
+            if (retryStatus === 401) {
+              toast.error("Your session is not valid for the app. Please sign in again.");
+              await supabase.auth.signOut();
+              setProfileResolved(true);
+              setWakingServer(false);
+            } else {
+              const cached = getMatchingCachedProfile(activeSessionUserRef.current);
+              setProfile((prev) => prev ?? cached ?? null);
+              setProfileResolved(true);
+              setWakingServer(false);
+            }
           }
+        } else if (status === 401) {
+          // Supabase session exists but API rejects the JWT (expired, wrong project, etc.).
+          // Do not hydrate from cached profile — that caused a login ↔ dashboard loop with endless 401s.
+          toast.error("Your session is not valid for the app. Please sign in again.");
+          await supabase.auth.signOut();
+          setProfileResolved(true);
+          setWakingServer(false);
         } else {
           const cached = getMatchingCachedProfile(activeSessionUserRef.current);
           setProfile((prev) => prev ?? cached ?? null);
