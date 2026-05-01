@@ -352,7 +352,8 @@ export default function Dashboard() {
 
     loadDashboard();
     loadRecentCalcs();
-  }, [isOnboarded, router]);
+    // Intentionally omit `router` — Next.js router identity can churn and retrigger loads without real navigation.
+  }, [isOnboarded]);
 
   function loadRecentCalcs() {
     setLoadingCalcs(true);

@@ -189,6 +189,7 @@ function AppShell({ Component, pageProps, router }: AppProps) {
       "/privacy",
       "/terms",
     ];
+    let lastUnauthorizedNavAt = 0;
     function handleUnauthorized() {
       const pathname = window.location.pathname;
       const isProtected = !unprotectedPaths.some(
@@ -199,9 +200,12 @@ function AppShell({ Component, pageProps, router }: AppProps) {
           pathname.startsWith("/blog/") ||
           pathname.startsWith("/contact")
       );
-      if (isProtected) {
-        void router.push("/login");
-      }
+      if (!isProtected) return;
+      // Many endpoints can 401 at once; avoid navigation thrash / apparent "refresh loops".
+      const now = Date.now();
+      if (now - lastUnauthorizedNavAt < 2500) return;
+      lastUnauthorizedNavAt = now;
+      void router.push("/login");
     }
 
     window.addEventListener("solnuv:unauthorized", handleUnauthorized);
