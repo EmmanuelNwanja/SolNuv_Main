@@ -19,6 +19,8 @@ export default function Onboarding() {
   const { session, profile, loading, setProfile, refreshProfile, isOnboarded, isPlatformAdmin, profileResolved } = useAuth();
   const router = useRouter();
   const redirectedRef = useRef(false);
+  const attemptedRecoveryRef = useRef(false);
+  const [recoveringProfile, setRecoveringProfile] = useState(false);
   const [step, setStep] = useState(1);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
@@ -81,6 +83,13 @@ export default function Onboarding() {
       business_type: prev.business_type || String(pending.business_type ?? '') || session.user.user_metadata?.business_type || 'solo',
     }));
   }, [session?.user]);
+
+  useEffect(() => {
+    if (!session || !profileResolved || profile || attemptedRecoveryRef.current) return;
+    attemptedRecoveryRef.current = true;
+    setRecoveringProfile(true);
+    void refreshProfile().finally(() => setRecoveringProfile(false));
+  }, [session, profileResolved, profile, refreshProfile]);
 
   const update = (field, val) => setForm(f => ({ ...f, [field]: val }));
   const isRegistered = form.business_type === 'registered';
@@ -201,8 +210,26 @@ export default function Onboarding() {
   if (session && profileResolved && !profile) {
     return (
       <div className="auth-shell">
-        <div className="auth-card max-w-lg w-full text-center">
-          <p className="text-sm text-slate-500">Loading your profile...</p>
+        <div className="auth-card max-w-lg w-full text-center space-y-3">
+          <p className="text-sm text-slate-500">
+            {recoveringProfile ? 'Loading your profile...' : 'We could not load your profile yet.'}
+          </p>
+          <div className="flex justify-center gap-3">
+            <button
+              type="button"
+              className="btn-ghost"
+              onClick={() => {
+                attemptedRecoveryRef.current = false;
+                setRecoveringProfile(true);
+                void refreshProfile().finally(() => setRecoveringProfile(false));
+              }}
+            >
+              Retry
+            </button>
+            <button type="button" className="btn-primary" onClick={() => void router.replace('/dashboard')}>
+              Go to dashboard
+            </button>
+          </div>
         </div>
       </div>
     );
