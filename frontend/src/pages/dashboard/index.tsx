@@ -335,10 +335,6 @@ export default function Dashboard() {
     dashboardAPI.get()
       .then(r => setData(r.data.data))
       .catch((err) => {
-        if (err?.response?.data?.code === 'PROFILE_INCOMPLETE') {
-          router.replace('/onboarding');
-          return;
-        }
         setLoadError('We could not load your latest dashboard data. Your records are safe. Please retry.');
       })
       .finally(() => setLoading(false));
